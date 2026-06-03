@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Booking Lapangan - BasketPro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo"><span>⚡</span> BasketPro</div>
+    <nav>
+      <a href="index.html">Beranda</a>
+      <a class="active" href="booking.html">Booking</a>
+      <a href="member.html">Member</a>
+      <a href="#">Toko</a>
+      <a href="#">Pembatalan</a>
+    </nav>
+    <div class="actions">
+      <a class="btn" href="#">Login</a>
+      <a class="btn orange" href="#">Daftar</a>
+    </div>
+  </header>
+
+  <main class="booking-page">
+    <div class="kicker">📅 Booking Lapangan</div>
+    <h1>Booking Lapangan</h1>
+    <p class="booking-subtitle">Pilih lapangan, jadwal, dan nikmati permainanmu.</p>
+
+    <div class="booking-layout">
+      <section>
+        <div class="booking-label">Pilih Lapangan</div>
+
+        <div class="court-list">
+          <div class="court-card">
+            <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=300&q=80" alt="Lapangan A">
+            <div>
+              <h3>Lapangan A</h3>
+              <span>Indoor</span>
+              <p>⭐ 4.9</p>
+            </div>
+            <div class="court-price">
+              <b>Tersedia</b>
+              <strong>Rp 80.000<br><small>/jam</small></strong>
+            </div>
+          </div>
+
+          <div class="court-card">
+            <img src="https://images.unsplash.com/photo-1518407613690-d9fc990e795f?auto=format&fit=crop&w=300&q=80" alt="Lapangan B">
+            <div>
+              <h3>Lapangan B</h3>
+              <span>Indoor</span>
+              <p>⭐ 4.8</p>
+            </div>
+            <div class="court-price">
+              <b>Tersedia</b>
+              <strong>Rp 80.000<br><small>/jam</small></strong>
+            </div>
+          </div>
+
+          <div class="court-card disabled">
+            <img src="https://images.unsplash.com/photo-1505666287802-931dc83948e9?auto=format&fit=crop&w=300&q=80" alt="Lapangan C">
+            <div>
+              <h3>Lapangan C</h3>
+              <span>Outdoor</span>
+              <p>⭐ 4.7</p>
+            </div>
+            <div class="court-price full">
+              <b>Penuh</b>
+              <strong>Rp 60.000<br><small>/jam</small></strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="booking-detail">
+        <div class="booking-label">Detail Booking</div>
+
+        <label>
+          Tanggal
+          <input type="date">
+        </label>
+
+        <div class="time-row">
+          <label>
+            Jam Mulai
+            <select>
+              <option>--</option>
+              <option>08:00</option>
+              <option>10:00</option>
+              <option>14:00</option>
+            </select>
+          </label>
+
+          <label>
+            Jam Selesai
+            <select>
+              <option>--</option>
+              <option>10:00</option>
+              <option>12:00</option>
+              <option>16:00</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Kode Promo
+          <div class="promo-row">
+            <input placeholder="BASKET10">
+            <button type="button">🏷</button>
+          </div>
+        </label>
+
+        <div class="summary-line">
+          <span>Sewa (0 jam)</span>
+          <span>Rp 0</span>
+        </div>
+
+        <div class="summary-total">
+          <strong>Total</strong>
+          <strong>Rp 0</strong>
+        </div>
+
+        <button class="payment-btn" type="button">▭ Pilih Pembayaran</button>
+      </aside>
+    </div>
+
+    <section class="booking-history">
+      <div class="booking-label">Riwayat Booking</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID Booking</th>
+            <th>Lapangan</th>
+            <th>Tanggal</th>
+            <th>Waktu</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>BK-2024-001</td>
+            <td>Lapangan A</td>
+            <td>20 Jan 2024</td>
+            <td>08:00 - 10:00</td>
+            <td>Rp 160.000</td>
+            <td><span class="badge green">Aktif</span></td>
+          </tr>
+          <tr>
+            <td>BK-2024-002</td>
+            <td>Lapangan B</td>
+            <td>18 Jan 2024</td>
+            <td>14:00 - 16:00</td>
+            <td>Rp 160.000</td>
+            <td><span class="badge blue">Selesai</span></td>
+          </tr>
+          <tr>
+            <td>BK-2024-003</td>
+            <td>Lapangan C</td>
+            <td>15 Jan 2024</td>
+            <td>16:00 - 18:00</td>
+            <td>Rp 120.000</td>
+            <td><span class="badge red">Dibatalkan</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <!-- footer sama seperti index.html -->
+  </footer>
+
+</body>
+</html>
