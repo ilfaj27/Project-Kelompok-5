@@ -1177,3 +1177,21 @@
         width: 100%;
       }
     }
+
+    html,
+body {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-box {
+  scrollbar-width: none;
+}
+
+.modal-box::-webkit-scrollbar {
+  display: none;
+}
