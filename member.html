@@ -7,15 +7,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
 
+<body>
   <header>
     <div class="logo"><span>⚡</span> BasketPro</div>
 
     <nav>
       <a href="index.html">Beranda</a>
       <a href="booking.html">Booking</a>
-      <a class="active" href="member.html">Member</a>
+      <a href="member.html">Member</a>
       <a href="#">Toko</a>
       <a href="#">Pembatalan</a>
     </nav>
@@ -32,7 +32,7 @@
     <p class="member-subtitle">Bergabung dan nikmati keuntungan eksklusif untuk pemain setia.</p>
 
     <section class="plans">
-      <article class="plan-card basic">
+      <article class="plan-card basic" data-name="Basic" data-duration="1 Bulan" data-price="150000" data-label="Rp 150.000">
         <h2>Basic</h2>
         <p>1 Bulan</p>
         <strong>Rp 150.000</strong>
@@ -43,7 +43,7 @@
         </ul>
       </article>
 
-      <article class="plan-card">
+      <article class="plan-card selected" data-name="Pro" data-duration="3 Bulan" data-price="350000" data-label="Rp 350.000">
         <span class="plan-ribbon orange">Terpopuler</span>
         <h2>Pro</h2>
         <p>3 Bulan</p>
@@ -56,7 +56,7 @@
         </ul>
       </article>
 
-      <article class="plan-card elite">
+      <article class="plan-card elite" data-name="Elite" data-duration="6 Bulan" data-price="550000" data-label="Rp 550.000">
         <span class="plan-ribbon gold">Best Value</span>
         <h2>Elite</h2>
         <p>6 Bulan</p>
@@ -72,7 +72,7 @@
     </section>
 
     <div class="member-action">
-      <a class="btn orange" href="payment.html">Pilih Pembayaran</a>
+      <button class="btn orange" id="openPayment">Pilih Pembayaran</button>
     </div>
   </main>
 
@@ -103,5 +103,244 @@
     <div class="copyright">© 2026 BasketPro. Semua hak dilindungi.</div>
   </footer>
 
+  <div class="modal" id="paymentModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="modalTitle">Pilih Pembayaran</h2>
+        <button class="close-btn" id="closeModal">×</button>
+      </div>
+
+      <div class="modal-body" id="methodStep">
+        <div class="summary">
+          <span id="summaryPlan">Paket Pro - 3 Bulan</span>
+          <strong id="summaryPrice">Rp 350.000</strong>
+        </div>
+
+        <p class="payment-title">Transfer Bank</p>
+
+        <label class="pay-method" data-name="Transfer BCA" data-type="Transfer Bank" data-number="1234-5678-9012">
+          <span class="method-icon">VA</span>
+          <span>
+            <span class="method-name">Transfer BCA</span>
+            <span class="method-detail">VA: 1234-5678-9012</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <label class="pay-method" data-name="Transfer Mandiri" data-type="Transfer Bank" data-number="8881-2345-6789">
+          <span class="method-icon">VA</span>
+          <span>
+            <span class="method-name">Transfer Mandiri</span>
+            <span class="method-detail">VA: 8881-2345-6789</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <label class="pay-method" data-name="Transfer BNI" data-type="Transfer Bank" data-number="9000-1234-5678">
+          <span class="method-icon">VA</span>
+          <span>
+            <span class="method-name">Transfer BNI</span>
+            <span class="method-detail">VA: 9000-1234-5678</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <p class="payment-title">QR Code</p>
+
+        <label class="pay-method" data-name="QRIS" data-type="QR Code" data-number="Scan QRIS BasketPro">
+          <span class="method-icon">QR</span>
+          <span>
+            <span class="method-name">QRIS</span>
+            <span class="method-detail">Scan & Bayar</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <p class="payment-title">Dompet Digital</p>
+
+        <label class="pay-method" data-name="GoPay" data-type="Dompet Digital" data-number="0812-3456-789">
+          <span class="method-icon">GP</span>
+          <span>
+            <span class="method-name">GoPay</span>
+            <span class="method-detail">0812-3456-789</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <label class="pay-method" data-name="OVO" data-type="Dompet Digital" data-number="0812-3456-789">
+          <span class="method-icon">OV</span>
+          <span>
+            <span class="method-name">OVO</span>
+            <span class="method-detail">0812-3456-789</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <label class="pay-method" data-name="DANA" data-type="Dompet Digital" data-number="0812-3456-789">
+          <span class="method-icon">DN</span>
+          <span>
+            <span class="method-name">DANA</span>
+            <span class="method-detail">0812-3456-789</span>
+          </span>
+          <input type="radio" name="pay">
+        </label>
+
+        <div class="modal-actions">
+          <button class="btn" id="cancelPayment">Batal</button>
+          <button class="btn orange" id="toConfirm">Lanjut ke Konfirmasi</button>
+        </div>
+      </div>
+
+      <div class="modal-body" id="confirmStep" style="display:none;">
+        <div class="chosen-pay">
+          <span class="method-icon" id="chosenIcon">GP</span>
+          <div>
+            <h3 id="chosenName">GoPay</h3>
+            <p id="chosenType">Dompet Digital</p>
+          </div>
+          <button class="change-btn" id="backToMethod">Ubah</button>
+        </div>
+
+        <div class="detail-card">
+          <div class="copy-row">
+            <div>
+              <p>Nomor Tujuan</p>
+              <h3 id="chosenNumber">0812-3456-789</h3>
+            </div>
+            <button class="copy-btn" id="copyButton">Salin</button>
+          </div>
+
+          <p>Total yang harus dibayar</p>
+          <div class="total-price" id="confirmPrice">Rp 350.000</div>
+        </div>
+
+        <div class="payment-note" id="paymentNote">
+          Kirim ke nomor GoPay 0812-3456-789 a/n BasketPro. Masukkan catatan nomor order dan pembayaran akan dikonfirmasi otomatis.
+        </div>
+
+        <div class="steps-title">Langkah Pembayaran</div>
+        <ol>
+          <li>Salin nomor tujuan di atas</li>
+          <li>Buka aplikasi bank / dompet digital kamu</li>
+          <li>Masukkan jumlah pembayaran tepat</li>
+          <li>Selesaikan pembayaran</li>
+          <li>Klik tombol konfirmasi di bawah</li>
+        </ol>
+
+        <button class="paid-btn">Saya Sudah Membayar</button>
+        <button class="back-payment" id="backToMethodBottom">← Kembali ke Metode Pembayaran</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const plans = document.querySelectorAll(".plan-card");
+    const paymentModal = document.getElementById("paymentModal");
+    const openPayment = document.getElementById("openPayment");
+    const closeModal = document.getElementById("closeModal");
+    const cancelPayment = document.getElementById("cancelPayment");
+    const modalTitle = document.getElementById("modalTitle");
+
+    const methodStep = document.getElementById("methodStep");
+    const confirmStep = document.getElementById("confirmStep");
+
+    const summaryPlan = document.getElementById("summaryPlan");
+    const summaryPrice = document.getElementById("summaryPrice");
+    const confirmPrice = document.getElementById("confirmPrice");
+
+    const methods = document.querySelectorAll(".pay-method");
+    const toConfirm = document.getElementById("toConfirm");
+    const backToMethod = document.getElementById("backToMethod");
+    const backToMethodBottom = document.getElementById("backToMethodBottom");
+
+    const chosenIcon = document.getElementById("chosenIcon");
+    const chosenName = document.getElementById("chosenName");
+    const chosenType = document.getElementById("chosenType");
+    const chosenNumber = document.getElementById("chosenNumber");
+    const paymentNote = document.getElementById("paymentNote");
+    const copyButton = document.getElementById("copyButton");
+
+    let selectedPlan = document.querySelector(".plan-card.selected");
+    let selectedMethod = null;
+
+    plans.forEach((plan) => {
+      plan.addEventListener("click", () => {
+        plans.forEach((item) => item.classList.remove("selected"));
+        plan.classList.add("selected");
+        selectedPlan = plan;
+      });
+    });
+
+    openPayment.addEventListener("click", () => {
+      summaryPlan.textContent = "Paket " + selectedPlan.dataset.name + " - " + selectedPlan.dataset.duration;
+      summaryPrice.textContent = selectedPlan.dataset.label;
+      confirmPrice.textContent = selectedPlan.dataset.label;
+
+      paymentModal.classList.add("show");
+      methodStep.style.display = "block";
+      confirmStep.style.display = "none";
+      modalTitle.textContent = "Pilih Pembayaran";
+    });
+
+    function closePaymentModal() {
+      paymentModal.classList.remove("show");
+    }
+
+    closeModal.addEventListener("click", closePaymentModal);
+    cancelPayment.addEventListener("click", closePaymentModal);
+
+    methods.forEach((method) => {
+      method.addEventListener("click", () => {
+        methods.forEach((item) => item.classList.remove("selected"));
+        method.classList.add("selected");
+        method.querySelector("input").checked = true;
+        selectedMethod = method;
+      });
+    });
+
+    toConfirm.addEventListener("click", () => {
+      if (!selectedMethod) {
+        alert("Pilih metode pembayaran dulu.");
+        return;
+      }
+
+      const name = selectedMethod.dataset.name;
+      const type = selectedMethod.dataset.type;
+      const number = selectedMethod.dataset.number;
+      const icon = selectedMethod.querySelector(".method-icon").textContent;
+
+      chosenName.textContent = name;
+      chosenType.textContent = type;
+      chosenNumber.textContent = number;
+      chosenIcon.textContent = icon;
+
+      paymentNote.textContent =
+        "Kirim ke " + name + " " + number + " a/n BasketPro. Masukkan catatan nomor order dan pembayaran akan dikonfirmasi otomatis.";
+
+      methodStep.style.display = "none";
+      confirmStep.style.display = "block";
+      modalTitle.textContent = "Konfirmasi Pembayaran";
+    });
+
+    function showMethodStep() {
+      methodStep.style.display = "block";
+      confirmStep.style.display = "none";
+      modalTitle.textContent = "Pilih Pembayaran";
+    }
+
+    backToMethod.addEventListener("click", showMethodStep);
+    backToMethodBottom.addEventListener("click", showMethodStep);
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(chosenNumber.textContent);
+        copyButton.textContent = "Tersalin";
+        setTimeout(() => copyButton.textContent = "Salin", 1200);
+      } catch {
+        copyButton.textContent = "Gagal";
+        setTimeout(() => copyButton.textContent = "Salin", 1200);
+      }
+    });
+  </script>
 </body>
 </html>

@@ -345,7 +345,8 @@
       }
     }
 
-    .booking-page {
+/* Booking */
+.booking-page {
   padding: 90px 80px;
   background: #06070c;
   border-top: 1px solid #20212a;
@@ -616,224 +617,563 @@
   }
 }
 
-.member-page,
-.payment-page {
-  padding: 90px 84px;
-  background: #06070c;
-}
+/* styles member */
 
-.member-page h1 {
-  font-size: clamp(64px, 8vw, 92px);
-}
+    * { box-sizing: border-box; }
 
-.member-subtitle {
-  color: #8f91a0;
-  font-size: 19px;
-  font-weight: 700;
-  margin-bottom: 66px;
-}
+    body {
+      margin: 0;
+      background: #06070c;
+      color: #fff;
+      font-family: Inter, sans-serif;
+    }
 
-.plans {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 30px;
-}
+    header {
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 84px;
+      background: #07080d;
+      border-top: 4px solid #2a2b31;
+      border-bottom: 1px solid #20212a;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
 
-.plan-card {
-  position: relative;
-  min-height: 438px;
-  padding: 58px 40px;
-  background: #11121a;
-  border: 1px solid #282934;
-}
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: Anton, sans-serif;
+      font-size: 24px;
+      text-transform: uppercase;
+    }
 
-.plan-card h2 {
-  font-size: 38px;
-  color: #ff6418;
-}
+    .logo span {
+      width: 36px;
+      height: 36px;
+      background: #ff6418;
+      display: grid;
+      place-items: center;
+    }
 
-.plan-card.muted h2 {
-  color: #3f4569;
-}
+    nav {
+      display: flex;
+      gap: 44px;
+      font: 700 13px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #6f7079;
+    }
 
-.plan-card.elite h2 {
-  color: #d5b05c;
-}
+    nav a {
+      color: inherit;
+      text-decoration: none;
+    }
 
-.plan-card p {
-  color: #9da0af;
-  font-family: "Roboto Mono", monospace;
-}
+    nav a.active,
+    nav a:hover {
+      color: #ff6418;
+    }
 
-.plan-card strong {
-  display: block;
-  margin: 36px 0 26px;
-  font-family: Anton, sans-serif;
-  font-size: 44px;
-}
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
 
-.plan-card li {
-  list-style: none;
-  margin: 12px 0;
-  color: #bbc0cf;
-  font-weight: 800;
-}
+    .btn {
+      min-height: 46px;
+      padding: 0 28px;
+      border: 1px solid #252631;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      text-decoration: none;
+      font: 700 14px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: transparent;
+      cursor: pointer;
+    }
 
-.plan-card li::before {
-  content: "✓";
-  color: #ff6418;
-  margin-right: 12px;
-}
+    .btn.orange {
+      background: #ff6418;
+      border-color: #ff6418;
+    }
 
-.plan-ribbon {
-  position: absolute;
-  top: -15px;
-  left: 30px;
-  padding: 8px 16px;
-  color: white;
-  font: 800 13px "Roboto Mono", monospace;
-  text-transform: uppercase;
-}
+    .member-page {
+      padding: 90px 84px 100px;
+      min-height: calc(100vh - 80px);
+    }
 
-.plan-ribbon.orange {
-  background: #ff6418;
-}
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #ff6418;
+      font: 700 14px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 34px;
+    }
 
-.plan-ribbon.gold {
-  background: #c6a85c;
-}
+    .kicker::before {
+      content: "";
+      width: 34px;
+      height: 2px;
+      background: #ff6418;
+    }
 
-.member-action {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 70px;
-}
+    h1, h2 {
+      margin: 0;
+      font-family: Anton, Impact, sans-serif;
+      font-weight: 400;
+      text-transform: uppercase;
+      line-height: .98;
+    }
 
-.payment-box {
-  max-width: 640px;
-  background: #11121a;
-  border: 1px solid #282934;
-}
+    h1 {
+      font-size: clamp(64px, 8vw, 92px);
+      margin-bottom: 18px;
+    }
 
-.payment-summary {
-  display: flex;
-  justify-content: space-between;
-  padding: 22px 28px;
-  border-bottom: 1px solid #282934;
-}
+    .member-subtitle {
+      color: #8f91a0;
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 66px;
+    }
 
-.payment-summary strong {
-  color: #ff6418;
-}
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+    }
 
-.payment-title {
-  margin: 28px 28px 14px;
-  color: #777a89;
-  font: 700 14px "Roboto Mono", monospace;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
+    .plan-card {
+      position: relative;
+      min-height: 438px;
+      padding: 58px 40px;
+      background: #11121a;
+      border: 1px solid #282934;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .2s;
+    }
 
-.pay-method {
-  margin: 10px 28px;
-  padding: 18px 22px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #151620;
-  border: 1px solid #30313d;
-  color: white;
-  font-weight: 800;
-}
+    .plan-card:hover,
+    .plan-card.selected {
+      border-color: #ff6418;
+      background: #171823;
+      transform: translateY(-4px);
+    }
 
-.pay-method small {
-  color: #9da0af;
-  font-family: "Roboto Mono", monospace;
-}
+    .plan-card h2 {
+      font-size: 38px;
+      color: #ff6418;
+      margin-bottom: 16px;
+    }
 
-.payment-detail {
-  margin-top: 30px;
-  padding: 28px;
-  border-top: 1px solid #282934;
-}
+    .plan-card.basic h2 {
+      color: #3f4569;
+    }
 
-.chosen-pay,
-.detail-card {
-  padding: 20px;
-  border: 1px solid #30313d;
-  margin-bottom: 24px;
-}
+    .plan-card.elite h2 {
+      color: #d5b05c;
+    }
 
-.chosen-pay {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-color: #ff6418;
-  background: rgba(255,100,24,.08);
-}
+    .plan-card p {
+      color: #9da0af;
+      font-family: "Roboto Mono", monospace;
+      margin: 0;
+    }
 
-.detail-card p {
-  color: #9da0af;
-}
+    .plan-card strong {
+      display: block;
+      margin: 38px 0 26px;
+      font-family: Anton, sans-serif;
+      font-size: 44px;
+      color: #fff;
+    }
 
-.detail-card h2 {
-  font-size: 28px;
-}
+    .plan-card ul {
+      padding: 0;
+      margin: 0;
+    }
 
-.detail-card strong {
-  color: #ff6418;
-  font-size: 30px;
-}
+    .plan-card li {
+      list-style: none;
+      margin: 12px 0;
+      color: #bbc0cf;
+      font-size: 18px;
+      font-weight: 800;
+    }
 
-.payment-note {
-  padding: 18px;
-  color: #ffd24a;
-  background: rgba(255,100,24,.12);
-  border: 1px solid rgba(255,100,24,.45);
-}
+    .plan-card li::before {
+      content: "✓";
+      color: #ff6418;
+      margin-right: 12px;
+    }
 
-.payment-detail ol {
-  color: #bbc0cf;
-  line-height: 2;
-}
+    .elite li::before {
+      color: #d5b05c;
+    }
 
-.paid-btn {
-  width: 100%;
-  height: 58px;
-  background: #06a36f;
-  border: 0;
-  color: white;
-  font: 800 15px "Roboto Mono", monospace;
-  text-transform: uppercase;
-}
+    .plan-ribbon {
+      position: absolute;
+      top: -15px;
+      left: 30px;
+      padding: 8px 16px;
+      color: white;
+      font: 800 13px "Roboto Mono", monospace;
+      text-transform: uppercase;
+    }
 
-.back-payment {
-  margin-top: 18px;
-  height: 54px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #282934;
-  color: #9da0af;
-  text-decoration: none;
-  font-family: "Roboto Mono", monospace;
-  text-transform: uppercase;
-}
+    .plan-ribbon.orange { background: #ff6418; }
+    .plan-ribbon.gold { background: #c6a85c; }
 
-@media (max-width: 900px) {
-  .member-page,
-  .payment-page {
-    padding: 70px 22px;
-  }
+    .member-action {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 70px;
+    }
 
-  .plans {
-    grid-template-columns: 1fr;
-  }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0,0,0,.72);
+    }
 
-  .member-action {
-    justify-content: stretch;
-  }
+    .modal.show {
+      display: flex;
+    }
 
-  .member-action .btn {
-    width: 100%;
-  }
-}
+    .modal-box {
+      width: min(660px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #11121a;
+      border: 1px solid #30313d;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 22px 28px;
+      border-bottom: 1px solid #282934;
+    }
+
+    .modal-head h2 {
+      font-size: 34px;
+    }
+
+    .close-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid #30313d;
+      background: transparent;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 28px;
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 20px;
+      border: 1px solid #30313d;
+      margin-bottom: 28px;
+      font-weight: 800;
+    }
+
+    .summary strong {
+      color: #ff6418;
+      font-family: "Roboto Mono", monospace;
+    }
+
+    .payment-title {
+      margin: 28px 0 14px;
+      color: #777a89;
+      font: 700 14px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .pay-method {
+      margin-bottom: 10px;
+      padding: 18px 20px;
+      min-height: 78px;
+      display: grid;
+      grid-template-columns: 48px 1fr 24px;
+      gap: 16px;
+      align-items: center;
+      background: #151620;
+      border: 1px solid #30313d;
+      cursor: pointer;
+    }
+
+    .pay-method.selected {
+      border-color: #ff6418;
+      background: rgba(255,100,24,.08);
+    }
+
+    .method-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      color: #ff6418;
+      background: rgba(255,100,24,.12);
+      font: 800 12px "Roboto Mono", monospace;
+    }
+
+    .method-name {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .method-detail {
+      color: #9da0af;
+      font-family: "Roboto Mono", monospace;
+      font-size: 14px;
+    }
+
+    .pay-method input {
+      width: 20px;
+      height: 20px;
+      accent-color: #ff6418;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .modal-actions .btn {
+      flex: 1;
+    }
+
+    .chosen-pay {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      border: 1px solid #ff6418;
+      background: rgba(255,100,24,.08);
+      margin-bottom: 24px;
+    }
+
+    .chosen-pay h3 {
+      margin: 0 0 4px;
+      font-size: 21px;
+    }
+
+    .chosen-pay p {
+      margin: 0;
+      color: #bbc0cf;
+      font-family: "Roboto Mono", monospace;
+    }
+
+    .change-btn {
+      border: 0;
+      background: none;
+      color: #9da0af;
+      font: 800 13px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .detail-card {
+      padding: 20px;
+      border: 1px solid #30313d;
+      margin-bottom: 24px;
+    }
+
+    .detail-card p {
+      color: #9da0af;
+      margin: 0 0 8px;
+    }
+
+    .copy-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #282934;
+    }
+
+    .detail-card h3 {
+      margin: 0;
+      font-family: "Roboto Mono", monospace;
+      font-size: 25px;
+      letter-spacing: 1px;
+    }
+
+    .copy-btn {
+      min-height: 38px;
+      padding: 0 16px;
+      background: transparent;
+      border: 1px solid #30313d;
+      color: #bbc0cf;
+      font: 700 13px "Roboto Mono", monospace;
+      cursor: pointer;
+    }
+
+    .total-price {
+      color: #ff6418;
+      font: 800 30px "Roboto Mono", monospace;
+    }
+
+    .payment-note {
+      padding: 18px;
+      color: #ffd24a;
+      background: rgba(255,100,24,.12);
+      border: 1px solid rgba(255,100,24,.45);
+      line-height: 1.7;
+      font-weight: 800;
+      margin-bottom: 26px;
+    }
+
+    .steps-title {
+      color: #777a89;
+      font: 700 14px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    ol {
+      margin: 0 0 26px;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+      color: #bbc0cf;
+    }
+
+    ol li {
+      counter-increment: step;
+      display: flex;
+      gap: 14px;
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+
+    ol li::before {
+      content: counter(step);
+      min-width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,100,24,.22);
+      color: #ff6418;
+      font: 700 13px "Roboto Mono", monospace;
+    }
+
+    .paid-btn {
+      width: 100%;
+      height: 58px;
+      background: #06a36f;
+      border: 0;
+      color: white;
+      font: 800 15px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .back-payment {
+      margin-top: 18px;
+      height: 54px;
+      width: 100%;
+      display: grid;
+      place-items: center;
+      border: 1px solid #282934;
+      background: transparent;
+      color: #9da0af;
+      font-family: "Roboto Mono", monospace;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    footer {
+      background: #12131a;
+      padding: 62px 84px 32px;
+      border-top: 1px solid #282934;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.3fr .6fr 1fr;
+      gap: 80px;
+      padding-bottom: 58px;
+      border-bottom: 1px solid #282934;
+    }
+
+    footer p, footer a {
+      color: #8e909e;
+      font-weight: 700;
+      line-height: 1.7;
+      text-decoration: none;
+    }
+
+    footer h4 {
+      color: #555866;
+      font: 700 14px "Roboto Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    footer a {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .copyright {
+      padding-top: 30px;
+      color: #555866;
+      font: 500 13px "Roboto Mono", monospace;
+    }
+
+    @media (max-width: 900px) {
+      header {
+        padding: 0 22px;
+      }
+
+      nav, .actions {
+        display: none;
+      }
+
+      .member-page, footer {
+        padding-left: 22px;
+        padding-right: 22px;
+      }
+
+      .plans, .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .member-action {
+        justify-content: stretch;
+      }
+
+      .member-action .btn {
+        width: 100%;
+      }
+    }
