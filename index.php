@@ -1039,7 +1039,7 @@ if (file_exists('includes/config.php')) {
             <a href="#tentang-kami">Tentang Kami</a>
         </div>
         <div class="nav-btns">
-            <a href="login.php" class="btn-login">Login</a>
+            <a href="login.php" class="btn-login">Loginn nn</a>
             <a href="register.php" class="btn-join">Booking Sekarang</a>
         </div>
     </nav>
