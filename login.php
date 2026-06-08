@@ -5,48 +5,75 @@ include 'includes/config.php';
 // Cek Cookie untuk Fitur Ingat Saya
 $remembered_user = isset($_COOKIE['remember_me']) ? $_COOKIE['remember_me'] : '';
 
-$error_msg = ""; // Variabel untuk menyimpan pesan error
+$error_msg = "";
 
 if (isset($_POST['login'])) {
     $user_input = $_POST['user_input'];
     $pass_input = $_POST['password_input'];
 
+    // Query dengan prepared statement
     $sql = "SELECT * FROM Akun WHERE (Username = ? OR Email = ?) AND Status_Akun = 1";
     $params = array($user_input, $user_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
-    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
-    if ($row) {
-        if ($pass_input == $row['Kata_Sandi']) {
-            $_SESSION['login']   = true;
-            $_SESSION['id_akun'] = $row['ID_Akun'];
-            
-            $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
-            $_SESSION['role'] = $role_map[$row['Role']];
-
-            if ($row['Role'] == 1 || $row['Role'] == 2) {
-                $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
-                $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                $_SESSION['nama'] = $d_prof['Nama_Karyawan'];
-            } else {
-                $q_prof = sqlsrv_query($conn, "SELECT Nama_Customer FROM Customer WHERE ID_Akun = ?", array($row['ID_Akun']));
-                $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                $_SESSION['nama'] = $d_prof['Nama_Customer'];
-            }
-
-            if (isset($_POST['remember'])) {
-                setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
-            } else {
-                setcookie('remember_me', '', time() - 3600, "/");
-            }
-
-            header("Location: dashboard.php");
-            exit();
-        } else {
-            $error_msg = "Kata sandi yang Anda masukkan salah.";
-        }
+    // Cek apakah query berhasil
+    if ($stmt === false) {
+        $error_msg = "Terjadi kesalahan koneksi database. Silakan coba lagi.";
+        // Log error untuk debugging (hapus di production)
+        // die(print_r(sqlsrv_errors(), true));
     } else {
-        $error_msg = "Akun tidak ditemukan atau sedang dinonaktifkan.";
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+
+        if ($row) {
+            // Bandingkan password (sebaiknya gunakan password_hash di production)
+            if ($pass_input == $row['Kata_Sandi']) {
+                $_SESSION['login']   = true;
+                $_SESSION['id_akun'] = $row['ID_Akun'];
+
+                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
+                $_SESSION['role'] = $role_map[$row['Role']];
+
+                // Ambil nama berdasarkan role
+                if ($row['Role'] == 1 || $row['Role'] == 2) {
+                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
+                    if ($q_prof !== false) {
+                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
+                        $_SESSION['nama'] = $d_prof['Nama_Karyawan'] ?? 'Admin';
+                    } else {
+                        $_SESSION['nama'] = 'Admin';
+                    }
+                } else {
+                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Customer FROM Customer WHERE ID_Akun = ?", array($row['ID_Akun']));
+                    if ($q_prof !== false) {
+                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
+                        $_SESSION['nama'] = $d_prof['Nama_Customer'] ?? 'Customer';
+                    } else {
+                        $_SESSION['nama'] = 'Customer';
+                    }
+                }
+
+                // Remember me cookie
+                if (isset($_POST['remember'])) {
+                    setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                } else {
+                    setcookie('remember_me', '', time() - 3600, "/");
+                }
+
+                // Redirect berdasarkan role
+                if ($_SESSION['role'] == 'pemilik') {
+                    header("Location: view_pemilik.php");
+                } elseif ($_SESSION['role'] == 'karyawan') {
+                    header("Location: view_admin.php");
+                } else {
+                    header("Location: index.php");
+                }
+                exit();
+            } else {
+                $error_msg = "Username atau Kata Sandi yang Anda masukkan salah.";
+            }
+        } else {
+            $error_msg = "Akun tidak ditemukan atau sedang dinonaktifkan.";
+        }
     }
 }
 ?>
@@ -58,7 +85,6 @@ if (isset($_POST['login'])) {
     <title>Login | HoopBall BasketPro</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root { --orange: #FF4500; --dark-box: rgba(15, 15, 15, 0.98); --input-bg: #1a1a1a; }
@@ -72,7 +98,6 @@ if (isset($_POST['login'])) {
             position: relative;
         }
 
-        /* TOMBOL KEMBALI KE LANDING PAGE */
         .btn-back-home {
             position: absolute; top: 30px; left: 40px;
             color: #fff; text-decoration: none; font-size: 14px; font-weight: 700;
@@ -98,10 +123,47 @@ if (isset($_POST['login'])) {
         .subtitle { color: #666; font-size: 13px; margin-bottom: 35px; display: block; }
 
         .input-group { position: relative; margin-bottom: 15px; text-align: left; }
-        .input-group i { position: absolute; left: 15px; top: 15px; color: #444; font-size: 14px; }
-        input { width: 100%; padding: 15px 15px 15px 45px; background: var(--input-bg); border: 1px solid #333; color: white; border-radius: 12px; font-size: 14px; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--orange); background: #000; box-shadow: 0 0 10px rgba(255,69,0,0.2); }
-        
+        .input-group .icon-left {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #444;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .input-group .icon-right {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 2;
+            padding: 5px;
+        }
+        .input-group .icon-right:hover { color: var(--orange); }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 45px 15px 45px;
+            background: var(--input-bg);
+            border: 1px solid #333;
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-group input:focus { 
+            border-color: var(--orange); 
+            background: #000; 
+            box-shadow: 0 0 10px rgba(255,69,0,0.2); 
+        }
+
         .remember-row { display: flex; align-items: center; justify-content: space-between; margin: 15px 0 25px; }
         .check-container { display: flex; align-items: center; gap: 8px; }
         .check-container label { color: #888; font-size: 13px; cursor: pointer; }
@@ -109,14 +171,14 @@ if (isset($_POST['login'])) {
 
         .btn-submit { width: 100%; padding: 16px; background: var(--orange); color: #fff; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 1px; }
         .btn-submit:hover { background: #e03d00; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,69,0,0.3); }
-        
+
         .divider { display: flex; align-items: center; margin: 25px 0; color: #222; font-size: 11px; font-weight: 800; text-transform: uppercase; }
         .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #222; }
         .divider span { padding: 0 15px; }
 
         .btn-google { width: 100%; padding: 14px; background: #fff; color: #000; border-radius: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; font-size: 14px; transition: 0.3s; }
         .btn-google:hover { background: #f1f1f1; }
-        
+
         .auth-footer { margin-top: 30px; font-size: 13px; color: #555; }
         .auth-footer a { color: var(--orange); text-decoration: none; font-weight: 800; }
     </style>
@@ -124,26 +186,25 @@ if (isset($_POST['login'])) {
 <body>
 
 <div class="auth-page">
-    <!-- TOMBOL KEMBALI KE BERANDA -->
     <a href="index.php" class="btn-back-home">
         <i class="fa-solid fa-arrow-left"></i> Kembali ke Beranda
     </a>
 
     <div class="auth-box">
-        <!-- Logo bisa diklik balik ke Landing Page -->
         <a href="index.php" class="logo-link"><i class="fa-solid fa-basketball"></i></a>
-        
+
         <h1>HoopBall Login</h1>
         <span class="subtitle">Satu akun untuk semua akses arena.</span>
 
-        <form method="POST">
+        <form method="POST" action="">
             <div class="input-group">
-                <i class="fa-solid fa-user"></i>
+                <i class="fa-solid fa-user icon-left"></i>
                 <input type="text" name="user_input" placeholder="Username atau Email" value="<?= htmlspecialchars($remembered_user) ?>" required>
             </div>
             <div class="input-group">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" name="password_input" placeholder="Kata Sandi" required>
+                <i class="fa-solid fa-lock icon-left"></i>
+                <input type="password" name="password_input" id="passwordInput" placeholder="Kata Sandi" required>
+                <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
             </div>
 
             <div class="remember-row">
@@ -167,19 +228,35 @@ if (isset($_POST['login'])) {
     </div>
 </div>
 
-<!-- Logika Notifikasi SweetAlert -->
 <?php if($error_msg): ?>
 <script>
     Swal.fire({
         icon: 'error',
         title: 'Login Gagal',
-        text: '<?= $error_msg ?>',
+        text: '<?= addslashes($error_msg) ?>',
         background: '#111',
         color: '#fff',
         confirmButtonColor: '#FF4500'
     });
 </script>
 <?php endif; ?>
+
+<script>
+function togglePassword() {
+    const passInput = document.getElementById('passwordInput');
+    const toggleIcon = document.getElementById('togglePass');
+
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
 
 </body>
 </html>

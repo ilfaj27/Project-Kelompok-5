@@ -14,38 +14,31 @@ if (isset($_POST['register'])) {
     $password = $_POST['password'];
     $alamat   = $_POST['alamat'];
 
-    // 1. VALIDASI: Cek apakah Email atau Username sudah ada di tabel Akun
     $sql_check = "SELECT Username, Email FROM Akun WHERE Username = ? OR Email = ?";
     $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email));
-    
+
     if (sqlsrv_has_rows($stmt_check)) {
         $res_status = "error";
         $res_msg = "Username atau Email sudah terdaftar!";
     } else {
-        // AWAL TRANSAKSI (Agar jika satu gagal, semua batal)
         sqlsrv_begin_transaction($conn);
 
-        // 2. GENERATE ID AKUN (AKNxxx)
         $q_akn = sqlsrv_query($conn, "SELECT MAX(ID_Akun) as max_id FROM Akun");
         $d_akn = sqlsrv_fetch_array($q_akn, SQLSRV_FETCH_ASSOC);
         $num_akn = ($d_akn['max_id']) ? (int) substr($d_akn['max_id'], 3) + 1 : 1;
         $id_akun_baru = "AKN" . sprintf("%03d", $num_akn);
 
-        // 3. INSERT KE TABEL AKUN (Role 3 = Customer, Status 1 = Aktif)
         $sql_akun = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status_Akun) VALUES (?,?,?,?,3,1)";
         $stmt_akun = sqlsrv_query($conn, $sql_akun, array($id_akun_baru, $username, $email, $password));
 
-        // 4. GENERATE ID CUSTOMER (CUSxxx)
         $q_cus = sqlsrv_query($conn, "SELECT MAX(ID_Customer) as max_id FROM Customer");
         $d_cus = sqlsrv_fetch_array($q_cus, SQLSRV_FETCH_ASSOC);
         $num_cus = ($d_cus['max_id']) ? (int) substr($d_cus['max_id'], 3) + 1 : 1;
         $id_cus_baru = "CUS" . sprintf("%03d", $num_cus);
 
-        // 5. INSERT KE TABEL CUSTOMER
         $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon) VALUES (?,?,?,?,?,?)";
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $alamat, $telp));
 
-        // CEK APAKAH KEDUANYA BERHASIL
         if ($stmt_akun && $stmt_customer) {
             sqlsrv_commit($conn);
             $res_status = "success";
@@ -92,9 +85,49 @@ if (isset($_POST['register'])) {
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .full-width { grid-column: span 2; }
 
-        .input-group label { display: block; font-size: 11px; font-weight: 800; color: #555; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
-        input, select { width: 100%; padding: 14px; background: var(--input-bg); border: 1px solid #222; color: #fff; border-radius: 10px; font-size: 14px; transition: 0.3s; }
-        input:focus { border-color: var(--orange); outline: none; background: #000; }
+        .input-group label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: #555; 
+            text-transform: uppercase; 
+            margin-bottom: 8px; 
+            letter-spacing: 1px; 
+        }
+
+        /* ===== INPUT GROUP KONSISTEN ===== */
+        .input-group { position: relative; }
+        .input-group .icon-right {
+            position: absolute;
+            right: 15px;
+            bottom: 14px;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 2;
+            padding: 5px;
+        }
+        .input-group .icon-right:hover { color: var(--orange); }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 14px 45px 14px 14px;
+            background: var(--input-bg);
+            border: 1px solid #222;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .input-group input:focus,
+        .input-group select:focus {
+            border-color: var(--orange);
+            outline: none;
+            background: #000;
+        }
+        /* ================================== */
 
         .btn-reg { width: 100%; padding: 18px; background: var(--orange); color: #fff; border: none; border-radius: 10px; font-weight: 900; font-size: 15px; cursor: pointer; text-transform: uppercase; margin-top: 30px; transition: 0.3s; box-shadow: 0 10px 20px rgba(255, 69, 0, 0.2); }
         .btn-reg:hover { background: #ff5722; transform: translateY(-2px); }
@@ -140,14 +173,15 @@ if (isset($_POST['register'])) {
                 </div>
                 <div class="input-group">
                     <label>Kata Sandi</label>
-                    <input type="password" name="password" placeholder="Min. 6 Karakter" required minlength="6">
+                    <input type="password" name="password" id="passwordInput" placeholder="Min. 6 Karakter" required minlength="6">
+                    <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
                 </div>
                 <div class="input-group full-width">
                     <label>Alamat Rumah</label>
                     <input type="text" name="alamat" placeholder="Jl. Raya Cikarang No. 123" required>
                 </div>
             </div>
-            
+
             <button type="submit" name="register" class="btn-reg">Daftar Akun Sekarang</button>
         </form>
 
@@ -169,6 +203,23 @@ if (isset($_POST['register'])) {
                 <?php endif; ?>
             });
         <?php endif; ?>
+    </script>
+
+    <script>
+    function togglePassword() {
+        const passInput = document.getElementById('passwordInput');
+        const toggleIcon = document.getElementById('togglePass');
+
+        if (passInput.type === 'password') {
+            passInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            passInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    }
     </script>
 </body>
 </html>
