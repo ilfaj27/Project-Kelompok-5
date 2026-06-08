@@ -2,17 +2,26 @@
 session_start();
 include 'includes/config.php';
 
-if (!isset($_SESSION['role'])) {
+if (!isset($_SESSION['login'])) {
     header("Location: login.php");
     exit();
 }
 
-$role = $_SESSION['role'];
-$nama = $_SESSION['nama'];
+// Redirect berdasarkan role
+$role = $_SESSION['role'] ?? '';
 
-if ($role == 'customer') {
-    include 'view_customer.php';
-} else {
-    include 'view_admin.php'; // Digunakan oleh Karyawan Dan Pemilikk
+switch ($role) {
+    case 'pemilik':
+        header("Location: view_pemilik.php");
+        break;
+    case 'karyawan':
+        header("Location: view_admin.php");
+        break;
+    case 'customer':
+        header("Location: view_customer.php"); // Customer ke landing page
+        break;
+    default:
+        header("Location: login.php");
 }
+exit();
 ?>
