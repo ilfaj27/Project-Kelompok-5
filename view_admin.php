@@ -333,7 +333,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <!-- KARYAWAN: MENU UTAMA -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
-        <a href="dashboard_karyawan.php" class="sb-link active">
+        <a href="view_admin.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>

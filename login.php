@@ -65,7 +65,7 @@ if (isset($_POST['login'])) {
                 } elseif ($_SESSION['role'] == 'karyawan') {
                     header("Location: view_admin.php");
                 } else {
-                    header("Location: index.php");
+                    header("Location: view_customer.php");
                 }
                 exit();
             } else {

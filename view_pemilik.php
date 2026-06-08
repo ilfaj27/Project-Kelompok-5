@@ -299,7 +299,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <!-- PEMILIK: MANAJEMEN ONLY -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
-        <a href="dashboard_pemilik.php" class="sb-link active">
+        <a href="view_pemilik.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>

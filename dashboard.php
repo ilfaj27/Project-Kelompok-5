@@ -7,7 +7,6 @@ if (!isset($_SESSION['login'])) {
     exit();
 }
 
-// Redirect berdasarkan role
 $role = $_SESSION['role'] ?? '';
 
 switch ($role) {
@@ -18,7 +17,7 @@ switch ($role) {
         header("Location: view_admin.php");
         break;
     case 'customer':
-        header("Location: view_customer.php"); // Customer ke landing page
+        header("Location: view_customer.php");
         break;
     default:
         header("Location: login.php");
