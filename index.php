@@ -5,7 +5,7 @@ $total_promo = 3;     // default fallback
 
 if (file_exists('includes/config.php')) {
     include 'includes/config.php';
-    
+
     if (isset($conn)) {
         $sql_lap = "SELECT COUNT(*) as total FROM Lapangan WHERE Status = 1";
         $q_lap = sqlsrv_query($conn, $sql_lap);
@@ -26,13 +26,28 @@ if (file_exists('includes/config.php')) {
 
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HoopBall - Sewa Lapangan Basket Jadi Lebih Mudah</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+
+        /* AKTIFKAN SCROLL HALUS DI SELURUH HALAMAN */
+html {
+    scroll-behavior: smooth;
+}
+
+/* OFFSET SCROLL: 
+   Mencegah judul seksi tertutup/tertabrak oleh Navbar Sticky saat proses scroll berhenti */
+section[id], footer[id] {
+    scroll-margin-top: 90px; /* Nilai disesuaikan dengan tinggi navbar (~80px - 90px) */
+}
+
+
         :root {
             --orange: #FF4500;
             --orange-hover: #E03E00;
@@ -65,112 +80,179 @@ if (file_exists('includes/config.php')) {
         /* NAVBAR */
         .navbar {
             position: sticky;
-            top: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 8%;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.04);
-            z-index: 1000;
+    top: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    /* DIUBAH: Dari 20px 8% menjadi 16px 4% agar Hoopball mentok kiri & Booking mentok kanan */
+    padding: 16px 4%; 
+    
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.04);
+    z-index: 1000;
         }
 
         .logo {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+           font-size: 24px;
+    font-weight: 800;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
         }
+
+        .logo i {
+    color: var(--orange);
+    display: inline-block;
+    
+    /* Transisi untuk putaran ikon */
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.logo:hover i {
+    transform: rotate(360deg);
+}
 
         .logo span {
             color: var(--orange);
         }
 
         .nav-menu {
-            display: flex;
-            gap: 32px;
+      /* Mengunci posisi tepat di tengah-tengah navbar */
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    
+    display: flex;
+    gap: 32px;
+    z-index: 5;
         }
 
         .nav-menu a {
             color: var(--text-muted);
-            font-weight: 600;
-            font-size: 14px;
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
+    padding: 6px 0;
+    text-decoration: none;
+    transition: color 0.3s ease;
         }
+
+        .nav-menu a::after {
+   content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--orange);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
         .nav-menu a:hover {
             color: var(--orange);
         }
 
+        .nav-menu a:hover::after {
+   transform: scaleX(1);
+    transform-origin: left;
+}
+
+.nav-menu a.active {
+    color: var(--orange) !important;
+}
+
+/* Paksa garis bawah oranye menu aktif agar tetap muncul */
+.nav-menu a.active::after {
+    transform: scaleX(1) !important;
+    transform-origin: left !important;
+}
+
+
         .nav-btns {
             display: flex;
-            align-items: center;
-            gap: 20px;
+    align-items: center;
+    gap: 16px; /* Jarak dirapatkan sedikit agar rapi */
         }
 
         .btn-login {
             color: var(--text-dark);
-            font-weight: 700;
-            font-size: 14px;
-            padding: 10px 24px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: transparent;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    text-decoration: none;
+    
+    /* Transisi halus */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .btn-login:hover {
-            background: var(--bg-light);
+             border-color: var(--orange); /* Garis tepi berubah oranye */
+    color: var(--orange); /* Tulisan berubah oranye */
+    background-color: rgba(255, 69, 0, 0.02); /* Efek background oranye pudar */
+    transform: translateY(-1px);
         }
 
         .btn-join {
             background: var(--orange);
-            color: #fff;
-            font-weight: 700;
-            font-size: 14px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 14px rgba(255, 84, 0, 0.2);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(255, 84, 0, 0.2);
+    
+    /* Transisi melayang */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .btn-join:hover {
-            background: var(--orange-hover);
-            transform: translateY(-2px);
+            background-color: var(--orange-hover);
+    transform: translateY(-2px); /* Melayang naik */
+    box-shadow: 0 6px 20px rgba(255, 69, 0, 0.35); /* Glow oranye kuat */
         }
 
         /* HERO SECTION DENGAN EFEK FADE TRANSISI */
         .hero-section {
-       display: grid;
-    grid-template-columns: 35% 65%; 
-    
-    /* GANTI INI: Dari min-height menjadi height pasti */
-    height: 620px; 
-    
-    background-color: #ffffff;
-    padding-left: 5%; 
-    padding-top: 0;
-    padding-bottom: 0;
-    position: relative;
-    overflow: hidden;
+            display: grid;
+            grid-template-columns: 35% 65%;
+
+            /* GANTI INI: Dari min-height menjadi height pasti */
+            height: 620px;
+
+            background-color: #ffffff;
+            padding-left: 5%;
+            padding-top: 0;
+            padding-bottom: 0;
+            position: relative;
+            overflow: hidden;
         }
 
         .hero-content {
-       padding-right: 20px;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
+            padding-right: 20px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
         }
 
         .hero-content h1 {
             font-size: 52px;
-            font-weight: 850;
-            line-height: 1.15;
-            color: #111111;
-            margin-bottom: 24px;
-            letter-spacing: -1px;
+    font-weight: 850;
+    line-height: 1.15;
+    color: #111111;
+    margin-bottom: 24px;
+    letter-spacing: -1px;
         }
 
         .hero-content h1 span {
@@ -178,11 +260,11 @@ if (file_exists('includes/config.php')) {
         }
 
         .hero-content p {
-            font-size: 15px;
-            color: var(--text-muted);
-            line-height: 1.65;
-            margin-bottom: 40px;
-            max-width: 485px;
+           font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 40px;
+    max-width: 485px;
         }
 
         .hero-cta {
@@ -191,138 +273,199 @@ if (file_exists('includes/config.php')) {
         }
 
         .btn-hero-primary {
-            background-color: var(--orange);
-            color: #ffffff;
-            padding: 14px 28px;
-            font-weight: 700;
-            font-size: 14px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(255, 69, 0, 0.2);
+               background-color: var(--orange);
+    color: #ffffff;
+    padding: 14px 28px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: none;
+    cursor: pointer;
+    
+    /* Transisi mulus */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        .btn-hero-primary i {
+    transition: transform 0.3s ease; /* Transisi ikon di dalam */
+}
 
         .btn-hero-primary:hover {
             background-color: var(--orange-hover);
-            transform: translateY(-1px);
+    transform: translateY(-2px); /* Melayang naik */
+    box-shadow: 0 8px 25px rgba(255, 69, 0, 0.35); /* Pancaran cahaya oranye */
         }
+
+        .btn-hero-primary:hover i {
+    transform: rotate(-10deg) scale(1.1);
+}
 
         .btn-hero-secondary {
-            background-color: #ffffff;
-            color: #111111;
-            padding: 14px 28px;
-            font-weight: 700;
-            font-size: 14px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+           background-color: #ffffff;
+    color: #111111;
+    padding: 14px 28px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    
+    /* Transisi mulus */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        .btn-hero-secondary i {
+    transition: transform 0.4s ease; /* Transisi ikon jam */
+}
+
         .btn-hero-secondary:hover {
-            background-color: #F8FAFC;
-            border-color: #CBD5E1;
+            background-color: var(--bg-light);
+    border-color: #CBD5E1;
+    transform: translateY(-2px); /* Melayang naik */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
         }
+
+        .btn-hero-secondary:hover i {
+    transform: rotate(30deg);
+}
 
         .hero-visual {
             position: relative;
-    
-    /* Diwajibkan menggunakan height: 100% (sekarang bekerja sempurna karena parent memiliki height pasti) */
-    height: 100%; 
+    height: 100%;
     width: 100%;
-    overflow: hidden;
+    overflow: hidden; /* Memotong kelebihan zoom agar rapi */
         }
 
         .hero-visual img {
-     position: absolute;
+           position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%; /* Sekarang meregang penuh hingga ke pixel terakhir */
+    height: 100%;
     object-fit: cover;
     display: block;
     pointer-events: none;
-            
+    
+    /* Kecepatan zoom diatur lambat (8 detik) agar terasa sinematik dan mewah */
+    transition: transform 8s cubic-bezier(0.16, 1, 0.3, 1); 
+
         }
 
-        @media (max-width: 992px) {
-    .hero-section {
-        height: auto; /* Kembalikan ke auto pada layar HP agar tidak terpotong */
-        grid-template-columns: 1fr;
-    }
-    .hero-visual {
-        height: 400px; /* Batasi tinggi gambar di HP */
-    }
-    .hero-visual img {
-        position: relative;
-        height: 100%;
-    }
+        .hero-section:hover .hero-visual img {
+    transform: scale(1.04); /* Membesar perlahan sebanyak 4% */
 }
+
+        @media (max-width: 992px) {
+            .hero-section {
+                height: auto;
+                /* Kembalikan ke auto pada layar HP agar tidak terpotong */
+                grid-template-columns: 1fr;
+            }
+
+            .hero-visual {
+                height: 400px;
+                /* Batasi tinggi gambar di HP */
+            }
+
+            .hero-visual img {
+                position: relative;
+                height: 100%;
+            }
+        }
 
 
 
         /* TRANSISI GRADIENT (FADE OVERLAY) */
         .fade-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 30%; 
-            height: 100%;
-            background: linear-gradient(to right, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
-            z-index: 2;
+    top: 0;
+    left: 0;
+    width: 35%; 
+    height: 100%;
+    background: linear-gradient(to right, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+    z-index: 2;
         }
 
         /* KARTU STATISTIK MELAY.hero-sectionANG */
         .hero-stats-card {
             position: absolute;
-            bottom: 35px;
-            left: 29%; 
-            background: #ffffff;
-            border-radius: 20px;
-            padding: 24px 32px;
-            display: flex;
-            align-items: center;
-            gap: 28px;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
-            border: 1px solid rgba(0, 0, 0, 0.03);
-            z-index: 5;
+    bottom: 50px;
+    left: 34%; 
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 12px 22px; 
+    display: flex;
+    align-items: center;
+    gap: 16px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    z-index: 5;
+    cursor: pointer;
+    
+    /* Transisi mulus melayang */
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        .hero-stats-card:hover {
+    transform: translateY(-8px); /* Melayang naik */
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); /* Bayangan melembut dan melebar */
+    border-color: rgba(255, 69, 0, 0.1); /* Semburat batas oranye halus */
+}
+
+.hero-stats-card:hover .stat-box:nth-child(1) .stat-icon i {
+    transform: translateY(-4px) scale(1.15);
+}
+
+/* Kolom 2 (Rating) -> Ikon Bintang Membesar & Memancar */
+.hero-stats-card:hover .stat-box:nth-child(3) .stat-icon i {
+    transform: scale(1.2) rotate(15deg);
+}
+
+/* Kolom 3 (Lapangan) -> Ikon Bola Basket Berputar */
+.hero-stats-card:hover .stat-box:nth-child(5) .stat-icon i {
+    transform: rotate(180deg) scale(1.15);
+}
+
         .stat-box {
-            text-align: center;
-            min-width: 80px;
+             text-align: center;
+    min-width: 65px; 
         }
 
         .stat-icon {
-            font-size: 22px;
-            color: var(--orange);
-            margin-bottom: 8px;
+           font-size: 18px; 
+    color: var(--orange);
+    margin-bottom: 4px;
         }
 
+        .stat-icon i {
+    display: inline-block;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efek memantul bouncy */
+}
+
         .stat-num {
-            font-size: 24px;
-            font-weight: 800;
-            color: #111111;
-            line-height: 1.1;
+          font-size: 20px; 
+    font-weight: 800;
+    color: #111111;
+    line-height: 1.1;
         }
 
         .stat-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-weight: 600;
-            margin-top: 4px;
+            font-size: 10px; 
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-top: 1px;
         }
 
         .stat-divider {
-            width: 1px;
-            height: 40px;
-            background-color: var(--border-color);
+          width: 1px;
+    height: 28px; 
+    background-color: var(--border-color);
         }
 
         /* FEATURES SECTION (GRID 4) */
@@ -486,6 +629,7 @@ if (file_exists('includes/config.php')) {
         .process-section {
             padding: 80px 8%;
             background: var(--bg-light);
+            overflow: hidden;
         }
 
         .process-grid {
@@ -495,14 +639,44 @@ if (file_exists('includes/config.php')) {
             position: relative;
         }
 
+        .process-grid::before {
+            content: '';
+            position: absolute;
+            top: 50px;
+            /* Sejajar dengan posisi tengah bulatan angka */
+            left: 12%;
+            right: 12%;
+            height: 2px;
+            /* Membuat efek garis putus-putus berwarna abu-abu/oranye halus */
+            background-image: linear-gradient(to right, #CBD5E1 50%, rgba(255, 255, 255, 0) 0%);
+            background-size: 12px 2px;
+            background-repeat: repeat-x;
+            z-index: 1;
+        }
+
         .process-card {
-            background: white;
+            background: #ffffff;
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 32px 24px;
+            padding: 36px 24px;
             text-align: center;
             position: relative;
             z-index: 2;
+            /* Berada di atas garis penghubung */
+
+            /* Transisi super halus dengan kurva cubic-bezier */
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+        }
+
+        .process-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            /* Kartu naik dan sedikit membesar */
+            border-color: var(--orange);
+            /* Border berubah menjadi oranye */
+
+            /* Memberikan efek bayangan oranye lembut (warm glow) */
+            box-shadow: 0 20px 35px rgba(255, 69, 0, 0.08);
         }
 
         .process-step {
@@ -516,13 +690,35 @@ if (file_exists('includes/config.php')) {
             justify-content: center;
             font-weight: 800;
             font-size: 14px;
-            margin: 0 auto 20px auto;
+            margin: 0 auto 24px auto;
+            position: relative;
+            z-index: 3;
+
+            transition: all 0.3s ease;
+        }
+
+        .process-card:hover .process-step {
+            transform: scale(1.15);
+            /* Bulatan nomor membesar sedikit */
+            box-shadow: 0 0 12px rgba(255, 69, 0, 0.4);
+            /* Efek berpendar */
         }
 
         .process-card i {
             font-size: 36px;
-            color: var(--text-muted);
+            color: #94A3B8;
+            /* Warna abu-abu awal */
             margin-bottom: 20px;
+            display: inline-block;
+
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .process-card:hover i {
+            color: var(--orange);
+            /* Warna berubah menjadi oranye */
+            transform: scale(1.12) rotate(5deg);
+            /* Ikon membesar dan miring sedikit agar dinamis */
         }
 
         .process-card h4 {
@@ -530,12 +726,26 @@ if (file_exists('includes/config.php')) {
             font-weight: 700;
             color: var(--dark);
             margin-bottom: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .process-card:hover h4 {
+            color: var(--orange);
+            /* Judul berubah oranye saat dihover */
         }
 
         .process-card p {
             font-size: 13px;
             color: var(--text-muted);
             line-height: 1.6;
+        }
+
+        /* Penyesuaian Responsif di Layar HP */
+        @media (max-width: 992px) {
+            .process-grid::before {
+                display: none;
+                /* Sembunyikan garis penghubung di HP karena grid vertikal */
+            }
         }
 
         /* MEMBERSHIP SECTION */
@@ -545,6 +755,7 @@ if (file_exists('includes/config.php')) {
             grid-template-columns: 1fr 1.2fr;
             gap: 60px;
             align-items: center;
+            background-color: #ffffff;
         }
 
         .member-intro h2 {
@@ -564,13 +775,27 @@ if (file_exists('includes/config.php')) {
         .member-benefit-list {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 16px;
+            /* Jarak dirapatkan sedikit agar rapi */
         }
 
         .benefit-item {
             display: flex;
             gap: 16px;
             align-items: flex-start;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+
+            /* Transisi geser horizontal yang mulus */
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .benefit-item:hover {
+            transform: translateX(8px);
+            /* Bergeser sedikit ke kanan saat diarahkan kursor */
+            background-color: var(--bg-light);
+            /* Highlight abu-abu tipis di latar belakang */
         }
 
         .benefit-icon {
@@ -582,11 +807,27 @@ if (file_exists('includes/config.php')) {
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+
+            transition: all 0.3s ease;
         }
+
+        .benefit-item:hover .benefit-icon {
+            background: var(--orange);
+            /* Berubah menjadi oranye solid */
+        }
+
 
         .benefit-icon i {
             color: var(--orange);
             font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .benefit-item:hover .benefit-icon i {
+            color: #ffffff;
+            /* Simbol/Ikon berubah menjadi putih */
+            transform: scale(1.1);
+            /* Ikon membesar sedikit */
         }
 
         .benefit-text h4 {
@@ -594,6 +835,12 @@ if (file_exists('includes/config.php')) {
             font-weight: 700;
             color: var(--dark);
             margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        .benefit-item:hover .benefit-text h4 {
+            color: var(--orange);
+            /* Judul benefit berubah oranye */
         }
 
         .benefit-text p {
@@ -616,11 +863,49 @@ if (file_exists('includes/config.php')) {
             position: relative;
             display: flex;
             flex-direction: column;
+            cursor: pointer;
+
+            /* Transisi kartu melayang */
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* HOVER KARTU BASIC */
+        .pricing-card:not(.premium):hover {
+            transform: translateY(-8px);
+            /* Terangkat ke atas */
+            border-color: var(--orange);
+            /* Warna garis tepi menjadi oranye */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+            /* Bayangan halus */
+        }
+
+        /* Otomatis menyorot tombol "Daftar Member" pada kartu Basic saat kartu dihover */
+        .pricing-card:not(.premium):hover .btn-price.outline {
+            background-color: var(--orange);
+            color: white;
+        }
+
+        /* HOVER KARTU PREMIUM */
+        .pricing-card.premium:hover {
+            transform: translateY(-12px);
+
+            /* Warna garis tepi berubah menjadi oranye saat kursor diarahkan */
+            border-color: var(--orange);
+
+            box-shadow: 0 24px 48px rgba(255, 69, 0, 0.12);
+        }
+
+        .pricing-card.premium:hover .btn-price.outline {
+            background-color: var(--orange);
+            color: white;
         }
 
         .pricing-card.premium {
-            border-color: var(--orange);
-            box-shadow: 0 10px 30px rgba(255, 84, 0, 0.08);
+            /* Mengubah warna garis tepi default menjadi abu-abu terang (sama dengan basic) */
+            border-color: var(--border-color);
+
+            /* Mengurangi bayangan default agar seragam dengan basic */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
         }
 
         .popular-badge {
@@ -636,6 +921,15 @@ if (file_exists('includes/config.php')) {
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            z-index: 3;
+
+            transition: all 0.3s ease;
+        }
+
+        .pricing-card.premium:hover .popular-badge {
+            transform: translateX(-50%) scale(1.05);
+            /* Membesar sedikit */
+            background-color: var(--orange-hover);
         }
 
         .price-name {
@@ -687,6 +981,8 @@ if (file_exists('includes/config.php')) {
             font-size: 14px;
             text-align: center;
             margin-top: auto;
+
+            transition: all 0.3s ease;
         }
 
         .btn-price.outline {
@@ -696,7 +992,8 @@ if (file_exists('includes/config.php')) {
         }
 
         .btn-price.outline:hover {
-            background: #FFF0E9;
+            background-color: var(--orange);
+            color: white;
         }
 
         .btn-price.filled {
@@ -707,189 +1004,475 @@ if (file_exists('includes/config.php')) {
 
         .btn-price.filled:hover {
             background: var(--orange-hover);
+            transform: scale(1.02);
+            /* Tombol sedikit membesar saat ditekan */
         }
 
         /* PROMO & TESTIMONIALS */
         .promo-testimonial-section {
-            padding: 80px 8%;
-            background: var(--bg-light);
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 40px;
+         padding: 80px 8%;
+    background: var(--bg-light);
+    display: grid;
+    grid-template-columns: 1fr 2.2fr; /* Proporsi disesuaikan agar rapi */
+    gap: 30px;
         }
 
         .promo-card {
-            background: linear-gradient(135deg, #FF6B35 0%, #FF4500 100%);
-            border-radius: 24px;
-            padding: 40px 30px;
-            color: white;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 380px;
-            box-shadow: 0 15px 35px rgba(255, 69, 0, 0.2);
-        }
+   background: linear-gradient(135deg, #FF5400 0%, #FF3D00 60%, #E63900 100%);
+    border-radius: 24px;
+    padding: 40px 32px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 380px;
+    box-shadow: 0 10px 30px rgba(255, 84, 0, 0.12);
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+}
 
         .promo-badge {
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+    font-size: 13px;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: auto; /* Mendorong konten lain ke bawah secara otomatis */
         }
+
+        .promo-content-block {
+    margin-top: auto;
+    position: relative;
+    z-index: 2; /* Berada di atas latar belakang */
+}
+
+/* Judul Persen Diskon (Besar & Tebal) */
+.promo-content-block h3 {
+    font-size: 42px; 
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+}
+
+/* Sub-Judul Lapangan */
+.promo-content-block p {
+    font-size: 15px;
+    font-weight: 600;
+    opacity: 0.95;
+    margin-bottom: 24px;
+}
+
+.btn-promo-yellow {
+    background-color: #FFC107; /* Kuning cerah */
+    color: #1E293B; /* Warna teks gelap */
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px 24px;
+    border-radius: 50px; /* Bentuk lonjong/kapsul */
+    display: inline-block;
+    width: fit-content;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+    
+    transition: all 0.3s ease;
+}
+
+/* Hover tombol kuning */
+.promo-card:hover .btn-promo-yellow {
+    background-color: #FFB300; /* Kuning sedikit lebih gelap saat hover */
+    transform: scale(1.04);
+    box-shadow: 0 6px 15px rgba(255, 193, 7, 0.35);
+}
+
+.promo-terms {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 14px;
+    font-weight: 500;
+}
+
 
         .promo-title h3 {
             font-size: 32px;
-            font-weight: 800;
-            line-height: 1.2;
-            margin: 15px 0 5px 0;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 15px 0 5px 0;
         }
 
         .promo-title p {
-            font-size: 14px;
-            opacity: 0.9;
+          font-size: 14px;
+    opacity: 0.9;
         }
 
         .btn-promo {
-            background: white;
-            color: var(--orange);
-            font-weight: 800;
-            font-size: 13px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-align: center;
-            width: fit-content;
-            margin-top: 30px;
+        background: white;
+    color: var(--orange);
+    font-weight: 800;
+    font-size: 13px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-align: center;
+    width: fit-content;
+    margin-top: 30px;
+    
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        .promo-card:hover .btn-promo {
+    transform: scale(1.05); /* Membesar sedikit */
+    background-color: #FFF0E9; /* Berubah warna krem tipis */
+}
 
         .promo-player-img {
-            position: absolute;
-            bottom: 0;
-            right: -20px;
-            height: 200px;
-            object-fit: contain;
-            pointer-events: none;
-        }
+        position: absolute;
+    
+    /* DIUBAH: Dinaikkan lagi dari 15px menjadi 30px agar gambar lebih ke atas */
+    bottom: 35px; 
+    
+    right: 25px; /* Posisi kiri tetap dipertahankan */
+    height: 300px;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 1;
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-        /* TESTIMONIAL CARDS */
-        .testimonials-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
+/* Efek Hover gambar atlet melompat sedikit keluar */
+.promo-card:hover .promo-player-img {
+    transform: scale(1.04) translate(3px, -3px);
+}
 
-        .testi-card {
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+.promo-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 45px rgba(255, 69, 0, 0.28);
+}
 
-        .testi-stars {
-            color: #FBBF24;
-            margin-bottom: 16px;
-            font-size: 12px;
-        }
 
-        .testi-text {
-            font-size: 13px;
-            color: var(--text-dark);
-            line-height: 1.6;
-            margin-bottom: 24px;
-            font-style: italic;
-        }
 
-        .testi-user {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+/* CONTAINER MAP UTAMA */
+.location-map-card {
+    position: relative; /* Penting untuk menahan posisi kartu melayang di dalamnya */
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 24px; 
+    overflow: hidden; 
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+    height: 100%;
+    min-height: 380px; 
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-        .testi-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
+/* Hover Utama Wadah Map */
+.location-map-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--orange);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06); 
+}
 
-        .testi-user-info h5 {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--dark);
-        }
+/* IFRAME MAP DENGAN FILTER MONOKROM MINIMALIS */
+.location-map-card iframe {
+    width: 100%;
+    height: 100%;
+    display: block;
+    
+    /* Mengubah warna peta default menjadi abu-abu artistik agar tidak terlalu ramai */
+    filter: grayscale(100%) contrast(1.1) brightness(0.95);
+    transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-        .testi-user-info p {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
+/* Ketika kursor diarahkan, warna peta akan kembali normal secara sangat halus */
+.location-map-card:hover iframe {
+    filter: grayscale(0%) contrast(1) brightness(1);
+}
 
+
+/* KARTU ALAMAT MELAYANG (GLASSMORPHISM CARD) */
+.map-overlay-card {
+ position: absolute;
+    top: 16px;   /* Jarak dari atas dirapatkan */
+    right: 16px; /* Jarak dari kanan dirapatkan */
+    left: auto;
+    
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 12px; /* Lengkungan sudut disesuaikan */
+    
+    /* Padding diperkecil (Atas-Bawah 14px, Kiri-Kanan 18px) */
+    padding: 14px 18px; 
+    
+    /* Lebar maksimal dipersempit dari 280px menjadi 210px agar ramping */
+    max-width: 210px; 
+    
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    z-index: 10;
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hover efek pada kartu melayang */
+.location-map-card:hover .map-overlay-card {
+   transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(255, 69, 0, 0.1);
+    border-color: rgba(255, 69, 0, 0.2);
+}
+
+/* BADGE LOKASI */
+.map-badge {
+   display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #FFF0E9;
+    color: var(--orange);
+    
+    /* Ukuran teks badge diturunkan */
+    font-size: 8px; 
+    padding: 3px 8px;
+    
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px; /* Jarak dirapatkan */
+}
+
+.map-overlay-card h4 {
+font-size: 13px; /* Diturunkan dari 15px */
+    font-weight: 800;
+    color: var(--dark);
+    margin-bottom: 4px;
+}
+
+.map-overlay-card p {
+       font-size: 10px; /* Diturunkan dari 11px */
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 12px; /* Jarak dirapatkan */
+}
+
+/* TOMBOL NAVIGASI PETUNJUK ARAH */
+.map-link {
+      display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--orange);
+    color: white;
+    
+    /* Ukuran teks tombol diturunkan */
+    font-size: 10px; 
+    
+    /* Ukuran padding tombol diperkecil agar mungil */
+    padding: 6px 12px; 
+    
+    border-radius: 6px;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(255, 84, 0, 0.15);
+    
+    transition: all 0.3s ease;
+}
+
+.map-link:hover {
+       background: var(--orange-hover);
+    box-shadow: 0 6px 12px rgba(255, 84, 0, 0.25);
+    transform: translateY(-1px);
+}
+
+/* Penyesuaian responsif layar kecil / HP */
+@media (max-width: 576px) {
+    .map-overlay-card {
+        top: 12px;
+        right: 12px; /* Disesuaikan ke kanan juga pada mobile */
+        left: auto;
+        padding: 14px;
+        max-width: calc(100% - 24px);
+    }
+}
         /* BOTTOM BANNER (CTA) */
-        .bottom-cta-section {
-            padding: 60px 8%;
-            background: #FFFFFF;
-        }
 
-        .cta-banner {
-            background: radial-gradient(circle at right, #2C3539 0%, #111827 100%);
-            border-radius: 24px;
-            padding: 60px 80px;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
 
-        .cta-content {
-            max-width: 550px;
-            position: relative;
-            z-index: 2;
-        }
 
-        .cta-content h2 {
-            font-size: 36px;
-            font-weight: 800;
-            margin-bottom: 16px;
-        }
+/* Efek Hover pada Banner */
 
-        .cta-content p {
-            font-size: 15px;
-            opacity: 0.8;
-            line-height: 1.6;
-        }
+/* DETAKAN ANIMASI MEMANTUL (KEYFRAMES) */
+@keyframes bounceIcon {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-4px); /* Memantul naik sejauh 4px */
+    }
+}
 
-        .btn-cta-booking {
-            background: var(--orange);
-            color: white;
-            padding: 16px 32px;
-            font-weight: 700;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 4px 20px rgba(255, 84, 0, 0.3);
-            position: relative;
-            z-index: 2;
-            flex-shrink: 0;
-        }
+/* BANNER ALAT BASKET (STORE CTA) */
+.store-cta-section {
+    padding: 60px 8%;
+    background: #FFFFFF;
+}
 
-        .btn-cta-booking:hover {
-            background: var(--orange-hover);
-        }
+.store-banner {
+    background: #1E2530; /* Warna gelap minimalis sesuai gambar */
+    border-radius: 24px;
+    padding: 60px 80px 110px 80px; /* Ditambah padding bawah (110px) untuk memberi ruang baris fitur putih */
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-        .cta-basketball-img {
-            position: absolute;
-            right: 0;
-            bottom: -50px;
-            height: 250px;
-            opacity: 0.15;
-            pointer-events: none;
-        }
+.store-banner:hover {
+    transform: scale(1.005);
+}
+
+/* SISI KIRI: TEKS KONTEN */
+.store-content {
+    max-width: 50%;
+    position: relative;
+    z-index: 2;
+}
+
+.store-content h2 {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 16px;
+}
+
+.store-content h2 span {
+    color: var(--orange); /* Sorotan warna oranye pada teks */
+}
+
+.store-content p {
+    font-size: 14px;
+    color: #94A3B8;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 480px;
+}
+
+/* TOMBOL ORANYE DENGAN IKON BELANJA */
+.btn-store-cta {
+    background: var(--orange);
+    color: white;
+    padding: 14px 28px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(255, 84, 0, 0.2);
+    
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-store-cta:hover {
+    background-color: var(--orange-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 84, 0, 0.4);
+}
+
+/* SISI KANAN: DISPLAY PRODUK */
+.store-visual {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 50%;
+    height: calc(100% - 50px); /* Dikurangi 50px agar pas berada di atas baris fitur putih */
+    z-index: 1;
+}
+
+.store-gear-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+
+
+/* BARIS FITUR PUTIH DI BAGIAN BAWAH (WHITE SHELF) */
+.store-features-shelf {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 72%; /* Menempati 72% lebar kanan bawah */
+    height: 50px;
+    background-color: #F8FAFC; /* Warna putih off-white sesuai gambar */
+    
+    /* Membuat lengkungan sudut kiri atas baris */
+    border-top-left-radius: 28px; 
+    
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 30px;
+    z-index: 3;
+}
+
+/* TRIK INVERTED BORDER RADIUS UNTUK MEMBUAT GELOMBANG "S" YANG SAMA PERSIS */
+.store-features-shelf::before {
+    content: '';
+    position: absolute;
+    top: -28px; /* Ukuran disesuaikan dengan radius */
+    left: -28px;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border-bottom-right-radius: 28px;
+    
+    /* Menggunakan bayangan melengkung untuk menggambar lekukan S terbalik */
+    box-shadow: 14px 14px 0 0 #F8FAFC; 
+    pointer-events: none;
+}
+
+/* ITEM FITUR DI DALAM BARIS PUTIH */
+.shelf-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1E293B;
+}
+
+.shelf-item i {
+    color: #475569; /* Ikon abu-abu gelap sesuai gambar */
+    font-size: 15px;
+}
+
+.shelf-item span {
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: -0.2px;
+}
+
+/* Penyesuaian Responsif Layar HP */
+@media (max-width: 992px) {
+    .store-banner {
+        flex-direction: column;
+        padding: 40px 30px 40px 30px;
+        align-items: flex-start;
+    }
+    .store-content {
+        max-width: 100%;
+        margin-bottom: 40px;
+    }
+    .store-visual {
+        position: relative;
+        width: 100%;
+        height: 250px;
+    }
+    .store-features-shelf {
+        display: none; /* Sembunyikan baris putih pada mobile agar tidak menumpuk */
+    }
+}
 
         /* FOOTER */
         footer {
@@ -984,73 +1567,153 @@ if (file_exists('includes/config.php')) {
         }
 
         /* LAYER GRADASI HALUS DI BAGIAN BAWAH GAMBAR */
-.bottom-fade-overlay {
-    position: absolute;
+        .bottom-fade-overlay {
+            position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    
-    /* Mengatur tinggi kelembutan gradasi bawah (bisa diubah sesuai selera, misal 40px - 80px) */
-    height: 30px; 
-    
-    /* Membuat efek memudar dari putih solid di bawah ke transparan ke atas */
+    height: 50px; 
     background: linear-gradient(to top, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
-    
-    z-index: 3; /* Berada di atas gambar */
-    pointer-events: none; /* Mencegah bentrok klik pada tombol/gambar */
-}
+    z-index: 3;
+    pointer-events: none;
+        }
 
         /* RESPONSIVITAS */
         @media (max-width: 992px) {
-            .navbar { padding: 20px 5%; }
-            .hero-section { grid-template-columns: 1fr; text-align: center; padding-left: 5%; padding-right: 5%; padding-bottom: 140px; }
-            .hero-content { padding-right: 0; }
-            .hero-content p { margin: 0 auto 40px auto; }
-            .hero-cta { justify-content: center; }
-            .hero-visual { min-height: 450px; }
-            .fade-overlay { width: 100%; background: linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0) 30%); }
-            .hero-stats-card { left: 50%; transform: translateX(-50%); bottom: 20px; width: 90%; justify-content: space-around; }
-            .process-grid { grid-template-columns: repeat(2, 1fr); }
-            .membership-section { grid-template-columns: 1fr; }
-            .pricing-container { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
-            .promo-testimonial-section { grid-template-columns: 1fr; }
-            .testimonials-grid { grid-template-columns: 1fr; }
-            .cta-banner { flex-direction: column; gap: 30px; text-align: center; padding: 40px; }
-            .footer-grid { grid-template-columns: 1fr 1fr; }
+            .navbar {
+                padding: 20px 5%;
+            }
+
+            .hero-section {
+                display: grid;
+    grid-template-columns: 35% 65%; 
+    height: 620px; 
+    background-color: #ffffff;
+    padding-left: 5%; 
+    padding-top: 0;
+    padding-bottom: 0;
+    position: relative;
+    overflow: hidden;
+            }
+
+            .hero-content {
+                padding-right: 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+            }
+
+            .hero-content p {
+                margin: 0 auto 40px auto;
+            }
+
+            .hero-cta {
+                justify-content: center;
+            }
+
+            .hero-visual {
+                min-height: 450px;
+            }
+
+            .fade-overlay {
+                width: 100%;
+                background: linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0) 30%);
+            }
+
+            .hero-stats-card {
+                left: 50%;
+                transform: translateX(-50%);
+                bottom: 20px;
+                width: 90%;
+                justify-content: space-around;
+            }
+
+            .process-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .membership-section {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-container {
+                grid-template-columns: 1fr;
+                max-width: 500px;
+                margin: 0 auto;
+            }
+
+            .promo-testimonial-section {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-banner {
+                flex-direction: column;
+                gap: 30px;
+                text-align: center;
+                padding: 40px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
 
         @media (max-width: 576px) {
-            .nav-menu { display: none; }
-            .process-grid { grid-template-columns: 1fr; }
-            .footer-grid { grid-template-columns: 1fr; }
+            .nav-menu {
+                display: none;
+            }
+
+            .process-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
         }
+
+        @media (max-width: 992px) {
+    .nav-menu {
+        position: relative; /* Kembalikan ke posisi semula di HP agar aman */
+        left: auto;
+        transform: none;
+        display: none; /* Sembunyikan menu di HP */
+    }
+}
     </style>
 </head>
+
 <body>
 
     <!-- NAVBAR -->
     <nav class="navbar">
-        <a href="#" class="logo"><i class="fa-solid fa-basketball" style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
+        <a href="#" class="logo"><i class="fa-solid fa-basketball"
+                style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
         <div class="nav-menu">
+            <a href="#beranda">Beranda</a>
             <a href="#lapangan">Lapangan</a>
-            <a href="#jadwal">Jadwal</a>
-            <a href="#member">Member</a>
+            <a href="#jadwal">Cara Kerja</a>
+            <a href="#member">Langganan</a>
             <a href="#alat-basket">Alat Basket</a>
-            <a href="#tentang-kami">Tentang Kami</a>
+    
         </div>
         <div class="nav-btns">
             <a href="login.php" class="btn-login">Login</a>
-            <a href="register.php" class="btn-join">Booking Sekarang</a>
+            <a href="register.php" class="btn-join">Daftar Sekarang</a>
         </div>
     </nav>
 
     <!-- HERO SECTION -->
-    <section class="hero-section">
+    <section class="hero-section" id="beranda">
         <div class="hero-content">
             <h1>Sewa Lapangan<br>Basket Jadi<br><span>Lebih Mudah</span></h1>
-            <p>Booking lapangan basket favoritmu secara online, pilih jadwal sesuai keinginan, dan nikmati fasilitas terbaik untuk pengalaman bermain yang seru!</p>
+            <p>Pemesanan lapangan basket favoritmu secara online, pilih jadwal sesuai keinginan, dan nikmati fasilitas
+                terbaik untuk pengalaman bermain yang seru!</p>
             <div class="hero-cta">
-                <a href="register.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Booking Lapangan</a>
+                <a href="register.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Pemesanan
+                    Lapangan</a>
                 <a href="#jadwal" class="btn-hero-secondary"><i class="fa-regular fa-clock"></i> Lihat Jadwal</a>
             </div>
         </div>
@@ -1058,17 +1721,17 @@ if (file_exists('includes/config.php')) {
             <img src="gambar 1 landing page.png" alt="HoopBall Court">
             <div class="fade-overlay"></div>
             <!-- TAMBAHKAN BARIS BARU INI: Gradasi Bawah -->
-    <div class="bottom-fade-overlay"></div>
-    
-    <!-- Kartu statistik melayang -->
-    <div class="hero-stats-card">...</div>
-            
+            <div class="bottom-fade-overlay"></div>
+
+            <!-- Kartu statistik melayang -->
+            <div class="hero-stats-card">...</div>
+
             <!-- Floating Stats Card -->
             <div class="hero-stats-card">
                 <div class="stat-box">
                     <div class="stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
                     <div class="stat-num">1200+</div>
-                    <div class="stat-label">Booking</div>
+                    <div class="stat-label">Pemesanan</div>
                 </div>
                 <div class="stat-divider"></div>
                 <div class="stat-box">
@@ -1090,13 +1753,13 @@ if (file_exists('includes/config.php')) {
     <section class="features-section">
         <div class="feature-card">
             <div class="feature-icon"><i class="fa-regular fa-calendar-check"></i></div>
-            <h4>Booking Online</h4>
+            <h4>Pemesanan Daring</h4>
             <p>Pesan lapangan kapan saja dan di mana saja dengan mudah dan cepat.</p>
         </div>
         <div class="feature-card">
             <div class="feature-icon"><i class="fa-regular fa-clock"></i></div>
-            <h4>Jadwal Real-Time</h4>
-            <p>Cek ketersediaan jadwal secara real-time dan pilih waktu terbaikmu.</p>
+            <h4>Jadwal Waktu-Nyata</h4>
+            <p>Cek ketersediaan jadwal secara waktu-nyata dan pilih waktu terbaikmu.</p>
         </div>
         <div class="feature-card">
             <div class="feature-icon"><i class="fa-solid fa-dumbbell"></i></div>
@@ -1105,8 +1768,8 @@ if (file_exists('includes/config.php')) {
         </div>
         <div class="feature-card">
             <div class="feature-icon"><i class="fa-regular fa-user"></i></div>
-            <h4>Member Lebih Hemat</h4>
-            <p>Dapatkan harga spesial dan berbagai keuntungan eksklusif untuk member.</p>
+            <h4>Anggota Lebih Hemat</h4>
+            <p>Dapatkan harga spesial dan berbagai keuntungan eksklusif untuk anggota.</p>
         </div>
     </section>
 
@@ -1118,7 +1781,7 @@ if (file_exists('includes/config.php')) {
         <div class="court-grid">
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=800" alt="Lapangan A">
+                    <img src="lapangan1.png" alt="Lapangan A">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan A</h3>
@@ -1131,7 +1794,7 @@ if (file_exists('includes/config.php')) {
             </div>
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="https://images.unsplash.com/photo-1544919982-b61976f0ba43?q=80&w=800" alt="Lapangan B">
+                    <img src="lapangan2.png" alt="Lapangan B">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan B</h3>
@@ -1144,7 +1807,7 @@ if (file_exists('includes/config.php')) {
             </div>
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="https://images.unsplash.com/photo-1574623452334-1e0ac2b3ccb4?q=80&w=800" alt="Lapangan C">
+                    <img src="lapangan3.png" alt="Lapangan C">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan C</h3>
@@ -1161,7 +1824,7 @@ if (file_exists('includes/config.php')) {
     <!-- BOOKING PROCESS -->
     <section class="process-section" id="jadwal">
         <div class="section-header">
-            <h2>Cara Booking</h2>
+            <h2>Cara Pemesanan</h2>
         </div>
         <div class="process-grid">
             <div class="process-card">
@@ -1194,21 +1857,22 @@ if (file_exists('includes/config.php')) {
     <!-- MEMBERSHIP SECTION -->
     <section class="membership-section" id="member">
         <div class="member-intro">
-            <h2>Gabung Jadi Member</h2>
-            <p>Nikmati berbagai keuntungan eksklusif dan harga spesial setiap kali booking lapangan. Hemat lebih banyak!</p>
-            
+            <h2>Gabung Jadi Anggota</h2>
+            <p>Nikmati berbagai keuntungan eksklusif dan harga spesial setiap kali pemesanan lapangan. Hemat lebih banyak!
+            </p>
+
             <div class="member-benefit-list">
                 <div class="benefit-item">
                     <div class="benefit-icon"><i class="fa-solid fa-tags"></i></div>
                     <div class="benefit-text">
                         <h4>Lebih Hemat</h4>
-                        <p>Harga spesial khusus untuk member.</p>
+                        <p>Harga spesial khusus untuk Anggota.</p>
                     </div>
                 </div>
                 <div class="benefit-item">
                     <div class="benefit-icon"><i class="fa-solid fa-trophy"></i></div>
                     <div class="benefit-text">
-                        <h4>Prioritas Booking</h4>
+                        <h4>Prioritas Pemesanan</h4>
                         <p>Akses awal untuk jadwal prime time.</p>
                     </div>
                 </div>
@@ -1227,108 +1891,122 @@ if (file_exists('includes/config.php')) {
                 <div class="price-name">Basic</div>
                 <div class="price-amount">Rp 99.000 <span>/ bulan</span></div>
                 <ul class="price-features">
-                    <li><i class="fa-solid fa-circle-check"></i> Diskon 10% setiap booking</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Diskon 10% setiap pemesanan</li>
                     <li><i class="fa-solid fa-circle-check"></i> Gratis pembatalan 1x / bulan</li>
                     <li><i class="fa-solid fa-circle-check"></i> Poin reward setiap transaksi</li>
                     <li><i class="fa-solid fa-circle-check"></i> Support prioritas</li>
                 </ul>
-                <a href="register.php?plan=basic" class="btn-price outline">Daftar Member</a>
+                <a href="register.php?plan=basic" class="btn-price outline">Daftar Anggota</a>
             </div>
-            
+
             <div class="pricing-card premium">
                 <div class="popular-badge">Paling Populer</div>
                 <div class="price-name">Premium</div>
                 <div class="price-amount">Rp 199.000 <span>/ bulan</span></div>
                 <ul class="price-features">
-                    <li><i class="fa-solid fa-circle-check"></i> Diskon 20% setiap booking</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Diskon 20% setiap pemesanan</li>
                     <li><i class="fa-solid fa-circle-check"></i> Gratis pembatalan 3x / bulan</li>
                     <li><i class="fa-solid fa-circle-check"></i> Poin reward 2x lebih banyak</li>
                     <li><i class="fa-solid fa-circle-check"></i> Akses jadwal eksklusif</li>
                     <li><i class="fa-solid fa-circle-check"></i> Merchandise eksklusif</li>
                 </ul>
-                <a href="register.php?plan=premium" class="btn-price filled">Daftar Member</a>
+                <a href="register.php?plan=premium" class="btn-price outline">Daftar Anggota</a>
             </div>
         </div>
     </section>
 
     <!-- PROMO & TESTIMONIALS -->
     <section class="promo-testimonial-section">
-        <div class="promo-card">
-            <div class="promo-badge">Promo Weekend</div>
-            <div class="promo-title">
-                <h3>Diskon 20%</h3>
-                <p>Untuk semua lapangan</p>
-                <div class="btn-promo">Setiap Sabtu-Minggu</div>
-            </div>
-            <img src="https://images.unsplash.com/photo-1519766304817-4f37bda74a27?q=80&w=400" class="promo-player-img" alt="Basketball Player Promo">
+       <div class="promo-card">
+    <!-- Badge Atas -->
+    <div class="promo-badge">Promo Weekend</div>
+    
+    <!-- Blok Konten Teks & Tombol -->
+    <div class="promo-content-block">
+        <h3>Diskon 20%</h3>
+        <p>Untuk semua lapangan</p>
+        
+        <!-- Tombol Kuning Kapsul/Pill -->
+        <div class="btn-promo-yellow">Setiap Sabtu & Minggu</div>
+        
+        <!-- Teks Syarat & Ketentuan Tipis -->
+        <div class="promo-terms">*Syarat & ketentuan berlaku</div>
+    </div>
+    
+    <!-- Gambar Atlet Basket Dinamis -->
+    <img src="promo1.png" class="promo-player-img" alt="Basketball Player Promo">
+</div>
         </div>
 
-        <div class="testimonials-grid">
-            <div class="testi-card">
-                <div>
-                    <div class="testi-stars">
-                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                    </div>
-                    <p class="testi-text">"Lapangan bersih, kualitas lengkap, booking mudah dan cepat. Pasti jadi langganan!"</p>
-                </div>
-                <div class="testi-user">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100" class="testi-avatar" alt="Brian Pratama">
-                    <div class="testi-user-info">
-                        <h5>Brian Pratama</h5>
-                        <p>Pendiri Komunitas</p>
-                    </div>
-                </div>
-            </div>
-            <div class="testi-card">
-                <div>
-                    <div class="testi-stars">
-                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                    </div>
-                    <p class="testi-text">"Jadwal real-time nya akurat, nggak perlu takut bentrok. Pelayanannya top!"</p>
-                </div>
-                <div class="testi-user">
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100" class="testi-avatar" alt="Andi Wijaya">
-                    <div class="testi-user-info">
-                        <h5>Andi Wijaya</h5>
-                        <p>Member Premium</p>
-                    </div>
-                </div>
-            </div>
-            <div class="testi-card">
-                <div>
-                    <div class="testi-stars">
-                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                    </div>
-                    <p class="testi-text">"Harga terjangkau, kualitas lapangan juara. Recommended buat semua!"</p>
-                </div>
-                <div class="testi-user">
-                    <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=100" class="testi-avatar" alt="Rizky Maulana">
-                    <div class="testi-user-info">
-                        <h5>Rizky Maulana</h5>
-                        <p>Mahasiswa</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+       <!-- KARTU MAP LOKASI GOOGLE MAPS (BARU) -->
+<div class="location-map-card">
+    <!-- Peta Google Maps -->
+    <iframe 
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3965.3545986499857!2d107.14830219999999!3d-6.3481107!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e699b896d7fc649%3A0xe0a940b1f200d008!2sPoliteknik%20Astra!5e0!3m2!1sid!2sid!4v1780735557436!5m2!1sid!2sid" 
+        style="border:0;" 
+        allowfullscreen="" 
+        loading="lazy" 
+        referrerpolicy="no-referrer-when-downgrade">
+    </iframe>
+    
+    <!-- KARTU ALAMAT MELAYANG (GLASSMORPHISM OVERLAY) -->
+    <div class="map-overlay-card">
+        <span class="map-badge"><i class="fa-solid fa-location-dot"></i> Lokasi Utama</span>
+        <h4>Politeknik Astra</h4>
+        <p>Delta Silicon II, Cibatu, Cikarang Selatan, Bekasi, Jawa Barat 17530</p>
+        <a href="https://maps.app.goo.gl/FpzS6FdUWPp6kGvQ9" target="_blank" class="map-link">
+            Petunjuk Arah <i class="fa-solid fa-arrow-turn-up"></i>
+        </a>
+    </div>
+</div>
     </section>
 
     <!-- BOTTOM CALL TO ACTION -->
-    <section class="bottom-cta-section">
-        <div class="cta-banner">
-            <div class="cta-content">
-                <h2>Siap Main Basket Hari Ini?</h2>
-                <p>Booking sekarang dan rasakan pengalaman bermain basket terbaik bersama HoopBall!</p>
-            </div>
-            <a href="register.php" class="btn-cta-booking"><i class="fa-regular fa-calendar-check"></i> Booking Sekarang</a>
-            <img src="https://images.unsplash.com/photo-1519766304817-4f37bda74a27?q=80&w=400" class="cta-basketball-img" alt="Basketball">
+ <section class="store-cta-section" id="alat-basket">
+    <div class="store-banner">
+        <!-- Sisi Kiri: Teks Konten & Tombol -->
+        <div class="store-content">
+            <h2>Lengkapi Permainanmu<br>dengan <span>Alat Basket Berkualitas</span></h2>
+            <p>Temukan bola basket, jersey, sepatu, handuk, dan perlengkapan terbaik untuk latihan maupun pertandingan.</p>
+            <a href="register.php" class="btn-store-cta">
+                <i class="fa-solid fa-bag-shopping"></i> Lihat Alat Basket
+            </a>
         </div>
-    </section>
+        
+        <!-- Sisi Kanan: Visual Display Produk Basket -->
+        <div class="store-visual">
+            <!-- Gunakan URL gambar pajangan perlengkapan basket Anda di sini -->
+            <img src="alat basket.png" class="store-gear-img" alt="Basketball Gear Layout">
+        </div>
+
+        <!-- Baris Fitur Putih di Bagian Bawah (White Features Shelf) -->
+        <div class="store-features-shelf">
+            <div class="shelf-item">
+                <i class="fa-regular fa-circle-check"></i>
+                <span>Produk Original & Berkualitas</span>
+            </div>
+            <div class="shelf-item">
+                <i class="fa-solid fa-tags"></i>
+                <span>Harga Terbaik</span>
+            </div>
+            <div class="shelf-item">
+                <i class="fa-solid fa-truck-fast"></i>
+                <span>Pengiriman Cepat</span>
+            </div>
+            <div class="shelf-item">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Aman & Terpercaya</span>
+            </div>
+        </div>
+    </div>
+</section>
 
     <!-- FOOTER -->
     <footer id="tentang-kami">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="#" class="logo"><i class="fa-solid fa-basketball" style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
+                <a href="#" class="logo"><i class="fa-solid fa-basketball"
+                        style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
                 <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
                 <div class="social-links">
                     <a href="#"><i class="fa-brands fa-instagram"></i></a>
@@ -1337,7 +2015,7 @@ if (file_exists('includes/config.php')) {
                     <a href="#"><i class="fa-brands fa-tiktok"></i></a>
                 </div>
             </div>
-            
+
             <div class="footer-col">
                 <h4>Kontak Kami</h4>
                 <div class="footer-contact-info">
@@ -1369,7 +2047,7 @@ if (file_exists('includes/config.php')) {
             <div class="footer-col">
                 <h4>Informasi</h4>
                 <ul class="footer-links">
-                    <li><a href="#">Cara Booking</a></li>
+                    <li><a href="#">Cara Pemesanan</a></li>
                     <li><a href="#">Syarat & Ketentuan</a></li>
                     <li><a href="#">Kebijakan Privasi</a></li>
                     <li><a href="#">FAQ</a></li>
@@ -1383,5 +2061,45 @@ if (file_exists('includes/config.php')) {
         </div>
     </footer>
 
+<!-- SCRIPT SCROLLSPY OTOMATIS HIGH-END -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('section[id], footer[id]');
+            const navLinks = document.querySelectorAll('.nav-menu a');
+
+            // Fungsi untuk mendeteksi posisi scroll layar
+            window.addEventListener('scroll', () => {
+                let currentSectionId = '';
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    
+                    // Deteksi jika posisi scroll sudah melewati posisi seksi terkait
+                    if (window.pageYOffset >= (sectionTop - 150)) {
+                        currentSectionId = section.getAttribute('id');
+                    }
+                });
+
+                // Hapus kelas 'active' dari semua menu, dan tambahkan hanya pada menu yang aktif
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${currentSectionId}`) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+            
+            // Tambahkan juga kelas active secara langsung saat menu pertama kali diklik
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    navLinks.forEach(item => item.classList.remove('active'));
+                    link.classList.add('active');
+                });
+            });
+        });
+    </script>
+
 </body>
+
 </html>
