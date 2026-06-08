@@ -20,7 +20,7 @@ if (isset($_POST['login'])) {
         if ($pass_input == $row['Kata_Sandi']) {
             $_SESSION['login']   = true;
             $_SESSION['id_akun'] = $row['ID_Akun'];
-            
+
             $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
             $_SESSION['role'] = $role_map[$row['Role']];
 
@@ -72,7 +72,6 @@ if (isset($_POST['login'])) {
             position: relative;
         }
 
-        /* TOMBOL KEMBALI KE LANDING PAGE */
         .btn-back-home {
             position: absolute; top: 30px; left: 40px;
             color: #fff; text-decoration: none; font-size: 14px; font-weight: 700;
@@ -97,11 +96,54 @@ if (isset($_POST['login'])) {
         h1 { font-size: 28px; font-weight: 900; color: #fff; text-transform: uppercase; margin-bottom: 5px; letter-spacing: -1px; }
         .subtitle { color: #666; font-size: 13px; margin-bottom: 35px; display: block; }
 
-        .input-group { position: relative; margin-bottom: 15px; text-align: left; }
-        .input-group i { position: absolute; left: 15px; top: 15px; color: #444; font-size: 14px; }
-        input { width: 100%; padding: 15px 15px 15px 45px; background: var(--input-bg); border: 1px solid #333; color: white; border-radius: 12px; font-size: 14px; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--orange); background: #000; box-shadow: 0 0 10px rgba(255,69,0,0.2); }
-        
+        /* ===== INPUT GROUP KONSISTEN ===== */
+        .input-group { 
+            position: relative; 
+            margin-bottom: 15px; 
+            text-align: left; 
+        }
+        .input-group .icon-left {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #444;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .input-group .icon-right {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 2;
+            padding: 5px;
+        }
+        .input-group .icon-right:hover { color: var(--orange); }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 45px 15px 45px;
+            background: var(--input-bg);
+            border: 1px solid #333;
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-group input:focus { 
+            border-color: var(--orange); 
+            background: #000; 
+            box-shadow: 0 0 10px rgba(255,69,0,0.2); 
+        }
+        /* ================================== */
+
         .remember-row { display: flex; align-items: center; justify-content: space-between; margin: 15px 0 25px; }
         .check-container { display: flex; align-items: center; gap: 8px; }
         .check-container label { color: #888; font-size: 13px; cursor: pointer; }
@@ -109,14 +151,14 @@ if (isset($_POST['login'])) {
 
         .btn-submit { width: 100%; padding: 16px; background: var(--orange); color: #fff; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 1px; }
         .btn-submit:hover { background: #e03d00; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255,69,0,0.3); }
-        
+
         .divider { display: flex; align-items: center; margin: 25px 0; color: #222; font-size: 11px; font-weight: 800; text-transform: uppercase; }
         .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #222; }
         .divider span { padding: 0 15px; }
 
         .btn-google { width: 100%; padding: 14px; background: #fff; color: #000; border-radius: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 700; font-size: 14px; transition: 0.3s; }
         .btn-google:hover { background: #f1f1f1; }
-        
+
         .auth-footer { margin-top: 30px; font-size: 13px; color: #555; }
         .auth-footer a { color: var(--orange); text-decoration: none; font-weight: 800; }
     </style>
@@ -124,26 +166,25 @@ if (isset($_POST['login'])) {
 <body>
 
 <div class="auth-page">
-    <!-- TOMBOL KEMBALI KE BERANDA -->
     <a href="index.php" class="btn-back-home">
         <i class="fa-solid fa-arrow-left"></i> Kembali ke Beranda
     </a>
 
     <div class="auth-box">
-        <!-- Logo bisa diklik balik ke Landing Page -->
         <a href="index.php" class="logo-link"><i class="fa-solid fa-basketball"></i></a>
-        
+
         <h1>HoopBall Login</h1>
         <span class="subtitle">Satu akun untuk semua akses arena.</span>
 
         <form method="POST">
             <div class="input-group">
-                <i class="fa-solid fa-user"></i>
+                <i class="fa-solid fa-user icon-left"></i>
                 <input type="text" name="user_input" placeholder="Username atau Email" value="<?= htmlspecialchars($remembered_user) ?>" required>
             </div>
             <div class="input-group">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" name="password_input" placeholder="Kata Sandi" required>
+                <i class="fa-solid fa-lock icon-left"></i>
+                <input type="password" name="password_input" id="passwordInput" placeholder="Kata Sandi" required>
+                <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
             </div>
 
             <div class="remember-row">
@@ -167,7 +208,6 @@ if (isset($_POST['login'])) {
     </div>
 </div>
 
-<!-- Logika Notifikasi SweetAlert -->
 <?php if($error_msg): ?>
 <script>
     Swal.fire({
@@ -180,6 +220,23 @@ if (isset($_POST['login'])) {
     });
 </script>
 <?php endif; ?>
+
+<script>
+function togglePassword() {
+    const passInput = document.getElementById('passwordInput');
+    const toggleIcon = document.getElementById('togglePass');
+
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
 
 </body>
 </html>
