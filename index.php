@@ -1824,7 +1824,7 @@ font-size: 13px; /* Diturunkan dari 15px */
     <!-- BOOKING PROCESS -->
     <section class="process-section" id="jadwal">
         <div class="section-header">
-            <h2>Cara Pemesanan</h2>
+            <h2>Cara Booking Lapangan</h2>
         </div>
         <div class="process-grid">
             <div class="process-card">

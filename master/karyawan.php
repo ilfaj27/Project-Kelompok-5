@@ -41,6 +41,9 @@ if ($q_akun_bebas) while ($ak = sqlsrv_fetch_array($q_akun_bebas, SQLSRV_FETCH_A
 $q_total = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan");
 $total_kry = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
+$q_total_akun = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Akun WHERE Status_Akun = 1");
+$total_akun_aktif = sqlsrv_fetch_array($q_total_akun, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+
 $query = sqlsrv_query($conn, "SELECT * FROM Karyawan ORDER BY ID_Karyawan ASC");
 ?>
 <!DOCTYPE html>
@@ -52,120 +55,158 @@ $query = sqlsrv_query($conn, "SELECT * FROM Karyawan ORDER BY ID_Karyawan ASC");
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
+/* ═══ ROOT VARIABLES — IDENTIK DENGAN DASHBOARD PEMILIK ═══ */
 :root {
-    --orange:    #FF4500;
-    --orange-lt: rgba(255,69,0,.12);
-    --green:     #10B981;
-    --blue:      #3B82F6;
-    --purple:    #8B5CF6;
-    --red:       #EF4444;
-    --sidebar:   #0D1117;
-    --sidebar-w: 260px;
-    --topbar-h:  70px;
-    --card-bg:   #fff;
-    --border:    #E5E7EB;
-    --text:      #111827;
-    --muted:     #6B7280;
-    --bg:        #F3F4F6;
+    --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
+    --green: #10B981; --green-lt: rgba(16,185,129,.10);
+    --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
+    --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
+    --red: #EF4444; --red-lt: rgba(239,68,68,.10);
+    --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
+    --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
+    --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
+    --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* SIDEBAR */
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; }
+/* ═══ SIDEBAR — IDENTIK DENGAN DASHBOARD ═══ */
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
 .sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
 .sb-brand-sub { font-size: 9px; color: #4B5563; font-weight: 700; text-transform: uppercase; }
 .sb-section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #374151; letter-spacing: .8px; padding: 0 10px; margin: 22px 0 8px; }
-.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: background .2s, color .2s; }
+.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all .2s ease; position: relative; }
 .sb-link .sb-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: .2s; flex-shrink: 0; background: rgba(255,255,255,.04); }
-.sb-link:hover { color: #E5E7EB; }
+.sb-link:hover { color: #E5E7EB; background: rgba(255,255,255,.04); }
 .sb-link:hover .sb-icon-wrap { background: rgba(255,255,255,.08); }
-.sb-link.active { color: #fff; background: rgba(255,69,0,.1); }
+.sb-link.active { color: #fff; background: var(--orange-lt); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
-.sb-bottom { margin-top: auto; }
+.sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
 .sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
-.sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; }
-.sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; }
-.sb-logout:hover { color: var(--red); }
+.sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
+.sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* MAIN */
+/* ═══ MAIN & TOPBAR — IDENTIK DENGAN DASHBOARD ═══ */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-
-/* TOPBAR */
-.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
 .topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
-.topbar-btn:hover { border-color: var(--orange); color: var(--orange); }
+.topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
-.t-role { font-size: 10px; color: var(--orange); font-weight: 700; }
+.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
-.dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 180px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
+.dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
+.dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* CONTENT */
+/* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
-.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+
+/* ═══ PAGE HEADER — SAMA PERSIS DENGAN DASHBOARD ═══ */
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
-.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; letter-spacing: -.5px; }
 
-/* STAT CHIPS */
-.stat-chips { display: flex; gap: 10px; align-items: center; }
-.stat-chip { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; }
-.chip-purple { background: rgba(139,92,246,.1); color: var(--purple); }
-.chip-val    { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; }
+/* ═══ STAT CARDS — IDENTIK DENGAN DASHBOARD ═══ */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
+.stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+.sc-purple::before { background: var(--purple); }
+.sc-blue::before { background: var(--blue); }
+.sc-green::before { background: var(--green); }
+.stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.si-purple { background: var(--purple-lt); color: var(--purple); }
+.si-blue { background: var(--blue-lt); color: var(--blue); }
+.si-green { background: var(--green-lt); color: var(--green); }
+.stat-trend { font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 20px; }
+.trend-up { color: var(--green); background: var(--green-lt); }
+.stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 6px; }
+.stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-.btn-add { display: flex; align-items: center; gap: 8px; background: var(--text); color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; }
-.btn-add:hover { background: var(--orange); transform: translateY(-1px); }
+/* ═══ CARD — IDENTIK DENGAN DASHBOARD ═══ */
+.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
+.card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
 
-/* TABLE */
-.card { background: var(--card-bg); border-radius: 18px; border: 1px solid var(--border); overflow: hidden; }
+/* ═══ TOMBOL ADD — IDENTIK DENGAN DASHBOARD ═══ */
+.btn-add { display: flex; align-items: center; gap: 8px; background: var(--text); color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; text-decoration: none; }
+.btn-add:hover { background: var(--orange); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.25); }
+
+/* ═══ TABLE — IDENTIK DENGAN DASHBOARD ═══ */
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th { padding: 13px 20px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--bg); text-align: left; }
-.data-table td { padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--bg); vertical-align: middle; }
+.data-table th { padding: 13px 20px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
+.data-table td { padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background .15s; }
 .data-table tbody tr:hover td { background: #FAFAFA; }
-.emp-id   { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
+
+.emp-id { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 .emp-name { font-weight: 700; color: var(--text); }
-.jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+/* ═══ BADGE JABATAN ═══ */
+.jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
+.jk-badge { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* ═══ ACTION BUTTONS ═══ */
 .actions { display: flex; gap: 4px; justify-content: flex-end; }
 .btn-act { width: 34px; height: 34px; border: none; background: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--muted); text-decoration: none; cursor: pointer; font-size: 14px; transition: .2s; }
-.btn-act:hover      { background: var(--bg); }
-.btn-act.edit:hover { color: var(--orange); }
-.btn-act.del:hover  { color: var(--red); background: #FEF2F2; }
+.btn-act:hover { background: var(--bg); }
+.btn-act.edit:hover { color: var(--orange); background: var(--orange-lt); }
+.btn-act.del:hover  { color: var(--red); background: var(--red-lt); }
 
-/* MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+/* ═══ EMPTY STATE ═══ */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state i { font-size: 40px; opacity: .3; display: block; margin-bottom: 14px; }
+.empty-state p { font-size: 13px; font-weight: 700; }
+
+/* ═══ MODAL — DIPOLES SESUAI GAYA DASHBOARD ═══ */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-overlay.hidden { display: none; }
-.modal-box { background: #fff; padding: 40px; border-radius: 20px; width: 560px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; max-height: 90vh; overflow-y: auto; }
-.modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; transition: .2s; }
-.modal-close:hover { color: var(--red); }
-.modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); text-transform: uppercase; margin-bottom: 4px; }
-.modal-sub   { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-.form-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.full-width  { grid-column: span 2; }
+.modal-box { background: #fff; border-radius: 20px; width: 560px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; max-height: 90vh; overflow-y: auto; }
+.modal-head { padding: 28px 32px 24px; border-bottom: 1px solid var(--border); }
+.modal-tag { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); letter-spacing: -.3px; }
+.modal-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.modal-body { padding: 28px 32px 32px; }
+.modal-close { position: absolute; top: 20px; right: 20px; background: var(--bg); border: 1px solid var(--border); font-size: 14px; color: var(--muted); cursor: pointer; transition: .2s; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { color: var(--red); border-color: var(--red); background: var(--red-lt); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.full-width { grid-column: span 2; }
 .field-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 6px; }
-.modal-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: 'Barlow', sans-serif; transition: .2s; background: #FAFAFA; }
-.modal-input:focus { outline: none; border-color: var(--orange); background: #fff; box-shadow: 0 0 0 3px rgba(255,69,0,.1); }
-.akun-notice { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 12px 15px; font-size: 12px; color: #92400E; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 20px; grid-column: span 2; }
+.modal-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: 'Barlow', sans-serif; transition: .2s; background: #FAFAFA; color: var(--text); }
+.modal-input:focus { outline: none; border-color: var(--orange); background: #fff; box-shadow: 0 0 0 3px rgba(255,69,0,.08); }
+.modal-input[readonly] { background: var(--border-lt); color: var(--muted); }
+.akun-notice { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 12px 15px; font-size: 12px; color: #92400E; font-weight: 600; display: flex; align-items: center; gap: 8px; grid-column: span 2; }
 .btn-submit { grid-column: span 2; width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; font-family: 'Barlow', sans-serif; margin-top: 8px; }
-.btn-submit:hover { background: #e03d00; }
-.btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+.btn-submit:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.25); }
+.btn-submit:disabled { background: #D1D5DB; cursor: not-allowed; transform: none; box-shadow: none; }
 </style>
 </head>
 <body>
@@ -174,91 +215,93 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 <div class="modal-overlay <?= ($edit_data || $show_add) ? '' : 'hidden' ?>" id="modal">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-title"><?= $edit_data ? 'Edit Data Staf' : 'Tambah Staf Baru' ?></div>
-        <div class="modal-sub"><?= $edit_data ? 'Perbarui informasi karyawan' : 'Daftarkan karyawan baru ke sistem' ?></div>
-        <form method="POST">
-            <div class="form-grid">
-                <?php if (!$edit_data && empty($akun_bebas)): ?>
-                <div class="akun-notice">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    Tidak ada akun tersedia. <a href="akun.php" style="color:var(--orange);font-weight:800;">Buat akun baru</a> terlebih dahulu.
+        <div class="modal-head">
+            <div class="modal-tag">Master Karyawan</div>
+            <div class="modal-title"><?= $edit_data ? 'Edit Data Staf' : 'Tambah Karyawan Baru' ?></div>
+            <div class="modal-sub"><?= $edit_data ? 'Perbarui informasi karyawan yang ada' : 'Daftarkan karyawan baru ke dalam sistem' ?></div>
+        </div>
+        <div class="modal-body">
+            <form method="POST">
+                <div class="form-grid">
+                    <?php if (!$edit_data && empty($akun_bebas)): ?>
+                    <div class="akun-notice">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        Tidak ada akun tersedia. <a href="akun.php" style="color:var(--orange);font-weight:800;margin-left:4px;">Buat akun baru</a> terlebih dahulu.
+                    </div>
+                    <?php endif; ?>
+                    <div>
+                        <label class="field-label">ID Karyawan</label>
+                        <input type="text" name="id_kry" class="modal-input" value="<?= $edit_data['ID_Karyawan'] ?? '' ?>" <?= $edit_data ? 'readonly' : 'required' ?> placeholder="KRY001">
+                    </div>
+                    <div>
+                        <label class="field-label">Nama Lengkap</label>
+                        <input type="text" name="nama" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Karyawan'] ?? '') ?>" required placeholder="Nama lengkap...">
+                    </div>
+                    <div>
+                        <label class="field-label">Jenis Kelamin</label>
+                        <select name="jk" class="modal-input">
+                            <option value="1" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin']==1)?'selected':''?>>Laki-laki</option>
+                            <option value="2" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin']==2)?'selected':''?>>Perempuan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label">Jabatan</label>
+                        <select name="jabatan" class="modal-input">
+                            <?php foreach ($map_jabatan as $id => $val): ?>
+                            <option value="<?= $id ?>" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan']==$id)?'selected':''?>><?= $val ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php if (!$edit_data): ?>
+                    <div class="full-width">
+                        <label class="field-label">Akun Terhubung <span style="color:var(--orange);">*</span></label>
+                        <select name="id_akun" class="modal-input" required <?= empty($akun_bebas) ? 'disabled' : '' ?>>
+                            <option value="">-- Pilih Akun yang Belum Dipakai --</option>
+                            <?php foreach ($akun_bebas as $ak): ?>
+                            <option value="<?= $ak['ID_Akun'] ?>"><?= $ak['ID_Akun'] ?> — <?= htmlspecialchars($ak['Email']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+                    <div class="full-width">
+                        <label class="field-label">Nomor Telepon</label>
+                        <input type="text" name="telp" class="modal-input" value="<?= htmlspecialchars($edit_data['No_Telepon'] ?? '') ?>" placeholder="08123456789" required pattern="[0-9]{10,14}">
+                    </div>
+                    <button type="submit" name="<?= $edit_data ? 'update_karyawan' : 'add_karyawan' ?>" class="btn-submit" <?= (!$edit_data && empty($akun_bebas)) ? 'disabled' : '' ?>>
+                        <i class="fa-solid <?= $edit_data ? 'fa-floppy-disk' : 'fa-user-plus' ?>"></i>
+                        <?= $edit_data ? 'Simpan Perubahan' : 'Daftarkan Karyawan' ?>
+                    </button>
                 </div>
-                <?php endif; ?>
-                <div>
-                    <label class="field-label">ID Karyawan</label>
-                    <input type="text" name="id_kry" class="modal-input" value="<?= $edit_data['ID_Karyawan'] ?? '' ?>" <?= $edit_data ? 'readonly' : 'required' ?> placeholder="KRY001">
-                </div>
-                <div>
-                    <label class="field-label">Nama Lengkap</label>
-                    <input type="text" name="nama" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Karyawan'] ?? '') ?>" required placeholder="Nama lengkap...">
-                </div>
-                <div>
-                    <label class="field-label">Jenis Kelamin</label>
-                    <select name="jk" class="modal-input">
-                        <option value="1" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin']==1)?'selected':''?>>Laki-laki</option>
-                        <option value="2" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin']==2)?'selected':''?>>Perempuan</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="field-label">Jabatan</label>
-                    <select name="jabatan" class="modal-input">
-                        <?php foreach ($map_jabatan as $id => $val): ?>
-                        <option value="<?= $id ?>" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan']==$id)?'selected':''?>><?= $val ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <?php if (!$edit_data): ?>
-                <div class="full-width">
-                    <label class="field-label">Pilih Akun Terhubung <span style="color:var(--orange);">*</span></label>
-                    <select name="id_akun" class="modal-input" required <?= empty($akun_bebas) ? 'disabled' : '' ?>>
-                        <option value="">-- Pilih Akun yang Belum Dipakai --</option>
-                        <?php foreach ($akun_bebas as $ak): ?>
-                        <option value="<?= $ak['ID_Akun'] ?>"><?= $ak['ID_Akun'] ?> — <?= htmlspecialchars($ak['Email']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <?php endif; ?>
-                <div class="full-width">
-                    <label class="field-label">Nomor Telepon</label>
-                    <input type="text" name="telp" class="modal-input" value="<?= htmlspecialchars($edit_data['No_Telepon'] ?? '') ?>" placeholder="08123456789" required pattern="[0-9]{10,14}">
-                </div>
-                <button type="submit" name="<?= $edit_data ? 'update_karyawan' : 'add_karyawan' ?>" class="btn-submit" <?= (!$edit_data && empty($akun_bebas)) ? 'disabled' : '' ?>>
-                    <?= $edit_data ? 'Simpan Perubahan' : 'Daftarkan Karyawan' ?>
-                </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
-    <a href="../dashboard.php" class="sb-brand">
+    <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
             <div class="sb-brand-sub">Management System</div>
         </div>
     </a>
-    <div class="sb-section-label">Menu Utama</div>
+    <div class="sb-section-label">Manajemen</div>
     <nav>
-        <a href="../dashboard.php" class="sb-link">
+        <a href="../view_pemilik.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard
         </a>
-        <a href="#" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div> Booking
-        </a>
-        <div class="sb-section-label">Owner Only</div>
         <a href="akun.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Data Akun
+            <div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Akun
         </a>
         <a href="karyawan.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Data Karyawan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan
         </a>
-        <a href="supplier.php" class="sb-link">
+        <a href="alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div> Kelola Alat
         </a>
         <a href="../laporan/omzet.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet
         </a>
     </nav>
     <div class="sb-section-label">Akun</div>
@@ -279,10 +322,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 <!-- ═══ MAIN ═══ -->
 <main class="main">
+    <!-- TOPBAR -->
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Karyawan</div>
-            <div class="topbar-breadcrumb">Manajemen Karyawan</div>
+            <div class="topbar-breadcrumb">Manajemen / Karyawan</div>
         </div>
         <div class="topbar-right">
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
@@ -309,22 +353,56 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </header>
 
     <div class="content">
+        <!-- PAGE HEADER -->
         <div class="page-header">
             <div>
                 <div class="page-title-tag"></div>
                 <div class="page-title">Daftar Karyawan</div>
             </div>
-            <div style="display:flex; align-items:center; gap:16px;">
-                <div class="stat-chips">
-                    <div class="stat-chip chip-purple">
-                        <i class="fa-solid fa-user-tie"></i> TOTAL KARYAWAN <span class="chip-val"><?= $total_kry ?></span>
-                    </div>
+            <button class="btn-add" onclick="openModal()">
+                <i class="fa-solid fa-plus"></i> Tambah Karyawan
+            </button>
+        </div>
+
+        <!-- STAT CARDS -->
+        <div class="stat-grid">
+            <div class="stat-card sc-purple">
+                <div class="stat-header">
+                    <div class="stat-icon-wrap si-purple"><i class="fa-solid fa-user-tie"></i></div>
+                    <div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div>
                 </div>
-                <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
+                <div class="stat-value"><?= $total_kry ?></div>
+                <div class="stat-label">Total Karyawan</div>
+                <div class="stat-sublabel">Terdaftar di sistem</div>
+            </div>
+            <div class="stat-card sc-blue">
+                <div class="stat-header">
+                    <div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div>
+                </div>
+                <div class="stat-value"><?= $total_akun_aktif ?></div>
+                <div class="stat-label">Akun Aktif</div>
+                <div class="stat-sublabel">Akun dengan status aktif</div>
+            </div>
+            <div class="stat-card sc-green">
+                <div class="stat-header">
+                    <div class="stat-icon-wrap si-green"><i class="fa-solid fa-briefcase"></i></div>
+                    <div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Posisi</div>
+                </div>
+                <div class="stat-value"><?= count($map_jabatan) ?></div>
+                <div class="stat-label">Jenis Jabatan</div>
+                <div class="stat-sublabel">Posisi tersedia di sistem</div>
             </div>
         </div>
 
+        <!-- DATA TABLE -->
         <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fa-solid fa-user-tie"></i> Data Karyawan
+                </div>
+                <span class="card-badge"><?= $total_kry ?> total</span>
+            </div>
             <div class="table-wrap">
                 <table class="data-table">
                     <thead>
@@ -344,22 +422,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     ?>
                         <tr>
                             <td class="emp-id"><?= htmlspecialchars($row['ID_Karyawan']) ?></td>
-                            <td class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></td>
+                            <td>
+                                <div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div>
+                                <div class="cell-detail"><?= $row['Jenis_Kelamin'] == 1 ? '♂ Laki-laki' : '♀ Perempuan' ?></div>
+                            </td>
                             <td><span class="jabatan-badge"><?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?></span></td>
-                            <td style="color:var(--muted);"><?= htmlspecialchars($row['No_Telepon']) ?></td>
+                            <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
                             <td>
                                 <div class="actions">
-                                    <a href="?edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-act edit" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>
+                                    <a href="?edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-act edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
                                     <button onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>')" class="btn-act del" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
                                 </div>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                     <?php if (!$has_data): ?>
-                        <tr><td colspan="5" style="text-align:center; padding:50px; color:var(--muted);">
-                            <i class="fa-solid fa-user-tie" style="font-size:32px; opacity:.3; display:block; margin-bottom:12px;"></i>
-                            Belum ada data karyawan
-                        </td></tr>
+                        <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-user-tie"></i><p>Belum ada data karyawan terdaftar</p></div></td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -373,15 +451,31 @@ function openModal()  { document.getElementById('modal').classList.remove('hidde
 function closeModal() { window.location.href = 'karyawan.php'; }
 
 function confirmDelete(id) {
-    Swal.fire({ title:'Hapus Karyawan?', text:'Data staf akan dihapus permanen!', icon:'warning', showCancelButton:true, confirmButtonColor:'#EF4444', cancelButtonColor:'#6B7280', confirmButtonText:'Ya, Hapus!', cancelButtonText:'Batal' })
-    .then((r) => { if (r.isConfirmed) window.location.href = '?delete_id=' + id; });
+    Swal.fire({
+        title: 'Hapus Karyawan?',
+        text: 'Data staf akan dihapus secara permanen!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        borderRadius: '16px'
+    }).then((r) => { if (r.isConfirmed) window.location.href = '?delete_id=' + id; });
 }
 
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
-const msg    = urlParams.get('msg');
+const msg = urlParams.get('msg');
 if (status && msg) {
-    Swal.fire({ icon: status==='success'?'success':'error', title: status==='success'?'Berhasil!':'Gagal!', text: msg, timer: 3000, showConfirmButton: false, iconColor: '#FF4500' });
+    Swal.fire({
+        icon: status === 'success' ? 'success' : 'error',
+        title: status === 'success' ? 'Berhasil!' : 'Gagal!',
+        text: msg,
+        timer: 3000,
+        showConfirmButton: false,
+        iconColor: '#FF4500'
+    });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
