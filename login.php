@@ -43,7 +43,7 @@ if (isset($_POST['login'])) {
             header("Location: dashboard.php");
             exit();
         } else {
-            $error_msg = "Kata sandi yang Anda masukkan salah.";
+            $error_msg = "Username Atau Kata Sandi yang Anda masukkan salah.";
         }
     } else {
         $error_msg = "Akun tidak ditemukan atau sedang dinonaktifkan.";
