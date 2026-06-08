@@ -13,6 +13,7 @@ $nama = $_SESSION['nama'];
 if ($role == 'customer') {
     include 'view_customer.php';
 } else {
-    include 'view_admin.php'; // Digunakan oleh Karyawan & Pemilik
+    include 'view_admin.php'; // Digunakan oleh Karyawan & Pemilikk
 }
 ?>
+//bc
