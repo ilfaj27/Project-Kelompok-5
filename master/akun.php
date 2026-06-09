@@ -11,6 +11,33 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
 $nama_user = $_SESSION['nama'];
 $role_user = $_SESSION['role'];
 
+// ═══════════════════════════════════════════
+// HELPER: Get Profile Photo Path (Consistent across all pages)
+// ═══════════════════════════════════════════
+function getProfilePhotoPath() {
+    $photo = $_SESSION['Profile_Photo'] ?? '';
+    if (empty($photo)) return '';
+
+    $current_dir = dirname($_SERVER['PHP_SELF']);
+    if (strpos($current_dir, '/master/') !== false || strpos($current_dir, '/laporan/') !== false) {
+        return '../' . $photo;
+    }
+    return $photo;
+}
+
+function getProfilePhotoAbsolutePath() {
+    $photo = $_SESSION['Profile_Photo'] ?? '';
+    if (empty($photo)) return '';
+    return dirname(__DIR__) . '/' . $photo;
+}
+
+$profile_photo = getProfilePhotoPath();
+$profile_photo_abs = getProfilePhotoAbsolutePath();
+
+if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
+    $profile_photo = '';
+}
+
 // --- 2. LOGIKA MAPPING ROLE ---
 $current_filter = isset($_GET['role']) ? $_GET['role'] : 'all';
 $role_map = ['manajer' => 1, 'karyawan' => 2, 'customer' => 3];
@@ -55,9 +82,19 @@ if (isset($_POST['create_karyawan'])) {
     exit();
 }
 
-// UPDATE AKUN
+// UPDATE AKUN — HANYA UNTUK KARYAWAN (Role 2)
 if (isset($_POST['update_akun'])) {
     $id = $_POST['id_akun'];
+    
+    // Validasi: hanya karyawan yang boleh di-update via master akun
+    $checkRole = sqlsrv_query($conn, "SELECT Role FROM Akun WHERE ID_Akun = ?", array($id));
+    $roleData = sqlsrv_fetch_array($checkRole, SQLSRV_FETCH_ASSOC);
+    
+    if ($roleData['Role'] != 2) {
+        header("Location: akun.php?role=$current_filter&status=error&msg=Akun ini hanya dapat diubah via halaman Profil!");
+        exit();
+    }
+    
     $username = $_POST['username'];
     $email = $_POST['email'];
     $pass = $_POST['password'];
@@ -92,8 +129,15 @@ if (isset($_GET['delete_id'])) {
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
+    // Validasi: hanya karyawan yang boleh di-edit via master akun
     $res_edit = sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ?", array($_GET['edit_id']));
     $edit_data = sqlsrv_fetch_array($res_edit, SQLSRV_FETCH_ASSOC);
+    
+    // Jika bukan karyawan, redirect dengan pesan error
+    if ($edit_data && $edit_data['Role'] != 2) {
+        header("Location: akun.php?role=$current_filter&status=error&msg=Akun Manajer/Customer hanya dapat diubah via halaman Profil!");
+        exit();
+    }
 }
 $show_create = isset($_GET['create']) && $_GET['create'] == '1' && $current_filter === 'karyawan';
 
@@ -358,12 +402,12 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </head>
 <body>
 
-<!-- ═══ MODAL (Create / Edit) ═══ -->
+<!-- ═══ MODAL (Create / Edit Karyawan Only) ═══ -->
 <div class="modal-overlay <?= ($edit_data || $show_create) ? '' : 'hidden' ?>" id="modalAkun">
     <div class="modal-box">
         <div class="modal-header">
             <div class="modal-subtitle">Master Akun</div>
-            <h2 class="modal-title"><?= $edit_data ? 'Edit Akses Akun' : 'Tambah Karyawan Baru' ?></h2>
+            <h2 class="modal-title"><?= $edit_data ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru' ?></h2>
         </div>
         <div class="modal-body">
             <form method="POST" id="formAkun" onsubmit="return validateForm(this)">
@@ -384,9 +428,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 
                     <label class="modal-label">Role <span class="required">*</span></label>
                     <select name="role" class="modal-select" required>
-                        <option value="1" <?= $edit_data['Role'] == 1 ? 'selected' : '' ?>>Manajer</option>
                         <option value="2" <?= $edit_data['Role'] == 2 ? 'selected' : '' ?>>Karyawan</option>
-                        <option value="3" <?= $edit_data['Role'] == 3 ? 'selected' : '' ?>>Customer</option>
                     </select>
 
                     <button type="submit" name="update_akun" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
@@ -412,7 +454,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
+<<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -425,14 +467,20 @@ tbody tr:hover td { background-color: #FED7AA !important; }
         <a href="../view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
         <a href="akun.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Akun</a>
         <a href="karyawan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
-        <a href="alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-truck-fast"></i></div> Kelola Alat</a>
+        <a href="alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div> Kelola Alat</a>
         <a href="../laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
     </nav>
     <div class="sb-section-label">Akun</div>
     <a href="../profile.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="sb-avatar">
+            <?php if ($profile_photo): ?>
+                <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+            <?php else: ?>
+                <i class="fa-solid fa-user"></i>
+            <?php endif; ?>
+        </div>
             <div>
                 <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
                 <div class="sb-user-role">PEMILIK</div>
@@ -443,7 +491,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Akun</div>
@@ -454,7 +502,13 @@ tbody tr:hover td { background-color: #FED7AA !important; }
             <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="t-avatar">
+                    <?php if ($profile_photo): ?>
+                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
                         <div class="t-role">PEMILIK</div>
@@ -534,7 +588,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $row_num = 0; while($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $is_active = $row['Status_Akun'] == 1; $is_customer = $row['Role'] == 3; ?>
+                    <?php $row_num = 0; while($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $is_active = $row['Status_Akun'] == 1; $is_customer = $row['Role'] == 3; $is_manajer = $row['Role'] == 1; $is_karyawan = $row['Role'] == 2; ?>
                     <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                         <td>
                             <div style="display:flex; align-items:center; gap:8px;">
@@ -558,9 +612,16 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                         <td><span class="role-badge badge-<?= $row['Role'] ?>"><?= $role_label_map[$row['Role']] ?></span></td>
                         <td style="text-align:right;">
                             <div class="action-group">
-                                <?php if (!$is_customer): ?>
-                                    <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+                                <?php if ($is_karyawan): ?>
+                                    <!-- HANYA KARYAWAN YANG BISA DI-EDIT DI MASTER AKUN -->
+                                    <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun Karyawan"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+                                <?php elseif ($is_manajer): ?>
+                                    <!-- MANAJER: TIDAK ADA TOMBOL EDIT, HANYA INFO -->
+                                    <span style="font-size: 11px; color: var(--muted); font-weight: 600; padding: 8px 12px; background: var(--border-lt); border-radius: 8px;">
+                                        <i class="fa-solid fa-lock" style="margin-right: 4px;"></i> Edit via Profil
+                                    </span>
                                 <?php endif; ?>
+                                
                                 <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> akun">
                                     <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status_Akun'] ?>)">
                                     <span class="toggle-slider"></span>

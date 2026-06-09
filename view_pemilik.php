@@ -10,6 +10,12 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 
+// Get profile photo from session
+$profile_photo = $_SESSION['Profile_Photo'] ?? '';
+if (!empty($profile_photo) && !file_exists($profile_photo)) {
+    $profile_photo = '';
+}
+
 // Helper function untuk query dengan error handling
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
@@ -312,7 +318,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             Kelola Karyawan
         </a>
         <a href="master/supplier.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-truck-fast"></i></div>
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
         <a href="laporan/omzet.php" class="sb-link">
@@ -330,7 +336,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="sb-avatar">
+                <?php if ($profile_photo): ?>
+                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
+            </div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">PEMILIK</div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
@@ -352,7 +364,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?></a>
         <div class="dropdown-wrap">
             <div class="topbar-user">
-                <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="t-avatar">
+                    <?php if ($profile_photo): ?>
+                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
                 <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">PEMILIK</div></div>
                 <i class="fa-solid fa-chevron-down t-chevron"></i>
             </div>

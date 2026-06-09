@@ -9,6 +9,33 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
 $nama = $_SESSION['nama'];
 $role = $_SESSION['role'];
 
+// ═══════════════════════════════════════════
+// HELPER: Get Profile Photo Path (Consistent across all pages)
+// ═══════════════════════════════════════════
+function getProfilePhotoPath() {
+    $photo = $_SESSION['Profile_Photo'] ?? '';
+    if (empty($photo)) return '';
+
+    $current_dir = dirname($_SERVER['PHP_SELF']);
+    if (strpos($current_dir, '/master/') !== false || strpos($current_dir, '/laporan/') !== false) {
+        return '../' . $photo;
+    }
+    return $photo;
+}
+
+function getProfilePhotoAbsolutePath() {
+    $photo = $_SESSION['Profile_Photo'] ?? '';
+    if (empty($photo)) return '';
+    return dirname(__DIR__) . '/' . $photo;
+}
+
+$profile_photo = getProfilePhotoPath();
+$profile_photo_abs = getProfilePhotoAbsolutePath();
+
+if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
+    $profile_photo = '';
+}
+
 $map_jabatan = [1=>'Admin Utama', 2=>'Pemilik / Owner', 3=>'Kasir Pembayaran', 4=>'Staf Operasional', 5=>'Keamanan'];
 
 if (isset($_POST['add_karyawan'])) {
@@ -363,7 +390,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <a href="../profile.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="sb-avatar">
+                    <?php if ($profile_photo): ?>
+                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+        </div>
             <div>
                 <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                 <div class="sb-user-role">PEMILIK</div>
@@ -385,7 +418,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="t-avatar">
+                    <?php if ($profile_photo): ?>
+                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role">PEMILIK</div>
