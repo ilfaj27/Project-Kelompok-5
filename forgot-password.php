@@ -40,16 +40,27 @@ if (isset($_POST['reset_password'])) {
         $id_akun  = $_SESSION['reset_id_akun'];
         $new_pass = $_POST['new_password'];
 
-        $sql = "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?";
-        $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun));
+        // AMBIL KATA SANDI LAMA DARI DATABASE UNTUK PENGECEKAN KEAMANAN (ATURAN BARU)
+        $q_old = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Akun WHERE ID_Akun = ?", array($id_akun));
+        $d_old = sqlsrv_fetch_array($q_old, SQLSRV_FETCH_ASSOC);
+        $old_pass = $d_old['Kata_Sandi'] ?? '';
 
-        if ($stmt !== false) {
-            unset($_SESSION['reset_id_akun']); // Hapus sesi pengenal sementara
-            $res_status = "success";
-            $res_msg = "Kata Sandi Berhasil Diperbarui! Silakan Login Kembali.";
-        } else {
+        if ($new_pass === $old_pass) {
+            // ATURAN BARU: Menolak jika kata sandi baru sama dengan yang lama
             $res_status = "error";
-            $res_msg = "Gagal memperbarui kata sandi di sistem database.";
+            $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
+        } else {
+            $sql = "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?";
+            $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun));
+
+            if ($stmt !== false) {
+                unset($_SESSION['reset_id_akun']); // Hapus sesi pengenal sementara
+                $res_status = "success";
+                $res_msg = "Kata Sandi Berhasil Diperbarui! Silakan Login Kembali.";
+            } else {
+                $res_status = "error";
+                $res_msg = "Gagal memperbarui kata sandi di sistem database.";
+            }
         }
     } else {
         $res_status = "error";
@@ -99,7 +110,7 @@ if (isset($_POST['reset_password'])) {
         .auth-hero-wrapper {
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2000') no-repeat center center;
             background-size: cover; padding: 120px 8% 80px 8%;
-            display: grid; grid-template-columns: 1.12fr 1fr; gap: 50px; align-items: center; min-height: 100vh;
+            display: grid; grid-template-columns: 1.12fr 1fr; gap: 50px; align-items: start; min-height: 100vh;
         }
 
         .auth-info h2 { font-size: 48px; font-weight: 900; color: #ffffff; line-height: 1.15; margin-bottom: 16px; }
@@ -107,20 +118,13 @@ if (isset($_POST['reset_password'])) {
         .auth-info .intro-p { font-size: 15px; color: #94A3B8; line-height: 1.6; margin-bottom: 48px; max-width: 500px; }
 
         /* SISI KANAN: FLOATING WHITE CARD */
-        .auth-card-container { display: flex; justify-content: flex-end; }
+        .auth-card-container { display: flex; justify-content: flex-end; align-self: start; }
         .auth-card {
-              background: #ffffff;
-    border-radius: 24px;
-    width: 100%;
-    max-width: 450px;
-    padding: 44px 36px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-    text-align: center;
-    
-    /* DIUBAH: Gunakan min-height sebesar 530px (bukan height kaku).
-       Ini mengunci tinggi dasar di 530px saat normal, 
-       tetapi otomatis melar ke bawah jika ada pesan error merah yang muncul */
-    min-height: 530px; 
+            background: #ffffff; border-radius: 24px; width: 100%; max-width: 450px;
+            padding: 44px 36px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); text-align: center;
+            
+            /* DIUBAH: Menggunakan min-height agar melar ke bawah otomatis saat error muncul */
+            min-height: 520px; 
         }
         .auth-card h3 { font-size: 26px; font-weight: 800; color: var(--dark-blue); margin-bottom: 6px; }
         .auth-card .card-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; display: block; }
@@ -222,27 +226,28 @@ if (isset($_POST['reset_password'])) {
                             <span class="error-text" id="emailError"></span>
                         </div>
 
-                        <!-- Atribut maxlength disesuaikan menjadi 13 sesuai batas maksimum baru -->
-<div class="input-group">
-    <label>Nomor Telepon Terdaftar</label>
-    <div class="input-wrapper">
-        <i class="fa-solid fa-phone icon-left"></i>
-        <input type="text" name="telp_input" id="telpField" placeholder="0812xxxxxxxx" autocomplete="tel" maxlength="13">
-    </div>
-    <span class="error-text" id="telpError"></span>
-</div>
+                        <div class="input-group">
+                            <label>Nomor Telepon Terdaftar</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-phone icon-left"></i>
+                                <input type="text" name="telp_input" id="telpField" placeholder="0812xxxxxxxx" autocomplete="tel" maxlength="13">
+                            </div>
+                            <span class="error-text" id="telpError"></span>
+                        </div>
+
                         <button type="submit" name="verify_account" class="btn-submit" style="margin-top: 10px;">Verifikasi Akun</button>
                         <p class="card-footer">Kembali ke halaman <a href="login.php">Login</a></p>
                     </form>
                 <?php else: ?>
-                    <!-- TAMPILAN TAHAP 2: FORM RESET PASSWORD BARU (MUNCUL JIKA SUKSES VERIFIKASI) -->
+                    <!-- TAMPILAN TAHAP 2: FORM RESET PASSWORD BARU (KINI DENGAN ATURAN BARU YANG KETAT) -->
                     <span class="card-subtitle" style="color:var(--orange);"><b>Akun Terverifikasi!</b> Tulis Kata Sandi baru.</span>
                     <form method="POST" id="resetForm" novalidate>
                         <div class="input-group">
                             <label>Kata Sandi Baru</label>
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock icon-left"></i>
-                                <input type="password" name="new_password" id="passwordInput" placeholder="Min. 8 Karakter (Huruf & Angka)">
+                                <!-- Tambahkan pembatasan fisik maksimal 50 karakter -->
+                                <input type="password" name="new_password" id="passwordInput" placeholder="Min. 8 Karakter (Huruf & Angka)" maxlength="50">
                                 <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
                             </div>
                             <span class="error-text" id="passwordError"></span>
@@ -252,7 +257,7 @@ if (isset($_POST['reset_password'])) {
                             <label>Konfirmasi Kata Sandi Baru</label>
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock icon-left"></i>
-                                <input type="password" name="password_confirm" id="passwordConfirmInput" placeholder="Ulangi Kata Sandi">
+                                <input type="password" name="password_confirm" id="passwordConfirmInput" placeholder="Ulangi Kata Sandi" maxlength="50">
                                 <i class="fa-solid fa-eye icon-right" id="toggleConfirmPass" onclick="toggleConfirmPassword()"></i>
                             </div>
                             <span class="error-text" id="passwordConfirmError"></span>
@@ -339,11 +344,10 @@ if (isset($_POST['reset_password'])) {
     </script>
 
     <!-- VALIDASI JAVASCRIPT & EVENT HANDLERS -->
-<!-- VALIDASI JAVASCRIPT & EVENT HANDLERS (SANGAT KETAT) -->
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         
-        // FUNGSI PEMBANTU VALIDASI (Agar Kode Lebih Ramping & Rapi)
+        // FUNGSI PEMBANTU VALIDASI
         function setValidationError(inputEl, errorEl, message) {
             inputEl.parentElement.classList.add('error');
             inputEl.parentElement.parentElement.classList.add('error-active');
@@ -376,7 +380,7 @@ if (isset($_POST['reset_password'])) {
             verifyForm.addEventListener('submit', function (e) {
                 let isValid = true;
 
-                // 1. VALIDASI USERNAME (Aturan Baru)
+                // 1. VALIDASI USERNAME (3-30 Karakter, No Spasi, Huruf/Angka/Titik/Underscore)
                 const usernameVal = username.value.trim();
                 const usernamePattern = /^[a-zA-Z0-9\._]+$/;
 
@@ -396,7 +400,7 @@ if (isset($_POST['reset_password'])) {
                     clearValidationError(username, usernameError);
                 }
 
-                // 2. VALIDASI EMAIL (Aturan Baru)
+                // 2. VALIDASI EMAIL (Format Email Benar)
                 const emailVal = email.value.trim();
                 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -410,9 +414,9 @@ if (isset($_POST['reset_password'])) {
                     clearValidationError(email, emailError);
                 }
 
-                // 3. VALIDASI TELEPON (Aturan Baru)
+                // 3. VALIDASI TELEPON (Hanya angka murni, 10-13 digit)
                 const telpVal = telp.value.trim();
-                const phonePattern = /^[0-9]{10,13}$/; // Hanya angka, panjang 10 sampai 13 digit
+                const phonePattern = /^[0-9]{10,13}$/; 
 
                 if (telpVal === '') {
                     setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
@@ -440,7 +444,7 @@ if (isset($_POST['reset_password'])) {
             });
         }
 
-        // TAHAP 2: VALIDASI FORM RESET PASSWORD BARU (KONSISTEN)
+        // TAHAP 2: VALIDASI FORM RESET PASSWORD BARU (ATURAN KETAT TERBARU)
         const resetForm = document.getElementById('resetForm');
         if (resetForm) {
             const password = document.getElementById('passwordInput');
@@ -453,28 +457,34 @@ if (isset($_POST['reset_password'])) {
                 let isValid = true;
                 const hasLetter = /[a-zA-Z]/;
                 const hasNumber = /[0-9]/;
-                const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890'];
+                
+                // Daftar password yang dianggap terlalu mudah ditebak (seperti aturan Anda)
+                const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'password123'];
 
-                if (password.value.trim() === '') {
+                // 1. Validasi Kata Sandi Baru (Min 8, Max 50, Kombinasi Huruf & Angka, Tidak Mudah)
+                const passwordVal = password.value.trim();
+                if (passwordVal === '') {
                     setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
                     isValid = false;
-                } else if (password.value.trim().length < 8) {
-                    setValidationError(password, passwordError, 'Kata sandi minimal berisi 8 karakter.');
+                } else if (passwordVal.length < 8 || passwordVal.length > 50) {
+                    setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
                     isValid = false;
-                } else if (!hasLetter.test(password.value.trim()) || !hasNumber.test(password.value.trim())) {
-                    setValidationError(password, passwordError, 'Kata sandi harus kombinasi huruf dan angka.');
+                } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
+                    setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');
                     isValid = false;
-                } else if (simplePasswords.includes(password.value.trim().toLowerCase())) {
-                    setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak. Gunakan kombinasi lain.');
+                } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
+                    setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak (seperti 12345678 atau password123). Gunakan kombinasi lain.');
                     isValid = false;
                 } else {
                     clearValidationError(password, passwordError);
                 }
 
-                if (passwordConfirm.value.trim() === '') {
+                // 2. Validasi Konfirmasi Kata Sandi Baru (Wajib Diisi, Harus Sama)
+                const passwordConfirmVal = passwordConfirm.value.trim();
+                if (passwordConfirmVal === '') {
                     setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi wajib diisi.');
                     isValid = false;
-                } else if (passwordConfirm.value.trim() !== password.value.trim()) {
+                } else if (passwordConfirmVal !== passwordVal) {
                     setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi tidak cocok.');
                     isValid = false;
                 } else {
