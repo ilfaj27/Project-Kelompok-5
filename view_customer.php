@@ -50,27 +50,21 @@ cek_akses('customer');
         .nav-logo {
             display: flex;
             align-items: center;
-            gap: 10px;
             text-decoration: none;
-            color: var(--white);
+            height: 68px;
+            padding: 8px 0;
         }
-        .nav-logo-icon {
-            background: var(--orange);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
+        .nav-logo-img {
+            height: 100%;
+            width: auto;
+            max-width: 180px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease;
         }
-        .nav-logo-text {
-            display: flex;
-            flex-direction: column;
-            line-height: 1;
+        .nav-logo:hover .nav-logo-img {
+            transform: scale(1.05);
         }
-        .nav-logo-text .brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 18px; letter-spacing: 1px; }
-        .nav-logo-text .tagline { font-size: 9px; color: #888; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
         
         .nav-links {
             display: flex;
@@ -557,12 +551,8 @@ cek_akses('customer');
 
 <!-- NAVBAR -->
 <nav>
-    <a href="#" class="nav-logo">
-        <div class="nav-logo-icon"><i class="fa-solid fa-basketball" style="color:#fff;"></i></div>
-        <div class="nav-logo-text">
-            <span class="brand">HOOP ARENA</span>
-            <span class="tagline">Basketball Court</span>
-        </div>
+    <a href="view_customer.php" class="nav-logo">
+        <img src="logo.png" alt="HoopBall" class="nav-logo-img">
     </a>
     <div class="nav-links">
         <a href="#" class="active">Beranda</a>
@@ -580,7 +570,7 @@ cek_akses('customer');
             <i class="fa-solid fa-chevron-down arrow"></i>
         </div>
         <div class="dropdown-menu">
-            <a href="profile.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
+            <a href="profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>

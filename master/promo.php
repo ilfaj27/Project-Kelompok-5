@@ -196,6 +196,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:hover td { background: #FAFAFA; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
+/* ═══ ZEBRA STRIPING ═══ */
+.data-table tbody tr:nth-child(odd) td { background: #FFFFFF; }
+.data-table tbody tr:nth-child(even) td { background: #FFF7ED; }
+.data-table tbody tr:hover td { background: #FFEDD5 !important; }
+
 .promo-id   { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 .promo-name { font-weight: 700; color: var(--text); font-size: 14px; }
 .promo-disc { font-weight: 800; font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); }

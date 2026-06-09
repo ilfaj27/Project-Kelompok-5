@@ -96,25 +96,24 @@ if (file_exists('includes/config.php')) {
         }
 
         .logo {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 800;
             color: var(--dark);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             text-decoration: none;
         }
 
-        .logo i {
-            color: var(--orange);
+        .logo img {
+            width: auto;
+            height: 64px;
+            object-fit: contain;
             display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 
-            /* Transisi untuk putaran ikon */
-            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .logo:hover i {
-            transform: rotate(360deg);
         }
 
         .logo span {
@@ -1743,8 +1742,7 @@ if (file_exists('includes/config.php')) {
 
     <!-- NAVBAR -->
     <nav class="navbar">
-        <a href="#" class="logo"><i class="fa-solid fa-basketball"
-                style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
+        <a href="#" class="logo"><img src="logo2.png" alt="HoopBall"></a>
         <div class="nav-menu">
             <a href="#beranda">Beranda</a>
             <a href="#lapangan">Lapangan</a>
@@ -2058,8 +2056,7 @@ if (file_exists('includes/config.php')) {
     <footer id="tentang-kami">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="#" class="logo"><i class="fa-solid fa-basketball"
-                        style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
+                <a href="#" class="logo"><img src="logo2.png" alt="HoopBall"></a>
                 <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
                 <div class="social-links">
                     <a href="#"><i class="fa-brands fa-instagram"></i></a>

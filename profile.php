@@ -7,19 +7,18 @@ if (!isset($_SESSION['login']) && !isset($_SESSION['ID_Akun'])) {
     exit;
 }
 
-// Ambil data session (kompatibel dengan struktur view_pemilik.php)
+// Ambil data session
 $id_akun = $_SESSION['ID_Akun'] ?? $_SESSION['id_akun'] ?? '';
 $role = $_SESSION['role'] ?? $_SESSION['Role'] ?? '';
 $username = $_SESSION['nama'] ?? $_SESSION['Username'] ?? $_SESSION['username'] ?? '';
 $nama_user = $_SESSION['nama'] ?? '';
 
-// Jika ID_Akun kosong, redirect ke login
 if (empty($id_akun)) {
     header("Location: login.php");
     exit;
 }
 
-// Include config dengan path yang benar
+// Include config
 if (file_exists('includes/config.php')) {
     include 'includes/config.php';
 } elseif (file_exists('../includes/config.php')) {
@@ -28,11 +27,10 @@ if (file_exists('includes/config.php')) {
     die("Config file tidak ditemukan!");
 }
 
-// Role mapping for display
+// Role mapping
 $role_labels = ['pemilik' => 'Pemilik', 'karyawan' => 'Karyawan', 'customer' => 'Customer'];
 $role_label = $role_labels[strtolower($role)] ?? ucfirst($role);
 
-// Determine role type for logic
 $is_pemilik = strtolower($role) === 'pemilik';
 $is_karyawan = strtolower($role) === 'karyawan';
 $is_customer = strtolower($role) === 'customer';
@@ -44,7 +42,7 @@ if (isset($conn)) {
     $akun = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
 }
 
-// Fetch role-specific data
+// Fetch biodata
 $biodata = null;
 $can_edit = false;
 
@@ -52,79 +50,102 @@ if (isset($conn)) {
     if ($is_customer) {
         $res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Akun = ?", array($id_akun));
         $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
-        $can_edit = true; // Customer can edit
+        $can_edit = true;
     } elseif ($is_karyawan || $is_pemilik) {
         $res_kry = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Akun = ?", array($id_akun));
         $biodata = sqlsrv_fetch_array($res_kry, SQLSRV_FETCH_ASSOC);
-        // Only pemilik can edit, karyawan is view-only
         $can_edit = $is_pemilik;
     }
 }
 
-// Handle form submissions
-$success_msg = '';
-$error_msg = '';
+// ── HANDLE FORM SUBMISSIONS ──
+$flash_msg = '';
+$flash_type = '';
 
-// 1. Update Profile Photo - Available for ALL roles
+// 1. UPDATE PHOTO (All roles)
 if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     $file = $_FILES['photo'];
-    $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
-    $max_size = 2 * 1024 * 1024;
+    $allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/JPEG', 'image/JPG', 'image/PNG'];
+    $max_size = 2 * 1024 * 1024; // 2MB
 
-    if ($file['error'] === 0) {
-        if (in_array($file['type'], $allowed) && $file['size'] <= $max_size) {
-            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'profile_' . $id_akun . '_' . time() . '.' . $ext;
-            $upload_dir = 'uploads/profiles/';
+    // Debug: cek error upload
+    if ($file['error'] !== 0) {
+        $upload_errors = [
+            1 => 'File terlalu besar (max 2MB).',
+            2 => 'File terlalu besar (max 2MB).',
+            3 => 'File hanya terupload sebagian.',
+            4 => 'Tidak ada file yang dipilih.',
+            6 => 'Folder temporary tidak tersedia.',
+            7 => 'Gagal menulis file ke disk.',
+            8 => 'Upload dihentikan oleh extension.'
+        ];
+        $error_msg = $upload_errors[$file['error']] ?? 'Error upload: ' . $file['error'];
+        header("Location: profile.php?status=error&msg=" . urlencode($error_msg));
+        exit();
+    }
 
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
+    // Cek MIME type dengan getimagesize untuk lebih akurat
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
 
-            $upload_path = $upload_dir . $filename;
+    $allowed_mimes = ['image/jpeg', 'image/png', 'image/jpg'];
 
-            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                // Save to session for persistence across pages
-                $_SESSION['Profile_Photo'] = $upload_path;
-                $success_msg = 'Foto profil berhasil diperbarui!';
+    if (!in_array($mime_type, $allowed_mimes)) {
+        header("Location: profile.php?status=error&msg=" . urlencode('File harus JPG atau PNG. Type: ' . $mime_type));
+        exit();
+    }
 
-                // Refresh page to update all avatars immediately
-                header("Location: profile.php?photo_updated=1");
-                exit();
-            } else {
-                $error_msg = 'Gagal mengunggah foto. Coba lagi.';
-            }
-        } else {
-            $error_msg = 'File harus JPG/PNG dan maksimal 2MB.';
+    if ($file['size'] > $max_size) {
+        header("Location: profile.php?status=error&msg=" . urlencode('File terlalu besar. Max 2MB. Size: ' . round($file['size']/1024/1024, 2) . 'MB'));
+        exit();
+    }
+
+    // Generate nama file unik
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = 'profile_' . $id_akun . '_' . time() . '.' . strtolower($ext);
+    $upload_dir = 'uploads/profiles/';
+
+    // Buat folder jika belum ada
+    if (!is_dir($upload_dir)) {
+        if (!mkdir($upload_dir, 0755, true)) {
+            header("Location: profile.php?status=error&msg=" . urlencode('Gagal membuat folder upload.'));
+            exit();
         }
     }
-}
 
-// 2. Update Password - Only for Pemilik and Customer (NOT Karyawan)
-if (isset($_POST['update_password']) && !$is_karyawan) {
-    $old_pass = trim($_POST['old_password'] ?? '');
-    $new_pass = trim($_POST['new_password'] ?? '');
-    $confirm_pass = trim($_POST['confirm_password'] ?? '');
+    $upload_path = $upload_dir . $filename;
 
-    if ($old_pass !== ($akun['Kata_Sandi'] ?? '')) {
-        $error_msg = 'Password lama tidak sesuai.';
-    } elseif (strlen($new_pass) < 6) {
-        $error_msg = 'Password baru minimal 6 karakter.';
-    } elseif ($new_pass !== $confirm_pass) {
-        $error_msg = 'Konfirmasi password tidak cocok.';
+    // Cek apakah file berhasil dipindahkan
+    if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
+        header("Location: profile.php?status=error&msg=" . urlencode('Gagal memindahkan file. Cek permission folder.'));
+        exit();
+    }
+
+    // Update database
+    $sql = "UPDATE Akun SET Profile_Photo = ? WHERE ID_Akun = ?";
+    $stmt = sqlsrv_query($conn, $sql, array($upload_path, $id_akun));
+
+    if ($stmt) {
+        // Consume all results
+        while (sqlsrv_next_result($stmt)) {
+            sqlsrv_free_stmt($stmt);
+        }
+        $_SESSION['Profile_Photo'] = $upload_path;
+        header("Location: profile.php?status=success&msg=" . urlencode('Foto profil berhasil diperbarui!'));
+        exit();
     } else {
-        $stmt = sqlsrv_query($conn, "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?", array($new_pass, $id_akun));
-        if ($stmt) {
-            $success_msg = 'Password berhasil diperbarui!';
-            $res = sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ?", array($id_akun));
-            $akun = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
-        } else {
-            $error_msg = 'Gagal memperbarui password.';
+        // Hapus file jika database gagal
+        if (file_exists($upload_path)) {
+            unlink($upload_path);
         }
+        $errors = sqlsrv_errors();
+        header("Location: profile.php?status=error&msg=" . urlencode('Gagal update database: ' . ($errors[0]['message'] ?? 'Unknown')));
+        exit();
     }
 }
 
-// 3. Update Biodata - Only for Pemilik and Customer (NOT Karyawan)
+// 2. UPDATE BIODATA (Pemilik & Customer only)
 if (isset($_POST['update_biodata']) && $can_edit && $biodata) {
     if ($is_customer) {
         $nama = trim($_POST['nama_customer'] ?? '');
@@ -133,47 +154,89 @@ if (isset($_POST['update_biodata']) && $can_edit && $biodata) {
         $telepon = trim($_POST['no_telepon'] ?? '');
 
         if (empty($nama) || empty($alamat) || empty($telepon)) {
-            $error_msg = 'Semua field wajib diisi.';
-        } else {
-            $stmt = sqlsrv_query($conn,
-                "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Alamat = ?, No_Telepon = ? WHERE ID_Akun = ?",
-                array($nama, $jk, $alamat, $telepon, $id_akun)
-            );
-            if ($stmt) {
-                $success_msg = 'Biodata berhasil diperbarui!';
-                $res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Akun = ?", array($id_akun));
-                $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
-            } else {
-                $error_msg = 'Gagal memperbarui biodata.';
-            }
+            header("Location: profile.php?status=error&msg=" . urlencode('Semua field wajib diisi.'));
+            exit();
         }
+
+        // Customer: UPDATE dengan kolom Alamat
+        $sql = "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Alamat = ?, No_Telepon = ? WHERE ID_Akun = ?";
+        $params = array($nama, $jk, $alamat, $telepon, $id_akun);
+
     } elseif ($is_pemilik) {
-        // Pemilik can update their own biodata in Karyawan table
         $nama = trim($_POST['nama_karyawan'] ?? '');
         $jk = intval($_POST['jenis_kelamin'] ?? 1);
-        $alamat = trim($_POST['alamat'] ?? '');
         $telepon = trim($_POST['no_telepon'] ?? '');
         $jabatan = trim($_POST['jabatan'] ?? '');
 
-        if (empty($nama) || empty($alamat) || empty($telepon)) {
-            $error_msg = 'Semua field wajib diisi.';
-        } else {
-            $stmt = sqlsrv_query($conn,
-                "UPDATE Karyawan SET Nama_Karyawan = ?, Jenis_Kelamin = ?, Alamat = ?, No_Telepon = ?, Jabatan = ? WHERE ID_Akun = ?",
-                array($nama, $jk, $alamat, $telepon, $jabatan, $id_akun)
-            );
-            if ($stmt) {
-                $success_msg = 'Biodata berhasil diperbarui!';
-                $res_kry = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Akun = ?", array($id_akun));
-                $biodata = sqlsrv_fetch_array($res_kry, SQLSRV_FETCH_ASSOC);
-            } else {
-                $error_msg = 'Gagal memperbarui biodata.';
+        if (empty($nama) || empty($telepon)) {
+            header("Location: profile.php?status=error&msg=" . urlencode('Nama dan telepon wajib diisi.'));
+            exit();
+        }
+
+        // Karyawan: UPDATE TANPA kolom Alamat (karena tidak ada di tabel!)
+        $sql = "UPDATE Karyawan SET Nama_Karyawan = ?, Jenis_Kelamin = ?, No_Telepon = ?, Jabatan = ? WHERE ID_Akun = ?";
+        $params = array($nama, $jk, $telepon, $jabatan, $id_akun);
+    }
+
+    // Execute dengan transaction
+    if (isset($sql) && isset($params)) {
+        $stmt = sqlsrv_query($conn, $sql, $params);
+
+        if ($stmt) {
+            // Consume all results
+            while (sqlsrv_next_result($stmt)) {
+                sqlsrv_free_stmt($stmt);
             }
+
+            // Update session
+            $_SESSION['nama'] = $nama;
+            $_SESSION['nama_user'] = $nama;
+            session_write_close();
+
+            header("Location: profile.php?status=success&msg=" . urlencode('Biodata berhasil diperbarui!'));
+            exit();
+        } else {
+            $errors = sqlsrv_errors();
+            $error_msg = 'Gagal memperbarui: ' . ($errors[0]['message'] ?? 'Unknown error');
+            header("Location: profile.php?status=error&msg=" . urlencode($error_msg));
+            exit();
         }
     }
 }
 
-// Get profile photo from session
+// 3. UPDATE PASSWORD (Pemilik & Customer only)
+if (isset($_POST['update_password']) && !$is_karyawan) {
+    $old_pass = trim($_POST['old_password'] ?? '');
+    $new_pass = trim($_POST['new_password'] ?? '');
+    $confirm_pass = trim($_POST['confirm_password'] ?? '');
+
+    if ($old_pass !== ($akun['Kata_Sandi'] ?? '')) {
+        header("Location: profile.php?status=error&msg=" . urlencode('Password lama tidak sesuai.'));
+        exit();
+    } elseif (strlen($new_pass) < 6) {
+        header("Location: profile.php?status=error&msg=" . urlencode('Password baru minimal 6 karakter.'));
+        exit();
+    } elseif ($new_pass !== $confirm_pass) {
+        header("Location: profile.php?status=error&msg=" . urlencode('Konfirmasi password tidak cocok.'));
+        exit();
+    } else {
+        $sql = "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?";
+        $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun));
+
+        if ($stmt) {
+            while (sqlsrv_next_result($stmt)) {
+                sqlsrv_free_stmt($stmt);
+            }
+            header("Location: profile.php?status=success&msg=" . urlencode('Password berhasil diperbarui!'));
+            exit();
+        } else {
+            header("Location: profile.php?status=error&msg=" . urlencode('Gagal memperbarui password.'));
+            exit();
+        }
+    }
+}
+
+// Get profile photo
 $profile_photo = $_SESSION['Profile_Photo'] ?? '';
 if (empty($profile_photo) || !file_exists($profile_photo)) {
     $profile_photo = '';
@@ -245,7 +308,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
@@ -261,18 +323,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* ═══ CONTENT & PROFILE ═══ */
+/* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-/* PROFILE HERO */
+/* ═══ PROFILE HERO ═══ */
 .profile-hero { background: linear-gradient(135deg, #1F2937 0%, #111827 100%); border-radius: 20px; padding: 40px; display: flex; align-items: center; gap: 30px; margin-bottom: 28px; position: relative; overflow: hidden; border: 1px solid #374151; }
 .profile-hero::before { content: ''; position: absolute; right: -50px; top: -50px; width: 250px; height: 250px; border-radius: 50%; background: radial-gradient(circle, rgba(255,69,0,.15) 0%, transparent 70%); }
 .profile-hero::after { content: ''; position: absolute; right: 100px; bottom: -60px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(255,69,0,.08) 0%, transparent 70%); }
 
-/* PHOTO UPLOAD */
 .photo-section { position: relative; z-index: 1; flex-shrink: 0; }
 .photo-wrapper { width: 120px; height: 120px; border-radius: 50%; border: 4px solid rgba(255,69,0,.3); padding: 4px; position: relative; cursor: pointer; transition: all .3s ease; }
 .photo-wrapper:hover { border-color: var(--orange); transform: scale(1.02); }
@@ -290,11 +351,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .hero-id { font-size: 13px; color: #6B7280; margin-top: 10px; font-weight: 600; }
 .hero-id span { color: var(--orange); font-weight: 800; }
 
-/* GRID LAYOUT */
+/* ═══ GRID LAYOUT ═══ */
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 @media(max-width: 1100px) { .profile-grid { grid-template-columns: 1fr; } }
 
-/* CARDS */
+/* ═══ CARDS ═══ */
 .p-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
 .p-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .p-card-wide { grid-column: 1 / -1; }
@@ -304,19 +365,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
 .card-body { padding: 24px; }
 
-/* FORM ELEMENTS */
+/* ═══ FORM ELEMENTS ═══ */
 .form-group { margin-bottom: 20px; }
 .form-group:last-child { margin-bottom: 0; }
 .form-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
 .form-label .required { color: var(--red); margin-left: 2px; font-size: 14px; font-weight: 900; }
 .form-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: 'Barlow', sans-serif; color: var(--text); outline: none; transition: all .2s; background: #fff; }
 .form-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
+.form-input.error { border-color: var(--red) !important; box-shadow: 0 0 0 3px var(--red-lt) !important; background-color: #fef2f2 !important; }
+.form-input.error::placeholder { color: var(--red); }
+.form-input.valid { border-color: var(--green) !important; box-shadow: 0 0 0 3px var(--green-lt) !important; }
+.error-msg { color: var(--red); font-size: 12px; font-weight: 600; margin-top: 4px; display: none; }
+.error-msg.show { display: block; }
 .form-input:disabled, .form-input[readonly] { background: var(--border-lt); color: var(--muted); cursor: not-allowed; }
 .form-input::placeholder { color: #9CA3AF; }
 select.form-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
 textarea.form-input { resize: vertical; min-height: 80px; }
 
-/* ═══ FORM ROW — 2 kolom sejajar ═══ */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media(max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
 
@@ -325,7 +390,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .btn-save:active { transform: translateY(0); }
 .btn-save i { font-size: 16px; }
 
-/* INFO ROWS (Read-only) */
+/* ═══ INFO ROWS (Read-only) ═══ */
 .info-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-lt); }
 .info-row:last-child { border-bottom: none; }
 .info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -336,50 +401,51 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .badge-active { background: var(--green-lt); color: var(--green); }
 .badge-inactive { background: var(--red-lt); color: var(--red); }
 
-/* PASSWORD MASK */
+/* ═══ PASSWORD MASK ═══ */
 .password-mask { display: flex; align-items: center; gap: 8px; }
 .password-dots { font-size: 18px; letter-spacing: 3px; color: var(--muted); }
 .btn-toggle-pass { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; transition: .2s; }
 .btn-toggle-pass:hover { color: var(--orange); }
 
-/* ALERTS */
-.alert { padding: 14px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-.alert-success { background: var(--green-lt); border: 1px solid rgba(16,185,129,.2); color: var(--green-dk); }
-.alert-error { background: var(--red-lt); border: 1px solid rgba(239,68,68,.2); color: var(--red-dk); }
-.alert i { font-size: 16px; }
+/* ═══ VIEW ONLY MESSAGE ═══ */
+.view-only-msg { background: var(--blue-lt); border: 1px solid rgba(59,130,246,.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--blue); font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.view-only-msg i { font-size: 14px; }
 
-/* EDIT INDICATOR */
-.edit-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--green); background: var(--green-lt); padding: 4px 10px; border-radius: 20px; }
-.read-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--border-lt); padding: 4px 10px; border-radius: 20px; }
-.view-only-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--blue); background: var(--blue-lt); padding: 4px 10px; border-radius: 20px; }
-
-/* ═══ PASSWORD CARD — 2 kolom sejajar + tombol di bawah ═══ */
+/* ═══ PASSWORD CARD GRID ═══ */
 .password-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
 @media(max-width: 768px) { .password-form-grid { grid-template-columns: 1fr; } }
 .password-btn-wrap { margin-top: 20px; }
 .password-btn-wrap .btn-save { max-width: 240px; }
 
-/* VIEW ONLY MESSAGE */
-.view-only-msg { background: var(--blue-lt); border: 1px solid rgba(59,130,246,.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--blue); font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.view-only-msg i { font-size: 14px; }
+/* ═══ ROLE-SPECIFIC STYLES ═══ */
+.role-pemilik .hero-role { background: rgba(255,69,0,.2); border-color: rgba(255,69,0,.4); }
+.role-karyawan .profile-hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-color: #334155; }
+.role-karyawan .hero-role { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.3); color: #60a5fa; }
+.role-karyawan .photo-wrapper { border-color: rgba(59,130,246,.3); }
+.role-karyawan .photo-wrapper:hover { border-color: #60a5fa; }
+.role-customer .hero-role { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.3); color: var(--green); }
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width: 768px) {
+    .sidebar { width: 0; overflow: hidden; padding: 0; }
+    .main { margin-left: 0; }
+    .content { padding: 20px; }
+    .topbar { padding: 0 20px; }
+    .profile-hero { flex-direction: column; text-align: center; padding: 30px 20px; }
+    .hero-info { width: 100%; }
+}
 </style>
 </head>
-<body>
+<body class="role-<?= strtolower($role) ?>">
 
-<!-- ═══════════════════════════════════════════
-   SIDEBAR - DYNAMIC BASED ON ROLE
-   ═══════════════════════════════════════════ -->
+<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
     <a href="<?= (strtolower($role) === 'customer') ? 'view_customer.php' : ((strtolower($role) === 'karyawan') ? 'view_admin.php' : 'view_pemilik.php') ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div>
-            <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Management System</div>
-        </div>
+        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
 
     <?php if ($is_pemilik): ?>
-    <!-- PEMILIK SIDEBAR -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
@@ -392,7 +458,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     <a href="profile.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
 
     <?php elseif ($is_karyawan): ?>
-    <!-- KARYAWAN SIDEBAR -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
         <a href="view_admin.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
@@ -408,7 +473,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     <a href="profile.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
 
     <?php else: ?>
-    <!-- CUSTOMER SIDEBAR -->
     <div class="sb-section-label">Menu</div>
     <nav>
         <a href="view_customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Beranda</a>
@@ -424,24 +488,15 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($profile_photo): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
-                <?php endif; ?>
+                <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
             </div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama_user ?: $username)) ?></div>
-                <div class="sb-user-role"><?= strtoupper($role_label) ?></div>
-            </div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama_user ?: $username)) ?></div><div class="sb-user-role"><?= strtoupper($role_label) ?></div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
-<!-- ═══════════════════════════════════════════
-   MAIN & TOPBAR
-   ═══════════════════════════════════════════ -->
+<!-- ═══ MAIN & TOPBAR ═══ -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -450,20 +505,13 @@ textarea.form-input { resize: vertical; min-height: 80px; }
         </div>
         <div class="topbar-right">
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if(false): ?><span class="notif-dot"></span><?php endif; ?></a>
+            <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i></a>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar">
-                        <?php if ($profile_photo): ?>
-                            <img src="<?= $profile_photo ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fa-solid fa-user"></i>
-                        <?php endif; ?>
+                        <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
                     </div>
-                    <div>
-                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama_user ?: $username)) ?></div>
-                        <div class="t-role"><?= strtoupper($role_label) ?></div>
-                    </div>
+                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama_user ?: $username)) ?></div><div class="t-role"><?= strtoupper($role_label) ?></div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
@@ -476,14 +524,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     </header>
 
     <div class="content">
-        <!-- ALERTS -->
-        <?php if ($success_msg): ?>
-        <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?= $success_msg ?></div>
-        <?php endif; ?>
-        <?php if ($error_msg): ?>
-        <div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $error_msg ?></div>
-        <?php endif; ?>
-
         <!-- PAGE HEADER -->
         <div class="page-header">
             <div>
@@ -523,38 +563,32 @@ textarea.form-input { resize: vertical; min-height: 80px; }
         </div>
 
         <div class="profile-grid">
-            <!-- ═══════════════════════════════════════════
-               CARD 1: BIODATA DIRI
-               ═══════════════════════════════════════════ -->
+            <!-- CARD 1: BIODATA DIRI -->
             <div class="p-card">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-address-card"></i> Biodata Diri</div>
                     <?php if ($can_edit): ?>
-                        <span class="edit-indicator"><i class="fa-solid fa-pen-to-square"></i> Bisa Diedit</span>
+                        <span class="card-badge"><i class="fa-solid fa-pen-to-square" style="font-size:10px;"></i> Bisa Diedit</span>
                     <?php elseif ($is_karyawan): ?>
-                        <span class="view-only-indicator"><i class="fa-solid fa-eye"></i> Hanya Lihat</span>
+                        <span class="card-badge" style="background:var(--blue-lt);color:var(--blue);"><i class="fa-solid fa-eye" style="font-size:10px;"></i> Hanya Lihat</span>
                     <?php else: ?>
-                        <span class="read-indicator"><i class="fa-solid fa-eye"></i> Hanya Lihat</span>
+                        <span class="card-badge" style="background:var(--border-lt);color:var(--muted);"><i class="fa-solid fa-eye" style="font-size:10px;"></i> Hanya Lihat</span>
                     <?php endif; ?>
                 </div>
                 <div class="card-body">
                     <?php if ($is_karyawan): ?>
-                    <!-- KARYAWAN: VIEW ONLY MESSAGE -->
-                    <div class="view-only-msg">
-                        <i class="fa-solid fa-circle-info"></i>
-                        Anda hanya dapat melihat data. Hubungi Manajer untuk perubahan data.
-                    </div>
+                    <div class="view-only-msg"><i class="fa-solid fa-circle-info"></i> Anda hanya dapat melihat data. Hubungi Manajer untuk perubahan data.</div>
                     <?php endif; ?>
 
                     <?php if ($can_edit && $biodata): ?>
-                    <!-- EDITABLE FORM (Pemilik & Customer) -->
+                    <!-- EDITABLE FORM -->
                     <form method="POST" id="formBiodata" onsubmit="return validateBiodata(this)">
                         <?php if ($is_customer): ?>
-                        <!-- CUSTOMER FORM -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">Nama Lengkap <span class="required">*</span></label>
-                                <input type="text" name="nama_customer" id="nama_customer" class="form-input" value="<?= htmlspecialchars($biodata['Nama_Customer'] ?? '') ?>" required minlength="3" pattern="[a-zA-Z ]+" placeholder="Masukkan nama lengkap">
+                                <input type="text" name="nama_customer" id="nama_customer" class="form-input" value="<?= htmlspecialchars($biodata['Nama_Customer'] ?? '') ?>" placeholder="Masukkan nama lengkap">
+                                <div class="error-msg">Nama wajib diisi, minimal 3 huruf</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
@@ -566,18 +600,20 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                         </div>
                         <div class="form-group">
                             <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
-                            <textarea name="alamat" id="alamat" class="form-input" required placeholder="Masukkan alamat lengkap"><?= htmlspecialchars($biodata['Alamat'] ?? '') ?></textarea>
+                            <textarea name="alamat" id="alamat" class="form-input" placeholder="Masukkan alamat lengkap"><?= htmlspecialchars($biodata['Alamat'] ?? '') ?></textarea>
+                            <div class="error-msg">Alamat wajib diisi</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Nomor Telepon <span class="required">*</span></label>
-                            <input type="tel" name="no_telepon" id="no_telepon" class="form-input" value="<?= htmlspecialchars($biodata['No_Telepon'] ?? '') ?>" required pattern="[0-9]{10,14}" maxlength="14" placeholder="Contoh: 08123456789">
+                            <input type="tel" name="no_telepon" id="no_telepon" class="form-input" value="<?= htmlspecialchars($biodata['No_Telepon'] ?? '') ?>" maxlength="14" placeholder="Contoh: 08123456789">
+                            <div class="error-msg">Nomor telepon wajib diisi, 10-14 digit</div>
                         </div>
                         <?php elseif ($is_pemilik): ?>
-                        <!-- PEMILIK FORM -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">Nama Lengkap <span class="required">*</span></label>
-                                <input type="text" name="nama_karyawan" id="nama_karyawan" class="form-input" value="<?= htmlspecialchars($biodata['Nama_Karyawan'] ?? '') ?>" required minlength="3" pattern="[a-zA-Z ]+" placeholder="Masukkan nama lengkap">
+                                <input type="text" name="nama_karyawan" id="nama_karyawan" class="form-input" value="<?= htmlspecialchars($biodata['Nama_Karyawan'] ?? '') ?>" placeholder="Masukkan nama lengkap">
+                                <div class="error-msg">Nama wajib diisi, minimal 3 huruf</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
@@ -586,26 +622,24 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                                     <option value="2" <?= ($biodata['Jenis_Kelamin'] ?? 1) == 2 ? 'selected' : '' ?>>Perempuan</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
-                            <textarea name="alamat" id="alamat" class="form-input" required placeholder="Masukkan alamat lengkap"><?= htmlspecialchars($biodata['Alamat'] ?? '') ?></textarea>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">Nomor Telepon <span class="required">*</span></label>
-                                <input type="tel" name="no_telepon" id="no_telepon" class="form-input" value="<?= htmlspecialchars($biodata['No_Telepon'] ?? '') ?>" required pattern="[0-9]{10,14}" maxlength="14" placeholder="Contoh: 08123456789">
+                                <input type="tel" name="no_telepon" id="no_telepon" class="form-input" value="<?= htmlspecialchars($biodata['No_Telepon'] ?? '') ?>" maxlength="14" placeholder="Contoh: 08123456789">
+                                <div class="error-msg">Nomor telepon wajib diisi, 10-14 digit</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Jabatan <span class="required">*</span></label>
-                                <input type="text" name="jabatan" id="jabatan" class="form-input" value="<?= htmlspecialchars($biodata['Jabatan'] ?? 'Pemilik') ?>" required placeholder="Jabatan">
+                                <label class="form-label">Jabatan</label>
+                                <input type="text" id="jabatan" class="form-input" value="Manajer" readonly style="background:var(--border-lt); cursor:not-allowed; opacity:0.8;">
+                                <input type="hidden" name="jabatan" value="Manajer">
                             </div>
                         </div>
                         <?php endif; ?>
                         <button type="submit" name="update_biodata" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
                     </form>
                     <?php elseif ($biodata): ?>
-                    <!-- READ-ONLY VIEW (Karyawan & others without edit permission) -->
+                    <!-- READ-ONLY VIEW -->
                     <div class="info-row">
                         <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
                         <span class="info-val"><?= htmlspecialchars($biodata['Nama_Customer'] ?? $biodata['Nama_Karyawan'] ?? '-') ?></span>
@@ -614,10 +648,12 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                         <span class="info-key"><i class="fa-solid <?= jk_icon($biodata['Jenis_Kelamin'] ?? 0) ?>"></i> Jenis Kelamin</span>
                         <span class="info-val"><?= jk_label($biodata['Jenis_Kelamin'] ?? 0) ?></span>
                     </div>
+                    <?php if ($is_customer || isset($biodata['Alamat'])): ?>
                     <div class="info-row">
                         <span class="info-key"><i class="fa-solid fa-location-dot"></i> Alamat</span>
                         <span class="info-val" style="max-width: 60%; text-align: right;"><?= htmlspecialchars($biodata['Alamat'] ?? '-') ?></span>
                     </div>
+                    <?php endif; ?>
                     <div class="info-row">
                         <span class="info-key"><i class="fa-solid fa-phone"></i> Nomor Telepon</span>
                         <span class="info-val highlight"><?= htmlspecialchars($biodata['No_Telepon'] ?? '-') ?></span>
@@ -637,9 +673,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                 </div>
             </div>
 
-            <!-- ═══════════════════════════════════════════
-               CARD 2: INFORMASI AKUN
-               ═══════════════════════════════════════════ -->
+            <!-- CARD 2: INFORMASI AKUN -->
             <div class="p-card">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Informasi Akun</div>
@@ -683,9 +717,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
             </div>
 
             <?php if (!$is_karyawan): ?>
-            <!-- ═══════════════════════════════════════════
-               CARD 3: UBAH PASSWORD — Hanya untuk Pemilik & Customer
-               ═══════════════════════════════════════════ -->
+            <!-- CARD 3: UBAH PASSWORD -->
             <div class="p-card p-card-wide">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-lock"></i> Keamanan — Ubah Password</div>
@@ -694,30 +726,31 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                     <form method="POST" id="formPassword" onsubmit="return validatePassword(this)">
                         <div class="form-group">
                             <label class="form-label">Password Lama <span class="required">*</span></label>
-                            <input type="password" name="old_password" id="old_password" class="form-input" required placeholder="Masukkan password lama">
+                            <input type="password" name="old_password" id="old_password" class="form-input" placeholder="Masukkan password lama">
+                            <div class="error-msg">Password lama wajib diisi</div>
                         </div>
                         <div class="password-form-grid">
                             <div class="form-group" style="margin-bottom:0;">
                                 <label class="form-label">Password Baru <span class="required">*</span></label>
-                                <input type="password" name="new_password" id="new_password" class="form-input" required placeholder="Minimal 6 karakter" minlength="6">
+                                <input type="password" name="new_password" id="new_password" class="form-input" placeholder="Minimal 6 karakter">
+                                <div class="error-msg">Password baru wajib diisi, minimal 6 karakter</div>
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
                                 <label class="form-label">Konfirmasi Password <span class="required">*</span></label>
-                                <input type="password" name="confirm_password" id="confirm_password" class="form-input" required placeholder="Ulangi password baru">
+                                <input type="password" name="confirm_password" id="confirm_password" class="form-input" placeholder="Ulangi password baru">
+                                <div class="error-msg">Konfirmasi password wajib diisi</div>
                             </div>
                         </div>
                         <div class="password-btn-wrap">
-                            <button type="submit" name="update_password" class="btn-save">
-                                <i class="fa-solid fa-key"></i> Perbarui Password
-                            </button>
+                            <button type="submit" name="update_password" class="btn-save"><i class="fa-solid fa-key"></i> Perbarui Password</button>
                         </div>
                     </form>
                 </div>
             </div>
             <?php endif; ?>
 
-        </div><!-- end profile-grid -->
-    </div><!-- end content -->
+        </div>
+    </div>
 </main>
 
 <script>
@@ -741,57 +774,198 @@ function togglePass() {
     }
 }
 
+// Validasi Real-time
+function validateField(field, condition, errorMsg) {
+    const errorEl = field.parentElement.querySelector('.error-msg');
+    if (!condition) {
+        field.classList.add('error');
+        field.classList.remove('valid');
+        if (errorEl) { errorEl.textContent = errorMsg; errorEl.classList.add('show'); }
+        return false;
+    } else {
+        field.classList.remove('error');
+        field.classList.add('valid');
+        if (errorEl) errorEl.classList.remove('show');
+        return true;
+    }
+}
+
+function clearError(field) {
+    field.classList.remove('error');
+    const errorEl = field.parentElement.querySelector('.error-msg');
+    if (errorEl) errorEl.classList.remove('show');
+}
+
 // Validasi Biodata
 function validateBiodata(form) {
+    let valid = true;
+
     const nama = form.querySelector('#nama_customer, #nama_karyawan');
     const telp = form.querySelector('#no_telepon');
     const alamat = form.querySelector('#alamat');
-    let valid = true;
 
-    if (nama && (nama.value.length < 3 || !/^[a-zA-Z ]+$/.test(nama.value))) {
-        alert('Nama minimal 3 karakter, hanya huruf dan spasi!');
-        nama.focus(); valid = false;
+    // Validasi Nama - wajib diisi, minimal 3 huruf
+    if (nama) {
+        const val = nama.value.trim();
+        if (val === '') {
+            validateField(nama, false, 'Nama wajib diisi!');
+            valid = false;
+        } else if (val.length < 3) {
+            validateField(nama, false, 'Nama minimal 3 karakter!');
+            valid = false;
+        } else if (!/^[a-zA-Z ]+$/.test(val)) {
+            validateField(nama, false, 'Nama hanya boleh huruf dan spasi!');
+            valid = false;
+        } else {
+            validateField(nama, true, '');
+        }
     }
-    if (valid && telp && !/^[0-9]{10,14}$/.test(telp.value)) {
-        alert('Nomor telepon harus 10-14 digit angka!');
-        telp.focus(); valid = false;
+
+    // Validasi Telepon - wajib diisi, hanya angka, 10-14 digit
+    if (telp) {
+        const val = telp.value.trim();
+        if (val === '') {
+            validateField(telp, false, 'Nomor telepon wajib diisi!');
+            valid = false;
+        } else if (!/^[0-9]+$/.test(val)) {
+            validateField(telp, false, 'Hanya boleh angka!');
+            valid = false;
+        } else if (val.length < 10 || val.length > 14) {
+            validateField(telp, false, 'Nomor telepon 10-14 digit!');
+            valid = false;
+        } else {
+            validateField(telp, true, '');
+        }
     }
-    if (valid && alamat && alamat.value.trim() === '') {
-        alert('Alamat tidak boleh kosong!');
-        alamat.focus(); valid = false;
+
+    // Validasi Alamat - wajib diisi
+    if (alamat) {
+        const val = alamat.value.trim();
+        if (val === '') {
+            validateField(alamat, false, 'Alamat wajib diisi!');
+            valid = false;
+        } else {
+            validateField(alamat, true, '');
+        }
     }
+
     return valid;
 }
+
+// Real-time validation setup
+document.addEventListener('DOMContentLoaded', function() {
+    // Telepon: hanya angka
+    const telpInputs = document.querySelectorAll('input[name="no_telepon"]');
+    telpInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            // Hapus semua karakter non-angka
+            this.value = this.value.replace(/[^0-9]/g, '');
+            // Max 14 digit
+            if (this.value.length > 14) this.value = this.value.slice(0, 14);
+            // Clear error saat user mengetik
+            clearError(this);
+        });
+        input.addEventListener('blur', function() {
+            const valid = /^[0-9]{10,14}$/.test(this.value.trim());
+            validateField(this, valid, 'Nomor telepon harus 10-14 digit angka!');
+        });
+    });
+
+    // Nama: hanya huruf dan spasi
+    const namaInputs = document.querySelectorAll('#nama_customer, #nama_karyawan');
+    namaInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            // Hapus angka dan karakter spesial
+            this.value = this.value.replace(/[^a-zA-Z ]/g, '');
+            clearError(this);
+        });
+        input.addEventListener('blur', function() {
+            const valid = this.value.trim().length >= 3 && /^[a-zA-Z ]+$/.test(this.value.trim());
+            validateField(this, valid, 'Nama minimal 3 karakter, hanya huruf!');
+        });
+    });
+
+    // Alamat: tidak boleh kosong
+    const alamatInputs = document.querySelectorAll('#alamat');
+    alamatInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearError(this);
+        });
+        input.addEventListener('blur', function() {
+            validateField(this, this.value.trim().length > 0, 'Alamat tidak boleh kosong!');
+        });
+    });
+});
 
 // Validasi Password
 function validatePassword(form) {
     const oldPass = form.querySelector('#old_password');
     const newPass = form.querySelector('#new_password');
     const confirmPass = form.querySelector('#confirm_password');
+    let valid = true;
 
+    // Validasi password lama - wajib diisi
     if (oldPass && oldPass.value.trim() === '') {
-        alert('Password lama wajib diisi!');
-        oldPass.focus(); return false;
+        validateField(oldPass, false, 'Password lama wajib diisi!');
+        oldPass.focus(); valid = false;
+    } else if (oldPass) {
+        validateField(oldPass, true, '');
     }
-    if (newPass && newPass.value.length < 6) {
-        alert('Password baru minimal 6 karakter!');
-        newPass.focus(); return false;
+
+    // Validasi password baru - wajib diisi, minimal 6
+    if (newPass) {
+        if (newPass.value.trim() === '') {
+            validateField(newPass, false, 'Password baru wajib diisi!');
+            newPass.focus(); valid = false;
+        } else if (newPass.value.length < 6) {
+            validateField(newPass, false, 'Password minimal 6 karakter!');
+            newPass.focus(); valid = false;
+        } else {
+            validateField(newPass, true, '');
+        }
     }
-    if (newPass && confirmPass && newPass.value !== confirmPass.value) {
-        alert('Konfirmasi password tidak cocok!');
-        confirmPass.focus(); return false;
+
+    // Validasi konfirmasi - wajib diisi, harus sama dengan password baru
+    if (confirmPass) {
+        if (confirmPass.value.trim() === '') {
+            validateField(confirmPass, false, 'Konfirmasi password wajib diisi!');
+            confirmPass.focus(); valid = false;
+        } else if (newPass && confirmPass.value !== newPass.value) {
+            validateField(confirmPass, false, 'Konfirmasi tidak cocok!');
+            confirmPass.focus(); valid = false;
+        } else {
+            validateField(confirmPass, true, '');
+        }
     }
-    return true;
+
+    return valid;
 }
 
-// SweetAlert for messages
+// SweetAlert Toast Notification
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('status')) {
-    Swal.fire({
-        icon: urlParams.get('status'), title: urlParams.get('msg'),
-        showConfirmButton: false, timer: 2500, timerProgressBar: true,
-        toast: true, position: 'top-end'
+const statusParam = urlParams.get('status');
+const msgParam = urlParams.get('msg');
+
+if (statusParam && msgParam) {
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer);
+            toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
     });
+
+    Toast.fire({
+        icon: statusParam,
+        title: decodeURIComponent(msgParam),
+        background: statusParam === 'success' ? '#f0fdf4' : '#fef2f2',
+        color: statusParam === 'success' ? '#166534' : '#991b1b'
+    });
+
     window.history.replaceState({}, '', window.location.pathname);
 }
 </script>
