@@ -397,9 +397,9 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     <nav>
         <a href="view_admin.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
         <a href="booking.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div> Booking</a>
-        <a href="lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-map-marker-alt"></i></div> Lapangan</a>
-        <a href="customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div> Customer</a>
-        <a href="promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div> Promo</a>
+        <a href="master/lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-map-marker-alt"></i></div> Lapangan</a>
+        <a href="master/customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div> Customer</a>
+        <a href="master/promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div> Promo</a>
     </nav>
     <div class="sb-section-label">Layanan</div>
     <a href="promo_diskon.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-percent"></i></div> Promo & Diskon</a>

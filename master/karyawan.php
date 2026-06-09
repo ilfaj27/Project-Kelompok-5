@@ -501,8 +501,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
                             <td>
                                 <div class="action-group">
-                                    <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
-                                    <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i> Hapus</button>
+                                    <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
+                                    <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                                 </div>
                             </td>
                         </tr>
@@ -562,7 +562,6 @@ function validateForm(form) {
     });
     return valid;
 }
-
 // Live validation on input & blur
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.modal-input');

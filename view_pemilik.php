@@ -291,7 +291,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
-.clock-date { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 </style>
 </head>
 <body>
@@ -353,13 +353,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 <header class="topbar">
     <div class="topbar-left">
         <div class="topbar-title">Dashboard Pemilik</div>
-        <div class="topbar-date" id="clock-display">
+        <div class="topbar-breadcrumb">Dashboard / Overview</div>
+    </div>
+    <div class="topbar-right">
+        <div id="clock-display">
             <div class="clock-time"><span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span></div>
             <div class="clock-divider"></div>
             <div class="clock-date" id="full-date">MEMUAT...</div>
         </div>
-    </div>
-    <div class="topbar-right">
         <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
         <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?></a>
         <div class="dropdown-wrap">

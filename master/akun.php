@@ -614,7 +614,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                             <div class="action-group">
                                 <?php if ($is_karyawan): ?>
                                     <!-- HANYA KARYAWAN YANG BISA DI-EDIT DI MASTER AKUN -->
-                                    <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun Karyawan"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+                                    <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun Karyawan"><i class="fa-solid fa-pen-to-square"></i></a>
                                 <?php elseif ($is_manajer): ?>
                                     <!-- MANAJER: TIDAK ADA TOMBOL EDIT, HANYA INFO -->
                                     <span style="font-size: 11px; color: var(--muted); font-weight: 600; padding: 8px 12px; background: var(--border-lt); border-radius: 8px;">
@@ -626,7 +626,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                                     <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status_Akun'] ?>)">
                                     <span class="toggle-slider"></span>
                                 </label>
-                                <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i> Hapus</button>
+                                <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                             </div>
                         </td>
                     </tr>
