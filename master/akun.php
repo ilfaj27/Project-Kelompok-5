@@ -15,6 +15,11 @@ $role_user = $_SESSION['role'];
 $current_filter = isset($_GET['role']) ? $_GET['role'] : 'all';
 $role_map = ['manajer' => 1, 'karyawan' => 2, 'customer' => 3];
 
+// --- PAGING CONFIGURATION ---
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$offset = ($page - 1) * $limit;
+
 // --- 3. LOGIKA PROSES CRUD ---
 
 // CREATE KARYAWAN
@@ -63,7 +68,7 @@ if (isset($_POST['update_akun'])) {
     exit();
 }
 
-// TOGGLE STATUS (Soft disable/enable)
+// TOGGLE STATUS
 if (isset($_GET['toggle_id'])) {
     $status_baru = ($_GET['s'] == 1) ? 0 : 1;
     sqlsrv_query($conn, "UPDATE Akun SET Status_Akun = ? WHERE ID_Akun = ?", array($status_baru, $_GET['toggle_id']));
@@ -71,23 +76,16 @@ if (isset($_GET['toggle_id'])) {
     exit();
 }
 
-// HARD DELETE (Permanent delete from database)
+// HARD DELETE
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
-
-    // First, delete related records in Karyawan table if exists
     sqlsrv_query($conn, "DELETE FROM Karyawan WHERE ID_Akun = ?", array($delete_id));
-
-    // Then, delete related records in Customer table if exists
     sqlsrv_query($conn, "DELETE FROM Customer WHERE ID_Akun = ?", array($delete_id));
-
-    // Finally, delete the account itself
     $stmt = sqlsrv_query($conn, "DELETE FROM Akun WHERE ID_Akun = ?", array($delete_id));
-
     if ($stmt) {
         header("Location: akun.php?role=$current_filter&status=success&msg=Akun $delete_id berhasil dihapus permanen!");
     } else {
-        header("Location: akun.php?role=$current_filter&status=error&msg=Gagal menghapus akun! Mungkin masih terikat dengan data lain.");
+        header("Location: akun.php?role=$current_filter&status=error&msg=Gagal menghapus akun!");
     }
     exit();
 }
@@ -107,12 +105,23 @@ $suspended_count = sqlsrv_fetch_array($q_suspended, SQLSRV_FETCH_ASSOC)['total']
 $q_total = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun");
 $total_count = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
 
-// QUERY DATA TABEL
+// --- PAGING ---
 if ($current_filter == 'all') {
-    $query = sqlsrv_query($conn, "SELECT * FROM Akun ORDER BY Role ASC");
+    $count_query = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun");
 } else {
     $role_id = $role_map[$current_filter] ?? null;
-    $query = sqlsrv_query($conn, "SELECT * FROM Akun WHERE Role = ? ORDER BY ID_Akun ASC", array($role_id));
+    $count_query = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Role = ?", array($role_id));
+}
+$total_rows = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
+$total_pages = ceil($total_rows / $limit);
+$page = min($page, max(1, $total_pages));
+$offset = ($page - 1) * $limit;
+
+if ($current_filter == 'all') {
+    $query = sqlsrv_query($conn, "SELECT * FROM Akun ORDER BY Role ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+} else {
+    $role_id = $role_map[$current_filter] ?? null;
+    $query = sqlsrv_query($conn, "SELECT * FROM Akun WHERE Role = ? ORDER BY ID_Akun ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($role_id, $offset, $limit));
 }
 $role_label_map = [1 => 'Manajer', 2 => 'Karyawan', 3 => 'Customer'];
 ?>
@@ -126,45 +135,23 @@ $role_label_map = [1 => 'Manajer', 2 => 'Karyawan', 3 => 'Customer'];
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
 :root {
-    --orange:    #FF4500;
-    --orange-lt: rgba(255,69,0,.10);
-    --orange-dk: #E03E00;
-    --green:     #10B981;
-    --green-lt:  rgba(16,185,129,.10);
-    --green-dk:  #059669;
-    --blue:      #3B82F6;
-    --blue-lt:   rgba(59,130,246,.10);
-    --purple:    #8B5CF6;
-    --purple-lt: rgba(139,92,246,.10);
-    --red:       #EF4444;
-    --red-lt:    rgba(239,68,68,.10);
-    --red-dk:    #DC2626;
-    --yellow:    #F59E0B;
-    --yellow-lt: rgba(245,158,11,.10);
-    --sidebar:   #0D1117;
-    --sidebar-w: 260px;
-    --topbar-h:  70px;
-    --card-bg:   #FFFFFF;
-    --border:    #E5E7EB;
-    --border-lt: #F3F4F6;
-    --text:      #111827;
-    --text-md:   #374151;
-    --muted:     #6B7280;
-    --bg:        #F3F4F6;
-    --bg-dark:   #1F2937;
+    --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
+    --green: #10B981; --green-lt: rgba(16,185,129,.10); --green-dk: #059669;
+    --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
+    --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
+    --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
+    --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
+    --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
+    --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
+    --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
+    --bg-dark: #1F2937; --zebra-orange: #FFF7ED;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* ═══════════════════════════════════════════
-   SIDEBAR - SAMA PERSIS DENGAN DASHBOARD
-   ═══════════════════════════════════════════ */
-.sidebar {
-    width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0;
-    display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04);
-    z-index: 200; overflow-y: auto;
-}
+/* ═══ SIDEBAR ═══ */
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -186,9 +173,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* ═══════════════════════════════════════════
-   MAIN & TOPBAR - SAMA PERSIS DENGAN DASHBOARD
-   ═══════════════════════════════════════════ */
+/* ═══ MAIN & TOPBAR ═══ */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -212,39 +197,33 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* ═══════════════════════════════════════════
-   CONTENT & PAGE HEADER
-   ═══════════════════════════════════════════ */
+/* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-/* ═══════════════════════════════════════════
-   STAT CARDS - SAMA PERSIS DASHBOARD
-   ═══════════════════════════════════════════ */
+/* ═══ STAT CARDS ═══ */
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
 .stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
 .sc-orange::before { background: var(--orange); }
-.sc-green::before  { background: var(--green); }
-.sc-red::before    { background: var(--red); }
+.sc-green::before { background: var(--green); }
+.sc-red::before { background: var(--red); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .si-orange { background: var(--orange-lt); color: var(--orange); }
-.si-green  { background: var(--green-lt);  color: var(--green); }
-.si-red    { background: var(--red-lt);    color: var(--red); }
+.si-green { background: var(--green-lt); color: var(--green); }
+.si-red { background: var(--red-lt); color: var(--red); }
 .stat-trend { font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 20px; }
-.trend-up   { color: var(--green); background: var(--green-lt); }
-.trend-down { color: var(--red);   background: var(--red-lt); }
+.trend-up { color: var(--green); background: var(--green-lt); }
+.trend-down { color: var(--red); background: var(--red-lt); }
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 6px; }
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-/* ═══════════════════════════════════════════
-   TOOLBAR (Filter & Search)
-   ═══════════════════════════════════════════ */
+/* ═══ TOOLBAR ═══ */
 .toolbar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px 16px 0 0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--bg); }
 .tab-group { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
 .tab-item { padding: 7px 16px; border-radius: 8px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 700; transition: 0.2s; }
@@ -256,14 +235,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-add { background: var(--text); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; text-transform: uppercase; transition: 0.2s; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .btn-add:hover { background: var(--orange); transform: translateY(-1px); }
 
-/* ═══════════════════════════════════════════
-   TABLE - SAMA PERSIS DASHBOARD
-   ═══════════════════════════════════════════ */
-.table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; overflow: hidden; margin-bottom: 32px; }
+/* ═══ TABLE ═══ */
+.table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; overflow: hidden; margin-bottom: 0; }
 table { width: 100%; border-collapse: collapse; }
 th { padding: 13px 20px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); text-align: left; letter-spacing: .6px; }
 td { padding: 15px 20px; font-size: 13px; border-bottom: 1px solid #F9FAFB; vertical-align: middle; }
-tr:hover td { background: #FAFAFA; }
+
+/* ═══ ZEBRA STRIPING — ORANGE & PUTIH ═══ */
+tbody tr:nth-child(odd) { background-color: var(--zebra-orange); }
+tbody tr:nth-child(even) { background-color: #FFFFFF; }
+tbody tr:hover td { background-color: #FED7AA !important; }
 
 .role-badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-block; }
 .badge-1 { background: #FEF3C7; color: #92400E; }
@@ -271,26 +252,22 @@ tr:hover td { background: #FAFAFA; }
 .badge-3 { background: #F3F4F6; color: #4B5563; }
 
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.status-active   { background: var(--green); }
+.status-active { background: var(--green); }
 .status-inactive { background: var(--red); }
 .status-text { font-size: 11px; font-weight: 800; }
-.status-text-active   { color: var(--green); }
+.status-text-active { color: var(--green); }
 .status-text-inactive { color: var(--red); }
 
 .id-akun { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange); font-size: 15px; }
 .email-text { font-weight: 600; color: var(--text); }
 .username-text { font-weight: 700; color: var(--text-md); font-size: 13px; }
 
-/* PASSWORD MASK IN TABLE */
 .password-mask-table { display: flex; align-items: center; gap: 8px; font-family: monospace; font-size: 14px; letter-spacing: 2px; color: var(--muted); }
 .password-dots-table { font-size: 16px; letter-spacing: 3px; }
 .btn-toggle-pass { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; transition: .2s; border-radius: 6px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
 .btn-toggle-pass:hover { color: var(--orange); background: var(--orange-lt); }
-
-/* CUSTOMER PASSWORD - NO TOGGLE */
 .password-customer { font-family: monospace; font-size: 16px; letter-spacing: 3px; color: var(--muted); }
 
-/* TOGGLE SWITCH */
 .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
@@ -299,71 +276,46 @@ tr:hover td { background: #FAFAFA; }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
-/* ═══════════════════════════════════════════
-   ELEGANT ACTION BUTTONS - GANTENG STYLE
-   ═══════════════════════════════════════════ */
+/* ═══ ELEGANT ACTION BUTTONS ═══ */
 .action-group { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-
 .btn-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 700;
-    font-family: 'Barlow', sans-serif;
-    text-decoration: none;
-    cursor: pointer;
-    transition: all .25s cubic-bezier(.4,0,.2,1);
-    border: 1.5px solid transparent;
-    letter-spacing: .3px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 700;
+    font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer;
+    transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; letter-spacing: .3px;
 }
-
-/* EDIT BUTTON - ELEGANT */
 .btn-edit {
-    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
-    color: #1E40AF;
-    border-color: #BFDBFE;
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
 }
 .btn-edit i { font-size: 13px; }
 .btn-edit:hover {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-    color: #fff;
-    border-color: #3B82F6;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(59,130,246,.35);
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
 }
 .btn-edit:active { transform: translateY(0); }
-
-/* DELETE BUTTON - ELEGANT */
 .btn-delete {
-    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
-    color: #DC2626;
-    border-color: #FECACA;
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
 }
 .btn-delete i { font-size: 13px; }
 .btn-delete:hover {
-    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-    color: #fff;
-    border-color: #EF4444;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(239,68,68,.35);
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
 }
 .btn-delete:active { transform: translateY(0); }
 
-/* ICON ONLY VARIANT */
-.btn-icon {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 10px;
-}
+/* ═══ PAGINATION ═══ */
+.pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+.pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pagination-info strong { color: var(--text); font-weight: 800; }
+.pagination-nav { display: flex; align-items: center; gap: 4px; }
+.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .2s ease; border: 1.5px solid var(--border); color: var(--text-md); background: #fff; }
+.page-btn:hover:not(.disabled):not(.active) { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); transform: translateY(-1px); }
+.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
+.page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
 
-/* ═══════════════════════════════════════════
-   MODAL - SAMA PERSIS DASHBOARD + REQUIRED MARK
-   ═══════════════════════════════════════════ */
+/* ═══ MODAL ═══ */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.hidden { display: none; }
 .modal-box { background: #fff; border-radius: 20px; width: 480px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.2); }
@@ -372,17 +324,25 @@ tr:hover td { background: #FAFAFA; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
 .modal-body { padding: 24px 32px 32px; }
 .modal-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: .5px; }
-.modal-label .required { color: var(--red); margin-left: 2px; font-size: 14px; }
-.modal-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; margin-bottom: 16px; outline: none; transition: .2s; color: var(--text); }
+.modal-label .required { color: var(--red); margin-left: 2px; font-size: 14px; font-weight: 900; }
+.modal-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; margin-bottom: 4px; outline: none; transition: .2s; color: var(--text); }
 .modal-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
-.modal-select { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; margin-bottom: 16px; outline: none; background: #fff; color: var(--text); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+.modal-input:invalid:not(:placeholder-shown) { border-color: var(--red); }
+.modal-input:valid:not(:placeholder-shown) { border-color: var(--green); }
+.modal-select { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; margin-bottom: 4px; outline: none; background: #fff; color: var(--text); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
 .modal-select:focus { border-color: var(--orange); }
 .btn-save { background: var(--text); color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; width: 100%; transition: .2s; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-save:hover { background: var(--orange); }
+.btn-save:disabled { background: #D1D5DB; cursor: not-allowed; }
 .btn-cancel { display: block; text-align: center; margin-top: 12px; color: var(--muted); font-size: 12px; text-decoration: none; font-weight: 700; transition: .2s; }
 .btn-cancel:hover { color: var(--orange); }
 
-/* RESPONSIVE */
+/* ═══ VALIDASI ERROR MESSAGE ═══ */
+.val-msg { font-size: 11px; color: var(--red); font-weight: 600; margin-bottom: 12px; display: none; min-height: 16px; }
+.val-msg.show { display: block; }
+.val-msg i { margin-right: 4px; }
+
+/* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -392,14 +352,13 @@ tr:hover td { background: #FAFAFA; }
     .tab-group { overflow-x: auto; }
     .content { padding: 20px; }
     .topbar { padding: 0 20px; }
+    .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     MODAL (Create / Edit)
-     ═══════════════════════════════════════════ -->
+<!-- ═══ MODAL (Create / Edit) ═══ -->
 <div class="modal-overlay <?= ($edit_data || $show_create) ? '' : 'hidden' ?>" id="modalAkun">
     <div class="modal-box">
         <div class="modal-header">
@@ -407,18 +366,21 @@ tr:hover td { background: #FAFAFA; }
             <h2 class="modal-title"><?= $edit_data ? 'Edit Akses Akun' : 'Tambah Karyawan Baru' ?></h2>
         </div>
         <div class="modal-body">
-            <form method="POST">
+            <form method="POST" id="formAkun" onsubmit="return validateForm(this)">
                 <?php if($edit_data): ?>
                     <input type="hidden" name="id_akun" value="<?= $edit_data['ID_Akun'] ?>">
 
                     <label class="modal-label">Username <span class="required">*</span></label>
-                    <input type="text" name="username" class="modal-input" value="<?= $edit_data['Username'] ?>" required placeholder="Masukkan username">
+                    <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username']) ?>" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9_]+" placeholder="Masukkan username (huruf, angka, underscore)">
+                    <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i> Username minimal 3 karakter, hanya huruf, angka, dan underscore</div>
 
                     <label class="modal-label">Email <span class="required">*</span></label>
-                    <input type="email" name="email" class="modal-input" value="<?= $edit_data['Email'] ?>" required placeholder="email@hoopball.com">
+                    <input type="email" name="email" id="email" class="modal-input" value="<?= htmlspecialchars($edit_data['Email']) ?>" required placeholder="email@hoopball.com">
+                    <div class="val-msg" id="val-email"><i class="fa-solid fa-circle-exclamation"></i> Format email tidak valid</div>
 
                     <label class="modal-label">Password <span class="required">*</span></label>
-                    <input type="text" name="password" class="modal-input" value="<?= $edit_data['Kata_Sandi'] ?>" required placeholder="Masukkan password">
+                    <input type="text" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi']) ?>" required minlength="6" placeholder="Minimal 6 karakter">
+                    <div class="val-msg" id="val-password"><i class="fa-solid fa-circle-exclamation"></i> Password minimal 6 karakter</div>
 
                     <label class="modal-label">Role <span class="required">*</span></label>
                     <select name="role" class="modal-select" required>
@@ -430,13 +392,16 @@ tr:hover td { background: #FAFAFA; }
                     <button type="submit" name="update_akun" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
                 <?php else: ?>
                     <label class="modal-label">Username <span class="required">*</span></label>
-                    <input type="text" name="new_username" class="modal-input" required placeholder="Masukkan username karyawan">
+                    <input type="text" name="new_username" id="new_username" class="modal-input" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9_]+" placeholder="Masukkan username karyawan (huruf, angka, underscore)">
+                    <div class="val-msg" id="val-new_username"><i class="fa-solid fa-circle-exclamation"></i> Username minimal 3 karakter, hanya huruf, angka, dan underscore</div>
 
                     <label class="modal-label">Email Karyawan <span class="required">*</span></label>
-                    <input type="email" name="new_email" class="modal-input" required placeholder="email@hoopball.com">
+                    <input type="email" name="new_email" id="new_email" class="modal-input" required placeholder="email@hoopball.com">
+                    <div class="val-msg" id="val-new_email"><i class="fa-solid fa-circle-exclamation"></i> Format email tidak valid</div>
 
                     <label class="modal-label">Password <span class="required">*</span></label>
-                    <input type="password" name="new_password" class="modal-input" required minlength="3" placeholder="Minimal 3 karakter">
+                    <input type="password" name="new_password" id="new_password" class="modal-input" required minlength="6" placeholder="Minimal 6 karakter">
+                    <div class="val-msg" id="val-new_password"><i class="fa-solid fa-circle-exclamation"></i> Password minimal 6 karakter</div>
 
                     <button type="submit" name="create_karyawan" class="btn-save"><i class="fa-solid fa-plus"></i> Buat Akun Karyawan</button>
                 <?php endif; ?>
@@ -446,9 +411,7 @@ tr:hover td { background: #FAFAFA; }
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     SIDEBAR - SAMA PERSIS DENGAN DASHBOARD PEMILIK
-     ═══════════════════════════════════════════ -->
+<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
@@ -457,31 +420,16 @@ tr:hover td { background: #FAFAFA; }
             <div class="sb-brand-sub">Management System</div>
         </div>
     </a>
-
     <div class="sb-section-label">Manajemen</div>
     <nav>
-        <a href="../view_pemilik.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard
-        </a>
-        <a href="akun.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Akun
-        </a>
-        <a href="karyawan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan
-        </a>
-        <a href="alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-truck-fast"></i></div> Kelola Alat
-        </a>
-        <a href="../laporan/omzet.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet
-        </a>
+        <a href="../view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
+        <a href="akun.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Akun</a>
+        <a href="karyawan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
+        <a href="alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-truck-fast"></i></div> Kelola Alat</a>
+        <a href="../laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
     </nav>
-
     <div class="sb-section-label">Akun</div>
-    <a href="../profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya
-    </a>
-
+    <a href="../profile.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
@@ -494,9 +442,7 @@ tr:hover td { background: #FAFAFA; }
     </div>
 </aside>
 
-<!-- ═══════════════════════════════════════════
-     MAIN & TOPBAR - SAMA PERSIS DENGAN DASHBOARD
-     ═══════════════════════════════════════════ -->
+<!-- ═══ MAIN & TOPBAR ═══ -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -525,7 +471,6 @@ tr:hover td { background: #FAFAFA; }
     </header>
 
     <div class="content">
-        <!-- PAGE HEADER -->
         <div class="page-header">
             <div>
                 <div class="page-title-tag"></div>
@@ -533,7 +478,6 @@ tr:hover td { background: #FAFAFA; }
             </div>
         </div>
 
-        <!-- STAT CARDS -->
         <div class="stat-grid">
             <div class="stat-card sc-orange">
                 <div class="stat-header">
@@ -564,11 +508,10 @@ tr:hover td { background: #FAFAFA; }
             </div>
         </div>
 
-        <!-- TOOLBAR (FILTER + SEARCH) -->
         <div class="toolbar">
             <div class="tab-group">
-                <a href="akun.php?role=all"      class="tab-item <?= $current_filter == 'all' ? 'active' : '' ?>">Semua</a>
-                <a href="akun.php?role=manajer"  class="tab-item <?= $current_filter == 'manajer' ? 'active' : '' ?>">Manajer</a>
+                <a href="akun.php?role=all" class="tab-item <?= $current_filter == 'all' ? 'active' : '' ?>">Semua</a>
+                <a href="akun.php?role=manajer" class="tab-item <?= $current_filter == 'manajer' ? 'active' : '' ?>">Manajer</a>
                 <a href="akun.php?role=karyawan" class="tab-item <?= $current_filter == 'karyawan' ? 'active' : '' ?>">Karyawan</a>
                 <a href="akun.php?role=customer" class="tab-item <?= $current_filter == 'customer' ? 'active' : '' ?>">Customer</a>
             </div>
@@ -583,26 +526,16 @@ tr:hover td { background: #FAFAFA; }
             </div>
         </div>
 
-        <!-- TABLE -->
         <div class="table-wrap">
             <table id="tbl">
                 <thead>
                     <tr>
-                        <th>Status</th>
-                        <th>ID Akun</th>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Password</th>
-                        <th>Hak Akses</th>
-                        <th style="text-align:right;">Aksi</th>
+                        <th>Status</th><th>ID Akun</th><th>Username</th><th>Email</th><th>Password</th><th>Hak Akses</th><th style="text-align:right;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                        $is_active = $row['Status_Akun'] == 1;
-                        $is_customer = $row['Role'] == 3;
-                    ?>
-                    <tr>
+                    <?php $row_num = 0; while($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $is_active = $row['Status_Akun'] == 1; $is_customer = $row['Role'] == 3; ?>
+                    <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                         <td>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span class="status-dot <?= $is_active ? 'status-active' : 'status-inactive' ?>"></span>
@@ -614,38 +547,25 @@ tr:hover td { background: #FAFAFA; }
                         <td class="email-text"><?= htmlspecialchars($row['Email']) ?></td>
                         <td>
                             <?php if ($is_customer): ?>
-                                <!-- Customer: just dots, no eye -->
                                 <span class="password-customer">••••••</span>
                             <?php else: ?>
-                                <!-- Karyawan/Manager: dots + eye toggle -->
                                 <div class="password-mask-table">
                                     <span class="password-dots-table">••••••</span>
-                                    <button type="button" class="btn-toggle-pass" onclick="togglePass(this, '<?= addslashes($row['Kata_Sandi']) ?>')" title="Lihat password">
-                                        <i class="fa-solid fa-eye"></i>
-                                    </button>
+                                    <button type="button" class="btn-toggle-pass" onclick="togglePass(this, '<?= addslashes($row['Kata_Sandi']) ?>')" title="Lihat password"><i class="fa-solid fa-eye"></i></button>
                                 </div>
                             <?php endif; ?>
                         </td>
-                        <td>
-                            <span class="role-badge badge-<?= $row['Role'] ?>"><?= $role_label_map[$row['Role']] ?></span>
-                        </td>
+                        <td><span class="role-badge badge-<?= $row['Role'] ?>"><?= $role_label_map[$row['Role']] ?></span></td>
                         <td style="text-align:right;">
                             <div class="action-group">
                                 <?php if (!$is_customer): ?>
-                                    <!-- Edit button for Karyawan & Manager only -->
-                                    <a href="?role=<?= $current_filter ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun">
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </a>
+                                    <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
                                 <?php endif; ?>
-                                <!-- Toggle switch for all roles -->
                                 <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> akun">
                                     <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status_Akun'] ?>)">
                                     <span class="toggle-slider"></span>
                                 </label>
-                                <!-- Hard Delete button for all roles -->
-                                <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen">
-                                    <i class="fa-solid fa-trash-can"></i> Hapus
-                                </button>
+                                <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i> Hapus</button>
                             </div>
                         </td>
                     </tr>
@@ -653,6 +573,23 @@ tr:hover td { background: #FAFAFA; }
                 </tbody>
             </table>
         </div>
+
+        <?php if ($total_pages > 1): ?>
+        <div class="pagination-wrap">
+            <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_rows) ?></strong> dari <strong><?= $total_rows ?></strong> data</div>
+            <div class="pagination-nav">
+                <a href="?role=<?= $current_filter ?>&page=1" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
+                <a href="?role=<?= $current_filter ?>&page=<?= $page - 1 ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
+                <?php $start_page = max(1, $page - 2); $end_page = min($total_pages, $page + 2); if ($end_page - $start_page < 4 && $total_pages >= 5) { if ($start_page == 1) { $end_page = min(5, $total_pages); } else { $start_page = max(1, $total_pages - 4); } } if ($start_page > 1): ?><a href="?role=<?= $current_filter ?>&page=1" class="page-btn">1</a><?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?><?php endif; ?>
+                <?php for ($i = $start_page; $i <= $end_page; $i++): ?><a href="?role=<?= $current_filter ?>&page=<?= $i ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a><?php endfor; ?>
+                <?php if ($end_page < $total_pages): ?><?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?><a href="?role=<?= $current_filter ?>&page=<?= $total_pages ?>" class="page-btn"><?= $total_pages ?></a><?php endif; ?>
+                <a href="?role=<?= $current_filter ?>&page=<?= $page + 1 ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
+                <a href="?role=<?= $current_filter ?>&page=<?= $total_pages ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
+            </div>
+        </div>
+        <?php else: ?>
+        <div class="pagination-wrap"><div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_rows ?></strong> dari <strong><?= $total_rows ?></strong> data</div></div>
+        <?php endif; ?>
     </div>
 </main>
 
@@ -674,17 +611,11 @@ function togglePass(btn, realPass) {
     var dots = btn.parentElement.querySelector('.password-dots-table');
     var icon = btn.querySelector('i');
     if (dots.textContent === '••••••') {
-        dots.textContent = realPass;
-        dots.style.letterSpacing = 'normal';
-        dots.style.fontSize = '13px';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
+        dots.textContent = realPass; dots.style.letterSpacing = 'normal'; dots.style.fontSize = '13px';
+        icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash');
     } else {
-        dots.textContent = '••••••';
-        dots.style.letterSpacing = '3px';
-        dots.style.fontSize = '16px';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
+        dots.textContent = '••••••'; dots.style.letterSpacing = '3px'; dots.style.fontSize = '16px';
+        icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye');
     }
 }
 
@@ -692,22 +623,12 @@ function confirmToggle(id, current) {
     const act = (current == 1) ? 'nonaktifkan' : 'aktifkan';
     const icon = (current == 1) ? 'warning' : 'question';
     Swal.fire({
-        title: 'Konfirmasi',
-        text: 'Apakah Anda yakin ingin ' + act + ' akun ini?',
-        icon: icon,
-        showCancelButton: true,
-        confirmButtonText: 'Ya, ' + act + '!',
-        confirmButtonColor: '#FF4500',
-        cancelButtonText: 'Batal',
-        cancelButtonColor: '#6B7280',
-        reverseButtons: true
+        title: 'Konfirmasi', text: 'Apakah Anda yakin ingin ' + act + ' akun ini?', icon: icon,
+        showCancelButton: true, confirmButtonText: 'Ya, ' + act + '!', confirmButtonColor: '#FF4500',
+        cancelButtonText: 'Batal', cancelButtonColor: '#6B7280', reverseButtons: true
     }).then((result) => {
-        if(result.isConfirmed) {
-            window.location.href = `?role=<?= $current_filter ?>&toggle_id=${id}&s=${current}`;
-        } else {
-            var checkbox = document.querySelector('input[onchange*="' + id + '"');
-            if (checkbox) checkbox.checked = !checkbox.checked;
-        }
+        if(result.isConfirmed) { window.location.href = `?role=<?= $current_filter ?>&page=<?= $page ?>&toggle_id=${id}&s=${current}`; }
+        else { var checkbox = document.querySelector('input[onchange*="' + id + '"'); if (checkbox) checkbox.checked = !checkbox.checked; }
     });
 }
 
@@ -715,35 +636,57 @@ function confirmDelete(id, username) {
     Swal.fire({
         title: 'Hapus Akun Permanen?',
         html: `Akun <strong style="color:#FF4500;">${username}</strong> (${id}) akan dihapus <strong style="color:#DC2626;">secara permanen</strong>!<br><br>Data yang terkait (Karyawan/Customer) juga akan terhapus.`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Hapus Permanen!',
-        confirmButtonColor: '#DC2626',
-        cancelButtonText: 'Batal',
-        cancelButtonColor: '#6B7280',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'swal2-confirm-btn',
-            cancelButton: 'swal2-cancel-btn'
-        }
-    }).then((result) => {
-        if(result.isConfirmed) {
-            window.location.href = `?role=<?= $current_filter ?>&delete_id=${id}`;
+        icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Hapus Permanen!', confirmButtonColor: '#DC2626',
+        cancelButtonText: 'Batal', cancelButtonColor: '#6B7280', reverseButtons: true
+    }).then((result) => { if(result.isConfirmed) { window.location.href = `?role=<?= $current_filter ?>&page=<?= $page ?>&delete_id=${id}`; } });
+}
+
+/* ═══ VALIDASI FORM ═══ */
+function validateForm(form) {
+    let valid = true;
+    const inputs = form.querySelectorAll('.modal-input[required]');
+    inputs.forEach(input => {
+        const valMsg = document.getElementById('val-' + input.id);
+        if (!input.checkValidity()) {
+            if (valMsg) valMsg.classList.add('show');
+            valid = false;
+        } else {
+            if (valMsg) valMsg.classList.remove('show');
         }
     });
+    return valid;
 }
+
+// Live validation on input
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.modal-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            if (valMsg) {
+                if (!this.checkValidity() && this.value !== '') {
+                    valMsg.classList.add('show');
+                } else {
+                    valMsg.classList.remove('show');
+                }
+            }
+        });
+        input.addEventListener('blur', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            if (valMsg) {
+                if (!this.checkValidity()) {
+                    valMsg.classList.add('show');
+                } else {
+                    valMsg.classList.remove('show');
+                }
+            }
+        });
+    });
+});
 
 const urlParams = new URLSearchParams(window.location.search);
 if(urlParams.get('status')){
-    Swal.fire({
-        icon: urlParams.get('status'),
-        title: urlParams.get('msg'),
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-        toast: true,
-        position: 'top-end'
-    });
+    Swal.fire({ icon: urlParams.get('status'), title: urlParams.get('msg'), showConfirmButton: false, timer: 2500, timerProgressBar: true, toast: true, position: 'top-end' });
     window.history.replaceState({}, '', window.location.pathname + "?role=<?= $current_filter ?>");
 }
 </script>
