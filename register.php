@@ -769,7 +769,7 @@ if (isset($_POST['register'])) {
     <label>Nomor Telepon</label>
     <div class="input-wrapper">
         <i class="fa-solid fa-phone icon-left"></i>
-        <input type="text" name="telp" id="telpField" placeholder="0812xxxxxxxx" autocomplete="tel" maxlength="12">
+        <input type="text" name="telp" id="telpField" placeholder="0812xxxxxxxx" autocomplete="tel" maxlength="13">
     </div>
     <span class="error-text" id="telpError"></span>
 </div>

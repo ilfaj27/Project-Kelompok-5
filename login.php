@@ -808,7 +808,7 @@ if (isset($_POST['login'])) {
                 <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
                 <label for="rem">Ingat saya</label>
             </div>
-            <a href="#" class="forgot-link">Lupa password?</a>
+            <a href="forgot-password.php" class="forgot-link">Lupa password?</a>
         </div>
 
         <!-- Tombol Masuk -->
