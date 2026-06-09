@@ -59,7 +59,7 @@ if (isset($_POST['login'])) {
                 } elseif ($_SESSION['role'] == 'karyawan') {
                     header("Location: view_admin.php");
                 } else {
-                    header("Location: index.php");
+                    header("Location: view_customer.php");
                 }
                 exit();
             } else {
@@ -115,20 +115,21 @@ if (isset($_POST['login'])) {
 
         /* HERO AUTH WRAPPER (DARK BACKGROUND) */
         .auth-hero-wrapper {
-               background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
+       background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
                 url('login.png') no-repeat center center;
     background-size: cover;
     
-    /* DIUBAH: 
-       - Angka pertama (90px) adalah jarak atas (dikurangi agar lebih naik ke atas)
-       - Angka ketiga (150px) adalah jarak bawah (ditambah agar mendorong konten ke atas) */
-    padding: 90px 8% 150px 8%; 
+    /* GANTI INI: Diubah menjadi 100vh agar memenuhi tinggi 1 layar penuh tanpa celah */
+    min-height: 100vh; 
+    
+    /* Sesuaikan kembali padding-nya secara seimbang agar rapi */
+    padding: 80px 8% 80px 8%; 
     
     display: grid;
     grid-template-columns: 1.12fr 1fr;
     gap: 50px;
     align-items: center;
-    min-height: 90vh;
+    position: relative;
         }
 
         /* SISI KIRI: INFORMASI PROMO */
@@ -321,8 +322,8 @@ if (isset($_POST['login'])) {
         }
 
         .card-footer a:hover {
-            color: var(--orange-hover);
-            text-decoration: underline !important;
+              color: var(--orange-hover);
+    text-decoration: underline !important;
         }
 
         .check-container {
@@ -433,15 +434,16 @@ if (isset($_POST['login'])) {
 
         /* CARD FOOTER */
         .card-footer {
-            margin-top: 24px;
-            font-size: 12px;
-            color: var(--text-muted);
+             margin-top: 20px; /* Jarak pas 20px tepat di bawah tombol Masuk */
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
         }
 
         .card-footer a {
-            color: var(--orange);
-            text-decoration: none;
-            font-weight: 700;
+              color: var(--orange);
+    text-decoration: none;
+    font-weight: 700;
         }
 
 
@@ -776,52 +778,46 @@ if (isset($_POST['login'])) {
 
         <!-- Kanan: White Floating Card -->
         <div class="auth-card-container">
-            <div class="auth-card">
-                <h3>Login</h3>
-                <span class="card-subtitle">Selamat datang kembali!</span>
+<div class="auth-card">
+    <h3>Login</h3>
+    <span class="card-subtitle">Selamat datang kembali!</span>
 
-          <form method="POST" action="" id="loginForm" novalidate>
-    <div class="input-group">
-        <label>Email<span>*</span></label>
-        <div class="input-wrapper">
-            <i class="fa-regular fa-envelope icon-left"></i>
-            <!-- Atribut "required" dihapus karena digantikan validasi JS kustom -->
-            <input type="text" name="user_input" placeholder="Masukkan email Anda" value="<?= htmlspecialchars($remembered_user) ?>">
-        </div>
-        <!-- Wadah pesan error email -->
-        <span class="error-text" id="emailError"></span>
-    </div>
-    
-    <div class="input-group">
-        <label>Password<span>*</span></label>
-        <div class="input-wrapper">
-            <i class="fa-solid fa-lock icon-left"></i>
-            <input type="password" name="password_input" id="passwordInput" placeholder="Masukkan password Anda">
-            <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
-        </div>
-        <!-- Wadah pesan error password -->
-        <span class="error-text" id="passwordError"></span>
-    </div>
-
-    <div class="remember-row">
-        <div class="check-container">
-            <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
-            <label for="rem">Ingat saya</label>
-        </div>
-        <a href="#" class="forgot-link">Lupa password?</a>
-    </div>
-
-    <button type="submit" name="login" class="btn-submit">Masuk</button>
-</form>
-
-                <div class="divider"><span>atau</span></div>
-
-                <a href="#" class="btn-google">
-                    <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" alt="Google" width="16"> Masuk dengan Google
-                </a>
-
-                <p class="card-footer">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
+    <!-- FORM LOGIN RINGKAS (TANPA GOOGLE) -->
+    <form method="POST" action="" id="loginForm" novalidate>
+        <div class="input-group">
+            <label>Email<span style="color: red;">*</span></label>
+            <div class="input-wrapper">
+                <i class="fa-regular fa-envelope icon-left"></i>
+                <input type="text" name="user_input" placeholder="Masukkan email Anda" value="<?= htmlspecialchars($remembered_user) ?>">
             </div>
+            <span class="error-text" id="emailError"></span>
+        </div>
+        
+        <div class="input-group">
+            <label>Password<span style="color: red;">*</span></label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-lock icon-left"></i>
+                <input type="password" name="password_input" id="passwordInput" placeholder="Masukkan password Anda">
+                <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
+            </div>
+            <span class="error-text" id="passwordError"></span>
+        </div>
+
+        <div class="remember-row">
+            <div class="check-container">
+                <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
+                <label for="rem">Ingat saya</label>
+            </div>
+            <a href="#" class="forgot-link">Lupa password?</a>
+        </div>
+
+        <!-- Tombol Masuk -->
+        <button type="submit" name="login" class="btn-submit">Masuk</button>
+
+        <!-- PINDAH KE SINI: Kalimat Daftar Sekarang tepat di bawah tombol Masuk -->
+        <p class="card-footer">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
+    </form>
+</div>
         </div>
     </div>
 
