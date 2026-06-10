@@ -1,147 +1,491 @@
 CREATE DATABASE Hoopball;
 USE Hoopball;
 
--- 1. Tabel Akun (Dibuat pertama karena menjadi referensi/FK)
+/* Tabel akun pengguna */
 CREATE TABLE Akun (
-    ID_Akun VARCHAR(6) PRIMARY KEY,
+    ID_Akun VARCHAR(6) NOT NULL PRIMARY KEY,
     Username VARCHAR(20) NOT NULL,
     Email VARCHAR(50) NOT NULL,
     Kata_Sandi VARCHAR(50) NOT NULL,
-    Role INT NOT NULL CHECK (Role IN (1, 2, 3)), -- 1:Admin, 2:Karyawan, 3:Customer
-    Status_Akun INT NOT NULL CHECK (Status_Akun IN (0, 1)) -- 0:Nonaktif, 1:Aktif
-);
+    Role INT NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
 
--- 2. Tabel Karyawan (Memiliki FK ID_Akun)
-CREATE TABLE Karyawan (
-    ID_Karyawan VARCHAR(6) PRIMARY KEY,
-    ID_Akun VARCHAR(6) NOT NULL,
-    Nama_Karyawan VARCHAR(20) NOT NULL,
-    Jenis_Kelamin INT NOT NULL CHECK (Jenis_Kelamin IN (1, 2)),
-    Jabatan INT NOT NULL CHECK (Jabatan BETWEEN 1 AND 5),
-    No_Telepon VARCHAR(15) NOT NULL,
-    FOREIGN KEY (ID_Akun) REFERENCES Akun(ID_Akun)
+    CONSTRAINT UQ_Akun_Username UNIQUE (Username),
+    CONSTRAINT UQ_Akun_Email UNIQUE (Email),
+    CONSTRAINT CK_Akun_Role CHECK (Role IN (1, 2, 3)),
+    CONSTRAINT CK_Akun_Status CHECK (Status IN (0, 1))
 );
+GO
 
--- 3. Tabel Customer (Memiliki FK ID_Akun)
+/* Tabel customer */
 CREATE TABLE Customer (
-    ID_Customer VARCHAR(6) PRIMARY KEY,
+    ID_Customer VARCHAR(6) NOT NULL PRIMARY KEY,
     ID_Akun VARCHAR(6) NOT NULL,
     Nama_Customer VARCHAR(20) NOT NULL,
-    Jenis_Kelamin INT NOT NULL CHECK (Jenis_Kelamin IN (1, 2)),
+    Jenis_Kelamin INT NOT NULL,
     Alamat VARCHAR(100) NOT NULL,
     No_Telepon VARCHAR(15) NOT NULL,
-    FOREIGN KEY (ID_Akun) REFERENCES Akun(ID_Akun)
-);
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
 
--- 4. Tabel Lapangan
+    CONSTRAINT UQ_Customer_Akun UNIQUE (ID_Akun),
+    CONSTRAINT FK_Customer_Akun FOREIGN KEY (ID_Akun) REFERENCES Akun(ID_Akun),
+    CONSTRAINT CK_Customer_JenisKelamin CHECK (Jenis_Kelamin IN (1, 2)),
+    CONSTRAINT CK_Customer_Status CHECK (Status IN (0, 1))
+);
+GO
+
+/* Tabel karyawan */
+CREATE TABLE Karyawan (
+    ID_Karyawan VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Akun VARCHAR(6) NOT NULL,
+    Nama_Karyawan VARCHAR(20) NOT NULL,
+    Jenis_Kelamin INT NOT NULL,
+    Jabatan INT NOT NULL,
+    No_Telepon VARCHAR(15) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
+
+    CONSTRAINT UQ_Karyawan_Akun UNIQUE (ID_Akun),
+    CONSTRAINT FK_Karyawan_Akun FOREIGN KEY (ID_Akun) REFERENCES Akun(ID_Akun),
+    CONSTRAINT CK_Karyawan_JenisKelamin CHECK (Jenis_Kelamin IN (1, 2)),
+    CONSTRAINT CK_Karyawan_Jabatan CHECK (Jabatan IN (1, 2, 3)),
+    CONSTRAINT CK_Karyawan_Status CHECK (Status IN (0, 1))
+);
+GO
+
+/* Tabel lapangan */
 CREATE TABLE Lapangan (
-    ID_Lapangan VARCHAR(6) PRIMARY KEY,
+    ID_Lapangan VARCHAR(6) NOT NULL PRIMARY KEY,
     Nama_Lapangan VARCHAR(25) NOT NULL,
     Harga_Sewa DECIMAL(18,2) NOT NULL,
-    Status INT NOT NULL CHECK (Status IN (0, 1)) -- 0:Maintenance, 1:Tersedia
-);
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
 
--- 5. Tabel Promo
+    CONSTRAINT CK_Lapangan_Harga CHECK (Harga_Sewa >= 0),
+    CONSTRAINT CK_Lapangan_Status CHECK (Status IN (0, 1))
+);
+GO
+
+/* Tabel jadwal */
+CREATE TABLE Jadwal (
+    ID_Jadwal VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Lapangan VARCHAR(6) NOT NULL,
+    Tanggal DATE NOT NULL,
+    Jam_Mulai TIME NOT NULL,
+    Jam_Selesai TIME NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
+
+    CONSTRAINT FK_Jadwal_Lapangan FOREIGN KEY (ID_Lapangan) REFERENCES Lapangan(ID_Lapangan),
+    CONSTRAINT UQ_Jadwal_Lapangan_Waktu UNIQUE (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai),
+    CONSTRAINT CK_Jadwal_Jam CHECK (Jam_Selesai > Jam_Mulai),
+    CONSTRAINT CK_Jadwal_Status CHECK (Status IN (0, 1))
+);
+GO
+
+/* Tabel promo */
 CREATE TABLE Promo (
-    ID_Promo VARCHAR(6) PRIMARY KEY,
+    ID_Promo VARCHAR(6) NOT NULL PRIMARY KEY,
     Nama_Promo VARCHAR(15) NOT NULL,
     Diskon DECIMAL(18,2) NOT NULL,
     Tanggal_Mulai DATE NOT NULL,
-    Tanggal_Selesai DATE NOT NULL
+    Tanggal_Selesai DATE NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
+
+    CONSTRAINT CK_Promo_Diskon CHECK (Diskon >= 0),
+    CONSTRAINT CK_Promo_Tanggal CHECK (Tanggal_Selesai >= Tanggal_Mulai),
+    CONSTRAINT CK_Promo_Status CHECK (Status IN (0, 1))
 );
+GO
 
--- 20 Akun untuk Karyawan (ID AKN001-AKN020)
-INSERT INTO Akun VALUES 
-('AKN001','admin_hoop','admin@hoop.com','pass123',1,1),
-('AKN002','staff_budi','budi@hoop.com','pass123',2,1),
-('AKN003','staff_siti','siti@hoop.com','pass123',2,1),
-('AKN004','staff_eko','eko@hoop.com','pass123',2,1),
-('AKN005','staff_ani','ani@hoop.com','pass123',2,1),
-('AKN006','staff_doni','doni@hoop.com','pass123',2,1),
-('AKN007','staff_rara','rara@hoop.com','pass123',2,1),
-('AKN008','staff_gani','gani@hoop.com','pass123',2,1),
-('AKN009','staff_heri','heri@hoop.com','pass123',2,1),
-('AKN010','staff_ina','ina@hoop.com','pass123',2,1),
-('AKN011','user_ari','ari@mail.com','user123',3,1),
-('AKN012','user_ben','ben@mail.com','user123',3,1),
-('AKN013','user_citra','citra@mail.com','user123',3,1),
-('AKN014','user_desi','desi@mail.com','user123',3,1),
-('AKN015','user_erik','erik@mail.com','user123',3,1),
-('AKN016','user_fani','fani@mail.com','user123',3,1),
-('AKN017','user_gina','gina@mail.com','user123',3,1),
-('AKN018','user_hans','hans@mail.com','user123',3,1),
-('AKN019','user_ivan','ivan@mail.com','user123',3,1),
-('AKN020','user_jenny','jenny@mail.com','user123',3,1);
+/* Tabel tipe member */
+CREATE TABLE Tipe_Member (
+    ID_Tipe VARCHAR(6) NOT NULL PRIMARY KEY,
+    Nama_Tipe VARCHAR(15) NOT NULL,
+    Harga_Member DECIMAL(18,2) NOT NULL,
+    Potongan_Harga DECIMAL(18,2) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
 
-INSERT INTO Karyawan VALUES
-('KRY001','AKN001','Andi Admin',1,1,'0811'), ('KRY002','AKN002','Budi Kasir',1,3,'0812'),
-('KRY003','AKN003','Siti Kasir',2,3,'0813'), ('KRY004','AKN004','Eko Staf',1,4,'0814'),
-('KRY005','AKN005','Ani Kasir',2,3,'0815'), ('KRY006','AKN006','Doni Staf',1,4,'0816'),
-('KRY007','AKN007','Rara Kasir',2,3,'0817'), ('KRY008','AKN008','Gani Staf',1,4,'0818'),
-('KRY009','AKN009','Heri Kasir',1,3,'0819'), ('KRY010','AKN010','Ina Staf',2,4,'0820'),
-('KRY011','AKN001','Hendra',1,2,'0821'), ('KRY012','AKN002','Maman',1,3,'0822'),
-('KRY013','AKN003','Lili',2,3,'0823'), ('KRY014','AKN004','Joko',1,4,'0824'),
-('KRY015','AKN005','Nana',2,3,'0825'), ('KRY016','AKN006','Opan',1,4,'0826'),
-('KRY017','AKN007','Pipo',1,3,'0827'), ('KRY018','AKN008','Qori',2,4,'0828'),
-('KRY019','AKN009','Reza',1,3,'0829'), ('KRY020','AKN010','Sasa',2,4,'0830');
+    CONSTRAINT CK_TipeMember_Harga CHECK (Harga_Member >= 0),
+    CONSTRAINT CK_TipeMember_Potongan CHECK (Potongan_Harga >= 0),
+    CONSTRAINT CK_TipeMember_Status CHECK (Status IN (0, 1))
+);
+GO
 
-INSERT INTO Customer VALUES
-('CUS001','AKN011','Ari','1','Jakarta','0851'), ('CUS002','AKN012','Ben','1','Bandung','0852'),
-('CUS003','AKN013','Citra','2','Bekasi','0853'), ('CUS004','AKN014','Desi','2','Depok','0854'),
-('CUS005','AKN015','Erik','1','Bogor','0855'), ('CUS006','AKN016','Fani','2','Tangerang','0856'),
-('CUS007','AKN017','Gina','2','Jakarta','0857'), ('CUS008','AKN018','Hans','1','Surabaya','0858'),
-('CUS009','AKN019','Ivan','1','Malang','0859'), ('CUS010','AKN020','Jenny','2','Medan','0860'),
-('CUS011','AKN011','Rian','1','Solo','0861'), ('CUS012','AKN012','Lala','2','Jogja','0862'),
-('CUS013','AKN013','Tomi','1','Aceh','0863'), ('CUS014','AKN014','Yuna','2','Bali','0864'),
-('CUS015','AKN015','Zaki','1','Palu','0865'), ('CUS016','AKN016','Vina','2','Padang','0866'),
-('CUS017','AKN017','Baim','1','Riau','0867'), ('CUS018','AKN018','Kiki','2','Jambi','0868'),
-('CUS019','AKN019','Duta','1','Papua','0869'), ('CUS020','AKN020','Emi','2','Batam','0870');
+/* Tabel alat */
+CREATE TABLE Alat (
+    ID_Alat VARCHAR(6) NOT NULL PRIMARY KEY,
+    Nama_Alat VARCHAR(25) NOT NULL,
+    Stok INT NOT NULL,
+    Harga_Alat DECIMAL(18,2) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Is_Deleted BIT NOT NULL DEFAULT 0,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+    Deleted_By VARCHAR(50) NULL,
+    Deleted_Date DATETIME NULL,
 
-INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status) VALUES
-('LAP001', 'Futsal Vinyl A1', 150000.00, 1),
-('LAP002', 'Futsal Vinyl A2', 150000.00, 1),
-('LAP003', 'Futsal Rumput B1', 120000.00, 1),
-('LAP004', 'Futsal Rumput B2', 120000.00, 0), -- Maintenance
-('LAP005', 'Basket Indoor Pro', 250000.00, 1),
-('LAP006', 'Basket Outdoor 1', 100000.00, 1),
-('LAP007', 'Basket Outdoor 2', 100000.00, 1),
-('LAP008', 'Mini Soccer A', 400000.00, 1),
-('LAP009', 'Mini Soccer B', 400000.00, 1),
-('LAP010', 'Voli Court Indoor', 130000.00, 1),
-('LAP011', 'Badminton Court 1', 50000.00, 1),
-('LAP012', 'Badminton Court 2', 50000.00, 1),
-('LAP013', 'Badminton Court 3', 50000.00, 1),
-('LAP014', 'Badminton Court 4', 50000.00, 1),
-('LAP015', 'Badminton Court 5', 50000.00, 0), -- Maintenance
-('LAP016', 'Tenis Court 1', 180000.00, 1),
-('LAP017', 'Tenis Court 2', 180000.00, 1),
-('LAP018', 'Multipurpose VIP', 500000.00, 1),
-('LAP019', 'Futsal Interlock C1', 175000.00, 1),
-('LAP020', 'Futsal Interlock C2', 175000.00, 1);
+    CONSTRAINT CK_Alat_Stok CHECK (Stok >= 0),
+    CONSTRAINT CK_Alat_Harga CHECK (Harga_Alat >= 0),
+    CONSTRAINT CK_Alat_Status CHECK (Status IN (0, 1))
+);
+GO
 
-INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai) VALUES
-('PRM001', 'Tahun Baru', 20000.00, '2024-01-01', '2024-01-07'),
-('PRM002', 'Imlek Hoki', 15000.00, '2024-02-01', '2024-02-15'),
-('PRM003', 'Valentine', 10000.00, '2024-02-14', '2024-02-14'),
-('PRM004', 'Ramadhan', 25000.00, '2024-03-10', '2024-04-10'),
-('PRM005', 'Idul Fitri', 30000.00, '2024-04-11', '2024-04-20'),
-('PRM006', 'Mei Hemat', 12000.00, '2024-05-01', '2024-05-31'),
-('PRM007', 'Libur Sekolah', 20000.00, '2024-06-15', '2024-07-15'),
-('PRM008', 'Promo Merdeka', 17000.00, '2024-08-10', '2024-08-20'),
-('PRM009', 'SeptemBER', 10000.00, '2024-09-01', '2024-09-30'),
-('PRM010', 'HUT Hoopball', 50000.00, '2024-10-01', '2024-10-07'),
-('PRM011', 'Sumpah Pemuda', 15000.00, '2024-10-25', '2024-10-31'),
-('PRM012', 'Pahlawan', 10000.00, '2024-11-10', '2024-11-10'),
-('PRM013', 'Promo 11.11', 11000.00, '2024-11-11', '2024-11-11'),
-('PRM014', 'Gajian Seru', 15000.00, '2024-11-25', '2024-11-30'),
-('PRM015', 'Promo 12.12', 12000.00, '2024-12-12', '2024-12-12'),
-('PRM016', 'Natal Ceria', 25000.00, '2024-12-20', '2024-12-26'),
-('PRM017', 'Akhir Tahun', 35000.00, '2024-12-27', '2024-12-31'),
-('PRM018', 'Member Baru', 5000.00, '2024-01-01', '2024-12-31'),
-('PRM019', 'Flash Sale', 8000.00, '2024-05-20', '2024-05-20'),
-('PRM020', 'Senin Sehat', 7000.00, '2024-01-01', '2024-01-01');
+/* Tabel booking */
+CREATE TABLE Booking (
+    ID_Booking VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Customer VARCHAR(6) NOT NULL,
+    ID_Karyawan VARCHAR(6) NOT NULL,
+    ID_Jadwal VARCHAR(6) NOT NULL,
+    ID_Promo VARCHAR(6) NULL,
+    Tanggal_Booking DATE NOT NULL,
+    Metode_Pembayaran VARCHAR(20) NOT NULL,
+    Total_Bayar DECIMAL(18,2) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
 
-select * from Akun
-select * from Karyawan
+    CONSTRAINT FK_Booking_Customer FOREIGN KEY (ID_Customer) REFERENCES Customer(ID_Customer),
+    CONSTRAINT FK_Booking_Karyawan FOREIGN KEY (ID_Karyawan) REFERENCES Karyawan(ID_Karyawan),
+    CONSTRAINT FK_Booking_Jadwal FOREIGN KEY (ID_Jadwal) REFERENCES Jadwal(ID_Jadwal),
+    CONSTRAINT FK_Booking_Promo FOREIGN KEY (ID_Promo) REFERENCES Promo(ID_Promo),
+    CONSTRAINT CK_Booking_Total CHECK (Total_Bayar >= 0),
+    CONSTRAINT CK_Booking_Status CHECK (Status IN (1, 2, 3, 4))
+);
+GO
 
-select * from Lapangan
+/* Tabel langganan */
+CREATE TABLE Langganan (
+    ID_Langganan VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Customer VARCHAR(6) NOT NULL,
+    ID_Karyawan VARCHAR(6) NOT NULL,
+    ID_Tipe VARCHAR(6) NOT NULL,
+    Tanggal_Mulai DATE NOT NULL,
+    Tanggal_Selesai DATE NOT NULL,
+    Metode_Pembayaran VARCHAR(20) NOT NULL,
+    Total_Bayar DECIMAL(18,2) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+
+    CONSTRAINT FK_Langganan_Customer FOREIGN KEY (ID_Customer) REFERENCES Customer(ID_Customer),
+    CONSTRAINT FK_Langganan_Karyawan FOREIGN KEY (ID_Karyawan) REFERENCES Karyawan(ID_Karyawan),
+    CONSTRAINT FK_Langganan_Tipe FOREIGN KEY (ID_Tipe) REFERENCES Tipe_Member(ID_Tipe),
+    CONSTRAINT CK_Langganan_Tanggal CHECK (Tanggal_Selesai >= Tanggal_Mulai),
+    CONSTRAINT CK_Langganan_Total CHECK (Total_Bayar >= 0),
+    CONSTRAINT CK_Langganan_Status CHECK (Status IN (1, 2, 3))
+);
+GO
+
+/* Tabel beli alat */
+CREATE TABLE Beli_Alat (
+    ID_Beli VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Karyawan VARCHAR(6) NOT NULL,
+    ID_Customer VARCHAR(6) NOT NULL,
+    Tanggal_Beli DATE NOT NULL,
+    Metode_Pembayaran VARCHAR(20) NOT NULL,
+    Total_Bayar DECIMAL(18,2) NOT NULL,
+    Status INT NOT NULL DEFAULT 1,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+
+    CONSTRAINT FK_BeliAlat_Karyawan FOREIGN KEY (ID_Karyawan) REFERENCES Karyawan(ID_Karyawan),
+    CONSTRAINT FK_BeliAlat_Customer FOREIGN KEY (ID_Customer) REFERENCES Customer(ID_Customer),
+    CONSTRAINT CK_BeliAlat_Total CHECK (Total_Bayar >= 0),
+    CONSTRAINT CK_BeliAlat_Status CHECK (Status IN (1, 2, 3))
+);
+GO
+
+/* Tabel detail beli alat */
+CREATE TABLE Detail_Beli_Alat (
+    ID_Alat VARCHAR(6) NOT NULL,
+    ID_Beli VARCHAR(6) NOT NULL,
+    Jumlah INT NOT NULL,
+    SubTotal DECIMAL(18,2) NOT NULL,
+
+    CONSTRAINT PK_Detail_Beli_Alat PRIMARY KEY (ID_Alat, ID_Beli),
+    CONSTRAINT FK_DetailBeliAlat_Alat FOREIGN KEY (ID_Alat) REFERENCES Alat(ID_Alat),
+    CONSTRAINT FK_DetailBeliAlat_Beli FOREIGN KEY (ID_Beli) REFERENCES Beli_Alat(ID_Beli),
+    CONSTRAINT CK_DetailBeliAlat_Jumlah CHECK (Jumlah > 0),
+    CONSTRAINT CK_DetailBeliAlat_SubTotal CHECK (SubTotal >= 0)
+);
+GO
+
+/* Tabel pembatalan booking */
+CREATE TABLE Pembatalan_Booking (
+    ID_Pembatalan VARCHAR(6) NOT NULL PRIMARY KEY,
+    ID_Booking VARCHAR(6) NOT NULL,
+    ID_Karyawan VARCHAR(6) NOT NULL,
+    Tanggal_Batal DATE NOT NULL,
+    Alasan VARCHAR(255) NOT NULL,
+    Biaya_Batal DECIMAL(18,2) NOT NULL,
+    Nominal_Refund DECIMAL(18,2) NOT NULL,
+    Metode_Refund VARCHAR(20) NOT NULL,
+    Status_Refund INT NOT NULL DEFAULT 1,
+    Created_By VARCHAR(50) NOT NULL,
+    Created_Date DATETIME NOT NULL DEFAULT GETDATE(),
+    Modified_By VARCHAR(50) NULL,
+    Modified_Date DATETIME NULL,
+
+    CONSTRAINT UQ_Pembatalan_Booking UNIQUE (ID_Booking),
+    CONSTRAINT FK_Pembatalan_Booking FOREIGN KEY (ID_Booking) REFERENCES Booking(ID_Booking),
+    CONSTRAINT FK_Pembatalan_Karyawan FOREIGN KEY (ID_Karyawan) REFERENCES Karyawan(ID_Karyawan),
+    CONSTRAINT CK_Pembatalan_Biaya CHECK (Biaya_Batal >= 0),
+    CONSTRAINT CK_Pembatalan_Refund CHECK (Nominal_Refund >= 0),
+    CONSTRAINT CK_Pembatalan_StatusRefund CHECK (Status_Refund IN (1, 2, 3))
+);
+GO
+
+/* Mencegah jadwal aktif dibooking lebih dari satu kali */
+CREATE UNIQUE INDEX UQ_Booking_Jadwal_Aktif
+ON Booking(ID_Jadwal)
+WHERE Status <> 4;
+GO
+
+INSERT INTO Akun 
+(ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By)
+VALUES
+('AK0001', 'manajer', 'manajer@hoopball.com', '12345', 3, 1, 'System'),
+('AK0002', 'karyawan1', 'karyawan1@hoopball.com', '12345', 2, 1, 'System'),
+('AK0003', 'karyawan2', 'karyawan2@hoopball.com', '12345', 2, 1, 'System'),
+('AK0004', 'raka', 'raka@gmail.com', '12345', 1, 1, 'System'),
+('AK0005', 'dimas', 'dimas@gmail.com', '12345', 1, 1, 'System'),
+('AK0006', 'salsa', 'salsa@gmail.com', '12345', 1, 1, 'System'),
+('AK0007', 'nabila', 'nabila@gmail.com', '12345', 1, 1, 'System'),
+('AK0008', 'farhan', 'farhan@gmail.com', '12345', 1, 1, 'System'),
+('AK0009', 'zaki', 'zaki@gmail.com', '12345', 1, 1, 'System'),
+('AK0010', 'putri', 'putri@gmail.com', '12345', 1, 1, 'System');
+GO
+
+INSERT INTO Karyawan
+(ID_Karyawan, ID_Akun, Nama_Karyawan, Jenis_Kelamin, Jabatan, No_Telepon, Status, Created_By)
+VALUES
+('KR0001', 'AK0001', 'Budi', 1, 3, '081111111111', 1, 'System'),
+('KR0002', 'AK0002', 'Andi', 1, 1, '082222222222', 1, 'System'),
+('KR0003', 'AK0003', 'Siti', 2, 2, '083333333333', 1, 'System');
+GO
+
+INSERT INTO Customer
+(ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By)
+VALUES
+('CS0001', 'AK0004', 'Raka', 1, 'Bekasi', '081234567801', 1, 'System'),
+('CS0002', 'AK0005', 'Dimas', 1, 'Jakarta', '081234567802', 1, 'System'),
+('CS0003', 'AK0006', 'Salsa', 2, 'Depok', '081234567803', 1, 'System'),
+('CS0004', 'AK0007', 'Nabila', 2, 'Bogor', '081234567804', 1, 'System'),
+('CS0005', 'AK0008', 'Farhan', 1, 'Tangerang', '081234567805', 1, 'System'),
+('CS0006', 'AK0009', 'Zaki', 1, 'Cikarang', '081234567806', 1, 'System'),
+('CS0007', 'AK0010', 'Putri', 2, 'Karawang', '081234567807', 1, 'System');
+GO
+
+INSERT INTO Lapangan
+(ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Created_By)
+VALUES
+('LP0001', 'Lapangan A', 150000, 1, 'System'),
+('LP0002', 'Lapangan B', 175000, 1, 'System'),
+('LP0003', 'Lapangan C', 200000, 1, 'System'),
+('LP0004', 'Lapangan D', 225000, 1, 'System');
+GO
+
+INSERT INTO Jadwal
+(ID_Jadwal, ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Created_By)
+VALUES
+('JD0001', 'LP0001', '2026-06-15', '08:00', '10:00', 1, 'System'),
+('JD0002', 'LP0001', '2026-06-15', '10:00', '12:00', 1, 'System'),
+('JD0003', 'LP0001', '2026-06-15', '13:00', '15:00', 1, 'System'),
+('JD0004', 'LP0001', '2026-06-15', '15:00', '17:00', 1, 'System'),
+('JD0005', 'LP0002', '2026-06-15', '08:00', '10:00', 1, 'System'),
+('JD0006', 'LP0002', '2026-06-15', '10:00', '12:00', 1, 'System'),
+('JD0007', 'LP0002', '2026-06-15', '13:00', '15:00', 1, 'System'),
+('JD0008', 'LP0002', '2026-06-15', '15:00', '17:00', 1, 'System'),
+('JD0009', 'LP0003', '2026-06-16', '08:00', '10:00', 1, 'System'),
+('JD0010', 'LP0003', '2026-06-16', '10:00', '12:00', 1, 'System'),
+('JD0011', 'LP0003', '2026-06-16', '13:00', '15:00', 1, 'System'),
+('JD0012', 'LP0003', '2026-06-16', '15:00', '17:00', 1, 'System'),
+('JD0013', 'LP0004', '2026-06-16', '08:00', '10:00', 1, 'System'),
+('JD0014', 'LP0004', '2026-06-16', '10:00', '12:00', 1, 'System'),
+('JD0015', 'LP0004', '2026-06-16', '13:00', '15:00', 1, 'System'),
+('JD0016', 'LP0004', '2026-06-16', '15:00', '17:00', 1, 'System'),
+('JD0017', 'LP0001', '2026-06-17', '08:00', '10:00', 1, 'System'),
+('JD0018', 'LP0002', '2026-06-17', '10:00', '12:00', 1, 'System'),
+('JD0019', 'LP0003', '2026-06-17', '13:00', '15:00', 1, 'System'),
+('JD0020', 'LP0004', '2026-06-17', '15:00', '17:00', 1, 'System');
+GO
+
+INSERT INTO Promo
+(ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Created_By)
+VALUES
+('PR0001', 'PROMO10', 10000, '2026-06-01', '2026-06-30', 1, 'System'),
+('PR0002', 'HEMAT20', 20000, '2026-06-01', '2026-06-30', 1, 'System'),
+('PR0003', 'WEEKEND', 15000, '2026-06-01', '2026-07-15', 1, 'System'),
+('PR0004', 'HOOPDAY', 25000, '2026-06-10', '2026-07-10', 1, 'System');
+GO
+
+INSERT INTO Tipe_Member
+(ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status, Created_By)
+VALUES
+('TM0001', 'Silver', 100000, 10000, 1, 'System'),
+('TM0002', 'Gold', 150000, 20000, 1, 'System'),
+('TM0003', 'Platinum', 200000, 30000, 1, 'System');
+GO
+
+INSERT INTO Alat
+(ID_Alat, Nama_Alat, Stok, Harga_Alat, Status, Created_By)
+VALUES
+('AT0001', 'Bola Basket', 20, 250000, 1, 'System'),
+('AT0002', 'Knee Pad', 15, 75000, 1, 'System'),
+('AT0003', 'Arm Sleeve', 25, 50000, 1, 'System'),
+('AT0004', 'Jersey Basket', 30, 120000, 1, 'System'),
+('AT0005', 'Sepatu Basket', 10, 450000, 1, 'System'),
+('AT0006', 'Tas Olahraga', 12, 180000, 1, 'System');
+GO
+
+INSERT INTO Booking
+(ID_Booking, ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By)
+VALUES
+('BK0001', 'CS0001', 'KR0002', 'JD0001', 'PR0001', '2026-06-10', 'QRIS', 140000, 2, 'Customer'),
+('BK0002', 'CS0002', 'KR0002', 'JD0002', NULL, '2026-06-10', 'Transfer Bank', 150000, 2, 'Customer'),
+('BK0003', 'CS0003', 'KR0003', 'JD0003', 'PR0002', '2026-06-11', 'QRIS', 130000, 3, 'Customer'),
+('BK0004', 'CS0004', 'KR0002', 'JD0004', NULL, '2026-06-11', 'Transfer Bank', 150000, 4, 'Customer'),
+('BK0005', 'CS0005', 'KR0003', 'JD0005', 'PR0003', '2026-06-12', 'QRIS', 160000, 2, 'Customer'),
+('BK0006', 'CS0006', 'KR0002', 'JD0006', NULL, '2026-06-12', 'Transfer Bank', 175000, 1, 'Customer'),
+('BK0007', 'CS0007', 'KR0003', 'JD0007', 'PR0004', '2026-06-12', 'QRIS', 150000, 2, 'Customer'),
+('BK0008', 'CS0001', 'KR0002', 'JD0008', NULL, '2026-06-13', 'QRIS', 175000, 4, 'Customer'),
+('BK0009', 'CS0002', 'KR0003', 'JD0009', 'PR0001', '2026-06-13', 'Transfer Bank', 190000, 2, 'Customer'),
+('BK0010', 'CS0003', 'KR0002', 'JD0010', NULL, '2026-06-14', 'QRIS', 200000, 1, 'Customer');
+GO
+
+INSERT INTO Langganan
+(ID_Langganan, ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, Metode_Pembayaran, Total_Bayar, Status, Created_By)
+VALUES
+('LG0001', 'CS0001', 'KR0002', 'TM0001', '2026-06-01', '2026-07-01', 'QRIS', 100000, 2, 'Customer'),
+('LG0002', 'CS0002', 'KR0002', 'TM0002', '2026-06-02', '2026-07-02', 'Transfer Bank', 150000, 2, 'Customer'),
+('LG0003', 'CS0003', 'KR0003', 'TM0003', '2026-06-03', '2026-07-03', 'QRIS', 200000, 2, 'Customer'),
+('LG0004', 'CS0004', 'KR0003', 'TM0001', '2026-06-04', '2026-07-04', 'Transfer Bank', 100000, 2, 'Customer'),
+('LG0005', 'CS0005', 'KR0002', 'TM0002', '2026-06-05', '2026-07-05', 'QRIS', 150000, 1, 'Customer');
+GO
+
+INSERT INTO Beli_Alat
+(ID_Beli, ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Status, Created_By)
+VALUES
+('BA0001', 'KR0002', 'CS0001', '2026-06-10', 'QRIS', 325000, 2, 'Customer'),
+('BA0002', 'KR0003', 'CS0002', '2026-06-11', 'Transfer Bank', 170000, 2, 'Customer'),
+('BA0003', 'KR0002', 'CS0003', '2026-06-12', 'QRIS', 450000, 2, 'Customer'),
+('BA0004', 'KR0003', 'CS0004', '2026-06-13', 'Transfer Bank', 300000, 1, 'Customer'),
+('BA0005', 'KR0002', 'CS0005', '2026-06-14', 'QRIS', 180000, 2, 'Customer');
+GO
+
+INSERT INTO Detail_Beli_Alat
+(ID_Alat, ID_Beli, Jumlah, SubTotal)
+VALUES
+('AT0001', 'BA0001', 1, 250000),
+('AT0002', 'BA0001', 1, 75000),
+('AT0003', 'BA0002', 1, 50000),
+('AT0004', 'BA0002', 1, 120000),
+('AT0005', 'BA0003', 1, 450000),
+('AT0001', 'BA0004', 1, 250000),
+('AT0003', 'BA0004', 1, 50000),
+('AT0006', 'BA0005', 1, 180000);
+GO
+
+INSERT INTO Pembatalan_Booking
+(ID_Pembatalan, ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status_Refund, Created_By)
+VALUES
+('PB0001', 'BK0004', 'KR0002', '2026-06-12', 'Customer tidak bisa hadir', 75000, 75000, 'Transfer Bank', 2, 'Customer'),
+('PB0002', 'BK0008', 'KR0003', '2026-06-14', 'Jadwal bertabrakan dengan kegiatan lain', 87500, 87500, 'QRIS', 2, 'Customer');
+GO
+
+SELECT 'Akun' AS Nama_Tabel, COUNT(*) AS Jumlah_Data FROM Akun
+UNION ALL
+SELECT 'Customer', COUNT(*) FROM Customer
+UNION ALL
+SELECT 'Karyawan', COUNT(*) FROM Karyawan
+UNION ALL
+SELECT 'Lapangan', COUNT(*) FROM Lapangan
+UNION ALL
+SELECT 'Jadwal', COUNT(*) FROM Jadwal
+UNION ALL
+SELECT 'Promo', COUNT(*) FROM Promo
+UNION ALL
+SELECT 'Tipe_Member', COUNT(*) FROM Tipe_Member
+UNION ALL
+SELECT 'Alat', COUNT(*) FROM Alat
+UNION ALL
+SELECT 'Booking', COUNT(*) FROM Booking
+UNION ALL
+SELECT 'Langganan', COUNT(*) FROM Langganan
+UNION ALL
+SELECT 'Beli_Alat', COUNT(*) FROM Beli_Alat
+UNION ALL
+SELECT 'Detail_Beli_Alat', COUNT(*) FROM Detail_Beli_Alat
+UNION ALL
+SELECT 'Pembatalan_Booking', COUNT(*) FROM Pembatalan_Booking;
+GO
+
+
+SELECT * FROM Akun;
+SELECT * FROM Customer;
+SELECT * FROM Karyawan;
+SELECT * FROM Lapangan;
+SELECT * FROM Jadwal;
+SELECT * FROM Promo;
+SELECT * FROM Tipe_Member;
+SELECT * FROM Alat;
+SELECT * FROM Booking;
+SELECT * FROM Langganan;
+SELECT * FROM Beli_Alat;
+SELECT * FROM Detail_Beli_Alat;
+SELECT * FROM Pembatalan_Booking;

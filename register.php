@@ -10,9 +10,12 @@ if (isset($_POST['register'])) {
     $username = $_POST['username'];
     $email    = $_POST['email'];
     $telp     = $_POST['telp'];
-    $jk       = $_POST['jk'];
+    $jk_input = $_POST['jk']; // Bernilai '1' atau '2'
     $password = $_POST['password'];
     $alamat   = $_POST['alamat'];
+
+    // PERBAIKAN 1: Jenis Kelamin di database baru Anda berupa INTEGER (1 = Laki-laki, 2 = Perempuan)
+    $jk = (int)$jk_input;
 
     $sql_check = "SELECT Username, Email FROM Akun WHERE Username = ? OR Email = ?";
     $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email));
@@ -23,20 +26,24 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
+        // PERBAIKAN 2: Mengikuti format ID Akun baru Anda: AK0001 (Panjang 6 digit, diawali AK + 4 digit angka)
         $q_akn = sqlsrv_query($conn, "SELECT MAX(ID_Akun) as max_id FROM Akun");
         $d_akn = sqlsrv_fetch_array($q_akn, SQLSRV_FETCH_ASSOC);
-        $num_akn = ($d_akn['max_id']) ? (int) substr($d_akn['max_id'], 3) + 1 : 1;
-        $id_akun_baru = "AKN" . sprintf("%03d", $num_akn);
+        $num_akn = ($d_akn['max_id']) ? (int) substr($d_akn['max_id'], 2) + 1 : 1;
+        $id_akun_baru = "AK" . sprintf("%04d", $num_akn);
 
-        $sql_akun = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status_Akun) VALUES (?,?,?,?,3,1)";
+        // PERBAIKAN 3: Mengubah input Role menjadi angka 1 (Customer) dan Status menjadi 1 (Aktif) sesuai database baru
+        $sql_akun = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By) VALUES (?,?,?,?,1,1,'System')";
         $stmt_akun = sqlsrv_query($conn, $sql_akun, array($id_akun_baru, $username, $email, $password));
 
+        // PERBAIKAN 4: Mengikuti format ID Customer baru Anda: CS0001 (Panjang 6 digit, diawali CS + 4 digit angka)
         $q_cus = sqlsrv_query($conn, "SELECT MAX(ID_Customer) as max_id FROM Customer");
         $d_cus = sqlsrv_fetch_array($q_cus, SQLSRV_FETCH_ASSOC);
-        $num_cus = ($d_cus['max_id']) ? (int) substr($d_cus['max_id'], 3) + 1 : 1;
-        $id_cus_baru = "CUS" . sprintf("%03d", $num_cus);
+        $num_cus = ($d_cus['max_id']) ? (int) substr($d_cus['max_id'], 2) + 1 : 1;
+        $id_cus_baru = "CS" . sprintf("%04d", $num_cus);
 
-        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon) VALUES (?,?,?,?,?,?)";
+        // PERBAIKAN 5: Memasukkan data pendaftaran Customer baru
+        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,1,'System')";
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $alamat, $telp));
 
         if ($stmt_akun && $stmt_customer) {

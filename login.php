@@ -2,18 +2,15 @@
 session_start();
 include 'includes/config.php';
 
-
-// Cek Cookie untuk Fitur Ingat Saya
 $remembered_user = isset($_COOKIE['remember_me']) ? $_COOKIE['remember_me'] : '';
-
 $error_msg = "";
 
 if (isset($_POST['login'])) {
     $user_input = $_POST['user_input'];
     $pass_input = $_POST['password_input'];
 
-    // Query dengan prepared statement
-    $sql = "SELECT * FROM Akun WHERE (Username = ? OR Email = ?) AND Status_Akun = 1";
+    // PERBAIKAN 1: Mengubah nama kolom 'Status_Akun' menjadi 'Status' sesuai database baru Anda
+    $sql = "SELECT * FROM Akun WHERE (Username = ? OR Email = ?) AND Status = 1";
     $params = array($user_input, $user_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
@@ -27,10 +24,13 @@ if (isset($_POST['login'])) {
                 $_SESSION['login']   = true;
                 $_SESSION['id_akun'] = $row['ID_Akun'];
 
-                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
-                $_SESSION['role'] = $role_map[$row['Role']];
+                // PERBAIKAN 2: Mengubah pemetaan angka Role sesuai database baru Anda
+                // 1 = customer, 2 = karyawan, 3 = pemilik (manajer)
+                $role_map = [1 => 'customer', 2 => 'karyawan', 3 => 'pemilik'];
+                $_SESSION['role'] = $role_map[(int)$row['Role']];
 
-                if ($row['Role'] == 1 || $row['Role'] == 2) {
+                // Ambil nama berdasarkan role dari tabel profil terkait
+                if ($_SESSION['role'] == 'pemilik' || $_SESSION['role'] == 'karyawan') {
                     $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
                     if ($q_prof !== false) {
                         $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
@@ -54,12 +54,13 @@ if (isset($_POST['login'])) {
                     setcookie('remember_me', '', time() - 3600, "/");
                 }
 
+                // Redirect berdasarkan role
                 if ($_SESSION['role'] == 'pemilik') {
                     header("Location: view_pemilik.php");
                 } elseif ($_SESSION['role'] == 'karyawan') {
-                    header("Location: view_admin.php");
+                    header("Location: view_admin.php"); 
                 } else {
-                    header("Location: view_customer.php");
+                    header("Location: view_customer.php"); 
                 }
                 exit();
             } else {
