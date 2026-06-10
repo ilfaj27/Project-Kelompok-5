@@ -96,11 +96,24 @@ $total_pages = max(1, ceil($total_cust / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
 // Ambil data dengan paging
 $query = sqlsrv_query($conn, "SELECT * FROM Customer ORDER BY ID_Customer ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+
+// PASTIKAN $query_error SELALU TERDEFINISI
+$query_error = false;
+$query_error_msg = '';
+if ($query === false) {
+    $query_error = true;
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -126,24 +139,8 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
 /* ═══ SIDEBAR ═══ */
-.sidebar { width: var(--sidebar-w);
-    background: var(--sidebar);
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 28px 18px;
-    border-right: 1px solid rgba(255, 255, 255, 0.04);
-    z-index: 200;
-    overflow-y: auto;
-
-    /* Sembunyikan scrollbar untuk Firefox & IE/Edge */
-    scrollbar-width: none; 
-    -ms-overflow-style: none; 
-}
-.sidebar::-webkit-scrollbar { display: none; /* Chrome, Safari, Opera */ }
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
@@ -166,12 +163,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main {   /* Trik tumpang-tindih 1px ke kiri untuk melenyapkan celah vertikal */
-    margin-left: calc(var(--sidebar-w) - 7px); 
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh; }
+.main { margin-left: calc(var(--sidebar-w) - 7px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -285,85 +277,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
+/* ═══ CLOCK ═══ */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-/* ═══ ZEBRA STRIPING ═══ */
-.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
-.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
-.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
-.data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
-.data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
-
-
-#clock-display { 
-    display: flex; 
-    align-items: center; 
-    gap: 16px; 
-}
-
-.clock-time { 
-    font-family: 'Barlow Condensed', sans-serif; 
-    font-size: 26px; 
-    font-weight: 900; 
-    color: var(--orange); 
-    display: flex; 
-    align-items: center; 
-    gap: 6px; 
-    line-height: 1; 
-}
-
-.clock-colon { 
-    color: var(--orange); 
-    opacity: .5; 
-    animation: blink 1s infinite; 
-}
-
-@keyframes blink { 
-    0%, 100% { opacity: .5; } 
-    50% { opacity: 1; } 
-}
-
-.clock-divider { 
-    width: 1.5px; 
-    height: 28px; 
-    background-color: var(--border); 
-}
-
-.clock-date { 
-    font-family: 'Barlow', sans-serif; 
-    font-size: 13px; 
-    font-weight: 700; 
-    color: var(--muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px; 
-}
-
-.sidebar::-webkit-scrollbar { 
-    display: none; 
-}
-
-html {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge microost microsot*/
-}
-
-html::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-}
-
-/* ═══ RESPONSIVE ═══ */
-@media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
-@media(max-width: 768px) {
-    .sidebar { width: 0; overflow: hidden; padding: 0; }
-    .main { margin-left: 0; }
-    .content { padding: 20px; }
-    .topbar { padding: 0 20px; }
-    .stat-chips { width: 100%; }
-    .search-box { width: 100%; }
-    .action-bar { flex-direction: column; align-items: stretch; }
-    .data-table th, .data-table td { padding: 12px 16px; font-size: 12px; }
-    .btn-action { padding: 6px 10px; font-size: 11px; }
-    .pagination-wrap { flex-direction: column; gap: 12px; }
-}
 /* ═══ MODAL DETAIL ═══ */
 .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -474,11 +395,25 @@ html::-webkit-scrollbar {
     .modal-audit-grid { grid-template-columns: 1fr; }
     .modal-box { max-height: 95vh; }
 }
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
+@media(max-width: 768px) {
+    .sidebar { width: 0; overflow: hidden; padding: 0; }
+    .main { margin-left: 0; }
+    .content { padding: 20px; }
+    .topbar { padding: 0 20px; }
+    .stat-chips { width: 100%; }
+    .search-box { width: 100%; }
+    .action-bar { flex-direction: column; align-items: stretch; }
+    .data-table th, .data-table td { padding: 12px 16px; font-size: 12px; }
+    .btn-action { padding: 6px 10px; font-size: 11px; }
+    .pagination-wrap { flex-direction: column; gap: 12px; }
+}
 </style>
 </head>
 <body>
-
-<!-- ═══ SIDEBAR CUSTOMER (SAMA DENGAN LAPANGAN.PHP & JALUR RELATIF DISESUAIKAN) ═══ -->
+<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
     <a href="../dashboard_karyawan.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
@@ -488,7 +423,6 @@ html::-webkit-scrollbar {
         </div>
     </a>
 
-    <!-- SEKSI 1: MENU UTAMA -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
         <a href="../view_admin.php" class="sb-link">
@@ -503,7 +437,6 @@ html::-webkit-scrollbar {
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Lapangan
         </a>
-        <!-- DISET AKTIF: Menu Customer disorot aktif khusus untuk halaman customer.php ini -->
         <a href="customer.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Customer
@@ -514,7 +447,6 @@ html::-webkit-scrollbar {
         </a>
     </nav>
 
-    <!-- SEKSI 2: AKUN -->
     <div class="sb-section-label">Akun</div>
     <nav>
         <a href="../profile.php" class="sb-link">
@@ -527,7 +459,6 @@ html::-webkit-scrollbar {
         </a>
     </nav>
 
-    <!-- BAGIAN BAWAH: USER BAR SITI / KARYAWAN -->
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
@@ -541,15 +472,13 @@ html::-webkit-scrollbar {
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
-<!-- ═══ TOPBAR DATA CUSTOMER SINKRON DENGAN VIEW_ADMIN ═══ -->
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Data Customer</div>
             <div class="topbar-breadcrumb">Manajemen / Data Customer</div>
         </div>
         <div class="topbar-right">
-            <!-- Jam Digital Live Persis Seperti di Gambar -->
             <div id="clock-display">
                 <div class="clock-time">
                     <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
@@ -557,15 +486,11 @@ html::-webkit-scrollbar {
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
-                <!-- Notifikasi Dinamis dari database -->
                 <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
-            
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
@@ -576,7 +501,6 @@ html::-webkit-scrollbar {
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <!-- Tautan ../ tetap dipertahankan karena file customer.php ini berada di dalam subfolder master/ -->
                     <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -614,7 +538,13 @@ html::-webkit-scrollbar {
         </div>
 
         <!-- TABLE CARD -->
-        <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="card">
+        <?php if ($query_error): ?>
+        <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
+            <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
+            <p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?= htmlspecialchars($query_error_msg) ?></p>
+        </div>
+        <?php else: ?>
+        <div class="card">
             <div class="table-wrap">
                 <table class="data-table" id="tbl">
                     <thead>
@@ -631,7 +561,7 @@ html::-webkit-scrollbar {
                     <tbody>
                     <?php
                     $has_data = false;
-                    if (!$query_error && $query):
+                    if ($query):
                     while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
                         $is_laki = ($row['Jenis_Kelamin'] == 1);
@@ -672,9 +602,25 @@ html::-webkit-scrollbar {
                             </td>
                             <td>
                                 <div class="actions">
-                                    <a href="customer_detail.php?id=<?= $row['ID_Customer'] ?>" class="btn-action btn-view" title="Lihat Detail">
+                                    <button onclick="openDetail(
+                                        '<?= htmlspecialchars($row['ID_Customer']) ?>',
+                                        '<?= htmlspecialchars($row['Nama_Customer']) ?>',
+                                        '<?= $row['Jenis_Kelamin'] ?>',
+                                        '<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>',
+                                        '<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
+                                        '<?= htmlspecialchars($row['Alamat'] ?? '') ?>',
+                                        '<?= htmlspecialchars($row['No_Telepon'] ?? '') ?>',
+                                        '<?= htmlspecialchars($row['Status'] ?? 'Aktif') ?>',
+                                        '<?= $row['Is_Deleted'] ?>',
+                                        '<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>',
+                                        '<?= $row['Created_Date'] ? $row['Created_Date']->format('Y-m-d H:i:s') : '' ?>',
+                                        '<?= htmlspecialchars($row['Modified_By'] ?? '') ?>',
+                                        '<?= $row['Modified_Date'] ? $row['Modified_Date']->format('Y-m-d H:i:s') : '' ?>',
+                                        '<?= htmlspecialchars($row['Deleted_By'] ?? '') ?>',
+                                        '<?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('Y-m-d H:i:s') : '' ?>'
+                                    )" class="btn-action btn-view" title="Lihat Detail">
                                         <i class="fa-solid fa-eye"></i>
-                                    </a>
+                                    </button>
                                     <button onclick="confirmDelete('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>')" class="btn-action btn-delete" title="Hapus Data">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
@@ -697,7 +643,8 @@ html::-webkit-scrollbar {
                     </tbody>
                 </table>
             </div>
-        </div><?php endif; ?>
+        </div>
+        <?php endif; ?>
 
         <!-- PAGINATION -->
         <?php if ($total_pages > 1): ?>
@@ -757,85 +704,6 @@ html::-webkit-scrollbar {
         <?php endif; ?>
     </div>
 </main>
-
-<script>
-function searchTable() {
-    var input = document.getElementById('src').value.toUpperCase();
-    var rows = document.getElementById('tbl').getElementsByTagName('tr');
-    var hasMatch = false;
-
-    for (var i = 1; i < rows.length; i++) {
-        var tdName = rows[i].getElementsByTagName('td')[1];
-        var tdId = rows[i].getElementsByTagName('td')[0];
-        var tdPhone = rows[i].getElementsByTagName('td')[4];
-
-        if (tdName || tdId || tdPhone) {
-            var match = false;
-            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            if (tdId && tdId.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
-
-            rows[i].style.display = match ? '' : 'none';
-            if (match) hasMatch = true;
-        }
-    }
-}
-
-function confirmDelete(id, name) {
-    Swal.fire({
-        title: 'Hapus Customer?',
-        html: `Anda akan menghapus data <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong> dan tidak bisa dikembalikan!`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = '?delete_id=' + id;
-        }
-    });
-}
-
-// SweetAlert untuk URL params
-const urlParams = new URLSearchParams(window.location.search);
-const status = urlParams.get('status');
-const msg = urlParams.get('msg');
-
-// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
-function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('h').innerText = h;
-    document.getElementById('m').innerText = m;
-    document.getElementById('s').innerText = s;
-    
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-if (status && msg) {
-    Swal.fire({
-        icon: status === 'success' ? 'success' : 'error',
-        title: status === 'success' ? 'Berhasil!' : 'Gagal!',
-        text: msg,
-        timer: 3000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end',
-        timerProgressBar: true
-    });
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-</script>
-
 <!-- ═══ MODAL DETAIL CUSTOMER ═══ -->
 <div class="modal-overlay" id="modalDetail" onclick="closeModal(event)">
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -919,6 +787,195 @@ if (status && msg) {
         </div>
     </div>
 </div>
+
+<script>
+function searchTable() {
+    var input = document.getElementById('src').value.toUpperCase();
+    var rows = document.getElementById('tbl').getElementsByTagName('tr');
+    var hasMatch = false;
+
+    for (var i = 1; i < rows.length; i++) {
+        var tdName = rows[i].getElementsByTagName('td')[1];
+        var tdId = rows[i].getElementsByTagName('td')[0];
+        var tdPhone = rows[i].getElementsByTagName('td')[4];
+
+        if (tdName || tdId || tdPhone) {
+            var match = false;
+            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdId && tdId.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
+
+            rows[i].style.display = match ? '' : 'none';
+            if (match) hasMatch = true;
+        }
+    }
+}
+
+function confirmDelete(id, name) {
+    Swal.fire({
+        title: 'Hapus Customer?',
+        html: `Anda akan menghapus data <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong> dan tidak bisa dikembalikan!`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '?delete_id=' + id;
+        }
+    });
+}
+
+// ═══ MODAL DETAIL FUNCTIONS ═══
+function openDetail(id, nama, jk, tglLahir, tempatLahir, alamat, telepon, status, isDeleted, createdBy, createdDate, modifiedBy, modifiedDate, deletedBy, deletedDate) {
+    const mapJK = { '1': 'Laki-laki', '2': 'Perempuan' };
+    const isLaki = (jk == '1');
+    const isDel = (isDeleted == '1');
+
+    document.getElementById('mdlId').textContent = id;
+    document.getElementById('mdlNama').textContent = nama;
+    document.getElementById('mdlNama2').textContent = nama;
+
+    // Gender
+    document.getElementById('mdlJK').innerHTML =
+        '<span class="modal-gender ' + (isLaki ? 'mg-laki' : 'mg-perempuan') + '">' +
+        '<i class="fa-solid ' + (isLaki ? 'fa-mars' : 'fa-venus') + '"></i> ' +
+        (mapJK[jk] || '-') + '</span>';
+
+    // Tanggal Lahir
+    if (tglLahir) {
+        const d = new Date(tglLahir);
+        const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        document.getElementById('mdlTglLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+        document.getElementById('mdlTglLahir').className = 'modal-value';
+    } else {
+        document.getElementById('mdlTglLahir').innerHTML = '<span class="modal-value-muted">-</span>';
+    }
+
+    // Tempat Lahir
+    if (tempatLahir) {
+        document.getElementById('mdlTempatLahir').textContent = tempatLahir;
+        document.getElementById('mdlTempatLahir').className = 'modal-value';
+    } else {
+        document.getElementById('mdlTempatLahir').innerHTML = '<span class="modal-value-muted">-</span>';
+    }
+
+    // Alamat
+    if (alamat) {
+        document.getElementById('mdlAlamat').textContent = alamat;
+        document.getElementById('mdlAlamat').className = 'modal-value';
+    } else {
+        document.getElementById('mdlAlamat').innerHTML = '<span class="modal-value-muted">-</span>';
+    }
+
+    // Telepon
+    if (telepon) {
+        document.getElementById('mdlTelepon').textContent = telepon;
+        document.getElementById('mdlTelepon').className = 'modal-value';
+    } else {
+        document.getElementById('mdlTelepon').innerHTML = '<span class="modal-value-muted">-</span>';
+    }
+
+    // Status
+    document.getElementById('mdlStatus').innerHTML =
+        '<span class="modal-status ' + (isDel ? 'ms-deleted' : 'ms-active') + '">' +
+        '<i class="fa-solid ' + (isDel ? 'fa-circle-xmark' : 'fa-circle-check') + '"></i> ' +
+        (isDel ? 'Dihapus' : (status || 'Aktif')) + '</span>';
+
+    // Deleted Banner
+    const delBanner = document.getElementById('mdlDeletedBanner');
+    if (isDel) {
+        delBanner.style.display = 'flex';
+        document.getElementById('mdlDeletedInfo').textContent =
+            'Oleh ' + (deletedBy || 'SYSTEM') + ' pada ' + (deletedDate || '-');
+    } else {
+        delBanner.style.display = 'none';
+    }
+
+    // Audit - Created
+    document.getElementById('mdlCreatedBy').textContent = createdBy || 'SYSTEM';
+    document.getElementById('mdlCreatedDate').textContent = createdDate || '-';
+
+    // Audit - Modified
+    if (modifiedBy) {
+        document.getElementById('mdlModifiedBy').textContent = modifiedBy;
+        document.getElementById('mdlModifiedBy').className = 'modal-audit-value';
+        document.getElementById('mdlModifiedDate').textContent = modifiedDate || '-';
+        document.getElementById('mdlModifiedDate').className = 'modal-audit-date';
+    } else {
+        document.getElementById('mdlModifiedBy').innerHTML = '<span class="modal-audit-empty">Belum pernah diubah</span>';
+        document.getElementById('mdlModifiedDate').innerHTML = '<span class="modal-audit-empty">-</span>';
+    }
+
+    // Audit - Deleted
+    if (deletedBy) {
+        document.getElementById('mdlDeletedBy').textContent = deletedBy;
+        document.getElementById('mdlDeletedBy').className = 'modal-audit-value';
+        document.getElementById('mdlDeletedDate').textContent = deletedDate || '-';
+        document.getElementById('mdlDeletedDate').className = 'modal-audit-date';
+    } else {
+        document.getElementById('mdlDeletedBy').innerHTML = '<span class="modal-audit-empty">Belum pernah dihapus</span>';
+        document.getElementById('mdlDeletedDate').innerHTML = '<span class="modal-audit-empty">-</span>';
+    }
+
+    // Edit Link
+    document.getElementById('mdlEditLink').href = 'customer_edit.php?id=' + encodeURIComponent(id);
+
+    // Show modal
+    document.getElementById('modalDetail').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('modalDetail').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// Close with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+
+// SweetAlert untuk URL params
+const urlParams = new URLSearchParams(window.location.search);
+const status = urlParams.get('status');
+const msg = urlParams.get('msg');
+
+if (status && msg) {
+    Swal.fire({
+        icon: status === 'success' ? 'success' : 'error',
+        title: status === 'success' ? 'Berhasil!' : 'Gagal!',
+        text: msg,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true
+    });
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// Jam Digital
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+</script>
 
 </body>
 </html>

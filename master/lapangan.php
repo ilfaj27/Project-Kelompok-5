@@ -482,7 +482,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../dashboard.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -539,7 +539,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Lapangan</div>
@@ -902,6 +902,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Jam Digital
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 // SweetAlert untuk notifikasi URL params
 const urlParams = new URLSearchParams(window.location.search);

@@ -152,6 +152,19 @@ $total_pages = max(1, ceil($total_data / $limit));
 $sql_paging = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 $query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
 
+// PASTIKAN $query_error SELALU TERDEFINISI
+$query_error = false;
+$query_error_msg = '';
+if ($query === false) {
+    $query_error = true;
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
+
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
