@@ -269,7 +269,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 html {
     scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge microost */
+    -ms-overflow-style: none; /* IE and Edge microost microsot*/
 }
 
 html::-webkit-scrollbar {
