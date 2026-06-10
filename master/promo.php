@@ -148,6 +148,7 @@ if ($count_res) {
 }
 $total_pages = max(1, ceil($total_data / $limit));
 
+<<<<<<< HEAD
 // Query dengan paging - using string concatenation for OFFSET/FETCH
 $query_sql = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
 $query = safe_sqlsrv_query($conn, $query_sql, [], false);
@@ -162,6 +163,15 @@ if ($query_error) {
         }
     }
 }
+=======
+// Query dengan paging
+$sql_paging = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+$query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
+
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -188,8 +198,9 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
 /* ═══ SIDEBAR ═══ */
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto;  scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */ }
+.sidebar::-webkit-scrollbar { width: 4px; display: none; /* Chrome, Safari, Opera */}
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
@@ -212,7 +223,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main {  /* Trik tumpang-tindih 1px ke kiri untuk melenyapkan celah vertikal */
+    margin-left: calc(var(--sidebar-w) - 6px); 
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -380,6 +396,49 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .audit-value { color: var(--text-md); font-weight: 700; }
 .audit-date { font-family: monospace; font-size: 10px; }
 
+#clock-display { 
+    display: flex; 
+    align-items: center; 
+    gap: 16px; 
+}
+
+.clock-time { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--orange); 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    line-height: 1; 
+}
+
+.clock-colon { 
+    color: var(--orange); 
+    opacity: .5; 
+    animation: blink 1s infinite; 
+}
+
+@keyframes blink { 
+    0%, 100% { opacity: .5; } 
+    50% { opacity: 1; } 
+}
+
+.clock-divider { 
+    width: 1.5px; 
+    height: 28px; 
+    background-color: var(--border); 
+}
+
+.clock-date { 
+    font-family: 'Barlow', sans-serif; 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
@@ -457,25 +516,27 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
-    <a href="../dashboard.php" class="sb-brand">
+<!-- ═══ SIDEBAR PROMO (SAMA PERSIS DENGAN KODE REVISI BARU) ═══ -->
+<aside class="sidebar">
+    <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Management System</div>
+            <div class="sb-brand-sub">MANAGEMENT SYSTEM</div>
         </div>
     </a>
 
+    <!-- SEKSI 1: MENU UTAMA -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
-        <a href="../dashboard.php" class="sb-link">
+        <a href="../view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
+        <!-- Tanpa angka bulatan oranye (bersih sesuai permintaan baru Anda) -->
         <a href="../booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Booking
-            <span class="badge">3</span>
         </a>
         <a href="lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
@@ -485,28 +546,33 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Customer
         </a>
+        <!-- DISET AKTIF: Menu Promo disorot aktif khusus untuk halaman promo.php ini -->
         <a href="promo.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
             Promo
         </a>
     </nav>
 
+    <!-- SEKSI 2: AKUN -->
     <div class="sb-section-label">Akun</div>
-    <a href="../profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
-    </a>
-    <a href="../riwayat.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
-        Riwayat
-    </a>
+    <nav>
+        <a href="../profile.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+            Profil Saya
+        </a>
+        <a href="../riwayat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            Riwayat
+        </a>
+    </nav>
 
+    <!-- BAGIAN BAWAH: USER BAR SITI / KARYAWAN -->
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
             <div>
                 <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
-                <div class="sb-user-role"><?= strtoupper($role) ?></div>
+                <div class="sb-user-role">KARYAWAN</div>
             </div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
@@ -515,27 +581,41 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
 <<main class="main">
+   <!-- ═══ TOPBAR MASTER PROMO SINKRON DENGAN VIEW_ADMIN ═══ -->
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Master Promo</div>
             <div class="topbar-breadcrumb">Dashboard / Promo</div>
         </div>
         <div class="topbar-right">
+            <!-- Jam Digital Live Persis Seperti di Gambar -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
+            
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
-                <span class="notif-dot"></span>
+                <!-- Notifikasi Dinamis dari database -->
+                <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
+            
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
-                        <div class="t-role"><?= strtoupper($role) ?></div>
+                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
+                    <!-- Tautan ../ tetap dipertahankan karena file ini berada di dalam subfolder master/ -->
                     <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -855,6 +935,23 @@ function confirmDelete(id, name) {
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
+
+// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+    
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 if (status && msg) {
     Swal.fire({

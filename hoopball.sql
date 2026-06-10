@@ -468,7 +468,7 @@ SELECT 'Booking', COUNT(*) FROM Booking
 UNION ALL
 SELECT 'Langganan', COUNT(*) FROM Langganan
 UNION ALL
-SELECT 'Beli_Alat', COUNT(*) FROM Beli_Alat
+SELECT 'Beli_Alat', COUNT(*)    FROM Beli_Alat
 UNION ALL
 SELECT 'Detail_Beli_Alat', COUNT(*) FROM Detail_Beli_Alat
 UNION ALL

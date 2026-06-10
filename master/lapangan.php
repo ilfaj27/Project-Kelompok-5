@@ -144,6 +144,10 @@ if ($query_error) {
 }
 
 function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
+
+// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -194,7 +198,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main { 
+        /* DIUBAH: Dari var(--sidebar-w) menjadi dikurangi 1px (calc(var(--sidebar-w) - 1px))
+       Ini akan menarik kotak putih bergeser ke kiri sebesar 1px untuk menindih celah */
+    margin-left: calc(var(--sidebar-w) - 15px); 
+    
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 100vh; 
+ }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -319,23 +332,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* ═══ VALIDASI ERROR STATE ═══ */
-.modal-input.error {
-    border-color: var(--red) !important;
-    background-color: #FEF2F2 !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
-}
-.modal-input.error:focus {
-    border-color: var(--red) !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
-}
-.val-msg {
-    font-size: 11px; color: var(--red); font-weight: 600; 
-    margin-bottom: 10px; display: none; min-height: 16px;
-}
-.val-msg.show { display: block; }
-.val-msg i { margin-right: 4px; }
-
 /* ═══ PAGINATION ═══ */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -361,6 +357,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
 .data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 
+<<<<<<< HEAD
 /* ═══ ZEBRA STRIPING ═══ */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
@@ -372,6 +369,54 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
 .audit-value { color: var(--text-md); font-weight: 700; }
 .audit-date { font-family: monospace; font-size: 10px; }
+=======
+
+/* ========================================================== */
+/* COPAST KODE CSS JAM DIGITAL INI DI DALAM STYLE LAPANGAN.PHP */
+/* ========================================================== */
+#clock-display { 
+    display: flex; 
+    align-items: center; 
+    gap: 16px; 
+}
+
+.clock-time { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--orange); 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    line-height: 1; 
+}
+
+.clock-colon { 
+    color: var(--orange); 
+    opacity: .5; 
+    animation: blink 1s infinite; 
+}
+
+@keyframes blink { 
+    0%, 100% { opacity: .5; } 
+    50% { opacity: 1; } 
+}
+
+.clock-divider { 
+    width: 1.5px; 
+    height: 28px; 
+    background-color: var(--border); 
+}
+
+.clock-date { 
+    font-family: 'Barlow', sans-serif; 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
@@ -401,27 +446,24 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="modal-title"><?= $edit_data ? 'Edit Lapangan' : 'Tambah Lapangan Baru' ?></div>
         </div>
         <div class="modal-body">
-            <form method="POST" id="formLapangan" onsubmit="return validateForm()" novalidate>
+            <form method="POST" id="formLapangan" onsubmit="return validateForm()">
                 <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
                 
                 <label class="modal-label">ID Lapangan <?= !$edit_data ? '<span class="required">*</span>' : '' ?></label>
-                <input type="text" name="id_lap" id="id_lap" class="modal-input" 
-                    value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? '') ?>" 
-                    <?= $edit_data ? 'readonly' : 'required' ?> 
-                    placeholder="Contoh: LAP001">
-                <div class="val-msg" id="val-id_lap"><i class="fa-solid fa-circle-exclamation"></i> ID Lapangan wajib diisi</div>
+                <input type="text" name="id_lap" class="modal-input" 
+                       value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? '') ?>" 
+                       <?= $edit_data ? 'readonly' : 'required' ?> 
+                       placeholder="Contoh: LAP001">
 
                 <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
-                <input type="text" name="nama_arena" id="nama_arena" class="modal-input" 
-                    value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
-                    required minlength="3" maxlength="100" placeholder="Contoh: Basket Indoor Pro">
-                <div class="val-msg" id="val-nama_arena"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
+                <input type="text" name="nama_arena" class="modal-input" 
+                       value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
+                       required placeholder="Contoh: Basket Indoor Pro">
 
-               <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
-                <input type="number" name="harga" id="harga" class="modal-input" 
-                    value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
-                    required placeholder="200000" min="0">
-                <div class="val-msg" id="val-harga"><i class="fa-solid fa-circle-exclamation"></i> Harga wajib diisi (minimal 0)</div>
+                <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
+                <input type="number" name="harga" class="modal-input" 
+                       value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
+                       required placeholder="200000" min="0">
 
                 <button type="submit" name="save_lapangan" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
@@ -445,14 +487,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
     <div class="sb-section-label">Menu Utama</div>
     <nav>
-        <a href="../dashboard.php" class="sb-link">
+        <a href="../view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="../booking.php" class="sb-link">
+        <a href="booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Booking
-            <span class="badge">3</span>
+
         </a>
         <a href="lapangan.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
@@ -462,8 +504,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Customer
         </a>
-        <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+         <a href="promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
             Promo
         </a>
     </nav>
@@ -498,21 +540,35 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="topbar-breadcrumb">Manajemen / Lapangan</div>
         </div>
         <div class="topbar-right">
+            <!-- Jam Digital Live (Sama Persis dengan view_admin) -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
+            
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
-                <span class="notif-dot"></span>
+                <!-- Notifikasi Dinamis dari database pending bookings -->
+                <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
+            
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <div class="t-role"><?= strtoupper($role) ?></div>
+                        <!-- Dinamis menyesuaikan role Akun yang sedang masuk (KARYAWAN / PEMILIK) -->
+                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
+                    <!-- Tautan ../ tetap dipertahankan karena file lapangan.php ini berada di dalam subfolder master/ -->
                     <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -734,6 +790,7 @@ function confirmToggle(id, status) {
         if (result.isConfirmed) {
             window.location.href = `?toggle_id=${id}&s=${status}`;
         } else {
+            // Reset checkbox
             var checkbox = document.querySelector(`input[onchange*="confirmToggle('${id}'"]`);
             if (checkbox) checkbox.checked = !checkbox.checked;
         }
@@ -758,90 +815,33 @@ function confirmDelete(id, name) {
     });
 }
 
-/* ═══ VALIDASI FORM WAJIB DIISI ═══ */
 function validateForm() {
-    let valid = true;
-    const inputs = document.querySelectorAll('#formLapangan .modal-input[required]');
-    
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        
-        // Reset error dulu
-        input.classList.remove('error');
-        if (valMsg) valMsg.classList.remove('show');
-        
-        // Cek kosong
-        if (!input.value.trim()) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-            return;
-        }
-        
-        // Validasi khusus harga tidak boleh negatif
-        if (input.name === 'harga' && Number(input.value) < 0) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-            return;
-        }
-        
-        // Cek pattern/minlength dll
-        if (!input.checkValidity()) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-        }
-    });
-    
-    return valid;
+    const harga = document.querySelector('input[name="harga"]').value;
+    if (harga < 0) {
+        alert('Harga tidak boleh negatif!');
+        return false;
+    }
+    return true;
 }
 
-// Live validation saat user mengetik & blur
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('#formLapangan .modal-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            
-            // Hapus error saat user mengetik
-            this.classList.remove('error');
-            if (valMsg) valMsg.classList.remove('show');
-            
-            // Cek kembali jika invalid
-            if (!this.checkValidity() && this.value !== '') {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
-            
-            // Validasi khusus harga negatif
-            if (this.name === 'harga' && this.value !== '' && Number(this.value) < 0) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
-        });
-        
-        input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            
-            if (!this.value.trim() || !this.checkValidity()) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            } else {
-                this.classList.remove('error');
-                if (valMsg) valMsg.classList.remove('show');
-            }
-            
-            // Cek harga negatif saat blur
-            if (this.name === 'harga' && Number(this.value) < 0) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
-        });
-    });
-});
+// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+    
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
-// SweetAlert untuk notifikasi URL params
+// SweetAlert untuk URL params
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
@@ -860,5 +860,6 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
+
 </body>
 </html>

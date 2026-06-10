@@ -182,7 +182,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main { 
+      /* DIUBAH: Dari var(--sidebar-w) menjadi dikurangi 1px (calc(var(--sidebar-w) - 1px))
+       Ini akan menarik kotak putih bergeser ke kiri sebesar 1px untuk menindih celah */
+    margin-left: calc(var(--sidebar-w) - 7px); 
+    
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 100vh; 
+ }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -335,6 +344,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
+html {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .dashboard-grid { grid-template-columns: 1fr; } }
 @media(max-width: 768px) {
@@ -349,18 +367,20 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </head>
 <body>
 
-<!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<!-- ═══ SIDEBAR KARYAWAN (DASHBOARD AKTIF & JALUR RELATIF ROOT SINKRON) ═══ -->
+<aside class="sidebar">
     <a href="view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Staff Panel</div>
+            <div class="sb-brand-sub">MANAGEMENT SYSTEM</div> 
         </div>
     </a>
 
+    <!-- SEKSI 1: MENU UTAMA -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
+        <!-- DISET AKTIF: Menu Dashboard disorot aktif khusus untuk halaman dashboard ini -->
         <a href="view_admin.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
@@ -370,6 +390,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             Booking
             <?php if($total_pending > 0): ?><span class="badge"><?= $total_pending ?></span><?php endif; ?>
         </a>
+        <!-- Tanpa kelas "active" dan menggunakan awalan "master/" karena diakses dari folder utama -->
         <a href="master/lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Lapangan
@@ -379,29 +400,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             Customer
         </a>
         <a href="master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
             Promo
         </a>
     </nav>
 
-    <div class="sb-section-label">Layanan</div>
+    <!-- SEKSI 2: AKUN -->
+    <div class="sb-section-label">Akun</div>
     <nav>
-        <a href="master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-percent"></i></div>
-            Promo & Diskon
+        <a href="profile.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+            Profil Saya
         </a>
-        <a href="master/supplier.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-box"></i></div>
-            Stok Alat
+        <a href="riwayat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            Riwayat
         </a>
     </nav>
 
-    <div class="sb-section-label">Akun</div>
-    <a href="profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
-    </a>
-
+    <!-- BAGIAN BAWAH: USER BAR SITI / KARYAWAN -->
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
