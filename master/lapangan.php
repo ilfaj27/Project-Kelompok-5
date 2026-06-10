@@ -71,6 +71,10 @@ $offset = ($page - 1) * $limit;
 $query = sqlsrv_query($conn, "SELECT * FROM Lapangan ORDER BY ID_Lapangan ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
 
 function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
+
+// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -121,7 +125,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main { 
+        /* DIUBAH: Dari var(--sidebar-w) menjadi dikurangi 1px (calc(var(--sidebar-w) - 1px))
+       Ini akan menarik kotak putih bergeser ke kiri sebesar 1px untuk menindih celah */
+    margin-left: calc(var(--sidebar-w) - 15px); 
+    
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 100vh; 
+ }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -271,6 +284,53 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
 .data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 
+
+/* ========================================================== */
+/* COPAST KODE CSS JAM DIGITAL INI DI DALAM STYLE LAPANGAN.PHP */
+/* ========================================================== */
+#clock-display { 
+    display: flex; 
+    align-items: center; 
+    gap: 16px; 
+}
+
+.clock-time { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--orange); 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    line-height: 1; 
+}
+
+.clock-colon { 
+    color: var(--orange); 
+    opacity: .5; 
+    animation: blink 1s infinite; 
+}
+
+@keyframes blink { 
+    0%, 100% { opacity: .5; } 
+    50% { opacity: 1; } 
+}
+
+.clock-divider { 
+    width: 1.5px; 
+    height: 28px; 
+    background-color: var(--border); 
+}
+
+.clock-date { 
+    font-family: 'Barlow', sans-serif; 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
@@ -340,14 +400,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
     <div class="sb-section-label">Menu Utama</div>
     <nav>
-        <a href="../dashboard.php" class="sb-link">
+        <a href="../view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="../booking.php" class="sb-link">
+        <a href="booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Booking
-            <span class="badge">3</span>
+
         </a>
         <a href="lapangan.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
@@ -357,8 +417,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Customer
         </a>
-        <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+         <a href="promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
             Promo
         </a>
     </nav>
@@ -393,21 +453,35 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="topbar-breadcrumb">Manajemen / Lapangan</div>
         </div>
         <div class="topbar-right">
+            <!-- Jam Digital Live (Sama Persis dengan view_admin) -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
+            
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
-                <span class="notif-dot"></span>
+                <!-- Notifikasi Dinamis dari database pending bookings -->
+                <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
+            
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <div class="t-role"><?= strtoupper($role) ?></div>
+                        <!-- Dinamis menyesuaikan role Akun yang sedang masuk (KARYAWAN / PEMILIK) -->
+                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
+                    <!-- Tautan ../ tetap dipertahankan karena file lapangan.php ini berada di dalam subfolder master/ -->
                     <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -641,6 +715,23 @@ function validateForm() {
     }
     return true;
 }
+
+// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+    
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 // SweetAlert untuk URL params
 const urlParams = new URLSearchParams(window.location.search);

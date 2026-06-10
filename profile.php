@@ -35,6 +35,15 @@ $is_pemilik = strtolower($role) === 'pemilik';
 $is_karyawan = strtolower($role) === 'karyawan';
 $is_customer = strtolower($role) === 'customer';
 
+// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+$total_pending = 0;
+if (isset($conn)) {
+    $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+    if ($q_pending !== false) {
+        $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+    }
+}
+
 // Fetch Akun data
 $akun = null;
 if (isset($conn)) {
@@ -276,8 +285,9 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
 /* ═══ SIDEBAR ═══ */
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */ }
+.sidebar::-webkit-scrollbar { width: 4px; display: none;}
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
@@ -300,7 +310,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
 /* ═══ MAIN & TOPBAR ═══ */
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main {  /* Trik tumpang-tindih 1px ke kiri untuk melenyapkan celah vertikal */
+    margin-left: calc(var(--sidebar-w) - 1px); 
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -425,6 +440,58 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .role-karyawan .photo-wrapper:hover { border-color: #60a5fa; }
 .role-customer .hero-role { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.3); color: var(--green); }
 
+#clock-display { 
+    display: flex; 
+    align-items: center; 
+    gap: 16px; 
+}
+
+.clock-time { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--orange); 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    line-height: 1; 
+}
+
+.clock-colon { 
+    color: var(--orange); 
+    opacity: .5; 
+    animation: blink 1s infinite; 
+}
+
+@keyframes blink { 
+    0%, 100% { opacity: .5; } 
+    50% { opacity: 1; } 
+}
+
+.clock-divider { 
+    width: 1.5px; 
+    height: 28px; 
+    background-color: var(--border); 
+}
+
+.clock-date { 
+    font-family: 'Barlow', sans-serif; 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+
+html {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -438,11 +505,14 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 </head>
 <body class="role-<?= strtolower($role) ?>">
 
-<!-- ═══ SIDEBAR ═══ -->
+<!-- ═══ SIDEBAR PROFIL SINKRON ═══ -->
 <aside class="sidebar">
     <a href="<?= (strtolower($role) === 'customer') ? 'view_customer.php' : ((strtolower($role) === 'karyawan') ? 'view_admin.php' : 'view_pemilik.php') ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
+        <div>
+            <div class="sb-brand-name">HOOP BALL</div>
+            <div class="sb-brand-sub">MANAGEMENT SYSTEM</div>
+        </div>
     </a>
 
     <?php if ($is_pemilik): ?>
@@ -458,25 +528,40 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     <a href="profile.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
 
     <?php elseif ($is_karyawan): ?>
+    <!-- MENU KARYAWAN SINKRON (SAMA DENGAN VIEW_ADMIN) -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
-        <a href="view_admin.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
-        <a href="booking.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div> Booking</a>
-        <a href="master/lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-map-marker-alt"></i></div> Lapangan</a>
-        <a href="master/customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div> Customer</a>
-        <a href="master/promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div> Promo</a>
+        <a href="view_admin.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard
+        </a>
+        <a href="booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div> Booking
+        </a>
+        <a href="master/lapangan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div> Lapangan
+        </a>
+        <a href="master/customer.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div> Customer
+        </a>
+        <a href="master/promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div> Promo
+        </a>
     </nav>
-    <div class="sb-section-label">Layanan</div>
-    <a href="promo_diskon.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-percent"></i></div> Promo & Diskon</a>
-    <a href="stok_alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-boxes"></i></div> Stok Alat</a>
     <div class="sb-section-label">Akun</div>
-    <a href="profile.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
+    <nav>
+        <a href="profile.php" class="sb-link active">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya
+        </a>
+        <a href="riwayat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div> Riwayat
+        </a>
+    </nav>
 
     <?php else: ?>
     <div class="sb-section-label">Menu</div>
     <nav>
         <a href="view_customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Beranda</a>
-        <a href="lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-map-marker-alt"></i></div> Lapangan</a>
+        <a href="lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div> Lapangan</a>
         <a href="jadwal.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar"></i></div> Jadwal</a>
         <a href="booking.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div> Booking</a>
         <a href="promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div> Promo</a>
@@ -498,14 +583,30 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
 <main class="main">
+<!-- ═══ TOPBAR PROFIL SINKRON DENGAN VIEW_ADMIN ═══ -->
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Profil Saya</div>
             <div class="topbar-breadcrumb">Akun / Profil</div>
         </div>
         <div class="topbar-right">
+            <!-- Jam Digital Live Persis Seperti di Gambar -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i></a>
+            
+            <a href="#" class="topbar-btn">
+                <i class="fa-solid fa-bell"></i>
+                <!-- Notifikasi Dinamis dari database -->
+                <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
+            </a>
+            
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar">
@@ -945,6 +1046,23 @@ function validatePassword(form) {
 const urlParams = new URLSearchParams(window.location.search);
 const statusParam = urlParams.get('status');
 const msgParam = urlParams.get('msg');
+
+// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+    
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 if (statusParam && msgParam) {
     const Toast = Swal.mixin({
