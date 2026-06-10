@@ -374,19 +374,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
 .data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 
-<<<<<<< HEAD
-/* ═══ ZEBRA STRIPING ═══ */
-.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
-.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
-.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
-
-/* ═══ AUDIT INFO ═══ */
-.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
-.audit-info i { margin-right: 3px; }
-.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
-.audit-value { color: var(--text-md); font-weight: 700; }
-.audit-date { font-family: monospace; font-size: 10px; }
-=======
 
 /* ========================================================== */
 /* COPAST KODE CSS JAM DIGITAL INI DI DALAM STYLE LAPANGAN.PHP */
@@ -433,7 +420,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     text-transform: uppercase; 
     letter-spacing: 0.5px; 
 }
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
@@ -873,26 +859,6 @@ function validateForm() {
     return valid;
 }
 
-<<<<<<< HEAD
-// TAMBAHKAN FUNGSI JAM DIGITAL INI DI DALAM TAG SCRIPT PALING BAWAH
-function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('h').innerText = h;
-    document.getElementById('m').innerText = m;
-    document.getElementById('s').innerText = s;
-    
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-// SweetAlert untuk URL params
-=======
 // Live validation saat user mengetik & blur
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('#formLapangan .modal-input');
@@ -938,7 +904,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // SweetAlert untuk notifikasi URL params
->>>>>>> 0db179e59560ea241eda8a2bb9ec2422c666044a
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');

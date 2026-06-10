@@ -96,32 +96,11 @@ $total_pages = max(1, ceil($total_cust / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-<<<<<<< HEAD
-// Ambil data dengan paging (hanya yang belum dihapus)
-if ($offset == 0) {
-    $query_sql = "SELECT TOP $limit * FROM Customer WHERE Is_Deleted=0 ORDER BY ID_Customer ASC";
-} else {
-    $query_sql = "SELECT * FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY ID_Customer ASC) AS RowNum FROM Customer WHERE Is_Deleted=0) AS Sub WHERE RowNum > $offset AND RowNum <= " . ($offset + $limit) . " ORDER BY ID_Customer ASC";
-}
-$query = safe_sqlsrv_query($conn, $query_sql, [], false);
-
-$query_error = ($query === false);
-$query_error_msg = '';
-if ($query_error) {
-    $errors = sqlsrv_errors();
-    if ($errors) {
-        foreach ($errors as $error) {
-            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
-        }
-    }
-}
-=======
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
 // Ambil data dengan paging
 $query = sqlsrv_query($conn, "SELECT * FROM Customer ORDER BY ID_Customer ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -306,8 +285,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
-<<<<<<< HEAD
-=======
 
 /* ═══ ZEBRA STRIPING ═══ */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
@@ -373,7 +350,6 @@ html::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Opera */
 }
 
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
@@ -502,15 +478,9 @@ html::-webkit-scrollbar {
 </head>
 <body>
 
-<<<<<<< HEAD
-<!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
-    <a href="../dashboard.php" class="sb-brand">
-=======
 <!-- ═══ SIDEBAR CUSTOMER (SAMA DENGAN LAPANGAN.PHP & JALUR RELATIF DISESUAIKAN) ═══ -->
 <aside class="sidebar">
     <a href="../dashboard_karyawan.php" class="sb-brand">
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -571,12 +541,8 @@ html::-webkit-scrollbar {
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<<<<<< HEAD
-<main class="main">
-=======
 <<main class="main">
 <!-- ═══ TOPBAR DATA CUSTOMER SINKRON DENGAN VIEW_ADMIN ═══ -->
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Data Customer</div>

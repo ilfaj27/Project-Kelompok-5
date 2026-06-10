@@ -148,22 +148,6 @@ if ($count_res) {
 }
 $total_pages = max(1, ceil($total_data / $limit));
 
-<<<<<<< HEAD
-// Query dengan paging - using string concatenation for OFFSET/FETCH
-$query_sql = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, [], false);
-
-$query_error = ($query === false);
-$query_error_msg = '';
-if ($query_error) {
-    $errors = sqlsrv_errors();
-    if ($errors) {
-        foreach ($errors as $error) {
-            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
-        }
-    }
-}
-=======
 // Query dengan paging
 $sql_paging = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 $query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
@@ -171,7 +155,6 @@ $query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
->>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 ?>
 <!DOCTYPE html>
 <html lang="id">
