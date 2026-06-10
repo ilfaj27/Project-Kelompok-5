@@ -10,34 +10,118 @@ $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 $map_jk = [1 => 'Laki-laki', 2 => 'Perempuan'];
 
+// ═══════════════════════════════════════════
+// HELPER: Safe SQLSRV Operations
+// ═══════════════════════════════════════════
+function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        $error_details = [];
+        if ($errors) {
+            foreach ($errors as $error) {
+                $error_details[] = "[SQLSTATE: " . $error['SQLSTATE'] . "] [Code: " . $error['code'] . "] " . $error['message'];
+            }
+        }
+        $error_msg = implode(" | ", $error_details);
+        error_log("[SQL ERROR] " . $error_msg . " | SQL: " . $sql . " | Params: " . json_encode($params));
+
+        if ($die_on_error) {
+            echo "<div style='padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;font-family:sans-serif;margin:20px;'>
+                <h3 style='color:#c00;margin:0 0 10px;'><i class='fa-solid fa-circle-exclamation'></i> Database Error</h3>
+                <p style='color:#333;margin:0 0 5px;'><strong>Detail Error:</strong></p>
+                <pre style='background:#fff;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;'>" . htmlspecialchars($error_msg) . "</pre>
+                <p style='color:#666;font-size:12px;margin:10px 0 0;'>SQL: " . htmlspecialchars($sql) . "</p>
+                <p style='color:#666;font-size:12px;margin:5px 0 0;'>Silakan periksa koneksi database atau hubungi administrator.</p>
+            </div>";
+            exit();
+        }
+        return false;
+    }
+    return $stmt;
+}
+
+function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_fetch_array($stmt, $fetch_type);
+}
+
+function safe_sqlsrv_has_rows($stmt) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_has_rows($stmt);
+}
+
 if (isset($_GET['delete_id'])) {
-    $stmt = sqlsrv_query($conn, "DELETE FROM Customer WHERE ID_Customer = ?", array($_GET['delete_id']));
-    header($stmt ? "Location: customer.php?page=1&status=success&msg=Data customer berhasil dihapus!" : "Location: customer.php?page=1&status=error&msg=Gagal menghapus, data mungkin terikat transaksi!");
+    $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
+    $stmt = safe_sqlsrv_query($conn, "UPDATE Customer SET Is_Deleted=1, Status='Dihapus',
+        Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Customer=?", 
+        array($deleted_by, $_GET['delete_id']), false);
+
+    header($stmt ? "Location: customer.php?page=1&status=success&msg=Data customer telah dihapus (soft delete)!" : "Location: customer.php?page=1&status=error&msg=Gagal menghapus, data mungkin terikat transaksi!");
     exit();
 }
 
 // --- STATISTIK ---
-$q_total    = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer");
-$total_cust = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
-$q_laki     = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=1");
-$total_laki = sqlsrv_fetch_array($q_laki, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
-$q_perempuan = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=2");
-$total_perempuan = sqlsrv_fetch_array($q_perempuan, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Is_Deleted=0", [], false);
+$total_cust = 0;
+if ($q_total !== false) {
+    $row_total = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
+    $total_cust = $row_total['t'] ?? 0;
+}
+
+$q_laki = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=1 AND Is_Deleted=0", [], false);
+$total_laki = 0;
+if ($q_laki !== false) {
+    $row_laki = safe_sqlsrv_fetch_array($q_laki, SQLSRV_FETCH_ASSOC);
+    $total_laki = $row_laki['t'] ?? 0;
+}
+
+$q_perempuan = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=2 AND Is_Deleted=0", [], false);
+$total_perempuan = 0;
+if ($q_perempuan !== false) {
+    $row_perempuan = safe_sqlsrv_fetch_array($q_perempuan, SQLSRV_FETCH_ASSOC);
+    $total_perempuan = $row_perempuan['t'] ?? 0;
+}
 
 // --- PAGING CONFIGURATION ---
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-$total_pages = ceil($total_cust / $limit);
-$page = min($page, max(1, $total_pages));
+$total_pages = max(1, ceil($total_cust / $limit));
+$page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
+<<<<<<< HEAD
+// Ambil data dengan paging (hanya yang belum dihapus)
+if ($offset == 0) {
+    $query_sql = "SELECT TOP $limit * FROM Customer WHERE Is_Deleted=0 ORDER BY ID_Customer ASC";
+} else {
+    $query_sql = "SELECT * FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY ID_Customer ASC) AS RowNum FROM Customer WHERE Is_Deleted=0) AS Sub WHERE RowNum > $offset AND RowNum <= " . ($offset + $limit) . " ORDER BY ID_Customer ASC";
+}
+$query = safe_sqlsrv_query($conn, $query_sql, [], false);
+
+$query_error = ($query === false);
+$query_error_msg = '';
+if ($query_error) {
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
+=======
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
 // Ambil data dengan paging
 $query = sqlsrv_query($conn, "SELECT * FROM Customer ORDER BY ID_Customer ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -161,8 +245,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { padding: 13px 20px; font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
 .data-table td { padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; transition: background .15s; }
-.data-table tbody tr:hover td { background: #FAFAFA; }
 .data-table tbody tr:last-child td { border-bottom: none; }
+
+/* ═══ ZEBRA STRIPING ═══ */
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background: #FFEDD5 !important; }
 
 .cust-id   { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 .cust-name { font-weight: 700; color: var(--text); font-size: 14px; }
@@ -170,6 +258,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .gender-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .gb-laki     { background: var(--blue-lt); color: var(--blue); }
 .gb-perempuan{ background: var(--pink-lt); color: var(--pink); }
+
+/* ═══ AUDIT INFO ═══ */
+.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
+.audit-info i { margin-right: 3px; }
+.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
+.audit-value { color: var(--text-md); font-weight: 700; }
+.audit-date { font-family: monospace; font-size: 10px; }
 
 /* ═══ ACTIONS ═══ */
 .actions { display: flex; gap: 6px; justify-content: flex-end; }
@@ -211,6 +306,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
+<<<<<<< HEAD
+=======
 
 /* ═══ ZEBRA STRIPING ═══ */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
@@ -276,6 +373,7 @@ html::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Opera */
 }
 
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
@@ -290,13 +388,129 @@ html::-webkit-scrollbar {
     .btn-action { padding: 6px 10px; font-size: 11px; }
     .pagination-wrap { flex-direction: column; gap: 12px; }
 }
+/* ═══ MODAL DETAIL ═══ */
+.modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 1000;
+    align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn .2s ease;
+}
+.modal-overlay.active { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-box {
+    background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border);
+    width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 25px 50px rgba(0,0,0,.15); animation: slideUp .3s ease;
+}
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 28px; border-bottom: 1px solid var(--border-lt);
+}
+.modal-header-left { display: flex; align-items: center; gap: 14px; }
+.modal-avatar {
+    width: 56px; height: 56px; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dk) 100%);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 24px; flex-shrink: 0;
+}
+.modal-header-info { display: flex; flex-direction: column; }
+.modal-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
+.modal-id {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    color: var(--orange); background: var(--orange-lt); padding: 3px 10px; border-radius: 6px; margin-top: 4px; width: fit-content;
+}
+.modal-close {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border);
+    color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: all .2s; font-size: 14px;
+}
+.modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+
+.modal-body { padding: 0; }
+.modal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
+.modal-item { padding: 16px 24px; border-bottom: 1px solid var(--border-lt); border-right: 1px solid var(--border-lt); }
+.modal-item:nth-child(2n) { border-right: none; }
+.modal-item:nth-last-child(-n+2) { border-bottom: none; }
+.modal-item:nth-last-child(1):nth-child(odd) { border-bottom: none; grid-column: 1 / -1; }
+
+.modal-label {
+    display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800;
+    text-transform: uppercase; color: var(--muted); letter-spacing: .5px; margin-bottom: 6px;
+}
+.modal-label i { font-size: 11px; width: 14px; text-align: center; }
+.modal-value { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
+.modal-value-muted { color: var(--muted); font-weight: 600; }
+
+.modal-gender {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 800; text-transform: uppercase;
+}
+.mg-laki { background: var(--blue-lt); color: var(--blue); }
+.mg-perempuan { background: var(--pink-lt); color: var(--pink); }
+
+.modal-status {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 800; text-transform: uppercase;
+}
+.ms-active { background: var(--green-lt); color: var(--green); }
+.ms-deleted { background: var(--red-lt); color: var(--red); }
+
+.modal-deleted-banner {
+    margin: 16px 24px 0; padding: 12px 16px; background: var(--red-lt); border: 1px solid rgba(239,68,68,.2);
+    border-radius: 10px; display: flex; align-items: center; gap: 10px;
+}
+.modal-deleted-banner i { color: var(--red); font-size: 16px; }
+.modal-deleted-text { font-size: 12px; font-weight: 700; color: var(--red); }
+.modal-deleted-date { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+.modal-audit { padding: 16px 24px; border-top: 1px solid var(--border-lt); background: #FAFAFA; }
+.modal-audit-title {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+    color: var(--text); text-transform: uppercase; margin-bottom: 12px;
+}
+.modal-audit-title i { color: var(--orange); font-size: 14px; }
+.modal-audit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.modal-audit-item { display: flex; flex-direction: column; gap: 4px; }
+.modal-audit-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: .4px; }
+.modal-audit-value { font-size: 12px; font-weight: 700; color: var(--text-md); }
+.modal-audit-date { font-family: monospace; font-size: 10px; color: var(--muted); }
+.modal-audit-empty { color: #9CA3AF; font-style: italic; font-weight: 500; }
+
+.modal-footer {
+    padding: 16px 24px; border-top: 1px solid var(--border-lt); display: flex; gap: 10px; justify-content: flex-end;
+}
+.btn-modal {
+    display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px;
+    font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer;
+    transition: all .2s; border: 1.5px solid transparent; text-decoration: none;
+}
+.btn-modal-close { background: var(--bg); color: var(--text-md); border-color: var(--border); }
+.btn-modal-close:hover { background: var(--text); color: #fff; border-color: var(--text); }
+.btn-modal-edit { background: var(--blue-lt); color: var(--blue); border-color: #BFDBFE; }
+.btn-modal-edit:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+@media(max-width: 640px) {
+    .modal-grid { grid-template-columns: 1fr; }
+    .modal-item { border-right: none; }
+    .modal-item:nth-last-child(1):nth-child(odd) { grid-column: auto; }
+    .modal-audit-grid { grid-template-columns: 1fr; }
+    .modal-box { max-height: 95vh; }
+}
 </style>
 </head>
 <body>
 
+<<<<<<< HEAD
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+    <a href="../dashboard.php" class="sb-brand">
+=======
 <!-- ═══ SIDEBAR CUSTOMER (SAMA DENGAN LAPANGAN.PHP & JALUR RELATIF DISESUAIKAN) ═══ -->
 <aside class="sidebar">
     <a href="../dashboard_karyawan.php" class="sb-brand">
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -357,8 +571,12 @@ html::-webkit-scrollbar {
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
+<<<<<<< HEAD
+<main class="main">
+=======
 <<main class="main">
 <!-- ═══ TOPBAR DATA CUSTOMER SINKRON DENGAN VIEW_ADMIN ═══ -->
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Data Customer</div>
@@ -430,7 +648,7 @@ html::-webkit-scrollbar {
         </div>
 
         <!-- TABLE CARD -->
-        <div class="card">
+        <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="card">
             <div class="table-wrap">
                 <table class="data-table" id="tbl">
                     <thead>
@@ -440,13 +658,15 @@ html::-webkit-scrollbar {
                             <th>Jenis Kelamin</th>
                             <th>Alamat</th>
                             <th>No. Telepon</th>
+                            <th>Audit Info</th>
                             <th style="text-align:right;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php
                     $has_data = false;
-                    while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                    if (!$query_error && $query):
+                    while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
                         $is_laki = ($row['Jenis_Kelamin'] == 1);
                     ?>
@@ -468,6 +688,23 @@ html::-webkit-scrollbar {
                                 <?= htmlspecialchars($row['No_Telepon']) ?>
                             </td>
                             <td>
+                                <div class="audit-info">
+                                    <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
+                                    <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php if (!empty($row['Modified_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($row['Deleted_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
+                                    <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td>
                                 <div class="actions">
                                     <a href="customer_detail.php?id=<?= $row['ID_Customer'] ?>" class="btn-action btn-view" title="Lihat Detail">
                                         <i class="fa-solid fa-eye"></i>
@@ -478,11 +715,11 @@ html::-webkit-scrollbar {
                                 </div>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
-                    
+                    <?php endwhile; endif; ?>
+
                     <?php if (!$has_data): ?>
                         <tr>
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="empty-state">
                                     <i class="fa-solid fa-users"></i>
                                     <div>Belum ada data customer</div>
@@ -494,7 +731,7 @@ html::-webkit-scrollbar {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div><?php endif; ?>
 
         <!-- PAGINATION -->
         <?php if ($total_pages > 1): ?>
@@ -511,7 +748,7 @@ html::-webkit-scrollbar {
                 <a href="?page=<?= $page - 1 ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
                     <i class="fa-solid fa-angle-left"></i>
                 </a>
-                
+
                 <?php 
                 $start_page = max(1, $page - 2); 
                 $end_page = min($total_pages, $page + 2); 
@@ -527,16 +764,16 @@ html::-webkit-scrollbar {
                     <a href="?page=1" class="page-btn">1</a>
                     <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
                 <?php endif; ?>
-                
+
                 <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
                     <a href="?page=<?= $i ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
                 <?php endfor; ?>
-                
+
                 <?php if ($end_page < $total_pages): ?>
                     <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
                     <a href="?page=<?= $total_pages ?>" class="page-btn"><?= $total_pages ?></a>
                 <?php endif; ?>
-                
+
                 <a href="?page=<?= $page + 1 ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
                     <i class="fa-solid fa-angle-right"></i>
                 </a>
@@ -560,18 +797,18 @@ function searchTable() {
     var input = document.getElementById('src').value.toUpperCase();
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
     var hasMatch = false;
-    
+
     for (var i = 1; i < rows.length; i++) {
         var tdName = rows[i].getElementsByTagName('td')[1];
         var tdId = rows[i].getElementsByTagName('td')[0];
         var tdPhone = rows[i].getElementsByTagName('td')[4];
-        
+
         if (tdName || tdId || tdPhone) {
             var match = false;
             if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
             if (tdId && tdId.textContent.toUpperCase().indexOf(input) > -1) match = true;
             if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            
+
             rows[i].style.display = match ? '' : 'none';
             if (match) hasMatch = true;
         }
@@ -632,6 +869,90 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
+
+<!-- ═══ MODAL DETAIL CUSTOMER ═══ -->
+<div class="modal-overlay" id="modalDetail" onclick="closeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-header-left">
+                <div class="modal-avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="modal-header-info">
+                    <div class="modal-name" id="mdlNama">-</div>
+                    <div class="modal-id"><i class="fa-solid fa-fingerprint"></i> <span id="mdlId">-</span></div>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Deleted Banner -->
+            <div class="modal-deleted-banner" id="mdlDeletedBanner" style="display:none;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <div class="modal-deleted-text">Data telah dihapus (soft delete)</div>
+                    <div class="modal-deleted-date" id="mdlDeletedInfo">-</div>
+                </div>
+            </div>
+
+            <div class="modal-grid">
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Nama Lengkap</div>
+                    <div class="modal-value" id="mdlNama2">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-venus-mars" style="color:var(--purple);"></i> Jenis Kelamin</div>
+                    <div class="modal-value" id="mdlJK">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-cake-candles" style="color:var(--pink);"></i> Tanggal Lahir</div>
+                    <div class="modal-value" id="mdlTglLahir">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-location-dot" style="color:var(--red);"></i> Tempat Lahir</div>
+                    <div class="modal-value" id="mdlTempatLahir">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-map-location-dot" style="color:var(--green);"></i> Alamat</div>
+                    <div class="modal-value" id="mdlAlamat">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-phone" style="color:var(--blue);"></i> No. Telepon</div>
+                    <div class="modal-value" id="mdlTelepon">-</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Status</div>
+                    <div class="modal-value" id="mdlStatus">-</div>
+                </div>
+            </div>
+
+            <div class="modal-audit">
+                <div class="modal-audit-title"><i class="fa-solid fa-clock-rotate-left"></i> Informasi Audit</div>
+                <div class="modal-audit-grid">
+                    <div class="modal-audit-item">
+                        <div class="modal-audit-label"><i class="fa-solid fa-user-plus" style="color:var(--green);"></i> Dibuat</div>
+                        <div class="modal-audit-value" id="mdlCreatedBy">-</div>
+                        <div class="modal-audit-date" id="mdlCreatedDate">-</div>
+                    </div>
+                    <div class="modal-audit-item">
+                        <div class="modal-audit-label"><i class="fa-solid fa-user-pen" style="color:var(--blue);"></i> Diubah</div>
+                        <div class="modal-audit-value" id="mdlModifiedBy">-</div>
+                        <div class="modal-audit-date" id="mdlModifiedDate">-</div>
+                    </div>
+                    <div class="modal-audit-item">
+                        <div class="modal-audit-label"><i class="fa-solid fa-user-xmark" style="color:var(--red);"></i> Dihapus</div>
+                        <div class="modal-audit-value" id="mdlDeletedBy">-</div>
+                        <div class="modal-audit-date" id="mdlDeletedDate">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-modal btn-modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Tutup</button>
+            <a href="#" class="btn-modal btn-modal-edit" id="mdlEditLink"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

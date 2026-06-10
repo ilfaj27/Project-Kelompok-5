@@ -26,7 +26,7 @@ if (isset($_POST['login'])) {
 
                 // PERBAIKAN 2: Mengubah pemetaan angka Role sesuai database baru Anda
                 // 1 = customer, 2 = karyawan, 3 = pemilik (manajer)
-                $role_map = [1 => 'customer', 2 => 'karyawan', 3 => 'pemilik'];
+                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
                 $_SESSION['role'] = $role_map[(int)$row['Role']];
 
                 // Ambil nama berdasarkan role dari tabel profil terkait

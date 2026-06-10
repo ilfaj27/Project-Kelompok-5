@@ -11,6 +11,51 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama_user = $_SESSION['nama'];
 
+// ═══════════════════════════════════════════
+// HELPER: Safe SQLSRV Operations
+// ═══════════════════════════════════════════
+function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        $error_details = [];
+        if ($errors) {
+            foreach ($errors as $error) {
+                $error_details[] = "[SQLSTATE: " . $error['SQLSTATE'] . "] [Code: " . $error['code'] . "] " . $error['message'];
+            }
+        }
+        $error_msg = implode(" | ", $error_details);
+        error_log("[SQL ERROR] " . $error_msg . " | SQL: " . $sql . " | Params: " . json_encode($params));
+
+        if ($die_on_error) {
+            echo "<div style='padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;font-family:sans-serif;margin:20px;'>
+                <h3 style='color:#c00;margin:0 0 10px;'><i class='fa-solid fa-circle-exclamation'></i> Database Error</h3>
+                <p style='color:#333;margin:0 0 5px;'><strong>Detail Error:</strong></p>
+                <pre style='background:#fff;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;'>" . htmlspecialchars($error_msg) . "</pre>
+                <p style='color:#666;font-size:12px;margin:10px 0 0;'>SQL: " . htmlspecialchars($sql) . "</p>
+                <p style='color:#666;font-size:12px;margin:5px 0 0;'>Silakan periksa koneksi database atau hubungi administrator.</p>
+            </div>";
+            exit();
+        }
+        return false;
+    }
+    return $stmt;
+}
+
+function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_fetch_array($stmt, $fetch_type);
+}
+
+function safe_sqlsrv_has_rows($stmt) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_has_rows($stmt);
+}
+
 // --- 2. LOGIKA PROSES CRUD PROMO ---
 if (isset($_POST['add_promo'])) {
     $tgl_m = $_POST['tgl_m'];
@@ -19,9 +64,10 @@ if (isset($_POST['add_promo'])) {
         header("Location: promo.php?status=error&msg=Tanggal selesai tidak boleh mendahului tanggal mulai!");
         exit();
     }
-    $sql = "INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai) VALUES (?, ?, ?, ?, ?)";
-    $params = array($_POST['id'], $_POST['nama'], $_POST['diskon'], $tgl_m, $tgl_s);
-    if(sqlsrv_query($conn, $sql, $params)) {
+    $sql = "INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, ?, 1, 0, ?, GETDATE())";
+    $params = array($_POST['id'], $_POST['nama'], $_POST['diskon'], $tgl_m, $tgl_s, $nama_user);
+    $stmt = safe_sqlsrv_query($conn, $sql, $params, false);
+    if($stmt) {
         header("Location: promo.php?status=success&msg=Promo baru berhasil didaftarkan!");
     } else {
         header("Location: promo.php?status=error&msg=Gagal menambah promo. Pastikan ID unik!");
@@ -36,9 +82,10 @@ if (isset($_POST['update_promo'])) {
         header("Location: promo.php?status=error&msg=Gagal update! Tanggal selesai tidak valid.");
         exit();
     }
-    $sql = "UPDATE Promo SET Nama_Promo=?, Diskon=?, Tanggal_Mulai=?, Tanggal_Selesai=? WHERE ID_Promo=?";
-    $params = array($_POST['nama'], $_POST['diskon'], $tgl_m, $tgl_s, $_POST['id']);
-    if(sqlsrv_query($conn, $sql, $params)) {
+    $sql = "UPDATE Promo SET Nama_Promo=?, Diskon=?, Tanggal_Mulai=?, Tanggal_Selesai=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Promo=?";
+    $params = array($_POST['nama'], $_POST['diskon'], $tgl_m, $tgl_s, $nama_user, $_POST['id']);
+    $stmt = safe_sqlsrv_query($conn, $sql, $params, false);
+    if($stmt) {
         header("Location: promo.php?status=success&msg=Data promo berhasil diperbarui!");
     } else {
         header("Location: promo.php?status=error&msg=Gagal memperbarui data.");
@@ -47,7 +94,7 @@ if (isset($_POST['update_promo'])) {
 }
 
 if (isset($_GET['delete_id'])) {
-    $stmt = sqlsrv_query($conn, "DELETE FROM Promo WHERE ID_Promo = ?", array($_GET['delete_id']));
+    $stmt = safe_sqlsrv_query($conn, "DELETE FROM Promo WHERE ID_Promo = ?", array($_GET['delete_id']), false);
     header($stmt ? "Location: promo.php?status=success&msg=Promo dihapus." : "Location: promo.php?status=error&msg=Gagal hapus!");
     exit();
 }
@@ -55,8 +102,10 @@ if (isset($_GET['delete_id'])) {
 $edit_data = null;
 $show_modal = false;
 if (isset($_GET['edit_id'])) {
-    $res_edit = sqlsrv_query($conn, "SELECT * FROM Promo WHERE ID_Promo = ?", array($_GET['edit_id']));
-    $edit_data = sqlsrv_fetch_array($res_edit, SQLSRV_FETCH_ASSOC);
+    $res_edit = safe_sqlsrv_query($conn, "SELECT * FROM Promo WHERE ID_Promo = ?", array($_GET['edit_id']), false);
+    if ($res_edit) {
+        $edit_data = safe_sqlsrv_fetch_array($res_edit, SQLSRV_FETCH_ASSOC);
+    }
     $show_modal = true;
 }
 if (isset($_GET['create']) && $_GET['create'] == '1') {
@@ -64,12 +113,26 @@ if (isset($_GET['create']) && $_GET['create'] == '1') {
 }
 
 // STATISTIK
-$q_active = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Tanggal_Selesai >= CAST(GETDATE() AS DATE)");
-$active_count = sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$q_expired = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Tanggal_Selesai < CAST(GETDATE() AS DATE)");
-$expired_count = sqlsrv_fetch_array($q_expired, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$q_total = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo");
-$total_count = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
+$q_active = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Tanggal_Selesai >= CAST(GETDATE() AS DATE)", [], false);
+$active_count = 0;
+if ($q_active) {
+    $row = safe_sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC);
+    $active_count = $row['total'] ?? 0;
+}
+
+$q_expired = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Tanggal_Selesai < CAST(GETDATE() AS DATE)", [], false);
+$expired_count = 0;
+if ($q_expired) {
+    $row = safe_sqlsrv_fetch_array($q_expired, SQLSRV_FETCH_ASSOC);
+    $expired_count = $row['total'] ?? 0;
+}
+
+$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo", [], false);
+$total_count = 0;
+if ($q_total) {
+    $row = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
+    $total_count = $row['total'] ?? 0;
+}
 
 // --- PAGING CONFIG ---
 $limit = 10;
@@ -77,11 +140,30 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
 // Hitung total data
-$count_res = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo");
-$total_row = sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
-$total_data = $total_row['total'] ?? 0;
+$count_res = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo", [], false);
+$total_data = 0;
+if ($count_res) {
+    $total_row = safe_sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
+    $total_data = $total_row['total'] ?? 0;
+}
 $total_pages = max(1, ceil($total_data / $limit));
 
+<<<<<<< HEAD
+// Query dengan paging - using string concatenation for OFFSET/FETCH
+$query_sql = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+$query = safe_sqlsrv_query($conn, $query_sql, [], false);
+
+$query_error = ($query === false);
+$query_error_msg = '';
+if ($query_error) {
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
+=======
 // Query dengan paging
 $sql_paging = "SELECT * FROM Promo ORDER BY Tanggal_Selesai DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 $query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
@@ -89,6 +171,7 @@ $query = sqlsrv_query($conn, $sql_paging, array($offset, $limit));
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
 $total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -291,15 +374,27 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state div { font-size: 14px; font-weight: 700; }
 
 /* ═══ PAGING ═══ */
-.paging-wrap { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border-lt); flex-wrap: wrap; gap: 12px; }
-.paging-info { font-size: 12px; color: var(--muted); font-weight: 600; }
-.paging-nav { display: flex; align-items: center; gap: 4px; }
-.paging-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--border); background: #fff; color: var(--text); font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; transition: all .2s; cursor: pointer; }
-.paging-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.paging-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
-.paging-btn.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
-.paging-btn i { font-size: 11px; }
-.paging-ellipsis { color: var(--muted); font-weight: 700; padding: 0 4px; font-size: 13px; }
+.pagination-wrap { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid var(--border-lt); flex-wrap: wrap; gap: 12px; }
+.pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pagination-nav { display: flex; align-items: center; gap: 4px; }
+.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--border); background: #fff; color: var(--text); font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; transition: all .2s; cursor: pointer; }
+.page-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
+.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
+.page-btn.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { color: var(--muted); font-weight: 700; padding: 0 4px; font-size: 13px; }
+
+/* ═══ ZEBRA STRIPING ═══ */
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+
+/* ═══ AUDIT INFO ═══ */
+.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
+.audit-info i { margin-right: 3px; }
+.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
+.audit-value { color: var(--text-md); font-weight: 700; }
+.audit-date { font-family: monospace; font-size: 10px; }
 
 #clock-display { 
     display: flex; 
@@ -387,11 +482,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     required minlength="3" maxlength="100">
                 <div class="val-msg" id="val-nama"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
                 
-                <label class="modal-label">Diskon (%) <span class="required">*</span></label>
+                <label class="modal-label">Diskon (Rp) <span class="required">*</span></label>
                 <input type="number" name="diskon" id="diskon" class="modal-input" 
-                    placeholder="0" min="0" max="100"
+                    placeholder="10000" min="0"
                     value="<?= $edit_data['Diskon'] ?? '' ?>" required>
-                <div class="val-msg" id="val-diskon"><i class="fa-solid fa-circle-exclamation"></i> Diskon 0-100%</div>
+                <div class="val-msg" id="val-diskon"><i class="fa-solid fa-circle-exclamation"></i> Diskon minimal 0</div>
                 
                 <div class="modal-grid-2">
                     <div>
@@ -563,7 +658,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
         <!-- TABLE CARD -->
         <div class="card">
-            <div class="table-wrap">
+            <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
                 <table class="data-table" id="tbl">
                     <thead>
                         <tr>
@@ -572,17 +667,21 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <th>Nama Promo</th>
                             <th>Diskon</th>
                             <th>Periode</th>
+                            <th>Audit Info</th>
                             <th style="text-align:right;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php
                     $has_data = false;
-                    while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                    $row_num = 0;
+                    if (!$query_error && $query):
+                    while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
+                        $row_num++;
                         $is_active = ($row['Tanggal_Selesai'] >= new DateTime());
                     ?>
-                        <tr>
+                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                             <td>
                                 <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-expired' ?>">
                                     <span class="sp-dot"></span>
@@ -591,11 +690,28 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             </td>
                             <td class="promo-id"><?= htmlspecialchars($row['ID_Promo']) ?></td>
                             <td class="promo-name"><?= htmlspecialchars($row['Nama_Promo']) ?></td>
-                            <td class="promo-disc"><?= (int)$row['Diskon'] ?>%</td>
+                            <td class="promo-disc">Rp <?= number_format((float)$row['Diskon'], 0, ',', '.') ?></td>
                             <td style="font-size: 12px; color: var(--muted);">
                                 <i class="fa-regular fa-calendar"></i> 
                                 <?= $row['Tanggal_Mulai']->format('d M Y') ?> - 
                                 <?= $row['Tanggal_Selesai']->format('d M Y') ?>
+                            </td>
+                            <td>
+                                <div class="audit-info">
+                                    <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
+                                    <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php if (!empty($row['Modified_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($row['Deleted_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
+                                    <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td>
                                 <div class="actions">
@@ -608,11 +724,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 </div>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endwhile; endif; ?>
                     
                     <?php if (!$has_data): ?>
                         <tr>
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="empty-state">
                                     <i class="fa-solid fa-tag"></i>
                                     <div>Belum ada data promo</div>
@@ -624,47 +740,45 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div><?php endif; ?>
 
         <!-- PAGING -->
         <?php if ($total_pages > 1): ?>
-        <div class="card" style="margin-top: 16px;">
-            <div class="paging-wrap">
-                <div class="paging-info">
+        <div class="pagination-wrap">
+                <div class="pagination-info">
                     Menampilkan <?= (($page - 1) * $limit) + 1 ?> - <?= min($page * $limit, $total_data) ?> dari <?= $total_data ?> data
                 </div>
-                <div class="paging-nav">
+                <div class="pagination-nav">
                     <!-- First -->
-                    <a href="?page=1" class="paging-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
+                    <a href="?page=1" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
                     <!-- Prev -->
-                    <a href="?page=<?= max(1, $page - 1) ?>" class="paging-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
+                    <a href="?page=<?= max(1, $page - 1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
 
                     <?php
                     $start_page = max(1, $page - 2);
                     $end_page = min($total_pages, $page + 2);
 
                     if ($start_page > 1) {
-                        echo '<a href="?page=1" class="paging-btn">1</a>';
-                        if ($start_page > 2) echo '<span class="paging-ellipsis">...</span>';
+                        echo '<a href="?page=1" class="page-btn">1</a>';
+                        if ($start_page > 2) echo '<span class="page-ellipsis">...</span>';
                     }
 
                     for ($i = $start_page; $i <= $end_page; $i++) {
                         $active = ($i == $page) ? 'active' : '';
-                        echo '<a href="?page=' . $i . '" class="paging-btn ' . $active . '">' . $i . '</a>';
+                        echo '<a href="?page=' . $i . '" class="page-btn ' . $active . '">' . $i . '</a>';
                     }
 
                     if ($end_page < $total_pages) {
-                        if ($end_page < $total_pages - 1) echo '<span class="paging-ellipsis">...</span>';
-                        echo '<a href="?page=' . $total_pages . '" class="paging-btn">' . $total_pages . '</a>';
+                        if ($end_page < $total_pages - 1) echo '<span class="page-ellipsis">...</span>';
+                        echo '<a href="?page=' . $total_pages . '" class="page-btn">' . $total_pages . '</a>';
                     }
                     ?>
 
                     <!-- Next -->
-                    <a href="?page=<?= min($total_pages, $page + 1) ?>" class="paging-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-right"></i></a>
+                    <a href="?page=<?= min($total_pages, $page + 1) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-right"></i></a>
                     <!-- Last -->
-                    <a href="?page=<?= $total_pages ?>" class="paging-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-right"></i></a>
+                    <a href="?page=<?= $total_pages ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-right"></i></a>
                 </div>
-            </div>
         </div>
         <?php endif; ?>
     </div>
@@ -779,7 +893,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Cek diskon real-time
             if (this.id === 'diskon') {
                 const val = Number(this.value);
-                if (this.value !== '' && (val < 0 || val > 100)) {
+                if (this.value !== '' && val < 0) {
                     this.classList.add('error');
                     if (valMsg) valMsg.classList.add('show');
                 }

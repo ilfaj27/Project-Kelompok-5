@@ -9,22 +9,67 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 
+// ═══════════════════════════════════════════
+// HELPER: Safe SQLSRV Operations
+// ═══════════════════════════════════════════
+function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        $error_details = [];
+        if ($errors) {
+            foreach ($errors as $error) {
+                $error_details[] = "[SQLSTATE: " . $error['SQLSTATE'] . "] [Code: " . $error['code'] . "] " . $error['message'];
+            }
+        }
+        $error_msg = implode(" | ", $error_details);
+        error_log("[SQL ERROR] " . $error_msg . " | SQL: " . $sql . " | Params: " . json_encode($params));
+
+        if ($die_on_error) {
+            echo "<div style='padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;font-family:sans-serif;margin:20px;'>
+                <h3 style='color:#c00;margin:0 0 10px;'><i class='fa-solid fa-circle-exclamation'></i> Database Error</h3>
+                <p style='color:#333;margin:0 0 5px;'><strong>Detail Error:</strong></p>
+                <pre style='background:#fff;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;'>" . htmlspecialchars($error_msg) . "</pre>
+                <p style='color:#666;font-size:12px;margin:10px 0 0;'>SQL: " . htmlspecialchars($sql) . "</p>
+                <p style='color:#666;font-size:12px;margin:5px 0 0;'>Silakan periksa koneksi database atau hubungi administrator.</p>
+            </div>";
+            exit();
+        }
+        return false;
+    }
+    return $stmt;
+}
+
+function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_fetch_array($stmt, $fetch_type);
+}
+
+function safe_sqlsrv_has_rows($stmt) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_has_rows($stmt);
+}
+
 // --- PROSES CRUD ---
 if (isset($_POST['save_lapangan'])) {
     $id   = $_POST['id_lap'];
     $nama_lapangan = $_POST['nama_arena']; 
     $harga = $_POST['harga'];
-    
+
     if (isset($_POST['edit_mode'])) {
-        sqlsrv_query($conn, "UPDATE Lapangan SET Nama_Lapangan=?, Harga_Sewa=? WHERE ID_Lapangan=?", array($nama_lapangan, $harga, $id));
+        safe_sqlsrv_query($conn, "UPDATE Lapangan SET Nama_Lapangan=?, Harga_Sewa=? WHERE ID_Lapangan=?", array($nama_lapangan, $harga, $id), false);
         header("Location: lapangan.php?page=1&status=success&msg=Data lapangan berhasil diperbarui!");
     } else {
-        $checkID = sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE ID_Lapangan=?", array($id));
-        if (sqlsrv_has_rows($checkID)) { 
+        $checkID = safe_sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE ID_Lapangan=?", array($id), false);
+        if ($checkID && safe_sqlsrv_has_rows($checkID)) { 
             header("Location: lapangan.php?page=1&status=error&msg=ID Lapangan sudah ada!"); 
             exit(); 
         }
-        sqlsrv_query($conn, "INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status) VALUES (?,?,?,1)", array($id, $nama_lapangan, $harga));
+        safe_sqlsrv_query($conn, "INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,1,0,?,GETDATE())", array($id, $nama_lapangan, $harga, $nama), false);
         header("Location: lapangan.php?page=1&status=success&msg=Lapangan baru berhasil ditambahkan!");
     }
     exit();
@@ -32,43 +77,71 @@ if (isset($_POST['save_lapangan'])) {
 
 if (isset($_GET['toggle_id'])) {
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    sqlsrv_query($conn, "UPDATE Lapangan SET Status=? WHERE ID_Lapangan=?", array($s_baru, $_GET['toggle_id']));
+    safe_sqlsrv_query($conn, "UPDATE Lapangan SET Status=? WHERE ID_Lapangan=?", array($s_baru, $_GET['toggle_id']), false);
     header("Location: lapangan.php?page=1&status=success&msg=Status lapangan berhasil diubah!"); 
     exit();
 }
 
 if (isset($_GET['delete_id'])) {
-    $stmt = sqlsrv_query($conn, "DELETE FROM Lapangan WHERE ID_Lapangan=?", array($_GET['delete_id']));
+    $stmt = safe_sqlsrv_query($conn, "DELETE FROM Lapangan WHERE ID_Lapangan=?", array($_GET['delete_id']), false);
     header($stmt ? "Location: lapangan.php?page=1&status=success&msg=Lapangan berhasil dihapus!" : "Location: lapangan.php?page=1&status=error&msg=Gagal hapus, data masih terikat!");
     exit();
 }
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = sqlsrv_query($conn, "SELECT * FROM Lapangan WHERE ID_Lapangan=?", array($_GET['edit_id']));
-    $edit_data = sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
+    $r = safe_sqlsrv_query($conn, "SELECT * FROM Lapangan WHERE ID_Lapangan=?", array($_GET['edit_id']), false);
+    if ($r) {
+        $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
+    }
 }
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
 // --- STATISTIK ---
-$q_ready = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan WHERE Status=1");
-$cnt_ready = sqlsrv_fetch_array($q_ready, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
-$q_maint  = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan WHERE Status=0");
-$cnt_maint = sqlsrv_fetch_array($q_maint, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
-$q_total = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan");
-$total_lapangan = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+$q_ready = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan WHERE Status=1", [], false);
+$cnt_ready = 0;
+if ($q_ready) {
+    $row = safe_sqlsrv_fetch_array($q_ready, SQLSRV_FETCH_ASSOC);
+    $cnt_ready = $row['t'] ?? 0;
+}
+
+$q_maint = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan WHERE Status=0", [], false);
+$cnt_maint = 0;
+if ($q_maint) {
+    $row = safe_sqlsrv_fetch_array($q_maint, SQLSRV_FETCH_ASSOC);
+    $cnt_maint = $row['t'] ?? 0;
+}
+
+$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Lapangan", [], false);
+$total_lapangan = 0;
+if ($q_total) {
+    $row = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
+    $total_lapangan = $row['t'] ?? 0;
+}
 
 // --- PAGING CONFIGURATION ---
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-$total_pages = ceil($total_lapangan / $limit);
-$page = min($page, max(1, $total_pages));
+$total_pages = max(1, ceil($total_lapangan / $limit));
+$page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-// Ambil data dengan paging
-$query = sqlsrv_query($conn, "SELECT * FROM Lapangan ORDER BY ID_Lapangan ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+// Ambil data dengan paging - using string concatenation for OFFSET/FETCH
+$query_sql = "SELECT * FROM Lapangan ORDER BY ID_Lapangan ASC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+$query = safe_sqlsrv_query($conn, $query_sql, [], false);
+
+$query_error = ($query === false);
+$query_error_msg = '';
+if ($query_error) {
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
 
 function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
 
@@ -301,6 +374,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
 .data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 
+<<<<<<< HEAD
+/* ═══ ZEBRA STRIPING ═══ */
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+
+/* ═══ AUDIT INFO ═══ */
+.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
+.audit-info i { margin-right: 3px; }
+.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
+.audit-value { color: var(--text-md); font-weight: 700; }
+.audit-date { font-family: monospace; font-size: 10px; }
+=======
 
 /* ========================================================== */
 /* COPAST KODE CSS JAM DIGITAL INI DI DALAM STYLE LAPANGAN.PHP */
@@ -347,6 +433,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     text-transform: uppercase; 
     letter-spacing: 0.5px; 
 }
+>>>>>>> 95b5d2a6f34a41fc0c09014f921480c118054e6f
 
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
@@ -541,7 +628,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
         <!-- TABLE CARD -->
         <div class="card">
-            <div class="table-wrap">
+            <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
                 <table class="data-table" id="tbl">
                     <thead>
                         <tr>
@@ -549,17 +636,21 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <th>ID Lapangan</th>
                             <th>Nama Lapangan</th>
                             <th>Harga Sewa</th>
+                            <th>Audit Info</th>
                             <th style="text-align:right;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php
                     $has_data = false;
-                    while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                    $row_num = 0;
+                    if (!$query_error && $query):
+                    while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
+                        $row_num++;
                         $is_ready = $row['Status'] == 1;
                     ?>
-                        <tr>
+                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                             <td>
                                 <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
                                     <span class="sp-dot"></span>
@@ -569,6 +660,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td class="lap-id"><?= htmlspecialchars($row['ID_Lapangan']) ?></td>
                             <td class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></td>
                             <td class="lap-price"><?= rupiah($row['Harga_Sewa']) ?></td>
+                            <td>
+                                <div class="audit-info">
+                                    <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
+                                    <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php if (!empty($row['Modified_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($row['Deleted_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
+                                    <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td>
                                 <div class="actions">
                                     <a href="?edit_id=<?= $row['ID_Lapangan'] ?>" class="btn-action btn-edit" title="Edit Lapangan">
@@ -584,11 +692,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 </div>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endwhile; endif; ?>
                     
                     <?php if (!$has_data): ?>
                         <tr>
-                            <td colspan="5">
+                            <td colspan="6">
                                 <div class="empty-state">
                                     <i class="fa-solid fa-layer-group"></i>
                                     <div>Belum ada data lapangan</div>
@@ -600,7 +708,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div><?php endif; ?>
 
         <!-- PAGINATION -->
         <?php if ($total_pages > 1): ?>

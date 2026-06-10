@@ -12,12 +12,11 @@ $nama_user = $_SESSION['nama'];
 $role_user = $_SESSION['role'];
 
 // ═══════════════════════════════════════════
-// HELPER: Get Profile Photo Path (Consistent across all pages)
+// HELPER: Get Profile Photo Path
 // ═══════════════════════════════════════════
 function getProfilePhotoPath() {
     $photo = $_SESSION['Profile_Photo'] ?? '';
     if (empty($photo)) return '';
-
     $current_dir = dirname($_SERVER['PHP_SELF']);
     if (strpos($current_dir, '/master/') !== false || strpos($current_dir, '/laporan/') !== false) {
         return '../' . $photo;
@@ -33,9 +32,53 @@ function getProfilePhotoAbsolutePath() {
 
 $profile_photo = getProfilePhotoPath();
 $profile_photo_abs = getProfilePhotoAbsolutePath();
-
 if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
     $profile_photo = '';
+}
+
+// ═══════════════════════════════════════════
+// HELPER: Safe SQLSRV Operations
+// ═══════════════════════════════════════════
+function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        $error_details = [];
+        if ($errors) {
+            foreach ($errors as $error) {
+                $error_details[] = "[SQLSTATE: " . $error['SQLSTATE'] . "] [Code: " . $error['code'] . "] " . $error['message'];
+            }
+        }
+        $error_msg = implode(" | ", $error_details);
+        error_log("[SQL ERROR] " . $error_msg . " | SQL: " . $sql . " | Params: " . json_encode($params));
+
+        if ($die_on_error) {
+            echo "<div style='padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;font-family:sans-serif;margin:20px;'>
+                <h3 style='color:#c00;margin:0 0 10px;'><i class='fa-solid fa-circle-exclamation'></i> Database Error</h3>
+                <p style='color:#333;margin:0 0 5px;'><strong>Detail Error:</strong></p>
+                <pre style='background:#fff;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;'>" . htmlspecialchars($error_msg) . "</pre>
+                <p style='color:#666;font-size:12px;margin:10px 0 0;'>SQL: " . htmlspecialchars($sql) . "</p>
+                <p style='color:#666;font-size:12px;margin:5px 0 0;'>Silakan periksa koneksi database atau hubungi administrator.</p>
+            </div>";
+            exit();
+        }
+        return false;
+    }
+    return $stmt;
+}
+
+function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_fetch_array($stmt, $fetch_type);
+}
+
+function safe_sqlsrv_has_rows($stmt) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_has_rows($stmt);
 }
 
 // --- 2. LOGIKA MAPPING ROLE ---
@@ -54,27 +97,32 @@ if (isset($_POST['create_karyawan'])) {
     $email = $_POST['new_email'];
     $username = $_POST['new_username'];
     $pass  = $_POST['new_password'];
+    $created_by = $_SESSION['nama'] ?? 'SYSTEM';
 
     // Check email exists
-    $checkEmail = sqlsrv_query($conn, "SELECT Email FROM Akun WHERE Email = ?", array($email));
-    if (sqlsrv_has_rows($checkEmail)) {
+    $checkEmail = safe_sqlsrv_query($conn, "SELECT Email FROM Akun WHERE Email = ?", array($email), false);
+    if ($checkEmail && safe_sqlsrv_has_rows($checkEmail)) {
         header("Location: akun.php?role=karyawan&status=error&msg=Email sudah terdaftar!");
         exit();
     }
     // Check username exists
-    $checkUser = sqlsrv_query($conn, "SELECT Username FROM Akun WHERE Username = ?", array($username));
-    if (sqlsrv_has_rows($checkUser)) {
+    $checkUser = safe_sqlsrv_query($conn, "SELECT Username FROM Akun WHERE Username = ?", array($username), false);
+    if ($checkUser && safe_sqlsrv_has_rows($checkUser)) {
         header("Location: akun.php?role=karyawan&status=error&msg=Username sudah terdaftar!");
         exit();
     }
 
     $sql_id = "SELECT TOP 1 ID_Akun FROM Akun ORDER BY ID_Akun DESC";
-    $query_id = sqlsrv_query($conn, $sql_id);
-    $row_id = sqlsrv_fetch_array($query_id, SQLSRV_FETCH_ASSOC);
+    $query_id = safe_sqlsrv_query($conn, $sql_id);
+    $row_id = safe_sqlsrv_fetch_array($query_id, SQLSRV_FETCH_ASSOC);
     $new_id = $row_id ? "AKN" . str_pad((int)substr($row_id['ID_Akun'], 3) + 1, 3, "0", STR_PAD_LEFT) : "AKN001";
 
-    $sql_cr = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status_Akun) VALUES (?, ?, ?, ?, 2, 1)";
-    if(sqlsrv_query($conn, $sql_cr, array($new_id, $username, $email, $pass))) {
+    $sql_cr = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status, 
+                Is_Deleted, Created_By, Created_Date) 
+                VALUES (?, ?, ?, ?, 2, 1, 0, ?, GETDATE())";
+    $stmt = safe_sqlsrv_query($conn, $sql_cr, array($new_id, $username, $email, $pass, $created_by), false);
+
+    if ($stmt) {
         header("Location: akun.php?role=karyawan&status=success&msg=Akun $new_id berhasil dibuat!");
     } else {
         header("Location: akun.php?role=karyawan&status=error&msg=Gagal Simpan Akun!");
@@ -85,22 +133,24 @@ if (isset($_POST['create_karyawan'])) {
 // UPDATE AKUN — HANYA UNTUK KARYAWAN (Role 2)
 if (isset($_POST['update_akun'])) {
     $id = $_POST['id_akun'];
-    
+    $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+
     // Validasi: hanya karyawan yang boleh di-update via master akun
-    $checkRole = sqlsrv_query($conn, "SELECT Role FROM Akun WHERE ID_Akun = ?", array($id));
-    $roleData = sqlsrv_fetch_array($checkRole, SQLSRV_FETCH_ASSOC);
-    
-    if ($roleData['Role'] != 2) {
+    $checkRole = safe_sqlsrv_query($conn, "SELECT Role FROM Akun WHERE ID_Akun = ?", array($id), false);
+    $roleData = safe_sqlsrv_fetch_array($checkRole, SQLSRV_FETCH_ASSOC);
+
+    if ($roleData && $roleData['Role'] != 2) {
         header("Location: akun.php?role=$current_filter&status=error&msg=Akun ini hanya dapat diubah via halaman Profil!");
         exit();
     }
-    
+
     $username = $_POST['username'];
     $email = $_POST['email'];
     $pass = $_POST['password'];
     $role = $_POST['role'];
-    $sql_up = "UPDATE Akun SET Username=?, Email=?, Kata_Sandi=?, Role=? WHERE ID_Akun=?";
-    sqlsrv_query($conn, $sql_up, array($username, $email, $pass, $role, $id));
+    $sql_up = "UPDATE Akun SET Username=?, Email=?, Kata_Sandi=?, Role=?, 
+                Modified_By=?, Modified_Date=GETDATE() WHERE ID_Akun=?";
+    safe_sqlsrv_query($conn, $sql_up, array($username, $email, $pass, $role, $modified_by, $id), false);
     header("Location: akun.php?role=$current_filter&status=success&msg=Data akun diperbarui!");
     exit();
 }
@@ -108,19 +158,28 @@ if (isset($_POST['update_akun'])) {
 // TOGGLE STATUS
 if (isset($_GET['toggle_id'])) {
     $status_baru = ($_GET['s'] == 1) ? 0 : 1;
-    sqlsrv_query($conn, "UPDATE Akun SET Status_Akun = ? WHERE ID_Akun = ?", array($status_baru, $_GET['toggle_id']));
+    $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+    $akun_status = ($status_baru == 1) ? 'Aktif' : 'Nonaktif';
+
+    safe_sqlsrv_query($conn, "UPDATE Akun SET Status = ?, Status = ?, 
+        Modified_By = ?, Modified_Date = GETDATE() 
+        WHERE ID_Akun = ?", 
+        array($status_baru, $akun_status, $modified_by, $_GET['toggle_id']), false);
     header("Location: akun.php?role=$current_filter&status=success&msg=Status akun berhasil diubah!");
     exit();
 }
 
-// HARD DELETE
+// HARD DELETE (Soft delete dengan flag)
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
-    sqlsrv_query($conn, "DELETE FROM Karyawan WHERE ID_Akun = ?", array($delete_id));
-    sqlsrv_query($conn, "DELETE FROM Customer WHERE ID_Akun = ?", array($delete_id));
-    $stmt = sqlsrv_query($conn, "DELETE FROM Akun WHERE ID_Akun = ?", array($delete_id));
+    $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
+
+    $stmt = safe_sqlsrv_query($conn, "UPDATE Akun SET Is_Deleted = 1, Status = 'Dihapus', 
+        Deleted_By = ?, Deleted_Date = GETDATE() WHERE ID_Akun = ?", 
+        array($deleted_by, $delete_id), false);
+
     if ($stmt) {
-        header("Location: akun.php?role=$current_filter&status=success&msg=Akun $delete_id berhasil dihapus permanen!");
+        header("Location: akun.php?role=$current_filter&status=success&msg=Akun $delete_id telah dihapus (soft delete)!");
     } else {
         header("Location: akun.php?role=$current_filter&status=error&msg=Gagal menghapus akun!");
     }
@@ -129,11 +188,9 @@ if (isset($_GET['delete_id'])) {
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    // Validasi: hanya karyawan yang boleh di-edit via master akun
-    $res_edit = sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ?", array($_GET['edit_id']));
-    $edit_data = sqlsrv_fetch_array($res_edit, SQLSRV_FETCH_ASSOC);
-    
-    // Jika bukan karyawan, redirect dengan pesan error
+    $res_edit = safe_sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ? AND Is_Deleted = 0", array($_GET['edit_id']), false);
+    $edit_data = safe_sqlsrv_fetch_array($res_edit, SQLSRV_FETCH_ASSOC);
+
     if ($edit_data && $edit_data['Role'] != 2) {
         header("Location: akun.php?role=$current_filter&status=error&msg=Akun Manajer/Customer hanya dapat diubah via halaman Profil!");
         exit();
@@ -141,32 +198,67 @@ if (isset($_GET['edit_id'])) {
 }
 $show_create = isset($_GET['create']) && $_GET['create'] == '1' && $current_filter === 'karyawan';
 
-// STATISTIK
-$q_active = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Status_Akun = 1");
-$active_count = sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$q_suspended = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Status_Akun = 0");
-$suspended_count = sqlsrv_fetch_array($q_suspended, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$q_total = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun");
-$total_count = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
+// STATISTIK (hanya yang belum dihapus)
+$q_active = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Status = 1 AND Is_Deleted = 0", [], false);
+$active_count = 0;
+if ($q_active !== false) {
+    $row_active = safe_sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC);
+    $active_count = $row_active['total'] ?? 0;
+}
+
+$q_suspended = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Status = 0 AND Is_Deleted = 0", [], false);
+$suspended_count = 0;
+if ($q_suspended !== false) {
+    $row_suspended = safe_sqlsrv_fetch_array($q_suspended, SQLSRV_FETCH_ASSOC);
+    $suspended_count = $row_suspended['total'] ?? 0;
+}
+
+$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Is_Deleted = 0", [], false);
+$total_count = 0;
+if ($q_total !== false) {
+    $row_total = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
+    $total_count = $row_total['total'] ?? 0;
+}
 
 // --- PAGING ---
 if ($current_filter == 'all') {
-    $count_query = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun");
+    $count_query = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Is_Deleted = 0", [], false);
 } else {
     $role_id = $role_map[$current_filter] ?? null;
-    $count_query = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Role = ?", array($role_id));
+    $count_query = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Akun WHERE Role = ? AND Is_Deleted = 0", array($role_id), false);
 }
-$total_rows = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$total_pages = ceil($total_rows / $limit);
+
+$total_rows = 0;
+if ($count_query !== false) {
+    $count_row = safe_sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
+    $total_rows = $count_row['total'] ?? 0;
+}
+
+$total_pages = max(1, ceil($total_rows / $limit));
 $page = min($page, max(1, $total_pages));
 $offset = ($page - 1) * $limit;
 
+// Use string concatenation for OFFSET/FETCH to avoid parameter binding issues
 if ($current_filter == 'all') {
-    $query = sqlsrv_query($conn, "SELECT * FROM Akun ORDER BY Role ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+    $query_sql = "SELECT * FROM Akun WHERE Is_Deleted = 0 ORDER BY Role ASC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+    $query = safe_sqlsrv_query($conn, $query_sql, [], false);
 } else {
     $role_id = $role_map[$current_filter] ?? null;
-    $query = sqlsrv_query($conn, "SELECT * FROM Akun WHERE Role = ? ORDER BY ID_Akun ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($role_id, $offset, $limit));
+    $query_sql = "SELECT * FROM Akun WHERE Role = " . intval($role_id) . " AND Is_Deleted = 0 ORDER BY ID_Akun ASC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+    $query = safe_sqlsrv_query($conn, $query_sql, [], false);
 }
+
+$query_error = ($query === false);
+$query_error_msg = '';
+if ($query_error) {
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
+
 $role_label_map = [1 => 'Manajer', 2 => 'Karyawan', 3 => 'Customer'];
 ?>
 <!DOCTYPE html>
@@ -347,6 +439,13 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 }
 .btn-delete:active { transform: translateY(0); }
 
+/* ═══ AUDIT INFO ═══ */
+.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
+.audit-info i { margin-right: 3px; }
+.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
+.audit-value { color: var(--text-md); font-weight: 700; }
+.audit-date { font-family: monospace; font-size: 10px; }
+
 /* ═══ PAGINATION ═══ */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -465,7 +564,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -502,7 +601,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Akun</div>
@@ -591,15 +690,15 @@ tbody tr:hover td { background-color: #FED7AA !important; }
             </div>
         </div>
 
-        <div class="table-wrap">
+        <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
             <table id="tbl">
                 <thead>
                     <tr>
-                        <th>Status</th><th>ID Akun</th><th>Username</th><th>Email</th><th>Password</th><th>Hak Akses</th><th style="text-align:right;">Aksi</th>
+                        <th>Status</th><th>ID Akun</th><th>Username</th><th>Email</th><th>Password</th><th>Hak Akses</th><th>Audit Info</th><th style="text-align:right;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $row_num = 0; while($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $is_active = $row['Status_Akun'] == 1; $is_customer = $row['Role'] == 3; $is_manajer = $row['Role'] == 1; $is_karyawan = $row['Role'] == 2; ?>
+                    <?php $row_num = 0; if (!$query_error && $query): while($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $is_active = $row['Status'] == 1; $is_customer = $row['Role'] == 3; $is_manajer = $row['Role'] == 1; $is_karyawan = $row['Role'] == 2; ?>
                     <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                         <td>
                             <div style="display:flex; align-items:center; gap:8px;">
@@ -621,30 +720,45 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                             <?php endif; ?>
                         </td>
                         <td><span class="role-badge badge-<?= $row['Role'] ?>"><?= $role_label_map[$row['Role']] ?></span></td>
+                        <td>
+                            <div class="audit-info">
+                                <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
+                                <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
+                                <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                <?php if (!empty($row['Modified_By'])): ?>
+                                <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
+                                <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
+                                <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($row['Deleted_By'])): ?>
+                                <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
+                                <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
+                                <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                         <td style="text-align:right;">
                             <div class="action-group">
                                 <?php if ($is_karyawan): ?>
-                                    <!-- HANYA KARYAWAN YANG BISA DI-EDIT DI MASTER AKUN -->
                                     <a href="?role=<?= $current_filter ?>&page=<?= $page ?>&edit_id=<?= $row['ID_Akun'] ?>" class="btn-action btn-edit" title="Edit Akun Karyawan"><i class="fa-solid fa-pen-to-square"></i></a>
                                 <?php elseif ($is_manajer): ?>
-                                    <!-- MANAJER: TIDAK ADA TOMBOL EDIT, HANYA INFO -->
                                     <span style="font-size: 11px; color: var(--muted); font-weight: 600; padding: 8px 12px; background: var(--border-lt); border-radius: 8px;">
                                         <i class="fa-solid fa-lock" style="margin-right: 4px;"></i> Edit via Profil
                                     </span>
                                 <?php endif; ?>
-                                
+
                                 <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> akun">
-                                    <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status_Akun'] ?>)">
+                                    <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status'] ?>)">
                                     <span class="toggle-slider"></span>
                                 </label>
                                 <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                             </div>
                         </td>
                     </tr>
-                    <?php endwhile; ?>
+                    <?php endwhile; endif; ?>
                 </tbody>
             </table>
-        </div>
+        </div><?php endif; ?>
 
         <?php if ($total_pages > 1): ?>
         <div class="pagination-wrap">
@@ -713,7 +827,6 @@ function confirmDelete(id, username) {
     }).then((result) => { if(result.isConfirmed) { window.location.href = `?role=<?= $current_filter ?>&page=<?= $page ?>&delete_id=${id}`; } });
 }
 
-/* ═══ VALIDASI FORM ═══ */
 function validateForm(form) {
     let valid = true;
     const inputs = form.querySelectorAll('.modal-input[required]');
@@ -721,85 +834,31 @@ function validateForm(form) {
         const valMsg = document.getElementById('val-' + input.id);
         if (!input.checkValidity()) {
             if (valMsg) valMsg.classList.add('show');
+            input.classList.add('error');
             valid = false;
         } else {
             if (valMsg) valMsg.classList.remove('show');
+            input.classList.remove('error');
         }
     });
     return valid;
 }
 
-// Live validation on input
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.modal-input');
     inputs.forEach(input => {
         input.addEventListener('input', function() {
             const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) {
-                if (!this.checkValidity() && this.value !== '') {
-                    valMsg.classList.add('show');
-                } else {
-                    valMsg.classList.remove('show');
-                }
+                if (!this.checkValidity() && this.value !== '') { valMsg.classList.add('show'); this.classList.add('error'); }
+                else { valMsg.classList.remove('show'); this.classList.remove('error'); }
             }
         });
         input.addEventListener('blur', function() {
             const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) {
-                if (!this.checkValidity()) {
-                    valMsg.classList.add('show');
-                } else {
-                    valMsg.classList.remove('show');
-                }
-            }
-        });
-    });
-});
-
-/* ═══ VALIDASI FORM ═══ */
-function validateForm(form) {
-    let valid = true;
-    const inputs = form.querySelectorAll('.modal-input[required]');
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        if (!input.checkValidity()) {
-            if (valMsg) valMsg.classList.add('show');
-            input.classList.add('error'); // ⬅️ TAMBAH INI
-            valid = false;
-        } else {
-            if (valMsg) valMsg.classList.remove('show');
-            input.classList.remove('error'); // ⬅️ TAMBAH INI
-        }
-    });
-    return valid;
-}
-
-// Live validation on input
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.modal-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) {
-                if (!this.checkValidity() && this.value !== '') {
-                    valMsg.classList.add('show');
-                    this.classList.add('error'); // ⬅️ TAMBAH INI
-                } else {
-                    valMsg.classList.remove('show');
-                    this.classList.remove('error'); // ⬅️ TAMBAH INI
-                }
-            }
-        });
-        input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) {
-                if (!this.checkValidity()) {
-                    valMsg.classList.add('show');
-                    this.classList.add('error'); // ⬅️ TAMBAH INI
-                } else {
-                    valMsg.classList.remove('show');
-                    this.classList.remove('error'); // ⬅️ TAMBAH INI
-                }
+                if (!this.checkValidity()) { valMsg.classList.add('show'); this.classList.add('error'); }
+                else { valMsg.classList.remove('show'); this.classList.remove('error'); }
             }
         });
     });

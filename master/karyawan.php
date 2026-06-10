@@ -10,12 +10,11 @@ $nama = $_SESSION['nama'];
 $role = $_SESSION['role'];
 
 // ═══════════════════════════════════════════
-// HELPER: Get Profile Photo Path (Consistent across all pages)
+// HELPER: Get Profile Photo Path
 // ═══════════════════════════════════════════
 function getProfilePhotoPath() {
     $photo = $_SESSION['Profile_Photo'] ?? '';
     if (empty($photo)) return '';
-
     $current_dir = dirname($_SERVER['PHP_SELF']);
     if (strpos($current_dir, '/master/') !== false || strpos($current_dir, '/laporan/') !== false) {
         return '../' . $photo;
@@ -31,56 +30,180 @@ function getProfilePhotoAbsolutePath() {
 
 $profile_photo = getProfilePhotoPath();
 $profile_photo_abs = getProfilePhotoAbsolutePath();
-
 if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
     $profile_photo = '';
 }
 
 $map_jabatan = [1=>'Admin Utama', 2=>'Pemilik / Owner', 3=>'Kasir Pembayaran', 4=>'Staf Operasional', 5=>'Keamanan'];
 
+// ═══════════════════════════════════════════
+// HELPER: Safe SQLSRV Operations with Detailed Error
+// ═══════════════════════════════════════════
+function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) {
+        $errors = sqlsrv_errors();
+        $error_details = [];
+        if ($errors) {
+            foreach ($errors as $error) {
+                $error_details[] = "[SQLSTATE: " . $error['SQLSTATE'] . "] [Code: " . $error['code'] . "] " . $error['message'];
+            }
+        }
+        $error_msg = implode(" | ", $error_details);
+        error_log("[SQL ERROR] " . $error_msg . " | SQL: " . $sql . " | Params: " . json_encode($params));
+
+        if ($die_on_error) {
+            echo "<div style='padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;font-family:sans-serif;margin:20px;'>
+                <h3 style='color:#c00;margin:0 0 10px;'><i class='fa-solid fa-circle-exclamation'></i> Database Error</h3>
+                <p style='color:#333;margin:0 0 5px;'><strong>Detail Error:</strong></p>
+                <pre style='background:#fff;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;'>" . htmlspecialchars($error_msg) . "</pre>
+                <p style='color:#666;font-size:12px;margin:10px 0 0;'>SQL: " . htmlspecialchars($sql) . "</p>
+                <p style='color:#666;font-size:12px;margin:5px 0 0;'>Silakan periksa koneksi database atau hubungi administrator.</p>
+            </div>";
+            exit();
+        }
+        return false;
+    }
+    return $stmt;
+}
+
+function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_fetch_array($stmt, $fetch_type);
+}
+
+function safe_sqlsrv_has_rows($stmt) {
+    if ($stmt === false || $stmt === null) {
+        return false;
+    }
+    return sqlsrv_has_rows($stmt);
+}
+
+// ═══════════════════════════════════════════
+// CRUD OPERATIONS
+// ═══════════════════════════════════════════
+
 if (isset($_POST['add_karyawan'])) {
-    $id_kry = $_POST['id_kry']; $nama_kry = $_POST['nama']; $jk = $_POST['jk']; $jabatan = $_POST['jabatan']; $telp = $_POST['telp']; $id_akun = $_POST['id_akun'];
-    $checkID = sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE ID_Karyawan=?", array($id_kry));
-    if (sqlsrv_has_rows($checkID)) { header("Location: karyawan.php?status=error&msg=ID Karyawan sudah terdaftar!"); exit(); }
-    $stmt = sqlsrv_query($conn, "INSERT INTO Karyawan (ID_Karyawan,ID_Akun,Nama_Karyawan,Jenis_Kelamin,Jabatan,No_Telepon) VALUES (?,?,?,?,?,?)", array($id_kry,$id_akun,$nama_kry,$jk,$jabatan,$telp));
-    header($stmt ? "Location: karyawan.php?status=success&msg=Karyawan baru berhasil didaftarkan!" : "Location: karyawan.php?status=error&msg=Gagal menambahkan data!"); exit();
+    $id_kry = $_POST['id_kry']; 
+    $nama_kry = $_POST['nama']; 
+    $jk = $_POST['jk']; 
+    $jabatan = $_POST['jabatan']; 
+    $telp = $_POST['telp']; 
+    $id_akun = $_POST['id_akun'];
+    $created_by = $_SESSION['nama'] ?? 'SYSTEM';
+
+    $checkID = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE ID_Karyawan=?", array($id_kry), false);
+    if ($checkID && safe_sqlsrv_has_rows($checkID)) { 
+        header("Location: karyawan.php?status=error&msg=ID Karyawan sudah terdaftar!"); 
+        exit(); 
+    }
+
+    $stmt = safe_sqlsrv_query($conn, 
+        "INSERT INTO Karyawan (ID_Karyawan, ID_Akun, Nama_Karyawan, Jenis_Kelamin, Jabatan, No_Telepon, Status, Is_Deleted, Created_By, Created_Date) 
+        VALUES (?, ?, ?, ?, ?, ?, 'Aktif', 0, ?, GETDATE())", 
+        array($id_kry, $id_akun, $nama_kry, $jk, $jabatan, $telp, $created_by), false);
+
+    header($stmt ? "Location: karyawan.php?status=success&msg=Karyawan baru berhasil didaftarkan!" : "Location: karyawan.php?status=error&msg=Gagal menambahkan data!"); 
+    exit();
 }
+
 if (isset($_POST['update_karyawan'])) {
-    $stmt = sqlsrv_query($conn, "UPDATE Karyawan SET Nama_Karyawan=?,Jenis_Kelamin=?,Jabatan=?,No_Telepon=? WHERE ID_Karyawan=?", array($_POST['nama'],$_POST['jk'],$_POST['jabatan'],$_POST['telp'],$_POST['id_kry']));
-    header($stmt ? "Location: karyawan.php?status=success&msg=Data staf berhasil diperbarui!" : "Location: karyawan.php?status=error&msg=Gagal memperbarui data!"); exit();
+    $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+    $stmt = safe_sqlsrv_query($conn, 
+        "UPDATE Karyawan SET Nama_Karyawan=?, Jenis_Kelamin=?, Jabatan=?, No_Telepon=?,
+        Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?", 
+        array($_POST['nama'], $_POST['jk'], $_POST['jabatan'], $_POST['telp'], $modified_by, $_POST['id_kry']), false);
+
+    header($stmt ? "Location: karyawan.php?status=success&msg=Data staf berhasil diperbarui!" : "Location: karyawan.php?status=error&msg=Gagal memperbarui data!"); 
+    exit();
 }
+
 if (isset($_GET['delete_id'])) {
-    $stmt = sqlsrv_query($conn, "DELETE FROM Karyawan WHERE ID_Karyawan=?", array($_GET['delete_id']));
-    header($stmt ? "Location: karyawan.php?status=success&msg=Data karyawan dihapus permanen!" : "Location: karyawan.php?status=error&msg=Gagal hapus, data mungkin masih terikat!"); exit();
+    $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
+    $stmt = safe_sqlsrv_query($conn, 
+        "UPDATE Karyawan SET Is_Deleted=1, Status='Dihapus',
+        Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Karyawan=?", 
+        array($deleted_by, $_GET['delete_id']), false);
+
+    header($stmt ? "Location: karyawan.php?status=success&msg=Data karyawan telah dihapus (soft delete)!" : "Location: karyawan.php?status=error&msg=Gagal hapus, data mungkin masih terikat!"); 
+    exit();
 }
+
+// ═══════════════════════════════════════════
+// DATA FETCHING WITH SAFE ERROR HANDLING
+// ═══════════════════════════════════════════
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan=?", array($_GET['edit_id']));
-    $edit_data = sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
+    $r = safe_sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan=? AND Is_Deleted=0", array($_GET['edit_id']), false);
+    if ($r) {
+        $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
+    }
 }
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$q_akun_bebas = sqlsrv_query($conn, "SELECT A.ID_Akun,A.Email FROM Akun A WHERE A.ID_Akun NOT IN (SELECT ID_Akun FROM Karyawan WHERE ID_Akun IS NOT NULL) AND A.Role != 3 ORDER BY A.ID_Akun ASC");
+// Akun bebas - dengan error handling
+$q_akun_bebas = safe_sqlsrv_query($conn, 
+    "SELECT A.ID_Akun, A.Email FROM Akun A 
+    WHERE A.ID_Akun NOT IN (SELECT ID_Akun FROM Karyawan WHERE ID_Akun IS NOT NULL AND Is_Deleted=0) 
+    AND A.Role != 3 AND A.Is_Deleted=0 
+    ORDER BY A.ID_Akun ASC", [], false);
+
 $akun_bebas = [];
-if ($q_akun_bebas) while ($ak = sqlsrv_fetch_array($q_akun_bebas, SQLSRV_FETCH_ASSOC)) $akun_bebas[] = $ak;
+if ($q_akun_bebas !== false) {
+    while ($ak = safe_sqlsrv_fetch_array($q_akun_bebas, SQLSRV_FETCH_ASSOC)) {
+        $akun_bebas[] = $ak;
+    }
+}
 
-$q_total = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan");
-$total_kry = sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+// Total karyawan
+$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan WHERE Is_Deleted=0", [], false);
+$total_kry = 0;
+if ($q_total !== false) {
+    $row_total = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
+    $total_kry = $row_total['t'] ?? 0;
+}
 
-$q_total_akun = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Akun WHERE Status_Akun = 1");
-$total_akun_aktif = sqlsrv_fetch_array($q_total_akun, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+// Total akun aktif
+$q_total_akun = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Akun WHERE Status = 1 AND Is_Deleted=0", [], false);
+$total_akun_aktif = 0;
+if ($q_total_akun !== false) {
+    $row_akun = safe_sqlsrv_fetch_array($q_total_akun, SQLSRV_FETCH_ASSOC);
+    $total_akun_aktif = $row_akun['t'] ?? 0;
+}
 
 // --- PAGING ---
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$count_query = sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Karyawan");
-$total_rows = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC)['total'] ?? 0;
-$total_pages = ceil($total_rows / $limit);
-$page = min($page, max(1, $total_pages));
+
+$count_query = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Is_Deleted=0", [], false);
+$total_rows = 0;
+if ($count_query !== false) {
+    $count_row = safe_sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
+    $total_rows = $count_row['total'] ?? 0;
+}
+
+$total_pages = max(1, ceil($total_rows / $limit));
+$page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$query = sqlsrv_query($conn, "SELECT * FROM Karyawan ORDER BY ID_Karyawan ASC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY", array($offset, $limit));
+// Main query with pagination - using string concatenation for OFFSET/FETCH to avoid binding issues
+$query_sql = "SELECT * FROM Karyawan WHERE Is_Deleted=0 ORDER BY ID_Karyawan ASC OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+$query = safe_sqlsrv_query($conn, $query_sql, [], false);
+
+$query_error = false;
+$query_error_msg = '';
+if ($query === false) {
+    $query_error = true;
+    $errors = sqlsrv_errors();
+    if ($errors) {
+        foreach ($errors as $error) {
+            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -196,7 +319,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { padding: 13px 20px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
 .data-table td { padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
-.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:last-child td { border-bottom: none; }
 
 /* ═══ ZEBRA STRIPING — ORANGE & PUTIH ═══ */
 .data-table tbody tr:nth-child(odd) { background-color: var(--zebra-orange); }
@@ -211,7 +334,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
 .jk-badge { font-size: 12px; color: var(--muted); font-weight: 600; }
 
-/* ═══ ELEGANT ACTION BUTTONS — SAMA PERSIS MASTER AKUN ═══ */
+/* ═══ ELEGANT ACTION BUTTONS ═══ */
 .action-group { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
 .btn-action {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -222,21 +345,24 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-edit {
     background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
 }
-.btn-edit i { font-size: 13px; }
 .btn-edit:hover {
     background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
     transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
 }
-.btn-edit:active { transform: translateY(0); }
 .btn-delete {
     background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
 }
-.btn-delete i { font-size: 13px; }
 .btn-delete:hover {
     background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
     transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
 }
-.btn-delete:active { transform: translateY(0); }
+
+/* ═══ AUDIT INFO ═══ */
+.audit-info { font-size: 10px; color: var(--muted); font-weight: 600; }
+.audit-info i { margin-right: 3px; }
+.audit-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; font-weight: 800; }
+.audit-value { color: var(--text-md); font-weight: 700; }
+.audit-date { font-family: monospace; font-size: 10px; }
 
 /* ═══ PAGINATION ═══ */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
@@ -495,13 +621,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="card-title"><i class="fa-solid fa-user-tie"></i> Data Karyawan</div>
                 <span class="card-badge"><?= $total_kry ?> total</span>
             </div>
-            <div class="table-wrap">
+            <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
                 <table class="data-table">
                     <thead>
-                        <tr><th>ID</th><th>Nama Lengkap</th><th>Jabatan</th><th>No. Telepon</th><th style="text-align:right;">Aksi</th></tr>
+                        <tr><th>ID</th><th>Nama Lengkap</th><th>Jabatan</th><th>No. Telepon</th><th>Audit Info</th><th style="text-align:right;">Aksi</th></tr>
                     </thead>
                     <tbody>
-                    <?php $row_num = 0; $has_data = false; while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $has_data = true; ?>
+                    <?php $row_num = 0; $has_data = false; if (!$query_error && $query): while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $has_data = true; ?>
                         <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                             <td class="emp-id"><?= htmlspecialchars($row['ID_Karyawan']) ?></td>
                             <td>
@@ -511,20 +637,37 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td><span class="jabatan-badge"><?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?></span></td>
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
                             <td>
+                                <div class="audit-info">
+                                    <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
+                                    <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php if (!empty($row['Modified_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
+                                    <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($row['Deleted_By'])): ?>
+                                    <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
+                                    <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
+                                    <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td>
                                 <div class="action-group">
                                     <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
                                     <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                                 </div>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endwhile; endif; ?>
                     <?php if (!$has_data): ?>
-                        <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-user-tie"></i><p>Belum ada data karyawan terdaftar</p></div></td></tr>
+                        <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-user-tie"></i><p>Belum ada data karyawan terdaftar</p></div></td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div><?php endif; ?>
 
         <?php if ($total_pages > 1): ?>
         <div class="pagination-wrap">
@@ -558,7 +701,6 @@ function confirmDelete(id, nama) {
     }).then((r) => { if (r.isConfirmed) window.location.href = '?page=<?= $page ?>&delete_id=' + id; });
 }
 
-/* ═══ VALIDASI FORM ═══ */
 function validateForm(form) {
     let valid = true;
     const inputs = form.querySelectorAll('.modal-input[required]');
@@ -566,29 +708,31 @@ function validateForm(form) {
         const valMsg = document.getElementById('val-' + input.id);
         if (!input.checkValidity()) {
             if (valMsg) valMsg.classList.add('show');
+            input.classList.add('error');
             valid = false;
         } else {
             if (valMsg) valMsg.classList.remove('show');
+            input.classList.remove('error');
         }
     });
     return valid;
 }
-// Live validation on input & blur
+
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.modal-input');
     inputs.forEach(input => {
         input.addEventListener('input', function() {
             const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) {
-                if (!this.checkValidity() && this.value !== '') { valMsg.classList.add('show'); }
-                else { valMsg.classList.remove('show'); }
+                if (!this.checkValidity() && this.value !== '') { valMsg.classList.add('show'); this.classList.add('error'); }
+                else { valMsg.classList.remove('show'); this.classList.remove('error'); }
             }
         });
         input.addEventListener('blur', function() {
             const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) {
-                if (!this.checkValidity()) { valMsg.classList.add('show'); }
-                else { valMsg.classList.remove('show'); }
+                if (!this.checkValidity()) { valMsg.classList.add('show'); this.classList.add('error'); }
+                else { valMsg.classList.remove('show'); this.classList.remove('error'); }
             }
         });
     });
@@ -601,56 +745,6 @@ if (status && msg) {
     Swal.fire({ icon: status === 'success' ? 'success' : 'error', title: status === 'success' ? 'Berhasil!' : 'Gagal!', text: msg, timer: 3000, showConfirmButton: false, iconColor: '#FF4500' });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
-/* ═══ VALIDASI FORM ═══ */
-function validateForm(form) {
-    let valid = true;
-    const inputs = form.querySelectorAll('.modal-input[required]');
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        if (!input.checkValidity()) {
-            if (valMsg) valMsg.classList.add('show');
-            input.classList.add('error'); // ⬅️ TAMBAH INI
-            valid = false;
-        } else {
-            if (valMsg) valMsg.classList.remove('show');
-            input.classList.remove('error'); // ⬅️ TAMBAH INI
-        }
-    });
-    return valid;
-}
-
-// Live validation on input & blur
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.modal-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) {
-                if (!this.checkValidity() && this.value !== '') { 
-                    valMsg.classList.add('show'); 
-                    this.classList.add('error'); // ⬅️ TAMBAH INI
-                }
-                else { 
-                    valMsg.classList.remove('show'); 
-                    this.classList.remove('error'); // ⬅️ TAMBAH INI
-                }
-            }
-        });
-        input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) {
-                if (!this.checkValidity()) { 
-                    valMsg.classList.add('show'); 
-                    this.classList.add('error'); // ⬅️ TAMBAH INI
-                }
-                else { 
-                    valMsg.classList.remove('show'); 
-                    this.classList.remove('error'); // ⬅️ TAMBAH INI
-                }
-            }
-        });
-    });
-});
 
 window.onclick = function(e) { if (e.target == document.getElementById('modal')) closeModal(); };
 </script>
