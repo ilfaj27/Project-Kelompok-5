@@ -1,11 +1,11 @@
 <?php
-$serverName = "."; 
-$connectionOptions = array(
+$serverName = "localhost"; 
+$connectionOptions = [
     "Database" => "Hoopball",
-    "Uid" => "", 
-    "PWD" => "",
+    "Uid" => "sa", 
+    "PWD" => "F@nsdolalynomor1",
     "TrustServerCertificate" => true
-);
+];
 
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 
