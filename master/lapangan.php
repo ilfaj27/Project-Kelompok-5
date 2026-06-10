@@ -246,6 +246,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
+/* ═══ VALIDASI ERROR STATE ═══ */
+.modal-input.error {
+    border-color: var(--red) !important;
+    background-color: #FEF2F2 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+.modal-input.error:focus {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+.val-msg {
+    font-size: 11px; color: var(--red); font-weight: 600; 
+    margin-bottom: 10px; display: none; min-height: 16px;
+}
+.val-msg.show { display: block; }
+.val-msg i { margin-right: 4px; }
+
 /* ═══ PAGINATION ═══ */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -299,24 +316,27 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="modal-title"><?= $edit_data ? 'Edit Lapangan' : 'Tambah Lapangan Baru' ?></div>
         </div>
         <div class="modal-body">
-            <form method="POST" id="formLapangan" onsubmit="return validateForm()">
+            <form method="POST" id="formLapangan" onsubmit="return validateForm()" novalidate>
                 <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
                 
                 <label class="modal-label">ID Lapangan <?= !$edit_data ? '<span class="required">*</span>' : '' ?></label>
-                <input type="text" name="id_lap" class="modal-input" 
-                       value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? '') ?>" 
-                       <?= $edit_data ? 'readonly' : 'required' ?> 
-                       placeholder="Contoh: LAP001">
+                <input type="text" name="id_lap" id="id_lap" class="modal-input" 
+                    value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? '') ?>" 
+                    <?= $edit_data ? 'readonly' : 'required' ?> 
+                    placeholder="Contoh: LAP001">
+                <div class="val-msg" id="val-id_lap"><i class="fa-solid fa-circle-exclamation"></i> ID Lapangan wajib diisi</div>
 
                 <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
-                <input type="text" name="nama_arena" class="modal-input" 
-                       value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
-                       required placeholder="Contoh: Basket Indoor Pro">
+                <input type="text" name="nama_arena" id="nama_arena" class="modal-input" 
+                    value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
+                    required minlength="3" maxlength="100" placeholder="Contoh: Basket Indoor Pro">
+                <div class="val-msg" id="val-nama_arena"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
 
-                <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
-                <input type="number" name="harga" class="modal-input" 
-                       value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
-                       required placeholder="200000" min="0">
+               <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
+                <input type="number" name="harga" id="harga" class="modal-input" 
+                    value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
+                    required placeholder="200000" min="0">
+                <div class="val-msg" id="val-harga"><i class="fa-solid fa-circle-exclamation"></i> Harga wajib diisi (minimal 0)</div>
 
                 <button type="submit" name="save_lapangan" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
@@ -608,7 +628,6 @@ function confirmToggle(id, status) {
         if (result.isConfirmed) {
             window.location.href = `?toggle_id=${id}&s=${status}`;
         } else {
-            // Reset checkbox
             var checkbox = document.querySelector(`input[onchange*="confirmToggle('${id}'"]`);
             if (checkbox) checkbox.checked = !checkbox.checked;
         }
@@ -633,16 +652,90 @@ function confirmDelete(id, name) {
     });
 }
 
+/* ═══ VALIDASI FORM WAJIB DIISI ═══ */
 function validateForm() {
-    const harga = document.querySelector('input[name="harga"]').value;
-    if (harga < 0) {
-        alert('Harga tidak boleh negatif!');
-        return false;
-    }
-    return true;
+    let valid = true;
+    const inputs = document.querySelectorAll('#formLapangan .modal-input[required]');
+    
+    inputs.forEach(input => {
+        const valMsg = document.getElementById('val-' + input.id);
+        
+        // Reset error dulu
+        input.classList.remove('error');
+        if (valMsg) valMsg.classList.remove('show');
+        
+        // Cek kosong
+        if (!input.value.trim()) {
+            input.classList.add('error');
+            if (valMsg) valMsg.classList.add('show');
+            valid = false;
+            return;
+        }
+        
+        // Validasi khusus harga tidak boleh negatif
+        if (input.name === 'harga' && Number(input.value) < 0) {
+            input.classList.add('error');
+            if (valMsg) valMsg.classList.add('show');
+            valid = false;
+            return;
+        }
+        
+        // Cek pattern/minlength dll
+        if (!input.checkValidity()) {
+            input.classList.add('error');
+            if (valMsg) valMsg.classList.add('show');
+            valid = false;
+        }
+    });
+    
+    return valid;
 }
 
-// SweetAlert untuk URL params
+// Live validation saat user mengetik & blur
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('#formLapangan .modal-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            
+            // Hapus error saat user mengetik
+            this.classList.remove('error');
+            if (valMsg) valMsg.classList.remove('show');
+            
+            // Cek kembali jika invalid
+            if (!this.checkValidity() && this.value !== '') {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            }
+            
+            // Validasi khusus harga negatif
+            if (this.name === 'harga' && this.value !== '' && Number(this.value) < 0) {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            
+            if (!this.value.trim() || !this.checkValidity()) {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            } else {
+                this.classList.remove('error');
+                if (valMsg) valMsg.classList.remove('show');
+            }
+            
+            // Cek harga negatif saat blur
+            if (this.name === 'harga' && Number(this.value) < 0) {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            }
+        });
+    });
+});
+
+// SweetAlert untuk notifikasi URL params
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
@@ -661,6 +754,5 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
-
 </body>
 </html>

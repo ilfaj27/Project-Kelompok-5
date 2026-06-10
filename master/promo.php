@@ -258,6 +258,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
+/* ═══ VALIDASI ERROR STATE ═══ */
+.modal-input.error {
+    border-color: var(--red) !important;
+    background-color: #FEF2F2 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+.modal-input.error:focus {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+.val-msg {
+    font-size: 11px; color: var(--red); font-weight: 600; 
+    margin-bottom: 10px; display: none; min-height: 16px;
+}
+.val-msg.show { display: block; }
+.val-msg i { margin-right: 4px; }
+
 /* ═══ EMPTY STATE ═══ */
 .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
@@ -302,35 +319,43 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="modal-title"><?= $edit_data ? 'Edit Promo' : 'Tambah Promo Baru' ?></div>
         </div>
         <div class="modal-body">
-            <form method="POST" id="formPromo" onsubmit="return validateForm()">
+            <form method="POST" id="formPromo" onsubmit="return validateForm()" novalidate>
                 <label class="modal-label">ID Promo <?= !$edit_data ? '<span class="required">*</span>' : '' ?></label>
-                <input type="text" name="id" class="modal-input" 
-                       placeholder="Contoh: PRM001" 
-                       value="<?= htmlspecialchars($edit_data['ID_Promo'] ?? '') ?>" 
-                       <?= $edit_data ? 'readonly' : 'required' ?>>
+                <input type="text" name="id" id="id" class="modal-input" 
+                    placeholder="Contoh: PRM001" 
+                    value="<?= htmlspecialchars($edit_data['ID_Promo'] ?? '') ?>" 
+                    <?= $edit_data ? 'readonly' : 'required' ?>>
+                <div class="val-msg" id="val-id"><i class="fa-solid fa-circle-exclamation"></i> ID Promo wajib diisi</div>
                 
                 <label class="modal-label">Nama Promo <span class="required">*</span></label>
-                <input type="text" name="nama" class="modal-input" 
-                       placeholder="Masukkan nama promo (misal: Promo Akhir Tahun)" 
-                       value="<?= htmlspecialchars($edit_data['Nama_Promo'] ?? '') ?>" required>
+                <input type="text" name="nama" id="nama" class="modal-input" 
+                    placeholder="Masukkan nama promo (misal: Promo Akhir Tahun)" 
+                    value="<?= htmlspecialchars($edit_data['Nama_Promo'] ?? '') ?>" 
+                    required minlength="3" maxlength="100">
+                <div class="val-msg" id="val-nama"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
                 
                 <label class="modal-label">Diskon (%) <span class="required">*</span></label>
-                <input type="number" name="diskon" class="modal-input" 
-                       placeholder="0" min="0" max="100"
-                       value="<?= $edit_data['Diskon'] ?? '' ?>" required>
+                <input type="number" name="diskon" id="diskon" class="modal-input" 
+                    placeholder="0" min="0" max="100"
+                    value="<?= $edit_data['Diskon'] ?? '' ?>" required>
+                <div class="val-msg" id="val-diskon"><i class="fa-solid fa-circle-exclamation"></i> Diskon 0-100%</div>
                 
                 <div class="modal-grid-2">
                     <div>
                         <label class="modal-label">Tanggal Mulai <span class="required">*</span></label>
                         <input type="date" name="tgl_m" id="tgl_m" class="modal-input" 
-                               value="<?= isset($edit_data['Tanggal_Mulai']) ? $edit_data['Tanggal_Mulai']->format('Y-m-d') : '' ?>" required>
+                            value="<?= isset($edit_data['Tanggal_Mulai']) ? $edit_data['Tanggal_Mulai']->format('Y-m-d') : '' ?>" required>
+                        <div class="val-msg" id="val-tgl_m"><i class="fa-solid fa-circle-exclamation"></i> Pilih tanggal mulai</div>
                     </div>
                     <div>
                         <label class="modal-label">Tanggal Selesai <span class="required">*</span></label>
                         <input type="date" name="tgl_s" id="tgl_s" class="modal-input" 
-                               value="<?= isset($edit_data['Tanggal_Selesai']) ? $edit_data['Tanggal_Selesai']->format('Y-m-d') : '' ?>" required>
+                            value="<?= isset($edit_data['Tanggal_Selesai']) ? $edit_data['Tanggal_Selesai']->format('Y-m-d') : '' ?>" required>
+                        <div class="val-msg" id="val-tgl_s"><i class="fa-solid fa-circle-exclamation"></i> Pilih tanggal selesai</div>
                     </div>
                 </div>
+                <!-- Pesan error tanggal -->
+                <div class="val-msg" id="val-tanggal" style="grid-column: span 2; margin-top: -8px;"><i class="fa-solid fa-circle-exclamation"></i> Tanggal selesai tidak boleh mendahului tanggal mulai</div>
                 
                 <button type="submit" name="<?= $edit_data ? 'update_promo' : 'add_promo' ?>" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
@@ -594,23 +619,111 @@ function searchTable() {
     }
 }
 
+/* ═══ VALIDASI FORM WAJIB DIISI ═══ */
 function validateForm() {
+    let valid = true;
+    const inputs = document.querySelectorAll('#formPromo .modal-input[required]');
+    
+    // Reset semua error terlebih dahulu
+    inputs.forEach(input => {
+        input.classList.remove('error');
+        const valMsg = document.getElementById('val-' + input.id);
+        if (valMsg) valMsg.classList.remove('show');
+    });
+    document.getElementById('val-tanggal').classList.remove('show');
+    
+    // Validasi per field wajib
+    inputs.forEach(input => {
+        const valMsg = document.getElementById('val-' + input.id);
+        
+        if (!input.checkValidity()) {
+            input.classList.add('error');
+            if (valMsg) valMsg.classList.add('show');
+            valid = false;
+        }
+    });
+    
+    // Validasi khusus: tanggal selesai harus >= tanggal mulai
     const tglM = document.getElementById('tgl_m').value;
     const tglS = document.getElementById('tgl_s').value;
-    const diskon = document.querySelector('input[name="diskon"]').value;
-    
-    if (new Date(tglS) < new Date(tglM)) {
-        alert('Tanggal selesai tidak boleh mendahului tanggal mulai!');
-        return false;
+    if (tglM && tglS && new Date(tglS) < new Date(tglM)) {
+        document.getElementById('tgl_m').classList.add('error');
+        document.getElementById('tgl_s').classList.add('error');
+        document.getElementById('val-tanggal').classList.add('show');
+        valid = false;
     }
     
-    if (diskon < 0 || diskon > 100) {
-        alert('Diskon harus antara 0-100%!');
-        return false;
+    // Validasi khusus: diskon 0-100
+    const diskon = document.getElementById('diskon').value;
+    if (diskon !== '' && (Number(diskon) < 0 || Number(diskon) > 100)) {
+        document.getElementById('diskon').classList.add('error');
+        document.getElementById('val-diskon').classList.add('show');
+        valid = false;
     }
     
-    return true;
+    return valid;
 }
+
+// Live validation saat user mengetik & blur
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('#formPromo .modal-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            
+            // Hapus error saat user mulai mengetik
+            if (this.value !== '') {
+                this.classList.remove('error');
+                if (valMsg) valMsg.classList.remove('show');
+            }
+            
+            // Cek kembali jika masih invalid
+            if (!this.checkValidity() && this.value !== '') {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            }
+            
+            // Cek tanggal real-time
+            if (this.id === 'tgl_m' || this.id === 'tgl_s') {
+                const tglM = document.getElementById('tgl_m').value;
+                const tglS = document.getElementById('tgl_s').value;
+                if (tglM && tglS && new Date(tglS) < new Date(tglM)) {
+                    document.getElementById('tgl_m').classList.add('error');
+                    document.getElementById('tgl_s').classList.add('error');
+                    document.getElementById('val-tanggal').classList.add('show');
+                } else {
+                    document.getElementById('val-tanggal').classList.remove('show');
+                    if (document.getElementById('tgl_m').checkValidity()) {
+                        document.getElementById('tgl_m').classList.remove('error');
+                    }
+                    if (document.getElementById('tgl_s').checkValidity()) {
+                        document.getElementById('tgl_s').classList.remove('error');
+                    }
+                }
+            }
+            
+            // Cek diskon real-time
+            if (this.id === 'diskon') {
+                const val = Number(this.value);
+                if (this.value !== '' && (val < 0 || val > 100)) {
+                    this.classList.add('error');
+                    if (valMsg) valMsg.classList.add('show');
+                }
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            if (!this.checkValidity()) {
+                this.classList.add('error');
+                if (valMsg) valMsg.classList.add('show');
+            } else {
+                this.classList.remove('error');
+                if (valMsg) valMsg.classList.remove('show');
+            }
+        });
+    });
+});
 
 function confirmDelete(id, name) {
     Swal.fire({
@@ -630,7 +743,7 @@ function confirmDelete(id, name) {
     });
 }
 
-// SweetAlert untuk URL params
+// SweetAlert untuk notifikasi URL params
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');

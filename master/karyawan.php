@@ -285,6 +285,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
+/* ═══ VALIDASI ERROR STATE ═══ */
+.modal-input.error {
+    border-color: var(--red) !important;
+    background-color: #FEF2F2 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+.modal-input.error:focus {
+    border-color: var(--red) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width: 768px) {
@@ -590,6 +601,56 @@ if (status && msg) {
     Swal.fire({ icon: status === 'success' ? 'success' : 'error', title: status === 'success' ? 'Berhasil!' : 'Gagal!', text: msg, timer: 3000, showConfirmButton: false, iconColor: '#FF4500' });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
+/* ═══ VALIDASI FORM ═══ */
+function validateForm(form) {
+    let valid = true;
+    const inputs = form.querySelectorAll('.modal-input[required]');
+    inputs.forEach(input => {
+        const valMsg = document.getElementById('val-' + input.id);
+        if (!input.checkValidity()) {
+            if (valMsg) valMsg.classList.add('show');
+            input.classList.add('error'); // ⬅️ TAMBAH INI
+            valid = false;
+        } else {
+            if (valMsg) valMsg.classList.remove('show');
+            input.classList.remove('error'); // ⬅️ TAMBAH INI
+        }
+    });
+    return valid;
+}
+
+// Live validation on input & blur
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.modal-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            if (valMsg) {
+                if (!this.checkValidity() && this.value !== '') { 
+                    valMsg.classList.add('show'); 
+                    this.classList.add('error'); // ⬅️ TAMBAH INI
+                }
+                else { 
+                    valMsg.classList.remove('show'); 
+                    this.classList.remove('error'); // ⬅️ TAMBAH INI
+                }
+            }
+        });
+        input.addEventListener('blur', function() {
+            const valMsg = document.getElementById('val-' + this.id);
+            if (valMsg) {
+                if (!this.checkValidity()) { 
+                    valMsg.classList.add('show'); 
+                    this.classList.add('error'); // ⬅️ TAMBAH INI
+                }
+                else { 
+                    valMsg.classList.remove('show'); 
+                    this.classList.remove('error'); // ⬅️ TAMBAH INI
+                }
+            }
+        });
+    });
+});
 
 window.onclick = function(e) { if (e.target == document.getElementById('modal')) closeModal(); };
 </script>
