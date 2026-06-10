@@ -32,9 +32,27 @@ if (isset($_POST['update_biodata'])) {
     $alamat = trim($_POST['alamat'] ?? '');
     $telepon = trim($_POST['no_telepon'] ?? '');
 
+    $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
+    $tmp_lahir = $_POST['tempat_lahir'] ?? '';
+
     $errors = [];
     if (empty($nama) || strlen($nama) < 3 || !preg_match('/^[a-zA-Z\s]+$/', $nama)) {
         $errors[] = 'Nama minimal 3 karakter, hanya huruf dan spasi.';
+    }
+    if (empty($tgl_lahir)) {
+        $errors[] = 'Tanggal lahir wajib diisi.';
+    } else {
+        $birthDate = new DateTime($tgl_lahir);
+        $today = new DateTime();
+        $age = $today->diff($birthDate)->y;
+        if ($age < 10) {
+            $errors[] = 'Usia minimal 10 tahun.';
+        } elseif ($age > 100) {
+            $errors[] = 'Tanggal lahir tidak valid.';
+        }
+    }
+    if (empty($tmp_lahir) || strlen($tmp_lahir) < 3 || !preg_match('/^[a-zA-Z\s]+$/', $tmp_lahir)) {
+        $errors[] = 'Tempat lahir minimal 3 karakter, hanya huruf dan spasi.';
     }
     if (empty($alamat)) {
         $errors[] = 'Alamat tidak boleh kosong.';
@@ -44,9 +62,12 @@ if (isset($_POST['update_biodata'])) {
     }
 
     if (empty($errors)) {
+        $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
+        $tmp_lahir = $_POST['tempat_lahir'] ?? '';
+
         $stmt = sqlsrv_query($conn,
-            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Alamat = ?, No_Telepon = ? WHERE ID_Akun = ?",
-            array($nama, $jk, $alamat, $telepon, $ID_Akun)
+            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ? WHERE ID_Akun = ?",
+            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $ID_Akun)
         );
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {}
@@ -154,9 +175,27 @@ $email = $akun['Email'] ?? '-';
 $telepon = $biodata['No_Telepon'] ?? '-';
 $alamat = $biodata['Alamat'] ?? '-';
 $jk = $biodata['Jenis_Kelamin'] ?? 1;
+$tgl_lahir = $biodata['Tanggal_Lahir'] ?? '';
+$tmp_lahir = $biodata['Tempat_Lahir'] ?? '';
 
 function jk_label($jk) {
     return $jk == 1 ? 'Laki-laki' : ($jk == 2 ? 'Perempuan' : '-');
+}
+
+function format_date_input($date) {
+    if (empty($date)) return '';
+    if (is_object($date) && method_exists($date, 'format')) {
+        return $date->format('Y-m-d');
+    }
+    return $date;
+}
+
+function format_date_display($date) {
+    if (empty($date)) return '-';
+    if (is_object($date) && method_exists($date, 'format')) {
+        return $date->format('d F Y');
+    }
+    return $date;
 }
 ?>
 <!DOCTYPE html>
@@ -637,7 +676,17 @@ function jk_label($jk) {
         /* Swal Dark */
         .swal2-popup.swal-dark { background: #151515 !important; color: #fff !important; border: 1px solid #333 !important; }
         .swal2-popup.swal-dark .swal2-title { color: #fff !important; }
-    </style>
+    
+        /* Input Date Dark Theme */
+        input[type="date"].form-input {
+            color-scheme: dark;
+            font-family: 'Barlow', sans-serif;
+        }
+        input[type="date"].form-input::-webkit-calendar-picker-indicator {
+            filter: invert(0.6);
+            cursor: pointer;
+        }
+</style>
 </head>
 <body>
 
@@ -724,6 +773,22 @@ function jk_label($jk) {
                             </select>
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
+                            <input type="date" name="tanggal_lahir" id="tanggal_lahir" class="form-input"
+                                   value="<?= format_date_input($tgl_lahir) ?>"
+                                   placeholder="Pilih tanggal lahir">
+                            <div class="error-msg" id="tglLahirError">Tanggal lahir wajib diisi, usia minimal 10 tahun.</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tempat Lahir <span class="required">*</span></label>
+                            <input type="text" name="tempat_lahir" id="tempat_lahir" class="form-input"
+                                   value="<?= htmlspecialchars($tmp_lahir) ?>"
+                                   placeholder="Contoh: Jakarta, Bekasi" autocomplete="off">
+                            <div class="error-msg" id="tmpLahirError">Tempat lahir minimal 3 karakter, hanya huruf dan spasi.</div>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
                         <textarea name="alamat" id="alamat" class="form-input" placeholder="Masukkan alamat lengkap"><?= htmlspecialchars($alamat) ?></textarea>
@@ -766,6 +831,14 @@ function jk_label($jk) {
                             <button type="button" class="btn-toggle-pass" onclick="togglePass()" id="toggleBtn"><i class="fa-solid fa-eye"></i></button>
                         </span>
                     </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-cake-candles"></i> Tanggal Lahir</span>
+                    <span class="info-val"><?= format_date_display($tgl_lahir) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</span>
+                    <span class="info-val"><?= htmlspecialchars($tmp_lahir) ?: '-' ?></span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-user-shield"></i> Role</span>
@@ -858,6 +931,8 @@ function togglePass() {
 
 // Validasi Realtime
 const namaInput = document.getElementById('nama_customer');
+const tglLahirInput = document.getElementById('tanggal_lahir');
+const tmpLahirInput = document.getElementById('tempat_lahir');
 const teleponInput = document.getElementById('no_telepon');
 const alamatInput = document.getElementById('alamat');
 
@@ -867,6 +942,50 @@ if (namaInput) {
         validateNama();
     });
     namaInput.addEventListener('blur', validateNama);
+}
+
+// Filter Tempat Lahir - hanya huruf dan spasi
+if (tmpLahirInput) {
+    tmpLahirInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+        validateTmpLahir();
+    });
+    tmpLahirInput.addEventListener('blur', validateTmpLahir);
+}
+
+function validateTglLahir() {
+    if (!tglLahirInput) return true;
+    const val = tglLahirInput.value.trim();
+    const error = document.getElementById('tglLahirError');
+    if (val === '') {
+        tglLahirInput.classList.add('error'); tglLahirInput.classList.remove('valid'); error.classList.add('show'); return false;
+    }
+    const birthDate = new Date(val);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+
+    if (age < 10) {
+        error.textContent = 'Usia minimal 10 tahun.';
+        tglLahirInput.classList.add('error'); tglLahirInput.classList.remove('valid'); error.classList.add('show'); return false;
+    } else if (age > 100) {
+        error.textContent = 'Tanggal lahir tidak valid.';
+        tglLahirInput.classList.add('error'); tglLahirInput.classList.remove('valid'); error.classList.add('show'); return false;
+    } else {
+        tglLahirInput.classList.remove('error'); tglLahirInput.classList.add('valid'); error.classList.remove('show'); return true;
+    }
+}
+
+function validateTmpLahir() {
+    if (!tmpLahirInput) return true;
+    const val = tmpLahirInput.value.trim();
+    const error = document.getElementById('tmpLahirError');
+    if (val === '' || val.length < 3 || !/^[a-zA-Z\s]+$/.test(val)) {
+        tmpLahirInput.classList.add('error'); tmpLahirInput.classList.remove('valid'); error.classList.add('show'); return false;
+    } else {
+        tmpLahirInput.classList.remove('error'); tmpLahirInput.classList.add('valid'); error.classList.remove('show'); return true;
+    }
 }
 function validateNama() {
     if (!namaInput) return true;
@@ -918,6 +1037,8 @@ if (formBiodata) {
     formBiodata.addEventListener('submit', function(e) {
         let valid = true;
         if (!validateNama()) valid = false;
+        if (!validateTglLahir()) valid = false;
+        if (!validateTmpLahir()) valid = false;
         if (!validateAlamat()) valid = false;
         if (!validateTelepon()) valid = false;
         if (!valid) {
