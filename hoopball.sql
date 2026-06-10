@@ -30,6 +30,8 @@ CREATE TABLE Customer (
     ID_Akun VARCHAR(6) NOT NULL,
     Nama_Customer VARCHAR(20) NOT NULL,
     Jenis_Kelamin INT NOT NULL,
+    Tanggal_Lahir DATE NOT NULL,
+    Tempat_Lahir VARCHAR(50) NOT NULL,
     Alamat VARCHAR(100) NOT NULL,
     No_Telepon VARCHAR(15) NOT NULL,
     Status INT NOT NULL DEFAULT 1,
@@ -54,6 +56,8 @@ CREATE TABLE Karyawan (
     ID_Akun VARCHAR(6) NOT NULL,
     Nama_Karyawan VARCHAR(20) NOT NULL,
     Jenis_Kelamin INT NOT NULL,
+    Tanggal_Lahir DATE NOT NULL,
+    Tempat_Lahir VARCHAR(50) NOT NULL,
     Jabatan INT NOT NULL,
     No_Telepon VARCHAR(15) NOT NULL,
     Status INT NOT NULL DEFAULT 1,
@@ -299,36 +303,36 @@ GO
 INSERT INTO Akun 
 (ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By)
 VALUES
-('AK0001', 'manajer', 'manajer@hoopball.com', '12345', 3, 1, 'System'),
+('AK0001', 'manajer', 'manajer@hoopball.com', '12345', 1, 1, 'System'),
 ('AK0002', 'karyawan1', 'karyawan1@hoopball.com', '12345', 2, 1, 'System'),
 ('AK0003', 'karyawan2', 'karyawan2@hoopball.com', '12345', 2, 1, 'System'),
-('AK0004', 'raka', 'raka@gmail.com', '12345', 1, 1, 'System'),
-('AK0005', 'dimas', 'dimas@gmail.com', '12345', 1, 1, 'System'),
-('AK0006', 'salsa', 'salsa@gmail.com', '12345', 1, 1, 'System'),
-('AK0007', 'nabila', 'nabila@gmail.com', '12345', 1, 1, 'System'),
-('AK0008', 'farhan', 'farhan@gmail.com', '12345', 1, 1, 'System'),
-('AK0009', 'zaki', 'zaki@gmail.com', '12345', 1, 1, 'System'),
-('AK0010', 'putri', 'putri@gmail.com', '12345', 1, 1, 'System');
+('AK0004', 'raka', 'raka@gmail.com', '12345', 3, 1, 'System'),
+('AK0005', 'dimas', 'dimas@gmail.com', '12345', 3, 1, 'System'),
+('AK0006', 'salsa', 'salsa@gmail.com', '12345', 3, 1, 'System'),
+('AK0007', 'nabila', 'nabila@gmail.com', '12345', 3, 1, 'System'),
+('AK0008', 'farhan', 'farhan@gmail.com', '12345', 3, 1, 'System'),
+('AK0009', 'zaki', 'zaki@gmail.com', '12345', 3, 1, 'System'),
+('AK0010', 'putri', 'putri@gmail.com', '12345', 3, 1, 'System');
 GO
 
 INSERT INTO Karyawan
-(ID_Karyawan, ID_Akun, Nama_Karyawan, Jenis_Kelamin, Jabatan, No_Telepon, Status, Created_By)
+(ID_Karyawan, ID_Akun, Nama_Karyawan, Tempat_Lahir, Tanggal_Lahir, Jenis_Kelamin, Jabatan, No_Telepon, Status, Created_By)
 VALUES
-('KR0001', 'AK0001', 'Budi', 1, 3, '081111111111', 1, 'System'),
-('KR0002', 'AK0002', 'Andi', 1, 1, '082222222222', 1, 'System'),
-('KR0003', 'AK0003', 'Siti', 2, 2, '083333333333', 1, 'System');
+('KR0001', 'AK0001', 'Budi', 'Jakarta', '1998-05-12', 1, 3, '081111111111', 1, 'System'),
+('KR0002', 'AK0002', 'Andi', 'Bandung', '1997-08-21', 1, 1, '082222222222', 1, 'System'),
+('KR0003', 'AK0003', 'Siti', 'Surabaya', '1999-03-15', 2, 2, '083333333333', 1, 'System');
 GO
 
 INSERT INTO Customer
-(ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By)
+(ID_Customer, ID_Akun, Nama_Customer, Tempat_Lahir, Tanggal_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By)
 VALUES
-('CS0001', 'AK0004', 'Raka', 1, 'Bekasi', '081234567801', 1, 'System'),
-('CS0002', 'AK0005', 'Dimas', 1, 'Jakarta', '081234567802', 1, 'System'),
-('CS0003', 'AK0006', 'Salsa', 2, 'Depok', '081234567803', 1, 'System'),
-('CS0004', 'AK0007', 'Nabila', 2, 'Bogor', '081234567804', 1, 'System'),
-('CS0005', 'AK0008', 'Farhan', 1, 'Tangerang', '081234567805', 1, 'System'),
-('CS0006', 'AK0009', 'Zaki', 1, 'Cikarang', '081234567806', 1, 'System'),
-('CS0007', 'AK0010', 'Putri', 2, 'Karawang', '081234567807', 1, 'System');
+('CS0001', 'AK0004', 'Raka', 'Bekasi', '2000-01-10', 1, 'Bekasi', '081234567801', 1, 'System'),
+('CS0002', 'AK0005', 'Dimas', 'Jakarta', '1998-07-22', 1, 'Jakarta', '081234567802', 1, 'System'),
+('CS0003', 'AK0006', 'Salsa', 'Depok', '2001-04-18', 2, 'Depok', '081234567803', 1, 'System'),
+('CS0004', 'AK0007', 'Nabila', 'Bogor', '1999-11-05', 2, 'Bogor', '081234567804', 1, 'System'),
+('CS0005', 'AK0008', 'Farhan', 'Tangerang', '2000-09-14', 1, 'Tangerang', '081234567805', 1, 'System'),
+('CS0006', 'AK0009', 'Zaki', 'Cikarang', '1997-12-30', 1, 'Cikarang', '081234567806', 1, 'System'),
+('CS0007', 'AK0010', 'Putri', 'Karawang', '2002-06-25', 2, 'Karawang', '081234567807', 1, 'System');
 GO
 
 INSERT INTO Lapangan
@@ -468,7 +472,7 @@ SELECT 'Booking', COUNT(*) FROM Booking
 UNION ALL
 SELECT 'Langganan', COUNT(*) FROM Langganan
 UNION ALL
-SELECT 'Beli_Alat', COUNT(*)    FROM Beli_Alat
+SELECT 'Beli_Alat', COUNT(*) FROM Beli_Alat
 UNION ALL
 SELECT 'Detail_Beli_Alat', COUNT(*) FROM Detail_Beli_Alat
 UNION ALL
@@ -489,3 +493,9 @@ SELECT * FROM Langganan;
 SELECT * FROM Beli_Alat;
 SELECT * FROM Detail_Beli_Alat;
 SELECT * FROM Pembatalan_Booking;
+
+drop table Akun
+drop table Karyawan
+drop table Customer
+
+drop database Hoopball
