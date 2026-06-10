@@ -695,6 +695,62 @@ if (isset($_POST['register'])) {
             }
         }
 
+              .radio-group-container {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .radio-card {
+            flex: 1;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* Menyembunyikan lingkaran bulat radio default bawaan browser */
+        .radio-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* Kotak tombol kustom yang indah */
+        .radio-custom-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            background: #FFFFFF;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-dark);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Efek Hover (Kursor di atas tombol) */
+        .radio-card:hover .radio-custom-box {
+            border-color: #CBD5E1;
+            background-color: var(--bg-light);
+        }
+
+        /* Efek Aktif/Terpilih (Warna Oranye) */
+        .radio-card input[type="radio"]:checked + .radio-custom-box {
+            border-color: var(--orange);
+            background-color: rgba(255, 84, 0, 0.02); /* Latar belakang oranye sangat tipis */
+            color: var(--orange);
+            box-shadow: 0 0 12px rgba(255, 84, 0, 0.08);
+        }
+
+        .radio-custom-box i {
+            font-size: 15px;
+        }
+
         @media (max-width: 576px) {
             .footer-grid {
                 grid-template-columns: 1fr;
@@ -782,17 +838,26 @@ if (isset($_POST['register'])) {
 </div>
 
                             <!-- 3. JENIS KELAMIN -->
-                            <div class="input-group">
-                                <label>Jenis Kelamin<span style="color: red;">*</span></label>
-                                <div class="input-wrapper">
-                                    <i class="fa-solid fa-venus-mars icon-left"></i>
-                                    <select name="jk" id="jkField">
-                                        <option value="1">Laki-laki</option>
-                                        <option value="2">Perempuan</option>
-                                    </select>
-                                </div>
-                                <span class="error-text" id="jkError"></span>
-                            </div>
+                           <div class="input-group">
+    <label>Jenis Kelamin<span style="color: red;">*</span></label>
+    <div class="radio-group-container">
+        <!-- Pilihan Laki-laki (Terpilih secara default) -->
+        <label class="radio-card">
+            <input type="radio" name="jk" value="1" checked>
+            <span class="radio-custom-box">
+                <i class="fa-solid fa-mars"></i> Laki-laki
+            </span>
+        </label>
+        <!-- Pilihan Perempuan -->
+        <label class="radio-card">
+            <input type="radio" name="jk" value="2">
+            <span class="radio-custom-box">
+                <i class="fa-solid fa-venus"></i> Perempuan
+            </span>
+        </label>
+    </div>
+    <span class="error-text" id="jkError"></span>
+</div>
 
                             <!-- 4. ALAMAT RUMAH -->
                           <!-- Kolom Alamat Rumah dengan pembatasan fisik maksimal 255 karakter -->

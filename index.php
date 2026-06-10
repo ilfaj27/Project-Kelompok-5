@@ -128,26 +128,31 @@ if (file_exists('includes/config.php')) {
         }
 
         .nav-menu a {
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 14px;
-            position: relative;
-            padding: 6px 0;
-            text-decoration: none;
-            transition: color 0.3s ease;
+                color: var(--text-muted);
+    
+    /* GANTI INI: 
+       - Tebal huruf dinaikkan dari 600 menjadi 700 (Bold) agar lebih tegas
+       - Ukuran huruf dinaikkan dari 14px menjadi 16px agar pas dengan tinggi logo & tombol */
+    font-weight: 700;
+    font-size: 16px; 
+    
+    position: relative;
+    padding: 8px 0;
+    text-decoration: none;
+    transition: color 0.3s ease;
         }
 
         .nav-menu a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--orange);
-            transform: scaleX(0);
-            transform-origin: right;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+             content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2.5px; /* Tebal garis bawah disesuaikan sedikit */
+    background-color: var(--orange);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .nav-menu a:hover {

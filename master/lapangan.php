@@ -263,17 +263,42 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th { padding: 13px 20px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
-.data-table td { padding: 16px 20px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; transition: background .15s; }
+.data-table th { 
+     padding: 16px 20px;
+            font-size: 13px; /* Diperbesar dari 12px agar lebih terbaca gagah */
+            font-weight: 800;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            border-bottom: 2px solid var(--border-lt);
+ }
+.data-table td { 
+    padding: 16px 20px;
+            font-size: 15px; /* Diperbesar dari 13px agar baris padat & tidak ompong */
+            vertical-align: middle;
+ }
 .data-table tbody tr:hover td { background: #FAFAFA; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
 .lap-id   { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 .lap-name { font-weight: 700; color: var(--text); font-size: 14px; }
-.lap-price { font-weight: 800; font-family: 'Barlow Condensed'; font-size: 15px; color: var(--text); }
+.lap-price { font-family: 'Barlow', sans-serif; /* Diubah dari Condensed ke standar Barlow */
+            font-weight: 700; 
+            font-size: 14px; 
+            color: var(--text);  }
 
 /* ═══ STATUS TOGGLE SWITCH ═══ */
-.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; }
+.toggle-switch { 
+      position: relative; /* WAJIB ADA agar warna hijau slider tidak melar menutupi layar! */
+    display: inline-flex; /* Agar sejajar lurus vertikal dengan tombol edit & hapus */
+    align-items: center; 
+    
+    width: 44px;  /* WAJIB ADA sebagai batas lebar tombol switch */
+    height: 24px; /* WAJIB ADA sebagai batas tinggi tombol switch */
+    
+    cursor: pointer; 
+    margin: 0 4px; /* Memberi ruang renggang udara tipis di kiri-kanan */
+ }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
 .toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
@@ -281,7 +306,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
-.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.status-pill { 
+        display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px; /* Padding diperluas agar pil terlihat kokoh */
+            border-radius: 20px;
+            font-size: 12px; /* Diperbesar dari 11px */
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+ }
 .sp-ready { background: var(--green-lt); color: var(--green); }
 .sp-maint { background: var(--red-lt); color: var(--red); }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
@@ -289,12 +324,21 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-maint .sp-dot { background: var(--red); }
 
 /* ═══ ACTIONS ═══ */
-.actions { display: flex; gap: 6px; justify-content: flex-end; }
+.actions {         display: flex;
+            gap: 12px; /* Jarak antar tombol yang pas */
+            justify-content: flex-start; /* Tombol merapat ke kiri */
+            align-items: center;  }
 .btn-action {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 700;
-    font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer;
-    transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; letter-spacing: .3px;
+       width: 38px;  /* Ditambah dari 36px agar proporsional */
+            height: 38px; /* Ditambah dari 36px agar proporsional */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 14px; /* Ikon di dalam tombol diset lebih besar */
+            font-weight: 700;
+            border: 1.5px solid transparent;
+            transition: all 0.25s cubic-bezier(.4,0,.2,1);
 }
 .btn-edit {
     background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
@@ -431,7 +475,59 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .stat-chips { width: 100%; }
     .search-box { width: 100%; }
     .action-bar { flex-direction: column; align-items: stretch; }
-    .data-table th, .data-table td { padding: 12px 16px; font-size: 12px; }
+    .data-table th, .data-table td { 
+        padding: 14px 20px; /* Jarak padding baris yang ideal & lega */
+            vertical-align: middle; 
+     }
+             /* 1. KOLOM NO: Rata tengah murni */
+       .data-table th:nth-child(1),
+        .data-table td:nth-child(1) {
+            text-align: left;
+            width: 8%;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        /* 2. KOLOM NAMA LAPANGAN: Rata kiri */
+       .data-table th:nth-child(2),
+        .data-table td:nth-child(2) {
+            width: 32%;
+            text-align: left;
+        }
+
+         .lap-name {
+            font-size: 15px; /* Diperbesar agar sesuai */
+            font-weight: 700;
+        }
+
+          /* Kolom 3 (Harga Sewa) - Rata Kiri Besar & Tebal */
+        .data-table th:nth-child(3),
+        .data-table td:nth-child(3) {
+            width: 22%;
+            text-align: left;
+        }
+        .lap-price {
+            font-family: 'Barlow', sans-serif;
+            font-size: 15px; /* Diperbesar agar seimbang */
+            font-weight: 700;
+        }
+
+      /* 4. KOLOM STATUS: Diubah menjadi rata tengah secara presisi */
+   .data-table th:nth-child(4),
+        .data-table td:nth-child(4) {
+            width: 18%;
+            text-align: center !important; /* Paksa judul & sel ke tengah */
+        }
+        
+
+         /* 5. KOLOM AKSI: Rata kanan */
+     .data-table th:nth-child(5),
+        .data-table td:nth-child(5) {
+            width: 20%;
+            text-align: left !important; /* Judul AKSI tetap rata kiri */
+        }
+
+
     .btn-action { padding: 6px 10px; font-size: 11px; }
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .modal-box { width: 90%; margin: 20px; }
@@ -613,88 +709,91 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
 
         <!-- TABLE CARD -->
+    <!-- TABLE CARD (BARU: HAPUS AUDIT INFO, GANTI ID JADI NOMOR, GESER STATUS KE KANAN) -->
         <div class="card">
-            <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
-                <table class="data-table" id="tbl">
-                    <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th>ID Lapangan</th>
-                            <th>Nama Lapangan</th>
-                            <th>Harga Sewa</th>
-                            <th>Audit Info</th>
-                            <th style="text-align:right;">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <?php
-                    $has_data = false;
-                    $row_num = 0;
-                    if (!$query_error && $query):
-                    while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                        $has_data = true;
-                        $row_num++;
-                        $is_ready = $row['Status'] == 1;
-                    ?>
-                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
-                            <td>
-                                <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
-                                    <span class="sp-dot"></span>
-                                    <?= $is_ready ? 'READY' : 'MAINTENANCE' ?>
-                                </span>
-                            </td>
-                            <td class="lap-id"><?= htmlspecialchars($row['ID_Lapangan']) ?></td>
-                            <td class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></td>
-                            <td class="lap-price"><?= rupiah($row['Harga_Sewa']) ?></td>
-                            <td>
-                                <div class="audit-info">
-                                    <div class="audit-label"><i class="fa-solid fa-user-pen"></i> Dibuat</div>
-                                    <div class="audit-value"><?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?></div>
-                                    <div class="audit-date"><?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?></div>
-                                    <?php if (!empty($row['Modified_By'])): ?>
-                                    <div class="audit-label" style="margin-top:4px;"><i class="fa-solid fa-pen-to-square"></i> Diubah</div>
-                                    <div class="audit-value"><?= htmlspecialchars($row['Modified_By']) ?></div>
-                                    <div class="audit-date"><?= $row['Modified_Date'] ? $row['Modified_Date']->format('d/m/Y H:i') : '-' ?></div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row['Deleted_By'])): ?>
-                                    <div class="audit-label" style="margin-top:4px; color:var(--red);"><i class="fa-solid fa-trash"></i> Dihapus</div>
-                                    <div class="audit-value" style="color:var(--red);"><?= htmlspecialchars($row['Deleted_By']) ?></div>
-                                    <div class="audit-date"><?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('d/m/Y H:i') : '-' ?></div>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="actions">
-                                    <a href="?edit_id=<?= $row['ID_Lapangan'] ?>" class="btn-action btn-edit" title="Edit Lapangan">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </a>
-                                    <label class="toggle-switch" title="<?= $is_ready ? 'Nonaktifkan' : 'Aktifkan' ?> lapangan">
-                                        <input type="checkbox" <?= $is_ready ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Lapangan'] ?>', <?= $row['Status'] ?>)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                    <button onclick="confirmDelete('<?= $row['ID_Lapangan'] ?>', '<?= htmlspecialchars($row['Nama_Lapangan']) ?>')" class="btn-action btn-delete" title="Hapus Lapangan">
-                                        <i class="fa-solid fa-trash-can"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endwhile; endif; ?>
-                    
-                    <?php if (!$has_data): ?>
-                        <tr>
-                            <td colspan="6">
-                                <div class="empty-state">
-                                    <i class="fa-solid fa-layer-group"></i>
-                                    <div>Belum ada data lapangan</div>
-                                    <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Tambah lapangan baru untuk memulai</div>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div><?php endif; ?>
+            <?php if ($query_error): ?>
+                <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
+                    <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
+                    <p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p>
+                </div>
+            <?php else: ?>
+                <div class="table-wrap">
+                    <table class="data-table" id="tbl">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">No</th> <!-- ID diganti No, lebar diset ramping -->
+                                <th style="text-align: left;">Nama Lapangan</th>
+                                <th style="text-align: left;">Harga Sewa</th>
+                                <th style="text-align: left;">Status</th> <!-- Status digeser ke kanan -->
+                                <th style="width: 180px; text-align: left;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php
+                        $has_data = false;
+                        $row_num = 0;
+                        
+                        // Menghitung nomor urut dinamis yang aman mendukung pembagian halaman (paging)
+                        $no = $offset + 1; 
+
+                        if (!$query_error && $query):
+                        while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                            $has_data = true;
+                            $row_num++;
+                            $is_ready = $row['Status'] == 1;
+                        ?>
+                            <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
+                                <!-- 1. Menampilkan Nomor Urut Sekuensial (ID Lapangan disembunyikan secara visual) -->
+                                <td class="lap-id" style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
+                                
+                                <!-- 2. Nama Lapangan -->
+                                <td class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></td>
+                                
+                                <!-- 3. Harga Sewa -->
+                                <td class="lap-price"><?= rupiah($row['Harga_Sewa']) ?></td>
+                                
+                                <!-- 4. Kolom Status (Dipindahkan ke Sebelah Kanan) -->
+                                <td>
+                                    <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
+                                        <span class="sp-dot"></span>
+                                        <?= $is_ready ? 'READY' : 'MAINTENANCE' ?>
+                                    </span>
+                                </td>
+                                
+                                <!-- 5. Kolom Aksi -->
+                                <td>
+                                    <div class="actions">
+                                        <a href="?edit_id=<?= $row['ID_Lapangan'] ?>" class="btn-action btn-edit" title="Edit Lapangan">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </a>
+                                        <label class="toggle-switch" title="<?= $is_ready ? 'Nonaktifkan' : 'Aktifkan' ?> lapangan">
+                                            <input type="checkbox" <?= $is_ready ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Lapangan'] ?>', <?= $row['Status'] ?>)">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                        <button onclick="confirmDelete('<?= $row['ID_Lapangan'] ?>', '<?= htmlspecialchars($row['Nama_Lapangan']) ?>')" class="btn-action btn-delete" title="Hapus Lapangan">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endwhile; endif; ?>
+                        
+                        <?php if (!$has_data): ?>
+                            <tr>
+                                <td colspan="5"> <!-- Colspan disesuaikan menjadi 5 kolom -->
+                                    <div class="empty-state">
+                                        <i class="fa-solid fa-layer-group"></i>
+                                        <div>Belum ada data lapangan</div>
+                                        <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Tambah lapangan baru untuk memulai</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
 
         <!-- PAGINATION -->
         <?php if ($total_pages > 1): ?>
