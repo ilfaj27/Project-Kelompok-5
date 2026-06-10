@@ -722,6 +722,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
                                 <option value="Alamat" <?= $sort_by == 'Alamat' ? 'selected' : '' ?>>Alamat</option>
                                 <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon</option>
+                                <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>Tanggal Dibuat</option>
                             </select>
                         </div>
 
