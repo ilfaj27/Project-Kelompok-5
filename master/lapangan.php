@@ -54,22 +54,33 @@ function safe_sqlsrv_has_rows($stmt) {
     return sqlsrv_has_rows($stmt);
 }
 
-// --- PROSES CRUD ---
+// --- PROSES CRUD (KODE BARU: CEK NAMA DUPLIKAT & AUTO-GENERATE ID) ---
 if (isset($_POST['save_lapangan'])) {
-    $id   = $_POST['id_lap'];
-    $nama_lapangan = $_POST['nama_arena']; 
-    $harga = $_POST['harga'];
+    $id = $_POST['id_lap'];
+    $nama_lapangan = trim($_POST['nama_arena']); 
+    $harga = floatval($_POST['harga']);
+
+    // SEBAIKNYA TIDAK BOLEH DUPLIKAT: Cari apakah ada nama lapangan yang sama di database
+    // (Jika mengedit, izinkan jika nama sama dengan ID-nya sendiri)
+    $sql_check_name = "SELECT ID_Lapangan FROM Lapangan WHERE Nama_Lapangan = ? AND ID_Lapangan <> ?";
+    $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_lapangan, $id), false);
+
+    if ($q_check_name && safe_sqlsrv_has_rows($q_check_name)) {
+        header("Location: lapangan.php?page=1&status=error&msg=Nama lapangan sudah tersedia!");
+        exit();
+    }
 
     if (isset($_POST['edit_mode'])) {
         safe_sqlsrv_query($conn, "UPDATE Lapangan SET Nama_Lapangan=?, Harga_Sewa=? WHERE ID_Lapangan=?", array($nama_lapangan, $harga, $id), false);
         header("Location: lapangan.php?page=1&status=success&msg=Data lapangan berhasil diperbarui!");
     } else {
-        $checkID = safe_sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE ID_Lapangan=?", array($id), false);
-        if ($checkID && safe_sqlsrv_has_rows($checkID)) { 
-            header("Location: lapangan.php?page=1&status=error&msg=ID Lapangan sudah ada!"); 
-            exit(); 
-        }
-        safe_sqlsrv_query($conn, "INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,1,0,?,GETDATE())", array($id, $nama_lapangan, $harga, $nama), false);
+        // Auto-generate ID baru di database
+        $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Lapangan) as max_id FROM Lapangan", [], false);
+        $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
+        $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 2) + 1 : 1;
+        $id_lap_baru = "LP" . sprintf("%04d", $num);
+
+        safe_sqlsrv_query($conn, "INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,1,0,?,GETDATE())", array($id_lap_baru, $nama_lapangan, $harga, $nama), false);
         header("Location: lapangan.php?page=1&status=success&msg=Lapangan baru berhasil ditambahkan!");
     }
     exit();
@@ -108,6 +119,17 @@ if (isset($_GET['detail_id'])) {
 }
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
+
+// --- KODE BARU: GENERATOR CALON ID LAPANGAN BARU OTOMATIS ---
+$next_id_add = "";
+if (!$edit_data) {
+    $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Lapangan) as max_id FROM Lapangan", [], false);
+    $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
+    
+    // Jika data kosong, mulai dari 1. Jika ada, ambil angka terakhirnya (mulai dari karakter ke-2) lalu tambah 1
+    $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 2) + 1 : 1;
+    $next_id_add = "LP" . sprintf("%04d", $num); // Format menjadi LP0005 (total panjang 6 digit)
+}
 
 // --- 1. MEMBUAT FILTER DAN SORTING DINAMIS BERDASARKAN URL (GET) ---
 $where_clauses = array("Is_Deleted = 0"); // Hanya menampilkan data aktif
@@ -703,24 +725,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <form method="POST" id="formLapangan" onsubmit="return validateForm()" novalidate>
                 <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
                 
-                <label class="modal-label">ID Lapangan <?= !$edit_data ? '<span class="required">*</span>' : '' ?></label>
+                <label class="modal-label">ID Lapangan</label>
                 <input type="text" name="id_lap" id="id_lap" class="modal-input" 
-                    value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? '') ?>" 
-                    <?= $edit_data ? 'readonly' : 'required' ?> 
-                    placeholder="Contoh: LAP001">
+                    value="<?= htmlspecialchars($edit_data['ID_Lapangan'] ?? $next_id_add) ?>" 
+                    readonly placeholder="Contoh: LP0001">
                 <div class="val-msg" id="val-id_lap"><i class="fa-solid fa-circle-exclamation"></i> ID Lapangan wajib diisi</div>
 
-                <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
+               <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
+                <!-- Ditambahkan batasan panjang fisik maksimal 50 karakter -->
                 <input type="text" name="nama_arena" id="nama_arena" class="modal-input" 
                     value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
-                    required minlength="3" maxlength="100" placeholder="Contoh: Basket Indoor Pro">
-                <div class="val-msg" id="val-nama_arena"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
+                    required minlength="3" maxlength="50" placeholder="Contoh: Basket Indoor Pro">
+                <div class="val-msg" id="val-nama_arena"></div>
 
-               <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
+                <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
+                <!-- Ditambahkan pembatasan minimal 50000 dan maksimal 1000000 -->
                 <input type="number" name="harga" id="harga" class="modal-input" 
                     value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
-                    required placeholder="200000" min="0">
-                <div class="val-msg" id="val-harga"><i class="fa-solid fa-circle-exclamation"></i> Harga wajib diisi (minimal 0)</div>
+                    required placeholder="200000" min="50000" max="1000000">
+                <div class="val-msg" id="val-harga"></div>
 
                 <button type="submit" name="save_lapangan" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
@@ -1171,85 +1194,100 @@ function confirmDelete(id, name) {
     });
 }
 
-/* ═══ VALIDASI FORM WAJIB DIISI ═══ */
+/* ═══ VALIDASI FORM WAJIB DIISI & SYARAT KEAMANAN KETAT ═══ */
 function validateForm() {
     let valid = true;
-    const inputs = document.querySelectorAll('#formLapangan .modal-input[required]');
     
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        
-        // Reset error dulu
-        input.classList.remove('error');
-        if (valMsg) valMsg.classList.remove('show');
-        
-        // Cek kosong
-        if (!input.value.trim()) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-            return;
-        }
-        
-        // Validasi khusus harga tidak boleh negatif
-        if (input.name === 'harga' && Number(input.value) < 0) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-            return;
-        }
-        
-        // Cek pattern/minlength dll
-        if (!input.checkValidity()) {
-            input.classList.add('error');
-            if (valMsg) valMsg.classList.add('show');
-            valid = false;
-        }
-    });
+    const nama = document.getElementById('nama_arena');
+    const harga = document.getElementById('harga');
     
+    const valNama = document.getElementById('val-nama_arena');
+    const valHarga = document.getElementById('val-harga');
+
+    // 1. Validasi Nama Lapangan
+    const namaVal = nama.value.trim();
+    const onlyNumbers = /^[0-9\s]+$/;
+
+    nama.classList.remove('error');
+    valNama.classList.remove('show');
+
+    if (namaVal === '') {
+        nama.classList.add('error');
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan wajib diisi';
+        valNama.classList.add('show');
+        valid = false;
+    } else if (namaVal.length < 3) {
+        nama.classList.add('error');
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan minimal 3 karakter';
+        valNama.classList.add('show');
+        valid = false;
+    } else if (namaVal.length > 50) {
+        nama.classList.add('error');
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan maksimal 50 karakter';
+        valNama.classList.add('show');
+        valid = false;
+    } else if (onlyNumbers.test(namaVal)) {
+        nama.classList.add('error');
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan tidak valid';
+        valNama.classList.add('show');
+        valid = false;
+    }
+
+    // 2. Validasi Harga Sewa
+    const hargaVal = harga.value.trim();
+    const hargaNum = Number(hargaVal);
+
+    harga.classList.remove('error');
+    valHarga.classList.remove('show');
+
+    if (hargaVal === '') {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa wajib diisi';
+        valHarga.classList.add('show');
+        valid = false;
+    } else if (isNaN(hargaNum)) {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa harus berupa angka';
+        valHarga.classList.add('show');
+        valid = false;
+    } else if (hargaNum < 0) {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa tidak boleh negatif';
+        valHarga.classList.add('show');
+        valid = false;
+    } else if (hargaNum === 0) {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa harus lebih dari 0';
+        valHarga.classList.add('show');
+        valid = false;
+    } else if (hargaNum < 50000) {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa terlalu kecil (Minimal Rp50.000)';
+        valHarga.classList.add('show');
+        valid = false;
+    } else if (hargaNum > 1000000) {
+        harga.classList.add('error');
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa terlalu besar (Maksimal Rp1.000.000)';
+        valHarga.classList.add('show');
+        valid = false;
+    }
+
     return valid;
 }
 
-// Live validation saat user mengetik & blur
+// Live validation saat user mengetik & keluar kolom (blur)
 document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('#formLapangan .modal-input');
+    const inputs = document.querySelectorAll('#nama_arena, #harga');
     inputs.forEach(input => {
         input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            
-            // Hapus error saat user mengetik
+            // Bersihkan error saat mengetik
             this.classList.remove('error');
+            const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) valMsg.classList.remove('show');
-            
-            // Cek kembali jika invalid
-            if (!this.checkValidity() && this.value !== '') {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
-            
-            // Validasi khusus harga negatif
-            if (this.name === 'harga' && this.value !== '' && Number(this.value) < 0) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
         });
         
         input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            
-            if (!this.value.trim() || !this.checkValidity()) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            } else {
-                this.classList.remove('error');
-                if (valMsg) valMsg.classList.remove('show');
-            }
-            
-            // Cek harga negatif saat blur
-            if (this.name === 'harga' && Number(this.value) < 0) {
-                this.classList.add('error');
-                if (valMsg) valMsg.classList.add('show');
-            }
+            validateForm(); // Picu validasi kustom saat keluar dari kolom input
         });
     });
 });
