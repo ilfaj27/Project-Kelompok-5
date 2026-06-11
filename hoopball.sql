@@ -148,7 +148,6 @@ INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai,
 -- ============================================================
 CREATE TABLE Fasilitas_Lapangan (
     ID_Fasilitas    VARCHAR(8)      NOT NULL PRIMARY KEY,
-    ID_Karyawan     VARCHAR(8)      NOT NULL,
     ID_Lapangan     VARCHAR(8)      NOT NULL,
     Nama_Fasilitas  VARCHAR(25)     NOT NULL,
     Detail_Fasilitas VARCHAR(50)    NOT NULL,
@@ -160,24 +159,24 @@ CREATE TABLE Fasilitas_Lapangan (
     Modified_Date   DATETIME        NULL,
     Deleted_By      VARCHAR(50)     NULL,
     Deleted_Date    DATETIME        NULL,
-    FOREIGN KEY (ID_Karyawan) REFERENCES Karyawan(ID_Karyawan),
     FOREIGN KEY (ID_Lapangan) REFERENCES Lapangan(ID_Lapangan)
 );
 
-INSERT INTO Fasilitas_Lapangan (ID_Fasilitas, ID_Karyawan, ID_Lapangan, Nama_Fasilitas, Detail_Fasilitas, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('FAS00001', 'KRY00002', 'LPN00001', 'Bola Basket',     'Bola basket standar SNI',         1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00002', 'KRY00002', 'LPN00001', 'Pencahayaan',     'Lampu LED 1000 watt',             1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00003', 'KRY00002', 'LPN00001', 'Jenis Lantai',    'Lantai vinyl anti-slip',          1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00004', 'KRY00003', 'LPN00002', 'Bola Basket',     'Bola basket premium',             1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00005', 'KRY00003', 'LPN00002', 'Papan Skor',      'Papan skor digital',              1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00006', 'KRY00003', 'LPN00002', 'Jenis Ring',      'Ring basket adjustable',          1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00007', 'KRY00004', 'LPN00003', 'Bola Basket',     'Bola basket standar SNI',         1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00008', 'KRY00004', 'LPN00003', 'Pencahayaan',     'Lampu sorot 1500 watt',           1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00009', 'KRY00004', 'LPN00004', 'Bola Basket',     'Bola basket profesional NBA',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00010', 'KRY00004', 'LPN00004', 'Papan Skor',      'Papan skor digital wireless',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00011', 'KRY00004', 'LPN00004', 'Pencahayaan',     'Lampu LED premium 2000 watt',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00012', 'KRY00004', 'LPN00004', 'AC',              'AC central ruangan tertutup',     1, 0, 'KRY00004', '2024-01-03 08:00:00');
-
+INSERT INTO Fasilitas_Lapangan
+(ID_Fasilitas, ID_Lapangan, Nama_Fasilitas, Detail_Fasilitas, Status, Is_Deleted, Created_By, Created_Date)
+VALUES
+('FAS00001', 'LPN00001', 'Bola Basket',  'Bola basket standar SNI',         1, 0, 'KRY00002', '2024-01-03 08:00:00'),
+('FAS00002', 'LPN00001', 'Pencahayaan',  'Lampu LED 1000 watt',             1, 0, 'KRY00002', '2024-01-03 08:00:00'),
+('FAS00003', 'LPN00001', 'Jenis Lantai', 'Lantai vinyl anti-slip',          1, 0, 'KRY00002', '2024-01-03 08:00:00'),
+('FAS00004', 'LPN00002', 'Bola Basket',  'Bola basket premium',             1, 0, 'KRY00003', '2024-01-03 08:00:00'),
+('FAS00005', 'LPN00002', 'Papan Skor',   'Papan skor digital',              1, 0, 'KRY00003', '2024-01-03 08:00:00'),
+('FAS00006', 'LPN00002', 'Jenis Ring',   'Ring basket adjustable',          1, 0, 'KRY00003', '2024-01-03 08:00:00'),
+('FAS00007', 'LPN00003', 'Bola Basket',  'Bola basket standar SNI',         1, 0, 'KRY00004', '2024-01-03 08:00:00'),
+('FAS00008', 'LPN00003', 'Pencahayaan',  'Lampu sorot 1500 watt',           1, 0, 'KRY00004', '2024-01-03 08:00:00'),
+('FAS00009', 'LPN00004', 'Bola Basket',  'Bola basket profesional NBA',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
+('FAS00010', 'LPN00004', 'Papan Skor',   'Papan skor digital wireless',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
+('FAS00011', 'LPN00004', 'Pencahayaan',  'Lampu LED premium 2000 watt',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
+('FAS00012', 'LPN00004', 'AC',           'AC central ruangan tertutup',     1, 0, 'KRY00004', '2024-01-03 08:00:00');
 -- ============================================================
 -- 7. TABEL MASTER: Jadwal
 -- ============================================================
