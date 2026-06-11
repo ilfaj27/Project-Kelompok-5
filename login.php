@@ -64,10 +64,10 @@ if (isset($_POST['login'])) {
                 }
                 exit();
             } else {
-                $error_msg = "Username atau Kata Sandi yang Anda masukkan salah.";
+                $error_msg = "Anda tidak bisa login.";
             }
         } else {
-            $error_msg = "Akun tidak ditemukan atau sedang dinonaktifkan.";
+            $error_msg = "Anda tidak bisa login.";
         }
     }
 }
