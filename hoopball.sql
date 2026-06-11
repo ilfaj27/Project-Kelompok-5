@@ -58,6 +58,7 @@ CREATE TABLE Karyawan (
     Jenis_Kelamin INT NOT NULL,
     Tanggal_Lahir DATE NOT NULL,
     Tempat_Lahir VARCHAR(50) NOT NULL,
+    Alamat VARCHAR(100) NOT NULL,
     Jabatan INT NOT NULL,
     No_Telepon VARCHAR(15) NOT NULL,
     Status INT NOT NULL DEFAULT 1,
@@ -316,11 +317,11 @@ VALUES
 GO
 
 INSERT INTO Karyawan
-(ID_Karyawan, ID_Akun, Nama_Karyawan, Tempat_Lahir, Tanggal_Lahir, Jenis_Kelamin, Jabatan, No_Telepon, Status, Created_By)
+(ID_Karyawan, ID_Akun, Nama_Karyawan, Tempat_Lahir, Tanggal_Lahir, Jenis_Kelamin, Alamat, Jabatan, No_Telepon, Status, Created_By)
 VALUES
-('KR0001', 'AK0001', 'Budi', 'Jakarta', '1998-05-12', 1, 3, '081111111111', 1, 'System'),
-('KR0002', 'AK0002', 'Andi', 'Bandung', '1997-08-21', 1, 1, '082222222222', 1, 'System'),
-('KR0003', 'AK0003', 'Siti', 'Surabaya', '1999-03-15', 2, 2, '083333333333', 1, 'System');
+('KR0001', 'AK0001', 'Budi', 'Jakarta', '1998-05-12', 1, 'Jl. Merdeka No. 10, Jakarta Pusat', 3, '081111111111', 1, 'System'),
+('KR0002', 'AK0002', 'Andi', 'Bandung', '1997-08-21', 1, 'Jl. Asia Afrika No. 25, Bandung', 1, '082222222222', 1, 'System'),
+('KR0003', 'AK0003', 'Siti', 'Surabaya', '1999-03-15', 2, 'Jl. Pemuda No. 15, Surabaya', 2, '083333333333', 1, 'System');
 GO
 
 INSERT INTO Customer

@@ -521,14 +521,14 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 }
 .btn-delete:active { transform: translateY(0); }
 
-/* ═══ DETAIL BUTTON ═══ */
-.btn-detail {
-    background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%); color: #92400E; border-color: #FDBA74;
+/* ═══ VIEW BUTTON - SAMA PERSIS DENGAN KARYAWAN ═══ */
+.btn-view {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
 }
-.btn-detail i { font-size: 13px; }
-.btn-detail:hover {
-    background: linear-gradient(135deg, #FF4500 0%, #E03E00 100%); color: #fff; border-color: #FF4500;
-    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,69,0,.35);
+.btn-view i { font-size: 13px; }
+.btn-view:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
 }
 
 /* ═══ PAGINATION ═══ */
@@ -565,11 +565,10 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 .btn-cancel { display: block; text-align: center; margin-top: 12px; color: var(--muted); font-size: 12px; text-decoration: none; font-weight: 700; transition: .2s; }
 .btn-cancel:hover { color: var(--orange); }
 
-/* ═══ DETAIL MODAL ═══ */
-.detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: all .3s ease; }
-.detail-modal-overlay.active { opacity: 1; visibility: visible; }
-.detail-modal-box { background: #fff; border-radius: 20px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); transform: translateY(30px) scale(0.95); transition: all .3s ease; }
-.detail-modal-overlay.active .detail-modal-box { transform: translateY(0) scale(1); }
+/* ═══ DETAIL MODAL AKUN - SAMA SEPERTI LAPANGAN ═══ */
+.detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.detail-modal-overlay.open { display: flex; }
+.detail-modal-box { background: #fff; border-radius: 20px; width: 440px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; }
 .detail-modal-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .detail-modal-header-left { display: flex; align-items: center; gap: 14px; }
 .detail-modal-avatar { width: 56px; height: 56px; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dk) 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; flex-shrink: 0; }
@@ -595,6 +594,16 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 .btn-modal-close { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer; transition: .2s; border: 1.5px solid var(--border); color: var(--text-md); background: var(--bg); }
 .btn-modal-close:hover { background: var(--text); color: #fff; border-color: var(--text); }
 
+/* ═══ DETAIL MODAL LAYOUT SAMA LAPANGAN ═══ */
+.detail-photo-card { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
+.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-lt); }
+.info-row:last-child { border-bottom: none; }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.info-val.price { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); font-weight: 800; }
 /* ═══ VALIDASI ERROR MESSAGE ═══ */
 .val-msg { font-size: 11px; color: var(--red); font-weight: 600; margin-bottom: 12px; display: none; min-height: 16px; }
 .val-msg.show { display: block; }
@@ -682,45 +691,50 @@ tbody tr:hover td { background-color: #FED7AA !important; }
     </div>
 </div>
 
-<!-- ═══ DETAIL MODAL AKUN ═══ -->
+<!-- ═══ DETAIL MODAL AKUN - SAMA SEPERTI LAPANGAN ═══ -->
 <div class="detail-modal-overlay" id="detailModalAkun" onclick="closeDetailModal(event)">
     <div class="detail-modal-box" onclick="event.stopPropagation()">
-        <div class="detail-modal-header">
-            <div class="detail-modal-header-left">
-                <div class="detail-modal-avatar"><i class="fa-solid fa-user-shield"></i></div>
-                <div class="detail-modal-info">
-                    <div class="detail-modal-name" id="detailNama">-</div>
-                    <div class="detail-modal-id"><i class="fa-solid fa-fingerprint"></i> <span id="detailId">-</span></div>
-                </div>
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0; display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <div class="modal-subtitle">Informasi Akun</div>
+                <div class="modal-title">Profil Pengguna</div>
             </div>
             <button class="detail-modal-close" onclick="closeDetailModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="detail-modal-body">
-            <div class="detail-modal-grid">
-                <div class="detail-modal-item">
-                    <div class="detail-modal-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Username</div>
-                    <div class="detail-modal-value" id="detailUsername">-</div>
-                </div>
-                <div class="detail-modal-item">
-                    <div class="detail-modal-label"><i class="fa-solid fa-envelope" style="color:var(--blue);"></i> Email</div>
-                    <div class="detail-modal-value" id="detailEmail">-</div>
-                </div>
-                <div class="detail-modal-item" id="passwordField">
-                    <div class="detail-modal-label"><i class="fa-solid fa-key" style="color:var(--purple);"></i> Password</div>
-                    <div class="detail-modal-value" id="detailPassword">-</div>
-                </div>
-                <div class="detail-modal-item">
-                    <div class="detail-modal-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Hak Akses</div>
-                    <div class="detail-modal-value" id="detailRole">-</div>
-                </div>
-                <div class="detail-modal-item">
-                    <div class="detail-modal-label"><i class="fa-solid fa-circle-check" style="color:var(--green);"></i> Status</div>
-                    <div class="detail-modal-value" id="detailStatus">-</div>
-                </div>
+        <div class="modal-body" style="padding-top: 10px;">
+            <div class="detail-photo-card">
+                <div class="detail-icon-wrap"><i class="fa-solid fa-user-shield"></i></div>
+                <div class="detail-main-name" id="detailNama">-</div>
             </div>
-        </div>
-        <div class="detail-modal-footer">
-            <button class="btn-modal-close" onclick="closeDetailModal()"><i class="fa-solid fa-xmark"></i> Tutup</button>
+
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Akun</span>
+                <span class="info-val" id="detailId" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-user"></i> Username</span>
+                <span class="info-val" id="detailUsername" style="font-weight:700;">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span>
+                <span class="info-val" id="detailEmail">-</span>
+            </div>
+            <div class="info-row" id="passwordField">
+                <span class="info-key"><i class="fa-solid fa-key"></i> Password</span>
+                <span class="info-val" id="detailPassword">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-shield-halved"></i> Hak Akses</span>
+                <span class="info-val" id="detailRole">-</span>
+            </div>
+            <div class="info-row" style="border-bottom:none;">
+                <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
+                <span class="info-val" id="detailStatus">-</span>
+            </div>
+
+            <button onclick="closeDetailModal()" class="btn-save" style="margin-top: 24px; background: #0D1117;">
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+            </button>
         </div>
     </div>
 </div>
@@ -767,7 +781,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Akun</div>
-            <div class="topbar-breadcrumb">Dashboard / Manajemen Akun</div>
+            <div class="topbar-breadcrumb">Manajemen / Akun</div>
         </div>
         <div class="topbar-right">
             <!-- JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN -->
@@ -941,7 +955,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                         </td>
                         <td style="text-align:right;">
                             <div class="action-group">
-                                <button type="button" class="btn-action btn-detail" onclick="openDetailAkun(
+                                <button type="button" class="btn-action btn-view" onclick="openDetailAkun(
                                     '<?= htmlspecialchars($row['ID_Akun']) ?>',
                                     '<?= htmlspecialchars($row['Username']) ?>',
                                     '<?= htmlspecialchars($row['Email']) ?>',
@@ -1141,13 +1155,13 @@ function openDetailAkun(id, username, email, password, role, roleLabel, status, 
         statusEl.innerHTML = '<span class="detail-modal-status detail-modal-status-inactive"><i class="fa-solid fa-circle-xmark"></i> Nonaktif</span>';
     }
     
-    document.getElementById('detailModalAkun').classList.add('active');
+    document.getElementById('detailModalAkun').classList.add('open');
     document.body.style.overflow = 'hidden';
 }
 
 function closeDetailModal(e) {
     if (e && e.target !== e.currentTarget) return;
-    document.getElementById('detailModalAkun').classList.remove('active');
+    document.getElementById('detailModalAkun').classList.remove('open');
     document.body.style.overflow = '';
 }
 

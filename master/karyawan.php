@@ -215,6 +215,30 @@ if ($query === false) {
         }
     }
 }
+
+// PROSES TAMBAH KARYAWAN
+if (isset($_POST['add_karyawan'])) {
+    // ... (kode lainnya tetap)
+    $alamat = $_POST['alamat']; // Ambil input alamat
+
+    $stmt = safe_sqlsrv_query($conn, 
+        "INSERT INTO Karyawan (ID_Karyawan, ID_Akun, Nama_Karyawan, Tempat_Lahir, Tanggal_Lahir, Jenis_Kelamin, Jabatan, No_Telepon, Alamat, Status, Is_Deleted, Created_By, Created_Date) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Aktif', 0, ?, GETDATE())", 
+        array($id_kry, $id_akun, $nama_kry, $tempat_lahir, $tanggal_lahir, $jk, $jabatan, $telp, $alamat, $created_by), false);
+    // ...
+}
+
+// PROSES UPDATE KARYAWAN
+if (isset($_POST['update_karyawan'])) {
+    // ...
+    $alamat = $_POST['alamat']; // Ambil input alamat
+
+    $stmt = safe_sqlsrv_query($conn, 
+        "UPDATE Karyawan SET Nama_Karyawan=?, Tempat_Lahir=?, Tanggal_Lahir=?, Jenis_Kelamin=?, Jabatan=?, No_Telepon=?, Alamat=?,
+        Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?", 
+        array($_POST['nama'], $tempat_lahir, $tanggal_lahir, $_POST['jk'], $_POST['jabatan'], $_POST['telp'], $alamat, $modified_by, $_POST['id_kry']), false);
+    // ...
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -445,6 +469,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-tag { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); letter-spacing: -.3px; }
 .modal-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.modal-subtitle { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 6px; letter-spacing: .8px; }
+.modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
 .modal-body { padding: 28px 32px 32px; }
 .modal-close { position: absolute; top: 20px; right: 20px; background: var(--bg); border: 1px solid var(--border); font-size: 14px; color: var(--muted); cursor: pointer; transition: .2s; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 .modal-close:hover { color: var(--red); border-color: var(--red); background: var(--red-lt); }
@@ -471,30 +497,59 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-input.error { border-color: var(--red) !important; background-color: #FEF2F2 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important; }
 .modal-input.error:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important; }
 
-.detail-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
-.detail-overlay.active { display: flex; }
-.detail-box { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.15); }
-.detail-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 28px; border-bottom: 1px solid var(--border-lt); }
-.detail-header-left { display: flex; align-items: center; gap: 14px; }
-.detail-avatar { width: 56px; height: 56px; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dk) 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; flex-shrink: 0; }
-.detail-header-info { display: flex; flex-direction: column; }
-.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
-.detail-id { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--orange); background: var(--orange-lt); padding: 3px 10px; border-radius: 6px; margin-top: 4px; width: fit-content; }
-.detail-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .2s; font-size: 14px; }
-.detail-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
-.detail-body { padding: 0; }
-.detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
-.detail-item { padding: 16px 24px; border-bottom: 1px solid var(--border-lt); border-right: 1px solid var(--border-lt); }
-.detail-item:nth-child(2n) { border-right: none; }
-.detail-item:nth-last-child(-n+2) { border-bottom: none; }
-.detail-item:nth-last-child(1):nth-child(odd) { border-bottom: none; grid-column: 1 / -1; }
-.detail-label { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: .5px; margin-bottom: 6px; }
-.detail-label i { font-size: 11px; width: 14px; text-align: center; }
-.detail-value { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
-.detail-value-muted { color: var(--muted); font-weight: 600; }
-.detail-footer { padding: 16px 24px; border-top: 1px solid var(--border-lt); display: flex; gap: 10px; justify-content: flex-end; }
-.btn-detail-close { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer; transition: all .2s; border: 1.5px solid transparent; text-decoration: none; background: var(--bg); color: var(--text-md); border-color: var(--border); }
-.btn-detail-close:hover { background: var(--text); color: #fff; border-color: var(--text); }
+/* ═══ DETAIL MODAL KARYAWAN - SAMA PERSIS LAPANGAN ═══ */
+/* Styling Modal Detail agar sama dengan akun.php */
+.detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.detail-modal-overlay.open { display: flex; }
+.detail-modal-box { background: #fff; border-radius: 20px; width: 440px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; }
+.detail-modal-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 14px; }
+.detail-modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+
+/* Custom Scrollbar Modern untuk Modal */
+.detail-modal-box::-webkit-scrollbar {
+    width: 6px;
+}
+
+.detail-modal-box::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 10px 0;
+}
+
+.detail-modal-box::-webkit-scrollbar-thumb {
+    background: #E5E7EB; /* Warna abu-abu halus */
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.detail-modal-box::-webkit-scrollbar-thumb:hover {
+    background: var(--orange); /* Berubah orange saat di-hover */
+}
+
+/* Untuk Firefox */
+.detail-modal-box {
+    scrollbar-width: thin;
+    scrollbar-color: #E5E7EB transparent;
+}
+
+.detail-photo-card { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
+.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-lt); }
+.info-row:last-child { border-bottom: none; }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); }
+
+/* Status Pill Style */
+.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.sp-ready { background: var(--green-lt); color: var(--green); }
+.sp-maint { background: var(--red-lt); color: var(--red); }
+
+/* Kembali button - same as lapangan */
+.btn-kembali { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #0D1117; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; font-family: 'Barlow', sans-serif; text-transform: uppercase; cursor: pointer; transition: .2s; margin-top: 20px; }
+.btn-kembali:hover { background: var(--orange); }
+.btn-kembali i { font-size: 13px; }
 
 @media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width: 768px) {
@@ -685,6 +740,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <input type="date" name="tanggal_lahir" id="tanggal_lahir" class="modal-input" value="<?= $edit_data['Tanggal_Lahir'] ? $edit_data['Tanggal_Lahir']->format('Y-m-d') : '' ?>" required max="<?= date('Y-m-d') ?>" onchange="validateDate(this)">
                         <div class="val-msg" id="val-tanggal_lahir"><i class="fa-solid fa-circle-exclamation"></i> Tanggal lahir wajib diisi dan tidak boleh di masa depan</div>
                     </div>
+                    <!-- Letakkan ini di dalam .form-grid sebelum tombol submit -->
+                    <div class="full-width">
+                        <label class="field-label">Alamat Lengkap <span class="required">*</span></label>
+                        <textarea name="alamat" id="alamat" class="modal-input" required rows="3" placeholder="Jl. Merdeka No. 10, Jakarta Pusat" style="resize: none;"><?= htmlspecialchars($edit_data['Alamat'] ?? '') ?></textarea>
+                        <div class="val-msg" id="val-alamat"><i class="fa-solid fa-circle-exclamation"></i> Alamat wajib diisi</div>
+                    </div>
                     <div>
                         <label class="field-label">Jenis Kelamin <span class="required">*</span></label>
                         <select name="jk" id="jk" class="modal-input" required>
@@ -727,32 +788,86 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </div>
 
-<div class="detail-overlay" id="detailModal" onclick="closeDetail(event)">
-    <div class="detail-box" onclick="event.stopPropagation()">
-        <div class="detail-header">
-            <div class="detail-header-left">
-                <div class="detail-avatar"><i class="fa-solid fa-user-tie"></i></div>
-                <div class="detail-header-info">
-                    <div class="detail-name" id="dName">-</div>
-                    <div class="detail-id"><i class="fa-solid fa-fingerprint"></i> <span id="dId">-</span></div>
+<!-- ═══ DETAIL MODAL KARYAWAN (LENGKAP + SCROLL) ═══ -->
+<!-- ═══ DETAIL MODAL KARYAWAN (RAPI & CLEAN SCROLL) ═══ -->
+<div class="detail-modal-overlay" id="detailModal" onclick="closeDetail(event)">
+    <div class="detail-modal-box" onclick="event.stopPropagation()" 
+         style="max-height: 85vh; overflow-y: auto; background: white; border-radius: 20px; width: 440px; position: relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        
+        <!-- HEADER (STICKY - Tetap di Atas) -->
+        <div class="modal-header" style="position: sticky; top: 0; background: white; z-index: 20; padding: 28px 32px 15px; border-bottom: 1px solid rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div class="modal-subtitle" style="font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px;">Informasi Karyawan</div>
+                    <div class="modal-title" style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); line-height: 1;">Profil Karyawan</div>
+                </div>
+                <button class="detail-modal-close" onclick="closeDetail()" title="Tutup" style="width: 32px; height: 32px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- BODY CONTENT -->
+        <div class="modal-body" style="padding: 10px 32px 32px;">
+            <!-- Foto / Icon -->
+            <div class="detail-photo-card" style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
+                <div class="detail-icon-wrap" style="width: 70px; height: 70px; background: var(--orange-lt); color: var(--orange); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 12px;">
+                    <i class="fa-solid fa-user-tie"></i>
+                </div>
+                <div class="detail-main-name" id="dNameHeader" style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px;">-</div>
+            </div>
+
+            <!-- List Data -->
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-fingerprint" style="width: 14px;"></i> ID Karyawan</span>
+                    <span class="info-val" id="dId" style="font-size: 14px; font-weight: 800; color: var(--orange); font-family: 'Barlow Condensed';">-</span>
+                </div>
+                
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-user" style="width: 14px;"></i> Nama Lengkap</span>
+                    <span class="info-val" id="dNama" style="font-size: 14px; font-weight: 700; color: var(--text);">-</span>
+                </div>
+
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-location-dot" style="width: 14px;"></i> Tempat Lahir</span>
+                    <span class="info-val" id="dTempatLahir" style="font-size: 14px; font-weight: 700;">-</span>
+                </div>
+
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-calendar-day" style="width: 14px;"></i> Tanggal Lahir</span>
+                    <span class="info-val" id="dTanggalLahir" style="font-size: 14px; font-weight: 700;">-</span>
+                </div>
+                <!-- Tambahkan ini di dalam list data modal detail -->
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-map-location-dot" style="width: 14px;"></i> Alamat</span>
+                    <span class="info-val" id="dAlamat" style="font-size: 14px; font-weight: 700; color: var(--text); text-align: right; max-width: 200px; line-height: 1.4;">-</span>
+                </div>
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-venus-mars" style="width: 14px;"></i> Jenis Kelamin</span>
+                    <span class="info-val" id="dJK">-</span>
+                </div>
+
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-phone" style="width: 14px;"></i> No. Telepon</span>
+                    <span class="info-val" id="dTelp" style="font-size: 14px; font-weight: 700;">-</span>
+                </div>
+
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-briefcase" style="width: 14px;"></i> Jabatan</span>
+                    <span class="info-val" id="dJabatan">-</span>
+                </div>
+
+                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: none;">
+                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-circle-check" style="width: 14px;"></i> Status</span>
+                    <span class="info-val" id="dStatus">-</span>
                 </div>
             </div>
-            <button class="detail-close" onclick="closeDetail()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="detail-body">
-            <div class="detail-grid">
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Nama Lengkap</div><div class="detail-value" id="dNama">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-venus-mars" style="color:var(--purple);"></i> Jenis Kelamin</div><div class="detail-value" id="dJK">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-location-dot" style="color:var(--red);"></i> Tempat Lahir</div><div class="detail-value" id="dTempatLahir">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-cake-candles" style="color:var(--pink);"></i> Tanggal Lahir</div><div class="detail-value" id="dTanggalLahir">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-briefcase" style="color:var(--blue);"></i> Jabatan</div><div class="detail-value" id="dJabatan">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-phone" style="color:var(--green);"></i> No. Telepon</div><div class="detail-value" id="dTelp">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Status</div><div class="detail-value" id="dStatus">-</div></div>
-                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-calendar" style="color:var(--pink);"></i> Tanggal Dibuat</div><div class="detail-value" id="dCreatedDate">-</div></div>
-            </div>
-        </div>
-        <div class="detail-footer">
-            <button class="btn-detail-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i> Tutup</button>
+
+            <!-- Tombol Kembali (Ikut ter-scroll agar tidak menutupi data terakhir) -->
+            <button onclick="closeDetail()" class="btn-submit" style="margin-top: 30px; width: 100%; background: #0D1117; color: white; padding: 14px; border-radius: 12px; font-weight: 800; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: 'Barlow'; letter-spacing: 0.5px;">
+                <i class="fa-solid fa-arrow-left" style="font-size: 12px;"></i> KEMBALI KE LIST
+            </button>
         </div>
     </div>
 </div>
@@ -914,7 +1029,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td>
                                 <!-- TOMBOL AKSI - SAMA PERSIS STYLE DENGAN LAPANGAN.PHP -->
                                 <div class="action-group">
-                                    <button onclick="openDetail('<?= htmlspecialchars($row['ID_Karyawan']) ?>','<?= htmlspecialchars($row['Nama_Karyawan']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?>','<?= htmlspecialchars($row['No_Telepon']) ?>','<?= htmlspecialchars($row['Status'] ?? 'Aktif') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?>')" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
+                                    <button onclick="openDetail('<?= htmlspecialchars($row['ID_Karyawan']) ?>','<?= htmlspecialchars($row['Nama_Karyawan']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
+                                    '<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?>','<?= htmlspecialchars($row['No_Telepon']) ?>','<?= htmlspecialchars($row['Status'] ?? 'Aktif') ?>','<?= addslashes($row['Alamat'] ?? '') ?>' )" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
                                     <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
                                     <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                                 </div>
@@ -959,30 +1075,47 @@ function confirmDelete(id, nama) {
         confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true, borderRadius: '16px'
     }).then((r) => { if (r.isConfirmed) window.location.href = '?page=<?= $page ?>&delete_id=' + id; });
 }
-function openDetail(id, nama, jk, tempatLahir, tanggalLahir, jabatan, telp, status, createdDate) {
-    const mapJK = { '1': 'Laki-laki', '2': 'Perempuan' };
+function openDetail(id, nama, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
+    const mapJK = { '1': 'LAKI-LAKI', '2': 'PEREMPUAN' };
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
     document.getElementById('dId').textContent = id;
-    document.getElementById('dName').textContent = nama;
+    document.getElementById('dNameHeader').textContent = nama;
     document.getElementById('dNama').textContent = nama;
-    document.getElementById('dJK').innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:800;text-transform:uppercase;background:' + (jk == '1' ? 'var(--blue-lt);color:var(--blue)' : 'var(--pink-lt);color:var(--pink)') + '"><i class="fa-solid ' + (jk == '1' ? 'fa-mars' : 'fa-venus') + '"></i> ' + (mapJK[jk] || '-') + '</span>';
     document.getElementById('dTempatLahir').textContent = tempatLahir || '-';
+    
+    // Format Tanggal Lahir (Contoh: 10 Januari 1995)
     if (tanggalLahir) {
         const d = new Date(tanggalLahir);
         document.getElementById('dTanggalLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
     } else {
         document.getElementById('dTanggalLahir').textContent = '-';
     }
-    document.getElementById('dJabatan').innerHTML = '<span class="jabatan-badge">' + jabatan + '</span>';
-    document.getElementById('dTelp').textContent = telp;
-    document.getElementById('dStatus').innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:800;text-transform:uppercase;background:' + (status === 'Aktif' ? 'var(--green-lt);color:var(--green)' : 'var(--red-lt);color:var(--red)') + '"><i class="fa-solid ' + (status === 'Aktif' ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i> ' + status + '</span>';
-    document.getElementById('dCreatedDate').textContent = createdDate;
-    document.getElementById('detailModal').classList.add('active');
-    document.body.style.overflow = 'hidden';
+
+
+    document.getElementById('dTelp').textContent = telp || '-';
+
+    document.getElementById('dAlamat').textContent = alamat || '-'; 
+    
+    // Pill Jenis Kelamin
+    document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: #EFF6FF; color: #3B82F6; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${mapJK[jk] || '-'}</span>`;
+    
+    // Jabatan Badge
+    document.getElementById('dJabatan').innerHTML = `<span class="role-badge badge-2" style="background: #DBEAFE; color: #1E40AF; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${jabatan}</span>`;
+    
+    // Status Pill
+    const isAktif = (status === 'Aktif');
+    document.getElementById('dStatus').innerHTML = `
+        <span class="status-pill ${isAktif ? 'sp-ready' : 'sp-maint'}" style="background: ${isAktif ? 'var(--green-lt)' : 'var(--red-lt)'}; color: ${isAktif ? 'var(--green)' : 'var(--red)'}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fa-solid ${isAktif ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${status.toUpperCase()}
+        </span>`;
+    
+    document.getElementById('detailModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Matikan scroll body utama
 }
-function closeDetail(e) {
-    if (e && e.target !== e.currentTarget) return;
-    document.getElementById('detailModal').classList.remove('active');
+
+function closeDetail() {
+    document.getElementById('detailModal').style.display = 'none';
     document.body.style.overflow = '';
 }
 
