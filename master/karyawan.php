@@ -771,6 +771,30 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                 <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-calendar" style="color:var(--pink);"></i> Tanggal Dibuat</div><div class="detail-value" id="dCreatedDate">-</div></div>
             </div>
         </div>
+<div class="detail-overlay" id="detailModal" onclick="closeDetail(event)">
+    <div class="detail-box" onclick="event.stopPropagation()">
+        <div class="detail-header">
+            <div class="detail-header-left">
+                <div class="detail-avatar"><i class="fa-solid fa-user-tie"></i></div>
+                <div class="detail-header-info">
+                    <div class="detail-name" id="dName">-</div>
+                    <div class="detail-id"><i class="fa-solid fa-fingerprint"></i> <span id="dId">-</span></div>
+                </div>
+            </div>
+            <button class="detail-close" onclick="closeDetail()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="detail-body">
+            <div class="detail-grid">
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Nama Lengkap</div><div class="detail-value" id="dNama">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-venus-mars" style="color:var(--purple);"></i> Jenis Kelamin</div><div class="detail-value" id="dJK">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-location-dot" style="color:var(--red);"></i> Tempat Lahir</div><div class="detail-value" id="dTempatLahir">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-cake-candles" style="color:var(--pink);"></i> Tanggal Lahir</div><div class="detail-value" id="dTanggalLahir">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-briefcase" style="color:var(--blue);"></i> Jabatan</div><div class="detail-value" id="dJabatan">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-phone" style="color:var(--green);"></i> No. Telepon</div><div class="detail-value" id="dTelp">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Status</div><div class="detail-value" id="dStatus">-</div></div>
+                <div class="detail-item"><div class="detail-label"><i class="fa-solid fa-calendar" style="color:var(--pink);"></i> Tanggal Dibuat</div><div class="detail-value" id="dCreatedDate">-</div></div>
+            </div>
+        </div>
         <div class="detail-footer">
             <button class="btn-detail-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i> Tutup</button>
         </div>
