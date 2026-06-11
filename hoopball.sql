@@ -7,7 +7,7 @@ CREATE TABLE Akun (
     Username VARCHAR(20) NOT NULL,
     Email VARCHAR(50) NOT NULL,
     Kata_Sandi VARCHAR(50) NOT NULL,
-    Role INT NOT NULL,
+    Role INT NOT NULL DEFAULT 3,
     Status INT NOT NULL DEFAULT 1,
     Is_Deleted BIT NOT NULL DEFAULT 0,
     Created_By VARCHAR(50) NOT NULL,
@@ -303,7 +303,7 @@ GO
 INSERT INTO Akun 
 (ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By)
 VALUES
-('AK0001', 'manajer', 'manajer@hoopball.com', '12345', 1, 1, 'System'),
+('AK0001', 'manajer', 'manajer@hoopball.com', ' ', 1, 1, 'System'),
 ('AK0002', 'karyawan1', 'karyawan1@hoopball.com', '12345', 2, 1, 'System'),
 ('AK0003', 'karyawan2', 'karyawan2@hoopball.com', '12345', 2, 1, 'System'),
 ('AK0004', 'raka', 'raka@gmail.com', '12345', 3, 1, 'System'),

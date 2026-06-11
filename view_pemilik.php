@@ -113,13 +113,13 @@ function rupiahFormat($n) {
 }
 
 $jabatan_map = [1 => 'Manajer', 2 => 'Supervisor', 3 => 'Kasir', 4 => 'Staf', 5 => 'Operator'];
-$role_map = [1 => 'Pemilik', 2 => 'Karyawan', 3 => 'Customer'];
+$role_map = [1 => 'Manajer', 2 => 'Karyawan', 3 => 'Customer'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard Pemilik | HoopBall</title>
+<title>Dashboard Manajer | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -343,7 +343,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">PEMILIK</div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -352,7 +352,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 <main class="main">
 <header class="topbar">
     <div class="topbar-left">
-        <div class="topbar-title">Dashboard Pemilik</div>
+        <div class="topbar-title">Dashboard Manajer</div>
         <div class="topbar-breadcrumb">Dashboard / Overview</div>
     </div>
     <div class="topbar-right">
@@ -372,7 +372,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <i class="fa-solid fa-user"></i>
                     <?php endif; ?>
                 </div>
-                <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">PEMILIK</div></div>
+                <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
                 <i class="fa-solid fa-chevron-down t-chevron"></i>
             </div>
             <div class="dropdown-menu">
