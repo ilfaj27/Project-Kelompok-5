@@ -270,27 +270,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
     transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
 }
-/* Custom Scrollbar Modern untuk Modal Customer */
-.detail-modal-box::-webkit-scrollbar {
-    width: 6px;
-}
-.detail-modal-box::-webkit-scrollbar-track {
-    background: transparent;
-    margin: 10px 0;
-}
-.detail-modal-box::-webkit-scrollbar-thumb {
-    background: #E5E7EB;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-}
-.detail-modal-box::-webkit-scrollbar-thumb:hover {
-    background: var(--orange);
-}
-
-/* Overlay & Box Style (Samakan dengan Karyawan) */
-.detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
-.detail-modal-overlay.open { display: flex; }
-.detail-modal-box { background: #fff; border-radius: 20px; width: 440px; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; max-height: 85vh; }
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -879,73 +858,36 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </main>
 
-<!-- ═══ DETAIL MODAL CUSTOMER (SAMA DENGAN KARYAWAN) ═══ -->
-<div class="detail-modal-overlay" id="modalDetail" onclick="closeModal(event)">
-    <div class="detail-modal-box" onclick="event.stopPropagation()">
-        
-        <!-- HEADER (STICKY) -->
-        <div class="modal-header" style="position: sticky; top: 0; background: white; z-index: 20; padding: 28px 32px 15px; border-bottom: 1px solid rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <div class="modal-subtitle" style="font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px;">Informasi Customer</div>
-                <div class="modal-title" style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); line-height: 1;">Profil Pelanggan</div>
+<div class="modal-overlay" id="modalDetail" onclick="closeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-header-left">
+                <div class="modal-avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="modal-header-info">
+                    <div class="modal-name" id="mdlNama">-</div>
+                    <div class="modal-id"><i class="fa-solid fa-fingerprint"></i> <span id="mdlId">-</span></div>
+                </div>
             </div>
-            <button class="detail-modal-close" onclick="closeModal()" title="Tutup" style="width: 32px; height: 32px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
-
-        <!-- BODY CONTENT -->
-        <div class="modal-body" style="padding: 10px 32px 32px;">
-            <!-- Foto / Icon Card -->
-            <div class="detail-photo-card" style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
-                <div class="detail-icon-wrap" style="width: 70px; height: 70px; background: var(--orange-lt); color: var(--orange); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 12px;">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <div class="detail-main-name" id="mdlNamaHeader" style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px;">-</div>
+        <div class="modal-body">
+            <div class="modal-deleted-banner" id="mdlDeletedBanner" style="display:none;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div><div class="modal-deleted-text">Data telah dihapus (soft delete)</div><div class="modal-deleted-date" id="mdlDeletedInfo">-</div></div>
             </div>
-
-            <!-- Baris Informasi (Single Column) -->
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-fingerprint" style="width: 14px;"></i> ID Customer</span>
-                    <span class="info-val" id="mdlId" style="font-size: 14px; font-weight: 800; color: var(--orange); font-family: 'Barlow Condensed';">-</span>
-                </div>
-                
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-user" style="width: 14px;"></i> Nama Lengkap</span>
-                    <span class="info-val" id="mdlNama" style="font-size: 14px; font-weight: 700; color: var(--text);">-</span>
-                </div>
-
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-venus-mars" style="width: 14px;"></i> Jenis Kelamin</span>
-                    <span id="mdlJK">-</span>
-                </div>
-
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-calendar-day" style="width: 14px;"></i> Tanggal Lahir</span>
-                    <span class="info-val" id="mdlTglLahir" style="font-size: 14px; font-weight: 700;">-</span>
-                </div>
-
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-phone" style="width: 14px;"></i> No. Telepon</span>
-                    <span class="info-val" id="mdlTelepon" style="font-size: 14px; font-weight: 700;">-</span>
-                </div>
-
-                <div class="info-row" style="display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid #F9FAFB;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-map-location-dot" style="width: 14px;"></i> Alamat Domisili</span>
-                    <span class="info-val" id="mdlAlamat" style="font-size: 13px; font-weight: 600; color: var(--text-md); line-height: 1.5;">-</span>
-                </div>
-
-                <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: none;">
-                    <span class="info-key" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;"><i class="fa-solid fa-circle-check" style="width: 14px;"></i> Status Akun</span>
-                    <span id="mdlStatus">-</span>
-                </div>
+            <div class="modal-grid">
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-fingerprint" style="color:var(--orange);"></i> ID Customer</div><div class="modal-value" id="mdlId2">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Nama Lengkap</div><div class="modal-value" id="mdlNama2">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-venus-mars" style="color:var(--purple);"></i> Jenis Kelamin</div><div class="modal-value" id="mdlJK">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-cake-candles" style="color:var(--pink);"></i> Tanggal Lahir</div><div class="modal-value" id="mdlTglLahir">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-location-dot" style="color:var(--red);"></i> Tempat Lahir</div><div class="modal-value" id="mdlTempatLahir">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-map-location-dot" style="color:var(--green);"></i> Alamat</div><div class="modal-value" id="mdlAlamat">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-phone" style="color:var(--blue);"></i> No. Telepon</div><div class="modal-value" id="mdlTelepon">-</div></div>
+                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Status</div><div class="modal-value" id="mdlStatus">-</div></div>
             </div>
-
-            <!-- Tombol Kembali -->
-            <button onclick="closeModal()" class="btn-modal" style="margin-top: 30px; width: 100%; background: #0D1117; color: white; padding: 14px; border-radius: 12px; font-weight: 800; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; font-family: 'Barlow'; letter-spacing: 0.5px;">
-                <i class="fa-solid fa-arrow-left" style="font-size: 12px;"></i> KEMBALI KE LIST
-            </button>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal btn-modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Tutup</button>
         </div>
     </div>
 </div>
@@ -994,47 +936,32 @@ function confirmDelete(id, name) {
     }).then((result) => { if (result.isConfirmed) { window.location.href = '?delete_id=' + id; } });
 }
 
-function openDetail(id, nama, jk, tglLahir, tempatLahir, alamat, telepon, status, isDeleted) {
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    
-    document.getElementById('mdlId').textContent = id;
-    document.getElementById('mdlNamaHeader').textContent = nama;
-    document.getElementById('mdlNama').textContent = nama;
-    
-    // Pill Jenis Kelamin
-    const jkLabel = (jk == '1') ? 'LAKI-LAKI' : 'PEREMPUAN';
-    document.getElementById('mdlJK').innerHTML = `<span class="status-pill" style="background: #EFF6FF; color: #3B82F6; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${jkLabel}</span>`;
-    
-    // Format Tanggal Lahir
-    if (tglLahir) {
-        const d = new Date(tglLahir);
-        document.getElementById('mdlTglLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
-    } else {
-        document.getElementById('mdlTglLahir').textContent = '-';
-    }
-
-    document.getElementById('mdlAlamat').textContent = alamat || '-';
-    document.getElementById('mdlTelepon').textContent = telepon || '-';
-    
-    // Pill Status Akun
+function openDetail(id, nama, jk, tglLahir, tempatLahir, alamat, telepon, status, isDeleted, createdBy, createdDate, modifiedBy, modifiedDate, deletedBy, deletedDate) {
+    const mapJK = { '1': 'Laki-laki', '2': 'Perempuan' };
+    const isLaki = (jk == '1');
     const isDel = (isDeleted == '1');
-    const statusText = isDel ? 'DIHAPUS' : status.toUpperCase();
-    const bgStatus = isDel ? 'var(--red-lt)' : (status === 'Aktif' ? 'var(--green-lt)' : '#FEF3C7');
-    const colorStatus = isDel ? 'var(--red)' : (status === 'Aktif' ? 'var(--green)' : '#D97706');
-    const iconStatus = isDel ? 'fa-circle-xmark' : (status === 'Aktif' ? 'fa-circle-check' : 'fa-circle-info');
-
-    document.getElementById('mdlStatus').innerHTML = `
-        <span class="status-pill" style="background: ${bgStatus}; color: ${colorStatus}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;">
-            <i class="fa-solid ${iconStatus}"></i> ${statusText}
-        </span>`;
+    document.getElementById('mdlId').textContent = id;
+    document.getElementById('mdlId2').textContent = id;
+    document.getElementById('mdlNama').textContent = nama;
+    document.getElementById('mdlNama2').textContent = nama;
+    document.getElementById('mdlJK').innerHTML = '<span class="modal-gender ' + (isLaki ? 'mg-laki' : 'mg-perempuan') + '"><i class="fa-solid ' + (isLaki ? 'fa-mars' : 'fa-venus') + '"></i> ' + (mapJK[jk] || '-') + '</span>';
+    if (tglLahir) { const d = new Date(tglLahir); const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']; document.getElementById('mdlTglLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear(); document.getElementById('mdlTglLahir').className = 'modal-value'; } else { document.getElementById('mdlTglLahir').innerHTML = '<span class="modal-value-muted">-</span>'; }
+    if (tempatLahir) { document.getElementById('mdlTempatLahir').textContent = tempatLahir; document.getElementById('mdlTempatLahir').className = 'modal-value'; } else { document.getElementById('mdlTempatLahir').innerHTML = '<span class="modal-value-muted">-</span>'; }
+    if (alamat) { document.getElementById('mdlAlamat').textContent = alamat; document.getElementById('mdlAlamat').className = 'modal-value'; } else { document.getElementById('mdlAlamat').innerHTML = '<span class="modal-value-muted">-</span>'; }
+    if (telepon) { document.getElementById('mdlTelepon').textContent = telepon; document.getElementById('mdlTelepon').className = 'modal-value'; } else { document.getElementById('mdlTelepon').innerHTML = '<span class="modal-value-muted">-</span>'; }
     
-    document.getElementById('modalDetail').classList.add('open');
+    const isInactive = (status === 'Nonaktif');
+    document.getElementById('mdlStatus').innerHTML = '<span class="modal-status ' + (isDel ? 'ms-deleted' : (isInactive ? 'ms-inactive' : 'ms-active')) + '"><i class="fa-solid ' + (isDel ? 'fa-circle-xmark' : (isInactive ? 'fa-circle' : 'fa-circle-check')) + '"></i> ' + (isDel ? 'Dihapus' : status) + '</span>';
+    
+    const delBanner = document.getElementById('mdlDeletedBanner');
+    if (isDel) { delBanner.style.display = 'flex'; document.getElementById('mdlDeletedInfo').textContent = 'Oleh ' + (deletedBy || 'SYSTEM') + ' pada ' + (deletedDate || '-'); } else { delBanner.style.display = 'none'; }
+    document.getElementById('modalDetail').classList.add('active');
     document.body.style.overflow = 'hidden';
 }
 
 function closeModal(e) {
     if (e && e.target !== e.currentTarget) return;
-    document.getElementById('modalDetail').classList.remove('open');
+    document.getElementById('modalDetail').classList.remove('active');
     document.body.style.overflow = '';
 }
 
