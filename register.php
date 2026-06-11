@@ -14,7 +14,6 @@ if (isset($_POST['register'])) {
     $password = $_POST['password'];
     $alamat   = $_POST['alamat'];
 
-    // PERBAIKAN 1: Jenis Kelamin di database baru Anda berupa INTEGER (1 = Laki-laki, 2 = Perempuan)
     $jk = (int)$jk_input;
 
     $sql_check = "SELECT Username, Email FROM Akun WHERE Username = ? OR Email = ?";
@@ -26,24 +25,24 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
-        // PERBAIKAN 2: Mengikuti format ID Akun baru Anda: AK0001 (Panjang 6 digit, diawali AK + 4 digit angka)
+        // 1. Generate ID Akun Baru
         $q_akn = sqlsrv_query($conn, "SELECT MAX(ID_Akun) as max_id FROM Akun");
         $d_akn = sqlsrv_fetch_array($q_akn, SQLSRV_FETCH_ASSOC);
         $num_akn = ($d_akn['max_id']) ? (int) substr($d_akn['max_id'], 2) + 1 : 1;
         $id_akun_baru = "AK" . sprintf("%04d", $num_akn);
 
-        // PERBAIKAN 3: Mengubah input Role menjadi angka 1 (Customer) dan Status menjadi 1 (Aktif) sesuai database baru
+        // Insert Akun
         $sql_akun = "INSERT INTO Akun (ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By) VALUES (?,?,?,?,1,1,'System')";
         $stmt_akun = sqlsrv_query($conn, $sql_akun, array($id_akun_baru, $username, $email, $password));
 
-        // PERBAIKAN 4: Mengikuti format ID Customer baru Anda: CS0001 (Panjang 6 digit, diawali CS + 4 digit angka)
+        // 2. Generate ID Customer Baru
         $q_cus = sqlsrv_query($conn, "SELECT MAX(ID_Customer) as max_id FROM Customer");
         $d_cus = sqlsrv_fetch_array($q_cus, SQLSRV_FETCH_ASSOC);
         $num_cus = ($d_cus['max_id']) ? (int) substr($d_cus['max_id'], 2) + 1 : 1;
         $id_cus_baru = "CS" . sprintf("%04d", $num_cus);
 
-        // PERBAIKAN 5: Memasukkan data pendaftaran Customer baru
-        $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
+        // Data pendaftaran Customer baru
+        $tgl_lahir = $_POST['tanggal_lahir'] ?? null;
         $tmp_lahir = $_POST['tempat_lahir'] ?? '';
 
         $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,?,?,1,'System')";
@@ -56,7 +55,16 @@ if (isset($_POST['register'])) {
         } else {
             sqlsrv_rollback($conn);
             $res_status = "error";
-            $res_msg = "Terjadi kesalahan sistem saat mendaftar.";
+
+            // Mengambil detail error asli dari SQL Server untuk mempermudah diagnosa
+            $errors = sqlsrv_errors();
+            $err_msg = "";
+            if ($errors != null) {
+                foreach ($errors as $error) {
+                    $err_msg .= "Pesan: " . $error['message'] . " (Kode: " . $error['code'] . ")<br>";
+                }
+            }
+            $res_msg = "Terjadi kesalahan sistem saat mendaftar.<br><br><b>Detail Error Database:</b><br>" . $err_msg;
         }
     }
 }
@@ -1062,11 +1070,11 @@ html::-webkit-scrollbar {
 
     <!-- SWEETALERT RESPONSE SCRIPT -->
     <script>
-        <?php if ($res_status !== ""): ?>
+           <?php if ($res_status !== ""): ?>
             Swal.fire({
                 icon: '<?= $res_status ?>',
                 title: '<?= ($res_status == "success") ? "Berhasil!" : "Gagal!" ?>',
-                text: '<?= $res_msg ?>',
+                html: '<?= $res_msg ?>', // DIUBAH dari 'text' menjadi 'html'
                 background: '#ffffff',
                 color: '#1e293b',
                 confirmButtonColor: '#FF5400'
