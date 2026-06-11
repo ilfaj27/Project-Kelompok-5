@@ -12,10 +12,12 @@ if (isset($_POST['login'])) {
     if (empty($user_input) || empty($pass_input)) {
         $error_msg = "Username/Email dan Password wajib diisi!";
     } else {
-        // CEK LANGSUNG KE TABEL KARYAWAN
-        $sql = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
+        // ════════════════════════════════════════════════════════
+        // CEK KE TABEL KARYAWAN DULU (Admin/Pemilik/Karyawan)
+        // ════════════════════════════════════════════════════════
+        $sql_karyawan = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
         $params = array($user_input, $user_input);
-        $stmt = sqlsrv_query($conn, $sql, $params);
+        $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
 
         if ($stmt === false) {
             $error_msg = "Terjadi kesalahan koneksi database. Silakan coba lagi.";
@@ -23,6 +25,7 @@ if (isset($_POST['login'])) {
             $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
             if ($row) {
+                // ═══ LOGIN SEBAGAI KARYAWAN/PEMILIK ═══
                 if ($pass_input == $row['Kata_Sandi']) {
                     $_SESSION['login'] = true;
                     $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
@@ -50,7 +53,47 @@ if (isset($_POST['login'])) {
                     $error_msg = "Username/Email atau Kata Sandi yang Anda masukkan salah.";
                 }
             } else {
-                $error_msg = "Akun tidak ditemukan, dinonaktifkan, atau sudah dihapus.";
+                // ════════════════════════════════════════════════════════
+                // JIKA BUKAN KARYAWAN, CEK KE TABEL CUSTOMER
+                // ════════════════════════════════════════════════════════
+                $sql_customer = "SELECT * FROM Customer WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
+                $params_customer = array($user_input, $user_input);
+                $stmt_customer = sqlsrv_query($conn, $sql_customer, $params_customer);
+
+                if ($stmt_customer === false) {
+                    $error_msg = "Terjadi kesalahan koneksi database. Silakan coba lagi.";
+                } else {
+                    $row_customer = sqlsrv_fetch_array($stmt_customer, SQLSRV_FETCH_ASSOC);
+
+                    if ($row_customer) {
+                        // ═══ LOGIN SEBAGAI CUSTOMER ═══
+                        if ($pass_input == $row_customer['Kata_Sandi']) {
+                            $_SESSION['login'] = true;
+                            $_SESSION['id_customer'] = $row_customer['ID_Customer'];
+                            $_SESSION['role'] = 'customer';
+                            $_SESSION['nama'] = $row_customer['Nama_Customer'];
+                            $_SESSION['email'] = $row_customer['Email'];
+                            $_SESSION['no_telepon'] = $row_customer['No_Telepon'];
+                            $_SESSION['alamat'] = $row_customer['Alamat'] ?? '';
+                            $_SESSION['jenis_kelamin'] = $row_customer['Jenis_Kelamin'];
+                            $_SESSION['tanggal_lahir'] = $row_customer['Tanggal_Lahir'] ?? '';
+                            $_SESSION['tempat_lahir'] = $row_customer['Tempat_Lahir'] ?? '';
+
+                            if (isset($_POST['remember'])) {
+                                setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                            } else {
+                                setcookie('remember_me', '', time() - 3600, "/");
+                            }
+
+                            header("Location: dashboard.php");
+                            exit();
+                        } else {
+                            $error_msg = "Username/Email atau Kata Sandi yang Anda masukkan salah.";
+                        }
+                    } else {
+                        $error_msg = "Akun tidak ditemukan, dinonaktifkan, atau sudah dihapus.";
+                    }
+                }
             }
         }
     }
