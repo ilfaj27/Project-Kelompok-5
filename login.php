@@ -731,6 +731,15 @@ if (isset($_POST['login'])) {
             }
         }
 
+               html {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
         @media (max-width: 576px) {
             .footer-grid {
                 grid-template-columns: 1fr;

@@ -172,12 +172,12 @@ if (isset($_POST['update_akun'])) {
 if (isset($_GET['toggle_id'])) {
     $status_baru = ($_GET['s'] == 1) ? 0 : 1;
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
-    $akun_status = ($status_baru == 1) ? 'Aktif' : 'Nonaktif';
 
-    safe_sqlsrv_query($conn, "UPDATE Akun SET Status = ?, Status = ?, 
+    // Menggunakan variabel $status_baru saja (integer 1 atau 0)
+    safe_sqlsrv_query($conn, "UPDATE Akun SET Status = ?, 
         Modified_By = ?, Modified_Date = GETDATE() 
         WHERE ID_Akun = ?", 
-        array($status_baru, $akun_status, $modified_by, $_GET['toggle_id']), false);
+        array($status_baru, $modified_by, $_GET['toggle_id']), false);
     header("Location: akun.php?role=$current_filter&status=success&msg=Status akun berhasil diubah!");
     exit();
 }
@@ -187,12 +187,13 @@ if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
 
-    $stmt = safe_sqlsrv_query($conn, "UPDATE Akun SET Is_Deleted = 1, Status = 'Dihapus', 
+    // Status diatur ke 0 (Nonaktif) atau cukup hapus bagian Status agar tipe data tidak bentrok
+    $stmt = safe_sqlsrv_query($conn, "UPDATE Akun SET Is_Deleted = 1, Status = 0, 
         Deleted_By = ?, Deleted_Date = GETDATE() WHERE ID_Akun = ?", 
         array($deleted_by, $delete_id), false);
 
     if ($stmt) {
-        header("Location: akun.php?role=$current_filter&status=success&msg=Akun $delete_id telah dihapus (soft delete)!");
+        header("Location: akun.php?role=$current_filter&status=success&msg=Akun $delete_id telah dihapus!");
     } else {
         header("Location: akun.php?role=$current_filter&status=error&msg=Gagal menghapus akun!");
     }
@@ -958,12 +959,12 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                                     </span>
                                 <?php endif; ?>
 
-                                <?php if (!$is_customer): ?>
-                                    <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> akun">
-                                        <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status'] ?>)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                <?php endif; ?>
+                                <?php if (!$is_customer && !$is_manajer): ?>
+    <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> akun">
+        <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Akun'] ?>', <?= $row['Status'] ?>)">
+        <span class="toggle-slider"></span>
+    </label>
+<?php endif; ?>
                                 <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Akun'] ?>', '<?= htmlspecialchars($row['Username']) ?>')" title="Hapus Permanen"><i class="fa-solid fa-trash-can"></i></button>
                             </div>
                         </td>
