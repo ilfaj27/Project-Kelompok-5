@@ -44,14 +44,12 @@ function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
 
 if (isset($_GET['delete_id'])) {
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
-    $stmt = safe_sqlsrv_query($conn, "UPDATE Customer SET Is_Deleted=1, Status='Dihapus',
+    $stmt = safe_sqlsrv_query($conn, "UPDATE Customer SET Is_Deleted=1, Status=0,
         Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Customer=?", 
         array($deleted_by, $_GET['delete_id']), false);
     header($stmt ? "Location: customer.php?page=1&status=success&msg=Data customer telah dihapus (soft delete)!" : "Location: customer.php?page=1&status=error&msg=Gagal menghapus, data mungkin terikat transaksi!");
     exit();
 }
-
-
 
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
 $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
@@ -61,18 +59,23 @@ $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 $allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort)) $sort_by = 'ID_Customer';
 
-$where_clauses = ["Is_Deleted=0"];
+$where_clauses = [];
 $params = [];
+
+if ($filter_status == 'dihapus') {
+    $where_clauses[] = "Is_Deleted = 1";
+} else {
+    $where_clauses[] = "Is_Deleted = 0";
+    if ($filter_status == 'aktif') {
+        $where_clauses[] = "Status = 1";
+    } elseif ($filter_status == 'nonaktif') {
+        $where_clauses[] = "Status = 0";
+    }
+}
 
 if ($filter_jk > 0) {
     $where_clauses[] = "Jenis_Kelamin = ?";
     $params[] = $filter_jk;
-}
-
-if ($filter_status == 'aktif') {
-    $where_clauses[] = "Status = 'Aktif'";
-} elseif ($filter_status == 'nonaktif') {
-    $where_clauses[] = "Status = 'Nonaktif'";
 }
 
 $where_sql = implode(" AND ", $where_clauses);
@@ -146,6 +149,7 @@ if ($query === false) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
+/* ═══ SIDEBAR ═══ */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -167,7 +171,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-.main { margin-left: calc(var(--sidebar-w) - 7px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+/* ═══ MAIN & TOPBAR ═══ */
+.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -189,6 +194,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
+
+/* ═══ CLOCK ═══ */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
@@ -225,14 +238,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .status-active { background: var(--green-lt); color: var(--green); }
+.status-inactive { background: #FEF3C7; color: #D97706; }
 .status-deleted { background: var(--red-lt); color: var(--red); }
 
-.actions { display: flex; gap: 6px; justify-content: flex-end; }
+/* ═══ ACTIONS - SAMA PERSIS DENGAN LAPANGAN.PHP ═══ */
+.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
 .btn-action {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 700;
-    font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer;
-    transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; letter-spacing: .3px;
+    width: 38px;
+    height: 38px;
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 10px; 
+    font-size: 14px; 
+    font-weight: 700;
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    border: 1.5px solid transparent; 
 }
 .btn-view {
     background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
@@ -241,6 +262,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
     transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
 }
+.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
 .btn-delete {
     background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
 }
@@ -330,6 +352,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-size: 12px; font-weight: 800; text-transform: uppercase;
 }
 .ms-active { background: var(--green-lt); color: var(--green); }
+.ms-inactive { background: #FEF3C7; color: #D97706; }
 .ms-deleted { background: var(--red-lt); color: var(--red); }
 
 .modal-deleted-banner {
@@ -372,17 +395,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
-/* ═══════════════════════════════════════════
-   FILTER DROPDOWN — POPOVER DI BAWAH TOMBOL
-   ═══════════════════════════════════════════ */
-
-/* Wrapper untuk positioning relatif */
 .filter-wrap {
     position: relative;
     display: inline-block;
 }
-
-/* Tombol Filter */
 .btn-filter-toggle {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--orange); color: #fff;
@@ -397,7 +413,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-toggle .chevron { transition: transform .2s; }
 .btn-filter-toggle.active .chevron { transform: rotate(180deg); }
 
-/* Dropdown panel — POPOVER di bawah tombol */
 .filter-panel {
     position: absolute;
     top: calc(100% + 12px);
@@ -411,22 +426,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     z-index: 3000;
     padding: 24px;
     overflow-y: auto;
-
-    /* Animasi muncul */
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px) scale(0.98);
     transform-origin: top right;
     transition: all .2s cubic-bezier(.4,0,.2,1);
 }
-
 .filter-panel.active {
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
 }
-
-/* Arrow/pointer di atas panel */
 .filter-panel::before {
     content: '';
     position: absolute;
@@ -439,14 +449,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     border-left: 1px solid var(--border-lt);
     border-top: 1px solid var(--border-lt);
 }
-
 .filter-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 20px;
 }
-
 .filter-title {
     font-family: 'Barlow', sans-serif;
     font-size: 16px;
@@ -454,7 +462,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     color: var(--text);
     letter-spacing: -.2px;
 }
-
 .filter-close {
     width: 28px;
     height: 28px;
@@ -470,11 +477,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-size: 14px;
 }
 .filter-close:hover { color: var(--red); }
-
 .filter-group {
     margin-bottom: 16px;
 }
-
 .filter-label {
     font-size: 11px;
     font-weight: 800;
@@ -484,7 +489,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     margin-bottom: 8px;
     display: block;
 }
-
 .filter-select {
     width: 100%;
     padding: 10px 14px;
@@ -508,7 +512,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     box-shadow: 0 0 0 3px var(--orange-lt);
 }
 .filter-select:hover { border-color: #D1D5DB; }
-
 .filter-actions {
     display: flex;
     gap: 10px;
@@ -516,7 +519,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     padding-top: 16px;
     border-top: 1px solid var(--border-lt);
 }
-
 .btn-filter-apply {
     flex: 1;
     background: var(--orange);
@@ -542,7 +544,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     box-shadow: 0 6px 16px rgba(255,69,0,.25);
 }
 .btn-filter-apply i { font-size: 11px; }
-
 .btn-filter-reset {
     flex: 1;
     background: var(--bg);
@@ -568,7 +569,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     border-color: var(--text-md);
 }
 .btn-filter-reset i { font-size: 11px; }
-
 .filter-active-badge {
     display: inline-flex;
     align-items: center;
@@ -583,7 +583,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     letter-spacing: .5px;
     margin-right: 8px;
 }
-
 .cust-id {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 800;
@@ -648,6 +647,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="topbar-breadcrumb">Manajemen / Data Customer</div>
         </div>
         <div class="topbar-right">
+            <!-- JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
@@ -703,7 +711,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down chevron"></i>
                 </button>
 
-                <!-- FILTER DROPDOWN POPOVER -->
                 <div class="filter-panel" id="filterPanel">
                     <div class="filter-head">
                         <div class="filter-title">Filter Data</div>
@@ -749,16 +756,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 <option value="all" <?= $filter_status == 'all' ? 'selected' : '' ?>>Semua Status</option>
                                 <option value="aktif" <?= $filter_status == 'aktif' ? 'selected' : '' ?>>Aktif</option>
                                 <option value="nonaktif" <?= $filter_status == 'nonaktif' ? 'selected' : '' ?>>Non Aktif</option>
+                                <option value="dihapus" <?= $filter_status == 'dihapus' ? 'selected' : '' ?>>Dihapus</option>
                             </select>
                         </div>
 
                         <div class="filter-actions">
-                            <button type="submit" class="btn-filter-apply">
-                                <i class="fa-solid fa-check"></i> Terapkan
-                            </button>
                             <a href="customer.php" class="btn-filter-reset">
                                 <i class="fa-solid fa-rotate-left"></i> Reset
                             </a>
+                            <button type="submit" class="btn-filter-apply">
+                                <i class="fa-solid fa-check"></i> Terapkan
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -781,7 +789,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <th>Nama Lengkap</th>
                             <th>Alamat</th>
                             <th>No. Telepon</th>
-                            <th style="text-align:right;">Aksi</th>
+                            <th style="width:120px; text-align:center;">Status</th>
+                            <th style="text-align:left; width:180px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -792,22 +801,37 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
                         $is_deleted = ($row['Is_Deleted'] == 1);
+                        $status_int = isset($row['Status']) ? intval($row['Status']) : 1;
+                        $status_label = $is_deleted ? 'Dihapus' : ($status_int === 1 ? 'Aktif' : 'Nonaktif');
+                        $status_class = $is_deleted ? 'status-deleted' : ($status_int === 1 ? 'status-active' : 'status-inactive');
                     ?>
                         <tr>
                             <td style="font-weight:800; color:var(--muted);"><?= $no++ ?></td>
                             <td><div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div></td>
                             <td style="color:var(--muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars($row['Alamat'] ?? '') ?>"><?= htmlspecialchars($row['Alamat'] ?? '-') ?></td>
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon'] ?? '-') ?></td>
+                            <td style="text-align:center;">
+                                <span class="status-badge <?= $status_class ?>">
+                                    <i class="fa-solid fa-circle" style="font-size:6px;"></i> <?= $status_label ?>
+                                </span>
+                            </td>
                             <td>
+                                <!-- TOMBOL AKSI - SAMA PERSIS STYLE DENGAN LAPANGAN.PHP -->
                                 <div class="actions">
-                                    <button onclick="openDetail('<?= htmlspecialchars($row['ID_Customer']) ?>','<?= htmlspecialchars($row['Nama_Customer']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= htmlspecialchars($row['Alamat'] ?? '') ?>','<?= htmlspecialchars($row['No_Telepon'] ?? '') ?>','<?= htmlspecialchars($row['Status'] ?? 'Aktif') ?>','<?= $row['Is_Deleted'] ?>','<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Modified_By'] ?? '') ?>','<?= $row['Modified_Date'] ? $row['Modified_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Deleted_By'] ?? '') ?>','<?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('Y-m-d H:i:s') : '' ?>')" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
-                                    <button onclick="confirmDelete('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>')" class="btn-action btn-delete" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
+                                    <button onclick="openDetail('<?= htmlspecialchars($row['ID_Customer']) ?>','<?= htmlspecialchars($row['Nama_Customer']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= htmlspecialchars($row['Alamat'] ?? '') ?>','<?= htmlspecialchars($row['No_Telepon'] ?? '') ?>','<?= $status_label ?>','<?= $row['Is_Deleted'] ?>','<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Modified_By'] ?? '') ?>','<?= $row['Modified_Date'] ? $row['Modified_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Deleted_By'] ?? '') ?>','<?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('Y-m-d H:i:s') : '' ?>')" class="btn-action btn-view" title="Lihat Detail">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <?php if (!$is_deleted): ?>
+                                    <button onclick="confirmDelete('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>')" class="btn-action btn-delete" title="Hapus Data">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
                     <?php endwhile; endif; ?>
                     <?php if (!$has_data): ?>
-                        <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-users"></i><div>Belum ada data customer</div><div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Data customer akan muncul di sini setelah registrasi</div></div></td></tr>
+                        <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-users"></i><div>Belum ada data customer</div><div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Data customer akan muncul di sini setelah registrasi</div></div></td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -868,54 +892,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </div>
 
-<div class="filter-panel" id="filterPanel">
-    <div class="filter-head">
-        <div class="filter-title">Filter Data</div>
-        <button class="filter-close" onclick="toggleFilter()"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <form method="GET" id="filterForm">
-        <input type="hidden" name="page" value="1">
-        <div class="filter-group">
-            <label class="filter-label">Urut Berdasarkan</label>
-            <select name="sort" class="filter-select">
-                <option value="ID_Customer" <?= $sort_by == 'ID_Customer' ? 'selected' : '' ?>>ID Customer</option>
-                <option value="Nama_Customer" <?= $sort_by == 'Nama_Customer' ? 'selected' : '' ?>>Nama Lengkap</option>
-                <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
-                <option value="Alamat" <?= $sort_by == 'Alamat' ? 'selected' : '' ?>>Alamat</option>
-                <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon</option>
-                <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>Tanggal Dibuat</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label class="filter-label">Urutan</label>
-            <select name="order" class="filter-select">
-                <option value="ASC" <?= $sort_order == 'ASC' ? 'selected' : '' ?>>Naik (A-Z)</option>
-                <option value="DESC" <?= $sort_order == 'DESC' ? 'selected' : '' ?>>Turun (Z-A)</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label class="filter-label">Jenis Kelamin</label>
-            <select name="jk" class="filter-select">
-                <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Semua Jenis Kelamin</option>
-                <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
-                <option value="2" <?= $filter_jk == 2 ? 'selected' : '' ?>>Perempuan</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label class="filter-label">Status</label>
-            <select name="status_filter" class="filter-select">
-                <option value="all" <?= $filter_status == 'all' ? 'selected' : '' ?>>Semua Status</option>
-                <option value="aktif" <?= $filter_status == 'aktif' ? 'selected' : '' ?>>Aktif</option>
-                <option value="dihapus" <?= $filter_status == 'dihapus' ? 'selected' : '' ?>>Dihapus</option>
-            </select>
-        </div>
-        <div class="filter-actions">
-            <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i> Terapkan</button>
-            <a href="customer.php" class="btn-filter-reset"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-        </div>
-    </form>
-</div>
-
 <script>
 let filterOpen = false;
 
@@ -932,7 +908,6 @@ function toggleFilter() {
     }
 }
 
-// Tutup filter saat klik di luar area filter
 document.addEventListener('click', function(e) {
     const wrap = document.querySelector('.filter-wrap');
     if (filterOpen && wrap && !wrap.contains(e.target)) {
@@ -945,7 +920,7 @@ function searchTable() {
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
     for (var i = 1; i < rows.length; i++) {
         var tdName = rows[i].getElementsByTagName('td')[1];
-        var tdPhone = rows[i].getElementsByTagName('td')[4];
+        var tdPhone = rows[i].getElementsByTagName('td')[3];
         var match = false;
         if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
         if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
@@ -974,7 +949,10 @@ function openDetail(id, nama, jk, tglLahir, tempatLahir, alamat, telepon, status
     if (tempatLahir) { document.getElementById('mdlTempatLahir').textContent = tempatLahir; document.getElementById('mdlTempatLahir').className = 'modal-value'; } else { document.getElementById('mdlTempatLahir').innerHTML = '<span class="modal-value-muted">-</span>'; }
     if (alamat) { document.getElementById('mdlAlamat').textContent = alamat; document.getElementById('mdlAlamat').className = 'modal-value'; } else { document.getElementById('mdlAlamat').innerHTML = '<span class="modal-value-muted">-</span>'; }
     if (telepon) { document.getElementById('mdlTelepon').textContent = telepon; document.getElementById('mdlTelepon').className = 'modal-value'; } else { document.getElementById('mdlTelepon').innerHTML = '<span class="modal-value-muted">-</span>'; }
-    document.getElementById('mdlStatus').innerHTML = '<span class="modal-status ' + (isDel ? 'ms-deleted' : 'ms-active') + '"><i class="fa-solid ' + (isDel ? 'fa-circle-xmark' : 'fa-circle-check') + '"></i> ' + (isDel ? 'Dihapus' : (status || 'Aktif')) + '</span>';
+    
+    const isInactive = (status === 'Nonaktif');
+    document.getElementById('mdlStatus').innerHTML = '<span class="modal-status ' + (isDel ? 'ms-deleted' : (isInactive ? 'ms-inactive' : 'ms-active')) + '"><i class="fa-solid ' + (isDel ? 'fa-circle-xmark' : (isInactive ? 'fa-circle' : 'fa-circle-check')) + '"></i> ' + (isDel ? 'Dihapus' : status) + '</span>';
+    
     const delBanner = document.getElementById('mdlDeletedBanner');
     if (isDel) { delBanner.style.display = 'flex'; document.getElementById('mdlDeletedInfo').textContent = 'Oleh ' + (deletedBy || 'SYSTEM') + ' pada ' + (deletedDate || '-'); } else { delBanner.style.display = 'none'; }
     document.getElementById('modalDetail').classList.add('active');
@@ -991,7 +969,22 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeModal(); if (filterOpen) toggleFilter(); }
 });
 
+// ═══ JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP ═══
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
 
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');

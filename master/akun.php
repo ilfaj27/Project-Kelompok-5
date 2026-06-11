@@ -370,6 +370,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
+/* ═══ CLOCK DISPLAY - SAMA SEPERTI LAPANGAN ═══ */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
 /* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
@@ -405,8 +413,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; }
 .search-input { padding: 9px 12px 9px 34px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; color: var(--text); width: 220px; outline: none; transition: 0.2s; }
 .search-input:focus { border-color: var(--orange); }
-.btn-add { background: var(--text); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 12px; font-weight: 800; text-decoration: none; text-transform: uppercase; transition: 0.2s; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.btn-add:hover { background: var(--orange); transform: translateY(-1px); }
 
 /* ═══ FILTER DROPDOWN STYLES ═══ */
 .filter-wrap { position: relative; }
@@ -428,6 +434,29 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--bg); color: var(--text-md); border: 1.5px solid var(--border); padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: .2s; font-family: 'Barlow', sans-serif; text-decoration: none; text-align: center; }
 .btn-filter-reset:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
 
+/* ═══ TOMBOL TAMBAH - SAMA SEPERTI LAPANGAN ═══ */
+.btn-add { 
+    display: inline-flex !important; 
+    align-items: center !important; 
+    gap: 8px !important; 
+    background-color: var(--text) !important; 
+    color: #fff !important; 
+    padding: 10px 20px !important; 
+    border-radius: 10px !important; 
+    font-size: 12px !important; 
+    font-weight: 800 !important; 
+    text-decoration: none !important; 
+    text-transform: uppercase !important; 
+    transition: all .2s ease !important; 
+    border: none !important; 
+    cursor: pointer !important; 
+}
+.btn-add:hover { 
+    background-color: var(--orange) !important; 
+    transform: translateY(-2px) !important; 
+    box-shadow: 0 8px 20px rgba(255,69,0,.3) !important; 
+}
+
 /* ═══ TABLE ═══ */
 .table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; overflow: hidden; margin-bottom: 0; }
 table { width: 100%; border-collapse: collapse; }
@@ -444,12 +473,13 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 .badge-2 { background: #DBEAFE; color: #1E40AF; }
 .badge-3 { background: #F3F4F6; color: #4B5563; }
 
-.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.status-active { background: var(--green); }
-.status-inactive { background: var(--red); }
-.status-text { font-size: 11px; font-weight: 800; }
-.status-text-active { color: var(--green); }
-.status-text-inactive { color: var(--red); }
+/* ═══ STATUS PILL - SAMA SEPERTI LAPANGAN ═══ */
+.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.sp-ready { background: var(--green-lt); color: var(--green); }
+.sp-maint { background: var(--red-lt); color: var(--red); }
+.sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.sp-ready .sp-dot { background: var(--green); }
+.sp-maint .sp-dot { background: var(--red); }
 
 .id-akun { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange); font-size: 15px; }
 .email-text { font-weight: 600; color: var(--text); }
@@ -695,7 +725,7 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -732,13 +762,22 @@ tbody tr:hover td { background-color: #FED7AA !important; }
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Akun</div>
             <div class="topbar-breadcrumb">Dashboard / Manajemen Akun</div>
         </div>
         <div class="topbar-right">
+            <!-- JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
             <div class="dropdown-wrap">
@@ -856,12 +895,12 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                             </div>
                         </div>
                         <div class="filter-footer">
-                            <button class="btn-filter-apply" onclick="applyFilter()">
-                                <i class="fa-solid fa-check"></i> Terapkan
-                            </button>
                             <a href="akun.php?role=<?= $current_filter ?>" class="btn-filter-reset">
                                 <i class="fa-solid fa-rotate-left"></i> Reset
                             </a>
+                            <button class="btn-filter-apply" onclick="applyFilter()">
+                                <i class="fa-solid fa-check"></i> Terapkan
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -893,10 +932,11 @@ tbody tr:hover td { background-color: #FED7AA !important; }
                         <td class="email-text"><?= htmlspecialchars($row['Email']) ?></td>
                         <td><span class="role-badge badge-<?= $row['Role'] ?>"><?= $role_label_map[$row['Role']] ?></span></td>
                         <td>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span class="status-dot <?= $is_active ? 'status-active' : 'status-inactive' ?>"></span>
-                                <span class="status-text <?= $is_active ? 'status-text-active' : 'status-text-inactive' ?>"><?= $is_active ? 'Aktif' : 'Nonaktif' ?></span>
-                            </div>
+                            <!-- STATUS PILL - SAMA SEPERTI LAPANGAN -->
+                            <span class="status-pill <?= $is_active ? 'sp-ready' : 'sp-maint' ?>">
+                                <span class="sp-dot"></span>
+                                <?= $is_active ? 'AKTIF' : 'NONAKTIF' ?>
+                            </span>
                         </td>
                         <td style="text-align:right;">
                             <div class="action-group">
@@ -1030,6 +1070,23 @@ if(urlParams.get('status')){
     Swal.fire({ icon: urlParams.get('status'), title: urlParams.get('msg'), showConfirmButton: false, timer: 2500, timerProgressBar: true, toast: true, position: 'top-end' });
     window.history.replaceState({}, '', window.location.pathname + "?role=<?= $current_filter ?>");
 }
+
+// ═══ JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN ═══
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
 // ═══ FILTER FUNCTIONS ═══
 function toggleFilter() {

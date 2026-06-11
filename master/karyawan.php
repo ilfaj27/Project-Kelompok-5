@@ -241,9 +241,9 @@ if ($query === false) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+/* ═══ SIDEBAR ═══ */
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
 .sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
@@ -263,7 +263,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+/* ═══ MAIN & TOPBAR ═══ */
+.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -276,7 +277,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
-.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
@@ -285,6 +286,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
+
+/* ═══ CLOCK ═══ */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
@@ -309,8 +318,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-/* ═══ FILTER DROPDOWN STYLES ═══ */
+/* ═══ TOOLBAR - SAMA SEPERTI LAPANGAN ═══ */
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.toolbar-left { display: flex; align-items: center; gap: 12px; }
+
+/* ═══ FILTER DROPDOWN STYLES ═══ */
 .filter-wrap { position: relative; }
 .filter-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--orange); color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: .2s; font-family: 'Barlow', sans-serif; }
 .filter-btn:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
@@ -330,15 +342,35 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--bg); color: var(--text-md); border: 1.5px solid var(--border); padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: .2s; font-family: 'Barlow', sans-serif; text-decoration: none; text-align: center; }
 .btn-filter-reset:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
 
+/* ═══ TOMBOL TAMBAH - SAMA SEPERTI LAPANGAN ═══ */
+.btn-add { 
+    display: inline-flex !important; 
+    align-items: center !important; 
+    gap: 8px !important; 
+    background-color: var(--text) !important; 
+    color: #fff !important; 
+    padding: 10px 20px !important; 
+    border-radius: 10px !important; 
+    font-size: 12px !important; 
+    font-weight: 800 !important; 
+    text-decoration: none !important; 
+    text-transform: uppercase !important; 
+    transition: all .2s ease !important; 
+    border: none !important; 
+    cursor: pointer !important; 
+}
+.btn-add:hover { 
+    background-color: var(--orange) !important; 
+    transform: translateY(-2px) !important; 
+    box-shadow: 0 8px 20px rgba(255,69,0,.3) !important; 
+}
+
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .card-title i { color: var(--orange); font-size: 14px; }
 .card-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
-
-.btn-add { display: flex; align-items: center; gap: 8px; background: var(--text); color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; text-decoration: none; }
-.btn-add:hover { background: var(--orange); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.25); }
 
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
@@ -355,14 +387,41 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
 
-.action-group { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-.btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; letter-spacing: .3px; }
-.btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
-.btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
-.btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
-.btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
-.btn-view { background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%); color: #15803D; border-color: #86EFAC; }
-.btn-view:hover { background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%); color: #fff; border-color: #22C55E; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(34,197,94,.35); }
+/* ═══ ACTIONS - SAMA PERSIS DENGAN LAPANGAN.PHP ═══ */
+.action-group { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
+.btn-action {
+    width: 38px;
+    height: 38px;
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 10px; 
+    font-size: 14px; 
+    font-weight: 700;
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    border: 1.5px solid transparent; 
+}
+.btn-edit {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
+}
+.btn-edit:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.btn-delete {
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
+}
+.btn-delete:hover {
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
+}
+.btn-view {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
+}
+.btn-view:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
+    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -561,7 +620,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </div>
 
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
@@ -587,13 +646,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </aside>
 
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Data Karyawan</div>
             <div class="topbar-breadcrumb">Manajemen / Karyawan</div>
         </div>
         <div class="topbar-right">
+            <!-- JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP -->
+            <div id="clock-display">
+                <div class="clock-time">
+                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                </div>
+                <div class="clock-divider"></div>
+                <div class="clock-date" id="full-date">MEMUAT...</div>
+            </div>
+            
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
             <div class="dropdown-wrap">
@@ -616,7 +684,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <div class="content">
         <div class="page-header">
             <div><div class="page-title-tag"></div><div class="page-title">Daftar Karyawan</div></div>
-            <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
         </div>
 
         <div class="stat-grid">
@@ -634,19 +701,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             </div>
         </div>
 
-        <!-- ═══ TOOLBAR WITH FILTER ═══ -->
+        <!-- ═══ TOOLBAR WITH FILTER - TOMBOL TAMBAH DI SAMPING KANAN FILTER ═══ -->
         <div class="toolbar">
-            <div></div> <!-- Spacer untuk push filter ke kanan -->
-            <div style="display:flex; align-items:center; gap:12px;">
+            <div class="toolbar-left">
                 <!-- FILTER DROPDOWN -->
                 <div class="filter-wrap">
                     <button class="filter-btn" onclick="toggleFilter()" id="filterBtn">
                         <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down"></i>
                     </button>
                     <div class="filter-dropdown" id="filterDropdown">
-                        <div class="filter-header">
-                            <div class="filter-title">Filter Data</div>
-                        </div>
+                        <div class="filter-header"><div class="filter-title">Filter Data</div></div>
                         <div class="filter-body">
                             <div class="filter-group">
                                 <label class="filter-label">Urut Berdasarkan</label>
@@ -677,16 +741,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             </div>
                         </div>
                         <div class="filter-footer">
-                            <button class="btn-filter-apply" onclick="applyFilter()">
-                                <i class="fa-solid fa-check"></i> Terapkan
-                            </button>
-                            <a href="karyawan.php" class="btn-filter-reset">
-                                <i class="fa-solid fa-rotate-left"></i> Reset
-                            </a>
+                            <a href="karyawan.php" class="btn-filter-reset"><i class="fa-solid fa-rotate-left"></i> Reset</a>
+                            <button class="btn-filter-apply" onclick="applyFilter()"><i class="fa-solid fa-check"></i> Terapkan</button>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- TOMBOL TAMBAH KARYAWAN - DI SAMPING KANAN FILTER -->
+            <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
         </div>
 
         <div class="card">
@@ -697,7 +760,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
                 <table class="data-table">
                     <thead>
-                        <tr><th style="width:50px;text-align:center;">No</th><th>Nama Lengkap</th><th>Jabatan</th><th>No. Telepon</th><th style="text-align:right;">Aksi</th></tr>
+                        <tr><th style="width:50px;text-align:center;">No</th><th>Nama Lengkap</th><th>Jabatan</th><th>No. Telepon</th><th style="text-align:left; width:180px;">Aksi</th></tr>
                     </thead>
                     <tbody>
                     <?php $row_num = 0; $has_data = false; if (!$query_error && $query): while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): $row_num++; $has_data = true; ?>
@@ -707,6 +770,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td><span class="jabatan-badge"><?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?></span></td>
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
                             <td>
+                                <!-- TOMBOL AKSI - SAMA PERSIS STYLE DENGAN LAPANGAN.PHP -->
                                 <div class="action-group">
                                     <button onclick="openDetail('<?= htmlspecialchars($row['ID_Karyawan']) ?>','<?= htmlspecialchars($row['Nama_Karyawan']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= $map_jabatan[$row['Jabatan']] ?? 'Staf' ?>','<?= htmlspecialchars($row['No_Telepon']) ?>','<?= htmlspecialchars($row['Status'] ?? 'Aktif') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('d/m/Y H:i') : '-' ?>')" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
                                     <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
@@ -873,6 +937,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// ═══ JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP ═══
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');

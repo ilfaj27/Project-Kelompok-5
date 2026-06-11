@@ -43,8 +43,11 @@ if (isset($_POST['register'])) {
         $id_cus_baru = "CS" . sprintf("%04d", $num_cus);
 
         // PERBAIKAN 5: Memasukkan data pendaftaran Customer baru
-        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,1,'System')";
-        $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $alamat, $telp));
+        $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
+        $tmp_lahir = $_POST['tempat_lahir'] ?? '';
+
+        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,?,?,1,'System')";
+        $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telp));
 
         if ($stmt_akun && $stmt_customer) {
             sqlsrv_commit($conn);
@@ -756,7 +759,17 @@ if (isset($_POST['register'])) {
                 grid-template-columns: 1fr;
             }
         }
-    </style>
+    
+        /* Input Date Styling */
+        .input-wrapper input[type="date"] {
+            padding: 14px 16px 14px 44px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+</style>
 </head>
 <body>
 
@@ -859,7 +872,27 @@ if (isset($_POST['register'])) {
     <span class="error-text" id="jkError"></span>
 </div>
 
-                            <!-- 4. ALAMAT RUMAH -->
+                            <!-- 4. TANGGAL LAHIR -->
+                            <div class="input-group">
+                                <label>Tanggal Lahir<span style="color: red;">*</span></label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-cake-candles icon-left"></i>
+                                    <input type="date" name="tanggal_lahir" id="tglLahirField" placeholder="Pilih tanggal lahir">
+                                </div>
+                                <span class="error-text" id="tglLahirError"></span>
+                            </div>
+
+                            <!-- 5. TEMPAT LAHIR -->
+                            <div class="input-group">
+                                <label>Tempat Lahir<span style="color: red;">*</span></label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-location-dot icon-left"></i>
+                                    <input type="text" name="tempat_lahir" id="tmpLahirField" placeholder="Contoh: Jakarta, Bekasi, Bandung" autocomplete="off">
+                                </div>
+                                <span class="error-text" id="tmpLahirError"></span>
+                            </div>
+
+                            <!-- 6. ALAMAT RUMAH -->
                           <!-- Kolom Alamat Rumah dengan pembatasan fisik maksimal 255 karakter -->
 <div class="input-group">
     <label>Alamat<span style="color: red;">*</span></label>
@@ -1053,6 +1086,8 @@ if (isset($_POST['register'])) {
         // Elemen Input Langkah 1
         const nama = document.getElementById('namaField');
         const telp = document.getElementById('telpField');
+        const tglLahir = document.getElementById('tglLahirField');
+        const tmpLahir = document.getElementById('tmpLahirField');
         const alamat = document.getElementById('alamatField');
         
         // Elemen Input Langkah 2
@@ -1064,6 +1099,8 @@ if (isset($_POST['register'])) {
         // Elemen Penampung Pesan Error
         const namaError = document.getElementById('namaError');
         const telpError = document.getElementById('telpError');
+        const tglLahirError = document.getElementById('tglLahirError');
+        const tmpLahirError = document.getElementById('tmpLahirError');
         const alamatError = document.getElementById('alamatError');
         const usernameError = document.getElementById('usernameError');
         const emailError = document.getElementById('emailError');
@@ -1089,6 +1126,11 @@ if (isset($_POST['register'])) {
             nama.value = nama.value.replace(/[^a-zA-Z\s]/g, '');
         });
 
+        // FILTER TEMPAT LAHIR: Hanya bisa mengetik huruf dan spasi saja
+        tmpLahir.addEventListener('input', () => {
+            tmpLahir.value = tmpLahir.value.replace(/[^a-zA-Z\s]/g, '');
+        });
+
         // FILTER ANGKA TELEPON: Hanya bisa mengetik angka saja
         telp.addEventListener('input', () => {
             telp.value = telp.value.replace(/[^0-9]/g, '');
@@ -1106,7 +1148,45 @@ if (isset($_POST['register'])) {
                 clearValidationError(nama, namaError);
             }
 
-            // 2. Validasi No Telepon (Wajib diawali 08, hanya angka, dan panjang 10-12 digit)
+            // 2. Validasi Tanggal Lahir
+            const tglVal = tglLahir.value.trim();
+            if (tglVal === '') {
+                setValidationError(tglLahir, tglLahirError, 'Tanggal lahir wajib diisi.');
+                isStep1Valid = false;
+            } else {
+                const birthDate = new Date(tglVal);
+                const today = new Date();
+                const age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                const actualAge = (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) ? age - 1 : age;
+
+                if (actualAge < 10) {
+                    setValidationError(tglLahir, tglLahirError, 'Usia minimal 10 tahun.');
+                    isStep1Valid = false;
+                } else if (actualAge > 100) {
+                    setValidationError(tglLahir, tglLahirError, 'Tanggal lahir tidak valid.');
+                    isStep1Valid = false;
+                } else {
+                    clearValidationError(tglLahir, tglLahirError);
+                }
+            }
+
+            // 3. Validasi Tempat Lahir
+            const tmpVal = tmpLahir.value.trim();
+            if (tmpVal === '') {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir wajib diisi.');
+                isStep1Valid = false;
+            } else if (tmpVal.length < 3) {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir minimal 3 karakter.');
+                isStep1Valid = false;
+            } else if (!/^[a-zA-Z\s]+$/.test(tmpVal)) {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir hanya boleh huruf dan spasi.');
+                isStep1Valid = false;
+            } else {
+                clearValidationError(tmpLahir, tmpLahirError);
+            }
+
+            // 4. Validasi No Telepon (Wajib diawali 08, hanya angka, dan panjang 10-12 digit)
             const phonePattern = /^08[0-9]{8,10}$/; 
             if (telp.value.trim() === '') {
                 setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
@@ -1118,7 +1198,7 @@ if (isset($_POST['register'])) {
                 clearValidationError(telp, telpError);
             }
 
-            // 3. Validasi Alamat Rumah (Sesuai 5 Aturan Spesifik)
+            // 6. Validasi Alamat Rumah (Sesuai 5 Aturan Spesifik)
             const alamatValue = alamat.value.trim();
             const allowedCharsPattern = /^[a-zA-Z0-9\s,\.\/\-]+$/;
             const onlyNumbersPattern = /^[0-9\s]+$/;
@@ -1250,6 +1330,7 @@ if (isset($_POST['register'])) {
         const fields = [
             { el: nama, err: namaError },
             { el: telp, err: telpError },
+            { el: tmpLahir, err: tmpLahirError },
             { el: alamat, err: alamatError },
             { el: username, err: usernameError },
             { el: email, err: emailError },
@@ -1261,6 +1342,11 @@ if (isset($_POST['register'])) {
             field.el.addEventListener('input', () => {
                 clearValidationError(field.el, field.err);
             });
+        });
+
+        // Auto-clear untuk Tanggal Lahir (change event untuk input date)
+        tglLahir.addEventListener('change', () => {
+            clearValidationError(tglLahir, tglLahirError);
         });
     });
 
