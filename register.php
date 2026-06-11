@@ -43,8 +43,11 @@ if (isset($_POST['register'])) {
         $id_cus_baru = "CS" . sprintf("%04d", $num_cus);
 
         // PERBAIKAN 5: Memasukkan data pendaftaran Customer baru
-        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,1,'System')";
-        $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $alamat, $telp));
+        $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
+        $tmp_lahir = $_POST['tempat_lahir'] ?? '';
+
+        $sql_customer = "INSERT INTO Customer (ID_Customer, ID_Akun, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Status, Created_By) VALUES (?,?,?,?,?,?,?,?,1,'System')";
+        $stmt_customer = sqlsrv_query($conn, $sql_customer, array($id_cus_baru, $id_akun_baru, $nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telp));
 
         if ($stmt_akun && $stmt_customer) {
             sqlsrv_commit($conn);
@@ -695,12 +698,78 @@ if (isset($_POST['register'])) {
             }
         }
 
+              .radio-group-container {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .radio-card {
+            flex: 1;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* Menyembunyikan lingkaran bulat radio default bawaan browser */
+        .radio-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* Kotak tombol kustom yang indah */
+        .radio-custom-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            background: #FFFFFF;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-dark);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Efek Hover (Kursor di atas tombol) */
+        .radio-card:hover .radio-custom-box {
+            border-color: #CBD5E1;
+            background-color: var(--bg-light);
+        }
+
+        /* Efek Aktif/Terpilih (Warna Oranye) */
+        .radio-card input[type="radio"]:checked + .radio-custom-box {
+            border-color: var(--orange);
+            background-color: rgba(255, 84, 0, 0.02); /* Latar belakang oranye sangat tipis */
+            color: var(--orange);
+            box-shadow: 0 0 12px rgba(255, 84, 0, 0.08);
+        }
+
+        .radio-custom-box i {
+            font-size: 15px;
+        }
+
         @media (max-width: 576px) {
             .footer-grid {
                 grid-template-columns: 1fr;
             }
         }
-    </style>
+    
+        /* Input Date Styling */
+        .input-wrapper input[type="date"] {
+            padding: 14px 16px 14px 44px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+</style>
 </head>
 <body>
 
@@ -782,19 +851,48 @@ if (isset($_POST['register'])) {
 </div>
 
                             <!-- 3. JENIS KELAMIN -->
+                           <div class="input-group">
+    <label>Jenis Kelamin<span style="color: red;">*</span></label>
+    <div class="radio-group-container">
+        <!-- Pilihan Laki-laki (Terpilih secara default) -->
+        <label class="radio-card">
+            <input type="radio" name="jk" value="1" checked>
+            <span class="radio-custom-box">
+                <i class="fa-solid fa-mars"></i> Laki-laki
+            </span>
+        </label>
+        <!-- Pilihan Perempuan -->
+        <label class="radio-card">
+            <input type="radio" name="jk" value="2">
+            <span class="radio-custom-box">
+                <i class="fa-solid fa-venus"></i> Perempuan
+            </span>
+        </label>
+    </div>
+    <span class="error-text" id="jkError"></span>
+</div>
+
+                            <!-- 4. TANGGAL LAHIR -->
                             <div class="input-group">
-                                <label>Jenis Kelamin<span style="color: red;">*</span></label>
+                                <label>Tanggal Lahir<span style="color: red;">*</span></label>
                                 <div class="input-wrapper">
-                                    <i class="fa-solid fa-venus-mars icon-left"></i>
-                                    <select name="jk" id="jkField">
-                                        <option value="1">Laki-laki</option>
-                                        <option value="2">Perempuan</option>
-                                    </select>
+                                    <i class="fa-solid fa-cake-candles icon-left"></i>
+                                    <input type="date" name="tanggal_lahir" id="tglLahirField" placeholder="Pilih tanggal lahir">
                                 </div>
-                                <span class="error-text" id="jkError"></span>
+                                <span class="error-text" id="tglLahirError"></span>
                             </div>
 
-                            <!-- 4. ALAMAT RUMAH -->
+                            <!-- 5. TEMPAT LAHIR -->
+                            <div class="input-group">
+                                <label>Tempat Lahir<span style="color: red;">*</span></label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-location-dot icon-left"></i>
+                                    <input type="text" name="tempat_lahir" id="tmpLahirField" placeholder="Contoh: Jakarta, Bekasi, Bandung" autocomplete="off">
+                                </div>
+                                <span class="error-text" id="tmpLahirError"></span>
+                            </div>
+
+                            <!-- 6. ALAMAT RUMAH -->
                           <!-- Kolom Alamat Rumah dengan pembatasan fisik maksimal 255 karakter -->
 <div class="input-group">
     <label>Alamat<span style="color: red;">*</span></label>
@@ -988,6 +1086,8 @@ if (isset($_POST['register'])) {
         // Elemen Input Langkah 1
         const nama = document.getElementById('namaField');
         const telp = document.getElementById('telpField');
+        const tglLahir = document.getElementById('tglLahirField');
+        const tmpLahir = document.getElementById('tmpLahirField');
         const alamat = document.getElementById('alamatField');
         
         // Elemen Input Langkah 2
@@ -999,6 +1099,8 @@ if (isset($_POST['register'])) {
         // Elemen Penampung Pesan Error
         const namaError = document.getElementById('namaError');
         const telpError = document.getElementById('telpError');
+        const tglLahirError = document.getElementById('tglLahirError');
+        const tmpLahirError = document.getElementById('tmpLahirError');
         const alamatError = document.getElementById('alamatError');
         const usernameError = document.getElementById('usernameError');
         const emailError = document.getElementById('emailError');
@@ -1024,6 +1126,11 @@ if (isset($_POST['register'])) {
             nama.value = nama.value.replace(/[^a-zA-Z\s]/g, '');
         });
 
+        // FILTER TEMPAT LAHIR: Hanya bisa mengetik huruf dan spasi saja
+        tmpLahir.addEventListener('input', () => {
+            tmpLahir.value = tmpLahir.value.replace(/[^a-zA-Z\s]/g, '');
+        });
+
         // FILTER ANGKA TELEPON: Hanya bisa mengetik angka saja
         telp.addEventListener('input', () => {
             telp.value = telp.value.replace(/[^0-9]/g, '');
@@ -1041,7 +1148,45 @@ if (isset($_POST['register'])) {
                 clearValidationError(nama, namaError);
             }
 
-            // 2. Validasi No Telepon (Wajib diawali 08, hanya angka, dan panjang 10-12 digit)
+            // 2. Validasi Tanggal Lahir
+            const tglVal = tglLahir.value.trim();
+            if (tglVal === '') {
+                setValidationError(tglLahir, tglLahirError, 'Tanggal lahir wajib diisi.');
+                isStep1Valid = false;
+            } else {
+                const birthDate = new Date(tglVal);
+                const today = new Date();
+                const age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                const actualAge = (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) ? age - 1 : age;
+
+                if (actualAge < 10) {
+                    setValidationError(tglLahir, tglLahirError, 'Usia minimal 10 tahun.');
+                    isStep1Valid = false;
+                } else if (actualAge > 100) {
+                    setValidationError(tglLahir, tglLahirError, 'Tanggal lahir tidak valid.');
+                    isStep1Valid = false;
+                } else {
+                    clearValidationError(tglLahir, tglLahirError);
+                }
+            }
+
+            // 3. Validasi Tempat Lahir
+            const tmpVal = tmpLahir.value.trim();
+            if (tmpVal === '') {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir wajib diisi.');
+                isStep1Valid = false;
+            } else if (tmpVal.length < 3) {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir minimal 3 karakter.');
+                isStep1Valid = false;
+            } else if (!/^[a-zA-Z\s]+$/.test(tmpVal)) {
+                setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir hanya boleh huruf dan spasi.');
+                isStep1Valid = false;
+            } else {
+                clearValidationError(tmpLahir, tmpLahirError);
+            }
+
+            // 4. Validasi No Telepon (Wajib diawali 08, hanya angka, dan panjang 10-12 digit)
             const phonePattern = /^08[0-9]{8,10}$/; 
             if (telp.value.trim() === '') {
                 setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
@@ -1053,7 +1198,7 @@ if (isset($_POST['register'])) {
                 clearValidationError(telp, telpError);
             }
 
-            // 3. Validasi Alamat Rumah (Sesuai 5 Aturan Spesifik)
+            // 6. Validasi Alamat Rumah (Sesuai 5 Aturan Spesifik)
             const alamatValue = alamat.value.trim();
             const allowedCharsPattern = /^[a-zA-Z0-9\s,\.\/\-]+$/;
             const onlyNumbersPattern = /^[0-9\s]+$/;
@@ -1185,6 +1330,7 @@ if (isset($_POST['register'])) {
         const fields = [
             { el: nama, err: namaError },
             { el: telp, err: telpError },
+            { el: tmpLahir, err: tmpLahirError },
             { el: alamat, err: alamatError },
             { el: username, err: usernameError },
             { el: email, err: emailError },
@@ -1196,6 +1342,11 @@ if (isset($_POST['register'])) {
             field.el.addEventListener('input', () => {
                 clearValidationError(field.el, field.err);
             });
+        });
+
+        // Auto-clear untuk Tanggal Lahir (change event untuk input date)
+        tglLahir.addEventListener('change', () => {
+            clearValidationError(tglLahir, tglLahirError);
         });
     });
 
