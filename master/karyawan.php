@@ -31,9 +31,6 @@ if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
     $profile_photo = '';
 }
 
-// ============================================
-// MAPPING SESUAI DATABASE
-// ============================================
 $map_jk = [0 => 'Perempuan', 1 => 'Laki-laki'];
 $map_status = [0 => 'Nonaktif', 1 => 'Aktif'];
 
@@ -73,6 +70,22 @@ function safe_sqlsrv_has_rows($stmt) {
     return sqlsrv_has_rows($stmt);
 }
 
+function formatDate($date) {
+    if (!$date) return '-';
+    if (is_object($date) && method_exists($date, 'format')) {
+        return $date->format('d M Y H:i');
+    }
+    return $date;
+}
+
+function formatDateOnly($date) {
+    if (!$date) return '-';
+    if (is_object($date) && method_exists($date, 'format')) {
+        return $date->format('d M Y');
+    }
+    return $date;
+}
+
 // ============================================
 // PROSES TAMBAH KARYAWAN
 // ============================================
@@ -87,6 +100,9 @@ if (isset($_POST['add_karyawan'])) {
     $tempat_lahir = $_POST['tempat_lahir'];
     $tanggal_lahir = $_POST['tanggal_lahir'];
     $alamat = $_POST['alamat'];
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $email = $_POST['email'] ?? '';
 
     $checkID = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE ID_Karyawan=?", array($id_kry), false);
     if ($checkID && safe_sqlsrv_has_rows($checkID)) { 
@@ -96,8 +112,8 @@ if (isset($_POST['add_karyawan'])) {
 
     $stmt = safe_sqlsrv_query($conn, 
         "INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Is_Deleted, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted2, Created_By, Created_Date) 
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, '', '', '', ?, 0, ?, GETDATE())", 
-        array($id_kry, $nama_kry, $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $status, $created_by), false);
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())", 
+        array($id_kry, $nama_kry, $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $created_by), false);
 
     header($stmt ? "Location: karyawan.php?status=success&msg=Karyawan baru berhasil didaftarkan!" : "Location: karyawan.php?status=error&msg=Gagal menambahkan data!"); 
     exit();
@@ -115,6 +131,9 @@ if (isset($_POST['update_karyawan'])) {
     $jabatan = $_POST['jabatan'];
     $telp = $_POST['telp'];
     $status = intval($_POST['status']);
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $email = $_POST['email'] ?? '';
 
     $stmt = safe_sqlsrv_query($conn, 
         "UPDATE Karyawan SET 
@@ -125,34 +144,52 @@ if (isset($_POST['update_karyawan'])) {
             Jenis_Kelamin=?, 
             Jabatan=?, 
             No_Telepon=?, 
+            Email=?,
+            Username=?,
+            Kata_Sandi=?,
             Status=?,
             Modified_By=?, 
             Modified_Date=GETDATE() 
         WHERE ID_Karyawan=?", 
-        array($_POST['nama'], $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $status, $modified_by, $_POST['id_kry']), false);
+        array($_POST['nama'], $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $modified_by, $_POST['id_kry']), false);
 
     header($stmt ? "Location: karyawan.php?status=success&msg=Data staf berhasil diperbarui!" : "Location: karyawan.php?status=error&msg=Gagal memperbarui data!"); 
     exit();
 }
 
 // ============================================
-// PROSES TOGGLE STATUS (AJAX)
+// PROSES TOGGLE STATUS (AJAX) - PERBAIKAN TOGGLE 0↔1
 // ============================================
 if (isset($_POST['toggle_status']) && isset($_POST['id_kry'])) {
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
     $id_kry = $_POST['id_kry'];
 
-    // Ambil status sekarang
-    $check = safe_sqlsrv_query($conn, "SELECT Status FROM Karyawan WHERE ID_Karyawan=?", array($id_kry), false);
-    if ($check && $row = safe_sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) {
-        $new_status = $row['Status'] == 1 ? 0 : 1;
-        $stmt = safe_sqlsrv_query($conn, 
-            "UPDATE Karyawan SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?",
-            array($new_status, $modified_by, $id_kry), false);
-        echo json_encode(['success' => $stmt !== false, 'status' => $new_status]);
-    } else {
-        echo json_encode(['success' => false]);
+    // Cek status saat ini dulu
+    $cek = safe_sqlsrv_query($conn, "SELECT Status FROM Karyawan WHERE ID_Karyawan = ?", array($id_kry), false);
+    if ($cek === false) {
+        echo json_encode(['success' => false, 'message' => 'Gagal cek status']);
+        exit();
     }
+
+    $row = safe_sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
+    if (!$row) {
+        echo json_encode(['success' => false, 'message' => 'Data tidak ditemukan']);
+        exit();
+    }
+
+    // Toggle: kalau 1 jadi 0, kalau 0 jadi 1
+    $current_status = intval($row['Status']);
+    $new_status = $current_status === 1 ? 0 : 1;
+
+    $stmt = safe_sqlsrv_query($conn,
+        "UPDATE Karyawan SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?",
+        array($new_status, $modified_by, $id_kry), false);
+
+    echo json_encode([
+        'success' => $stmt !== false,
+        'status' => $new_status,
+        'message' => $new_status === 1 ? 'Aktif' : 'Nonaktif'
+    ]);
     exit();
 }
 
@@ -201,9 +238,6 @@ if (!in_array($sort_by, $allowed_sort)) {
 }
 $sort_order = ($sort_order === 'DESC') ? 'DESC' : 'ASC';
 
-// ============================================
-// BUILD FILTER QUERY
-// ============================================
 $where_conditions = ["Is_Deleted = 0"];
 $params = [];
 
@@ -220,9 +254,6 @@ if ($filter_status >= 0) {
 
 $where_clause = implode(" AND ", $where_conditions);
 
-// ============================================
-// HITUNG TOTAL
-// ============================================
 $q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan WHERE " . $where_clause, $params, false);
 $total_kry = 0;
 if ($q_total !== false) {
@@ -237,9 +268,6 @@ if ($q_total_aktif !== false) {
     $total_aktif = $row_aktif['t'] ?? 0;
 }
 
-// ============================================
-// PAGINATION
-// ============================================
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
@@ -254,9 +282,6 @@ $total_pages = max(1, ceil($total_rows / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-// ============================================
-// AMBIL DATA
-// ============================================
 $query_sql = "SELECT * FROM Karyawan WHERE " . $where_clause . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
 $query = safe_sqlsrv_query($conn, $query_sql, $params, false);
 
@@ -272,21 +297,17 @@ if ($query === false) {
     }
 }
 
-// Helper format tanggal
-function formatDate($date) {
-    if (!$date) return '-';
-    if (is_object($date) && method_exists($date, 'format')) {
-        return $date->format('d M Y H:i');
-    }
-    return $date;
-}
-
-function formatDateOnly($date) {
-    if (!$date) return '-';
-    if (is_object($date) && method_exists($date, 'format')) {
-        return $date->format('d M Y');
-    }
-    return $date;
+// Get audit data for edit modal
+$edit_audit = null;
+if ($edit_data) {
+    $edit_audit = [
+        'Created_By' => $edit_data['Created_By'] ?? 'SYSTEM',
+        'Created_Date' => formatDate($edit_data['Created_Date'] ?? null),
+        'Modified_By' => $edit_data['Modified_By'] ?? '-',
+        'Modified_Date' => formatDate($edit_data['Modified_Date'] ?? null),
+        'Deleted_By' => $edit_data['Deleted_By'] ?? '-',
+        'Deleted_Date' => formatDate($edit_data['Deleted_Date'] ?? null)
+    ];
 }
 ?>
 <!DOCTYPE html>
@@ -314,7 +335,7 @@ function formatDateOnly($date) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* ═══ SIDEBAR ═══ */
+/* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -330,13 +351,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* ═══ MAIN & TOPBAR ═══ */
+/* MAIN & TOPBAR */
 .main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -349,7 +371,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -360,7 +383,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* ═══ CLOCK ═══ */
+/* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
@@ -391,7 +414,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-/* ═══ TOGGLE SWITCH ═══ */
+/* TOGGLE SWITCH */
 .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E5E7EB; transition: .3s; border-radius: 24px; }
@@ -401,7 +424,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .toggle-label { font-size: 11px; font-weight: 800; margin-left: 8px; }
 
-/* ═══ TOOLBAR & FILTER ═══ */
+/* TOOLBAR & FILTER */
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 .toolbar-left { display: flex; align-items: center; gap: 12px; }
 .filter-dropdown-wrap { position: relative; display: inline-block; }
@@ -446,10 +469,13 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .emp-name { font-weight: 700; color: var(--text); }
 .cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
 .jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
+.status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+.status-aktif { background: var(--green-lt); color: var(--green); }
+.status-nonaktif { background: var(--red-lt); color: var(--red); }
 
-/* ═══ ACTIONS ═══ */
+/* ACTIONS */
 .action-group { display: flex; gap: 8px; justify-content: flex-start; align-items: center; }
-.btn-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; }
+.btn-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
 .btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
 .btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
 .btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
@@ -472,10 +498,10 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .empty-state i { font-size: 40px; opacity: .3; display: block; margin-bottom: 14px; }
 .empty-state p { font-size: 13px; font-weight: 700; }
 
-/* ═══ MODALS ═══ */
+/* MODALS */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-overlay.hidden { display: none; }
-.modal-box { background: #fff; border-radius: 20px; width: 640px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; max-height: 90vh; overflow-y: auto; }
+.modal-box { background: #fff; border-radius: 20px; width: 680px; max-width: 95vw; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; max-height: 90vh; overflow-y: auto; }
 .modal-head { padding: 28px 32px 24px; border-bottom: 1px solid var(--border); }
 .modal-tag { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); letter-spacing: -.3px; }
@@ -503,10 +529,20 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .modal-input.error { border-color: var(--red) !important; background-color: #FEF2F2 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important; }
 .modal-input.error:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important; }
 
-/* ═══ DETAIL MODAL ═══ */
+/* AUDIT TRAIL IN MODAL */
+.audit-box { grid-column: span 2; background: var(--bg); border-radius: 12px; padding: 16px; border: 1px solid var(--border); margin-top: 8px; }
+.audit-title { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.audit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media(max-width: 600px) { .audit-grid { grid-template-columns: 1fr 1fr; } }
+.audit-item { display: flex; flex-direction: column; gap: 4px; }
+.audit-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.audit-value { font-size: 12px; font-weight: 700; color: var(--text); }
+.audit-value-mono { font-family: 'Barlow Condensed'; font-size: 13px; font-weight: 800; color: var(--orange); }
+
+/* DETAIL MODAL - TANPA AUDIT TRAIL */
 .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .detail-modal-overlay.open { display: flex; }
-.detail-modal-box { background: #fff; border-radius: 20px; width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; }
+.detail-modal-box { background: #fff; border-radius: 20px; width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; }
 .detail-modal-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 14px; }
 .detail-modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
 .detail-photo-card { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
@@ -519,12 +555,6 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
 .info-val { font-size: 13px; font-weight: 700; color: var(--text); }
 .info-val-mono { font-family: 'Barlow Condensed'; font-size: 14px; font-weight: 800; color: var(--orange); }
-.audit-section { margin-top: 20px; padding-top: 16px; border-top: 2px dashed var(--border); }
-.audit-title { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-.audit-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-lt); }
-.audit-row:last-child { border-bottom: none; }
-.audit-key { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.audit-val { font-size: 12px; font-weight: 700; color: var(--text); }
 
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .sp-ready { background: var(--green-lt); color: var(--green); }
@@ -533,7 +563,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .btn-kembali { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #0D1117; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; font-family: 'Barlow', sans-serif; text-transform: uppercase; cursor: pointer; transition: .2s; margin-top: 20px; }
 .btn-kembali:hover { background: var(--orange); }
 
-/* ═══ SEARCH BOX ═══ */
+/* SEARCH BOX */
 .search-box { position: relative; width: 300px; }
 .search-box i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
 .search-box input { width: 100%; padding: 10px 14px 10px 40px; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; outline: none; transition: all .2s; color: var(--text); }
@@ -551,11 +581,12 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     .topbar { padding: 0 20px; }
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .filter-card { width: 100%; right: 0; }
+    .audit-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
-<!-- ═══ MODAL TAMBAH/EDIT ═══ -->
+<!-- MODAL TAMBAH/EDIT -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? '' : 'hidden' ?>" id="modal">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -576,6 +607,26 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                         <label class="field-label">Nama Lengkap <span class="required">*</span></label>
                         <input type="text" name="nama" id="nama" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Karyawan'] ?? '') ?>" required minlength="3" maxlength="100" placeholder="Nama lengkap">
                         <div class="val-msg" id="val-nama"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
+                    </div>
+                    <div>
+                        <label class="field-label">Username <span class="required">*</span></label>
+                        <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3" maxlength="50" placeholder="username_karyawan">
+                        <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i> Username minimal 3 karakter</div>
+                    </div>
+                    <div>
+                        <label class="field-label">Password <span class="required">*</span></label>
+                        <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="100" placeholder="••••••">
+                        <div class="val-msg" id="val-password"><i class="fa-solid fa-circle-exclamation"></i> Password minimal 6 karakter</div>
+                    </div>
+                    <div>
+                        <label class="field-label">Email <span class="required">*</span></label>
+                        <input type="email" name="email" id="email" class="modal-input" value="<?= htmlspecialchars($edit_data['Email'] ?? '') ?>" required placeholder="email@example.com">
+                        <div class="val-msg" id="val-email"><i class="fa-solid fa-circle-exclamation"></i> Email wajib diisi dengan format yang valid</div>
+                    </div>
+                    <div>
+                        <label class="field-label">Nomor Telepon <span class="required">*</span></label>
+                        <input type="text" name="telp" id="telp" class="modal-input" value="<?= htmlspecialchars($edit_data['No_Telepon'] ?? '') ?>" placeholder="08123456789" required pattern="[0-9]{10,15}" maxlength="15">
+                        <div class="val-msg" id="val-telp"><i class="fa-solid fa-circle-exclamation"></i> Nomor telepon 10-15 digit</div>
                     </div>
                     <div>
                         <label class="field-label">Tempat Lahir <span class="required">*</span></label>
@@ -614,17 +665,46 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                         </select>
                     </div>
                     <div>
-                        <label class="field-label">Nomor Telepon <span class="required">*</span></label>
-                        <input type="text" name="telp" id="telp" class="modal-input" value="<?= htmlspecialchars($edit_data['No_Telepon'] ?? '') ?>" placeholder="08123456789" required pattern="[0-9]{10,15}" maxlength="15">
-                        <div class="val-msg" id="val-telp"><i class="fa-solid fa-circle-exclamation"></i> Nomor telepon 10-15 digit</div>
-                    </div>
-                    <div>
                         <label class="field-label">Status <span class="required">*</span></label>
                         <select name="status" id="status" class="modal-input" required>
                             <option value="1" <?= (isset($edit_data['Status']) && $edit_data['Status']==1)?'selected':''?>>Aktif</option>
                             <option value="0" <?= (isset($edit_data['Status']) && $edit_data['Status']==0)?'selected':''?>>Nonaktif</option>
                         </select>
                     </div>
+
+                    <!-- AUDIT TRAIL - SHOW IN EDIT MODE -->
+                    <?php if ($edit_data && $edit_audit): ?>
+                    <div class="audit-box">
+                        <div class="audit-title"><i class="fa-solid fa-clock-rotate-left"></i> Audit Trail</div>
+                        <div class="audit-grid">
+                            <div class="audit-item">
+                                <span class="audit-label">Dibuat Oleh</span>
+                                <span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Created_By']) ?></span>
+                            </div>
+                            <div class="audit-item">
+                                <span class="audit-label">Tanggal Dibuat</span>
+                                <span class="audit-value"><?= htmlspecialchars($edit_audit['Created_Date']) ?></span>
+                            </div>
+                            <div class="audit-item">
+                                <span class="audit-label">Diubah Oleh</span>
+                                <span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Modified_By']) ?></span>
+                            </div>
+                            <div class="audit-item">
+                                <span class="audit-label">Tanggal Diubah</span>
+                                <span class="audit-value"><?= htmlspecialchars($edit_audit['Modified_Date']) ?></span>
+                            </div>
+                            <div class="audit-item">
+                                <span class="audit-label">Dihapus Oleh</span>
+                                <span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Deleted_By']) ?></span>
+                            </div>
+                            <div class="audit-item">
+                                <span class="audit-label">Tanggal Dihapus</span>
+                                <span class="audit-value"><?= htmlspecialchars($edit_audit['Deleted_Date']) ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <button type="submit" name="<?= $edit_data ? 'update_karyawan' : 'add_karyawan' ?>" class="btn-submit">
                         <i class="fa-solid <?= $edit_data ? 'fa-floppy-disk' : 'fa-user-plus' ?>"></i>
                         <?= $edit_data ? 'Simpan Perubahan' : 'Daftarkan Karyawan' ?>
@@ -635,7 +715,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     </div>
 </div>
 
-<!-- ═══ DETAIL MODAL ═══ -->
+<!-- DETAIL MODAL - TANPA AUDIT TRAIL -->
 <div class="detail-modal-overlay" id="detailModal" onclick="closeDetail(event)">
     <div class="detail-modal-box" onclick="event.stopPropagation()">
         <div style="position: sticky; top: 0; background: white; z-index: 20; padding: 24px 28px 15px; border-bottom: 1px solid rgba(0,0,0,0.03);">
@@ -664,6 +744,18 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
                     <span class="info-val" id="dNama">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-user-tag"></i> Username</span>
+                    <span class="info-val-mono" id="dUsername">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-lock"></i> Password</span>
+                    <span class="info-val-mono" id="dPassword">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span>
+                    <span class="info-val" id="dEmail">-</span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</span>
@@ -695,39 +787,15 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                 </div>
             </div>
 
-            <!-- AUDIT TRAIL SECTION -->
-            <div class="audit-section">
-                <div class="audit-title"><i class="fa-solid fa-clock-rotate-left"></i> Audit Trail</div>
-                <div class="audit-row">
-                    <span class="audit-key">Dibuat Oleh</span>
-                    <span class="audit-val" id="dCreatedBy">-</span>
-                </div>
-                <div class="audit-row">
-                    <span class="audit-key">Tanggal Dibuat</span>
-                    <span class="audit-val" id="dCreatedDate">-</span>
-                </div>
-                <div class="audit-row">
-                    <span class="audit-key">Diubah Oleh</span>
-                    <span class="audit-val" id="dModifiedBy">-</span>
-                </div>
-                <div class="audit-row">
-                    <span class="audit-key">Tanggal Diubah</span>
-                    <span class="audit-val" id="dModifiedDate">-</span>
-                </div>
-                <div class="audit-row" style="border-bottom: none;">
-                    <span class="audit-key">Dihapus Oleh</span>
-                    <span class="audit-val" id="dDeletedBy">-</span>
-                </div>
-            </div>
-
             <button onclick="closeDetail()" class="btn-kembali">
                 <i class="fa-solid fa-arrow-left"></i> KEMBALI KE LIST
             </button>
         </div>
     </div>
 </div>
-<!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
+
+<!-- SIDEBAR -->
+<<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
@@ -744,7 +812,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-            <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
+            <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
             </div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">PEMILIK</div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
@@ -752,7 +820,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     </div>
 </aside>
 
-<!-- ═══ MAIN CONTENT ═══ -->
+<!-- MAIN CONTENT -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -772,7 +840,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar">
-                    <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
+                    <?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
                     </div>
                     <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">PEMILIK</div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
@@ -791,7 +859,6 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
             <div><div class="page-title-tag"></div><div class="page-title">Daftar Karyawan</div></div>
         </div>
 
-        <!-- STAT CARDS -->
         <div class="stat-grid">
             <div class="stat-card sc-purple">
                 <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-user-tie"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
@@ -807,7 +874,6 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
             </div>
         </div>
 
-        <!-- ACTION BAR -->
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -871,7 +937,6 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
             </div>
         </div>
 
-        <!-- TABLE -->
         <div class="card">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-user-tie"></i> Data Karyawan</div>
@@ -891,8 +956,8 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                             <th>Nama Lengkap</th>
                             <th>Jabatan</th>
                             <th>No. Telepon</th>
-                            <th style="text-align:center;">Status</th>
-                            <th style="text-align:left; width:160px;">Aksi</th>
+                            <th style="width:80px;text-align:center;">Status</th>
+                            <th style="text-align:left; width:200px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -906,404 +971,38 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                             $status_label = $map_status[$row['Status']] ?? 'Tidak diketahui';
                             $is_active = $row['Status'] == 1;
                     ?>
-                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>" id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>">
+                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>" id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
                             <td class="row-num"><?= $row_num ?></td>
                             <td>
                                 <div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div>
-                                <div class="cell-detail"><?= $row['Jenis_Kelamin'] == 1 ? '♂ Laki-laki' : '♀ Perempuan' ?> &bull; <?= htmlspecialchars($row['ID_Karyawan']) ?></div>
                             </td>
                             <td><span class="jabatan-badge"><?= htmlspecialchars($row['Jabatan']) ?></span></td>
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
-                            <td style="text-align:center;">
-                                <label class="toggle-switch" title="Klik untuk toggle status">
-                                    <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="toggleStatus('<?= htmlspecialchars($row['ID_Karyawan']) ?>', this)">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                                <div class="toggle-label" id="label-<?= htmlspecialchars($row['ID_Karyawan']) ?>" style="color: <?= $is_active ? 'var(--green)' : 'var(--red)' ?>;"><?= strtoupper($status_label) ?></div>
+                            <td style="text-align: center;">
+                                <?php if ($is_active): ?>
+                                    <span class="status-badge status-aktif"><i class="fa-solid fa-circle-check"></i> Aktif</span>
+                                <?php else: ?>
+                                    <span class="status-badge status-nonaktif"><i class="fa-solid fa-circle-xmark"></i> Nonaktif</span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <div class="action-group">
+                                    <div class="toggle-switch" title="Klik untuk ubah status" onclick="handleToggleClick('<?= htmlspecialchars($row['ID_Karyawan']) ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>', <?= $is_active ? 'true' : 'false' ?>, this)" style="cursor: pointer;">
+                                        <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onclick="return false;" readonly style="pointer-events: none;">
+                                        <span class="toggle-slider"></span>
+                                    </div>
                                     <button onclick="openDetail(
                                         '<?= htmlspecialchars($row['ID_Karyawan']) ?>',
                                         '<?= htmlspecialchars($row['Nama_Karyawan']) ?>',
+                                        '<?= htmlspecialchars($row['Username'] ?? '') ?>',
+                                        '<?= htmlspecialchars($row['Kata_Sandi'] ?? '') ?>',
+                                        '<?= htmlspecialchars($row['Email'] ?? '') ?>',
                                         '<?= $row['Jenis_Kelamin'] ?>',
                                         '<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
                                         '<?php $tgl = $row['Tanggal_Lahir'] ?? ''; if ($tgl && is_object($tgl)) echo $tgl->format('Y-m-d'); elseif ($tgl) echo htmlspecialchars($tgl); ?>',
                                         '<?= htmlspecialchars($row['Jabatan']) ?>',
                                         '<?= htmlspecialchars($row['No_Telepon']) ?>',
                                         '<?= $status_label ?>',
-                                        '<?= addslashes($row['Alamat'] ?? '') ?>',
-                                        '<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>',
-                                        '<?= formatDate($row['Created_Date'] ?? null) ?>',
-                                        '<?= htmlspecialchars($row['Modified_By'] ?? '-') ?>',
-                                        '<?= formatDate($row['Modified_Date'] ?? null) ?>',
-                                        '<?= htmlspecialchars($row['Deleted_By'] ?? '-') ?>',
-                                        '<?= formatDate($row['Deleted_Date'] ?? null) ?>'
-                                    )" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
-                                    <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
-                                    <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endwhile; endif; ?>
-                    <?php if (!$has_data): ?>
-                        <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-user-tie"></i><p>Belum ada data karyawan terdaftar</p></div></td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- PAGINATION -->
-        <?php if ($total_pages > 1): ?>
-        <div class="pagination-wrap">
-            <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_rows) ?></strong> dari <strong><?= $total_rows ?></strong> data</div>
-            <div class="pagination-nav">
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
-                <?php 
-                $start_page = max(1, $page - 2); 
-                $end_page = min($total_pages, $page + 2); 
-                if ($end_page - $start_page < 4 && $total_pages >= 5) { 
-                    if ($start_page == 1) $end_page = min(5, $total_pages); 
-                    else $start_page = max(1, $total_pages - 4); 
-                } 
-                if ($start_page > 1): 
-                ?>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>" class="page-btn">1</a>
-                <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
-                <?php endif; ?>
-                <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
-                <?php endfor; ?>
-                <?php if ($end_page < $total_pages): ?>
-                <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $total_pages])) ?>" class="page-btn"><?= $total_pages ?></a>
-                <?php endif; ?>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-right"></i></a>
-                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $total_pages])) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-right"></i></a>
-            </div>
-        </div>
-        <?php else: ?>
-        <div class="pagination-wrap">
-            <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_rows ?></strong> dari <strong><?= $total_rows ?></strong> data</div>
-        </div>
-        <?php endif; ?>
-    </div>
-</main>
-<script>
-// ═══ MODAL FUNCTIONS ═══
-function openModal()  { document.getElementById('modal').classList.remove('hidden'); }
-function closeModal() { window.location.href = 'karyawan.php'; }
-
-function confirmDelete(id, nama) {
-    Swal.fire({
-        title: 'Hapus Karyawan?',
-        html: `Karyawan <strong style="color:#FF4500;">${nama}</strong> (${id}) akan dihapus <strong style="color:#DC2626;">(soft delete)</strong>!`,
-        icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF4444', cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true, borderRadius: '16px'
-    }).then((r) => { if (r.isConfirmed) window.location.href = '?page=<?= $page ?>&delete_id=' + id; });
-}
-
-// ═══ TOGGLE STATUS (AJAX) ═══
-function toggleStatus(id, checkbox) {
-    const label = document.getElementById('label-' + id);
-    checkbox.disabled = true;
-
-    fetch('karyawan.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'toggle_status=1&id_kry=' + encodeURIComponent(id)
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const isActive = data.status == 1;
-            label.textContent = isActive ? 'AKTIF' : 'NONAKTIF';
-            label.style.color = isActive ? 'var(--green)' : 'var(--red)';
-            checkbox.checked = isActive;
-            Swal.fire({
-                icon: 'success', title: 'Berhasil!', 
-                text: 'Status berhasil diubah menjadi ' + (isActive ? 'Aktif' : 'Nonaktif'),
-                timer: 1500, showConfirmButton: false, iconColor: '#FF4500'
-            });
-        } else {
-            checkbox.checked = !checkbox.checked;
-            Swal.fire({ icon: 'error', title: 'Gagal!', text: 'Gagal mengubah status', timer: 2000, showConfirmButton: false });
-        }
-    })
-    .catch(err => {
-        checkbox.checked = !checkbox.checked;
-        Swal.fire({ icon: 'error', title: 'Error!', text: 'Terjadi kesalahan koneksi', timer: 2000, showConfirmButton: false });
-    })
-    .finally(() => { checkbox.disabled = false; });
-}
-
-// ═══ DETAIL MODAL ═══
-function openDetail(id, nama, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat, createdBy, createdDate, modifiedBy, modifiedDate, deletedBy, deletedDate) {
-    const mapJK = { '1': 'LAKI-LAKI', '0': 'PEREMPUAN' };
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-
-    document.getElementById('dId').textContent = id;
-    document.getElementById('dNameHeader').textContent = nama;
-    document.getElementById('dNama').textContent = nama;
-    document.getElementById('dTempatLahir').textContent = tempatLahir || '-';
-    document.getElementById('dAlamat').textContent = alamat || '-';
-    document.getElementById('dTelp').textContent = telp || '-';
-
-    if (tanggalLahir) {
-        const d = new Date(tanggalLahir);
-        if (!isNaN(d)) document.getElementById('dTanggalLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
-        else document.getElementById('dTanggalLahir').textContent = tanggalLahir;
-    } else {
-        document.getElementById('dTanggalLahir').textContent = '-';
-    }
-
-    const jkColor = jk == '1' ? '#3B82F6' : '#EC4899';
-    const jkBg = jk == '1' ? '#EFF6FF' : '#FDF2F8';
-    document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${mapJK[jk] || '-'}</span>`;
-    document.getElementById('dJabatan').innerHTML = `<span class="jabatan-badge">${jabatan}</span>`;
-
-    const isAktif = (status === 'Aktif');
-    document.getElementById('dStatus').innerHTML = `
-        <span class="status-pill ${isAktif ? 'sp-ready' : 'sp-maint'}" style="background: ${isAktif ? 'var(--green-lt)' : 'var(--red-lt)'}; color: ${isAktif ? 'var(--green)' : 'var(--red)'}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;">
-            <i class="fa-solid ${isAktif ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${status.toUpperCase()}
-        </span>`;
-
-    // Audit Trail
-    document.getElementById('dCreatedBy').textContent = createdBy || 'SYSTEM';
-    document.getElementById('dCreatedDate').textContent = createdDate || '-';
-    document.getElementById('dModifiedBy').textContent = modifiedBy || '-';
-    document.getElementById('dModifiedDate').textContent = modifiedDate || '-';
-    document.getElementById('dDeletedBy').textContent = deletedBy || '-';
-
-    document.getElementById('detailModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeDetail() {
-    document.getElementById('detailModal').style.display = 'none';
-    document.body.style.overflow = '';
-}
-
-// ═══ SEARCH TABLE ═══
-function searchTable() {
-    var input = document.getElementById('src').value.toUpperCase();
-    var rows = document.getElementById('tbl').getElementsByTagName('tr');
-    for (var i = 1; i < rows.length; i++) {
-        var tds = rows[i].getElementsByTagName('td');
-        if (tds.length < 6) continue;
-        var match = false;
-        for (var j = 1; j <= 3; j++) {
-            if (tds[j] && tds[j].textContent.toUpperCase().indexOf(input) > -1) { match = true; break; }
-        }
-        rows[i].style.display = match ? '' : 'none';
-    }
-}
-
-// ═══ FILTER FUNCTIONS ═══
-function applyFilter() {
-    const sortBy = document.getElementById('filterSortBy').value;
-    const jabatan = document.getElementById('filterJabatan').value;
-    const jk = document.getElementById('filterJK').value;
-    const status = document.getElementById('filterStatus').value;
-    const params = new URLSearchParams(window.location.search);
-    params.set('sort_by', sortBy);
-    params.set('filter_jabatan', jabatan);
-    params.set('filter_jk', jk);
-    params.set('filter_status', status);
-    params.set('page', '1');
-    window.location.href = 'karyawan.php?' + params.toString();
-}
-function resetFilter() { window.location.href = 'karyawan.php'; }
-
-// ═══ FILTER TOGGLE ═══
-const btnFilterToggle = document.getElementById('btnFilterToggle');
-const filterCard = document.getElementById('filterCard');
-if (btnFilterToggle && filterCard) {
-    btnFilterToggle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        this.classList.toggle('active');
-        filterCard.classList.toggle('open');
-    });
-    filterCard.addEventListener('click', function(e) { e.stopPropagation(); });
-    document.addEventListener('click', function() {
-        btnFilterToggle.classList.remove('active');
-        filterCard.classList.remove('open');
-    });
-}
-
-// ═══ VALIDATION ═══
-function validateDate(input) {
-    const selected = new Date(input.value);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const valMsg = document.getElementById('val-tanggal_lahir');
-    if (!input.value) { if (valMsg) { valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-    if (selected > today) { if (valMsg) { valMsg.textContent = '⚠ Tanggal lahir tidak boleh di masa depan!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-    const age = today.getFullYear() - selected.getFullYear();
-    if (age < 17) { if (valMsg) { valMsg.textContent = '⚠ Karyawan harus berusia minimal 17 tahun!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-    if (age > 60) { if (valMsg) { valMsg.textContent = '⚠ Usia maksimal 60 tahun!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-    if (valMsg) { valMsg.classList.remove('show'); input.classList.remove('error'); }
-    return true;
-}
-
-function validateForm(form) {
-    let valid = true;
-    const inputs = form.querySelectorAll('.modal-input[required]');
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        if (input.type === 'date' && input.value) { if (!validateDate(input)) valid = false; }
-        else if (!input.checkValidity()) { if (valMsg) valMsg.classList.add('show'); input.classList.add('error'); valid = false; }
-        else { if (valMsg) valMsg.classList.remove('show'); input.classList.remove('error'); }
-    });
-    return valid;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.modal-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) { if (!this.checkValidity() && this.value !== '') { valMsg.classList.add('show'); this.classList.add('error'); } else { valMsg.classList.remove('show'); this.classList.remove('error'); } }
-        });
-        input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) { if (!this.checkValidity()) { valMsg.classList.add('show'); this.classList.add('error'); } else { valMsg.classList.remove('show'); this.classList.remove('error'); } }
-        });
-    });
-});
-
-// ═══ CLOCK ═══
-function updateClock() {
-    const now = new Date();
-    document.getElementById('h').innerText = String(now.getHours()).padStart(2, '0');
-    document.getElementById('m').innerText = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('s').innerText = String(now.getSeconds()).padStart(2, '0');
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000); updateClock();
-
-// ═══ SWEET ALERT ═══
-const urlParams = new URLSearchParams(window.location.search);
-const status = urlParams.get('status');
-const msg = urlParams.get('msg');
-if (status && msg) {
-    Swal.fire({ icon: status === 'success' ? 'success' : 'error', title: status === 'success' ? 'Berhasil!' : 'Gagal!', text: msg, timer: 3000, showConfirmButton: false, iconColor: '#FF4500' });
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-// ═══ KEYBOARD SHORTCUTS ═══
-window.onclick = function(e) { if (e.target == document.getElementById('modal')) closeModal(); };
-document.addEventListener('keydown', function(e) { 
-    if (e.key === 'Escape') { closeDetail(); if (btnFilterToggle) btnFilterToggle.classList.remove('active'); if (filterCard) filterCard.classList.remove('open'); }
-});
-</script>
-</body>
-</html>
-selected' : '' ?>>ID Karyawan</option>
-                                <option value="Nama_Karyawan" <?= $sort_by == 'Nama_Karyawan' ? 'selected' : '' ?>>Nama Lengkap</option>
-                                <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan</option>
-                                <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
-                                <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon</option>
-                                <option value="Status" <?= $sort_by == 'Status' ? 'selected' : '' ?>>Status</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Jabatan</label>
-                            <select id="filterJabatan" class="filter-input">
-                                <option value="" <?= empty($filter_jabatan) ? 'selected' : '' ?>>Semua Jabatan</option>
-                                <option value="Manajer" <?= $filter_jabatan == 'Manajer' ? 'selected' : '' ?>>Manajer</option>
-                                <option value="Karyawan" <?= $filter_jabatan == 'Karyawan' ? 'selected' : '' ?>>Karyawan</option>
-                                <option value="Kasir" <?= $filter_jabatan == 'Kasir' ? 'selected' : '' ?>>Kasir</option>
-                                <option value="Staf" <?= $filter_jabatan == 'Staf' ? 'selected' : '' ?>>Staf</option>
-                                <option value="Keamanan" <?= $filter_jabatan == 'Keamanan' ? 'selected' : '' ?>>Keamanan</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Jenis Kelamin</label>
-                            <select id="filterJK" class="filter-input">
-                                <option value="-1" <?= $filter_jk == -1 ? 'selected' : '' ?>>Semua</option>
-                                <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Perempuan</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Status</label>
-                            <select id="filterStatus" class="filter-input">
-                                <option value="-1" <?= $filter_status == -1 ? 'selected' : '' ?>>Semua</option>
-                                <option value="1" <?= $filter_status == 1 ? 'selected' : '' ?>>Aktif</option>
-                                <option value="0" <?= $filter_status == 0 ? 'selected' : '' ?>>Nonaktif</option>
-                            </select>
-                        </div>
-                        <div class="filter-buttons">
-                            <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-                            <button type="button" class="btn-filter-apply" onclick="applyFilter()"><i class="fa-solid fa-check"></i> Terapkan</button>
-                        </div>
-                    </div>
-                </div>
-                <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-user-tie"></i> Data Karyawan</div>
-                <span class="card-badge"><?= $total_kry ?> total</span>
-            </div>
-            <?php if ($query_error): ?>
-            <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
-                <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database.</p>
-                <p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?= htmlspecialchars($query_error_msg) ?></p>
-            </div>
-            <?php else: ?>
-            <div class="table-wrap">
-                <table class="data-table" id="tbl">
-                    <thead>
-                        <tr>
-                            <th style="width:50px;text-align:center;">No</th>
-                            <th>Nama Lengkap</th>
-                            <th>Jabatan</th>
-                            <th>No. Telepon</th>
-                            <th style="text-align:left; width:200px;">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <?php 
-                    $row_num = 0; 
-                    $has_data = false; 
-                    if (!$query_error && $query): 
-                        while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): 
-                            $row_num++; 
-                            $has_data = true; 
-                            $is_active = $row['Status'] == 1;
-                    ?>
-                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>" id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>">
-                            <td class="row-num"><?= $row_num ?></td>
-                            <td>
-                                <div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div>
-                                <div class="cell-detail"><?= $row['Jenis_Kelamin'] == 1 ? '♂ Laki-laki' : '♀ Perempuan' ?> &bull; <?= htmlspecialchars($row['ID_Karyawan']) ?></div>
-                            </td>
-                            <td><span class="jabatan-badge"><?= htmlspecialchars($row['Jabatan']) ?></span></td>
-                            <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
-                            <td>
-                                <div class="action-group">
-                                    <!-- TOGGLE STATUS DI AKSI -->
-                                    <label class="toggle-switch" title="Klik untuk toggle status">
-                                        <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="toggleStatus('<?= htmlspecialchars($row['ID_Karyawan']) ?>', this)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                    <button onclick="openDetail(
-                                        '<?= htmlspecialchars($row['ID_Karyawan']) ?>',
-                                        '<?= htmlspecialchars($row['Nama_Karyawan']) ?>',
-                                        '<?= $row['Jenis_Kelamin'] ?>',
-                                        '<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
-                                        '<?php $tgl = $row['Tanggal_Lahir'] ?? ''; if ($tgl && is_object($tgl)) echo $tgl->format('Y-m-d'); elseif ($tgl) echo htmlspecialchars($tgl); ?>',
-                                        '<?= htmlspecialchars($row['Jabatan']) ?>',
-                                        '<?= htmlspecialchars($row['No_Telepon']) ?>',
-                                        '<?= $is_active ? 'Aktif' : 'Nonaktif' ?>',
                                         '<?= addslashes($row['Alamat'] ?? '') ?>'
                                     )" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
                                     <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
@@ -1357,7 +1056,7 @@ selected' : '' ?>>ID Karyawan</option>
         <?php endif; ?>
     </div>
 </main>
-
+<!-- JAVASCRIPT -->
 <script>
 function openModal()  { document.getElementById('modal').classList.remove('hidden'); }
 function closeModal() { window.location.href = 'karyawan.php'; }
@@ -1371,58 +1070,134 @@ function confirmDelete(id, nama) {
     }).then((r) => { if (r.isConfirmed) window.location.href = '?page=<?= $page ?>&delete_id=' + id; });
 }
 
-function toggleStatus(id, checkbox) {
-    checkbox.disabled = true;
-    fetch('karyawan.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'toggle_status=1&id_kry=' + encodeURIComponent(id)
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const isActive = data.status == 1;
-            checkbox.checked = isActive;
-            Swal.fire({
-                icon: 'success', title: 'Berhasil!', 
-                text: 'Status berhasil diubah menjadi ' + (isActive ? 'Aktif' : 'Nonaktif'),
-                timer: 1500, showConfirmButton: false, iconColor: '#FF4500'
+function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
+    // isCurrentlyActive = true  → status sekarang AKTIF    → mau NONAKTIFKAN
+    // isCurrentlyActive = false → status sekarang NONAKTIF → mau AKTIFKAN
+
+    const checkbox = wrapper.querySelector('input[type="checkbox"]');
+    const akanMenonaktifkan = isCurrentlyActive; // true = mau nonaktifkan
+
+    const actionText  = akanMenonaktifkan ? 'menonaktifkan' : 'mengaktifkan';
+    const resultText  = akanMenonaktifkan ? 'Nonaktif'      : 'Aktif';
+    const confirmColor = akanMenonaktifkan ? '#EF4444'     : '#10B981';
+    const icon        = akanMenonaktifkan ? 'warning'       : 'question';
+
+    // Animasi loading pada toggle
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.opacity = '0.6';
+
+    Swal.fire({
+        title: 'Konfirmasi Perubahan',
+        html: `Apakah Anda yakin ingin <strong>${actionText}</strong> karyawan <strong style="color:#FF4500;">${nama}</strong>?`,
+        icon: icon,
+        showCancelButton: true,
+        confirmButtonColor: confirmColor,
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, ' + actionText + '!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        borderRadius: '16px',
+        allowOutsideClick: false,
+        backdrop: 'rgba(0,0,0,0.4)'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Kirim ke server
+            fetch('karyawan.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'toggle_status=1&id_kry=' + encodeURIComponent(id)
+            })
+            .then(r => {
+                if (!r.ok) throw new Error('Network error ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const statusLabel = data.status === 1 ? 'Aktif' : 'Nonaktif';
+                    const iconColor   = data.status === 1 ? '#10B981' : '#EF4444';
+                    const iconIcon    = data.status === 1 ? 'fa-circle-check' : 'fa-circle-xmark';
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        html: `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;">
+                            <i class="fa-solid ${iconIcon}" style="color:${iconColor};font-size:20px;"></i>
+                            <span>Status karyawan <strong style="color:#FF4500;">${nama}</strong> berhasil diubah menjadi <strong style="color:${iconColor};">${statusLabel}</strong></span>
+                        </div>`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                        iconColor: '#FF4500',
+                        borderRadius: '16px',
+                        customClass: { popup: 'swal-wide' }
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    // Gagal → tidak ubah apa-apa
+                    wrapper.style.pointerEvents = '';
+                    wrapper.style.opacity = '1';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: data.message || 'Gagal mengubah status karyawan',
+                        timer: 3000,
+                        showConfirmButton: false,
+                        borderRadius: '16px'
+                    });
+                }
+            })
+            .catch(err => {
+                wrapper.style.pointerEvents = '';
+                wrapper.style.opacity = '1';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Terjadi kesalahan koneksi: ' + err.message,
+                    timer: 3000,
+                    showConfirmButton: false,
+                    borderRadius: '16px'
+                });
             });
         } else {
-            checkbox.checked = !checkbox.checked;
-            Swal.fire({ icon: 'error', title: 'Gagal!', text: 'Gagal mengubah status', timer: 2000, showConfirmButton: false });
+            // User batal → tidak ubah apa-apa, toggle tetap seperti semula
+            wrapper.style.pointerEvents = '';
+            wrapper.style.opacity = '1';
+            // Tidak perlu ubah checkbox karena tidak pernah berubah dari awal
         }
-    })
-    .catch(err => {
-        checkbox.checked = !checkbox.checked;
-        Swal.fire({ icon: 'error', title: 'Error!', text: 'Terjadi kesalahan koneksi', timer: 2000, showConfirmButton: false });
-    })
-    .finally(() => { checkbox.disabled = false; });
+    });
 }
 
-function openDetail(id, nama, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
+function openDetail(id, nama, username, password, email, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
     const mapJK = { '1': 'LAKI-LAKI', '0': 'PEREMPUAN' };
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
     document.getElementById('dId').textContent = id;
     document.getElementById('dNameHeader').textContent = nama;
     document.getElementById('dNama').textContent = nama;
+    document.getElementById('dUsername').textContent = username || '-';
+    document.getElementById('dPassword').textContent = password ? '••••••••' : '-';
+    document.getElementById('dEmail').textContent = email || '-';
     document.getElementById('dTempatLahir').textContent = tempatLahir || '-';
     document.getElementById('dAlamat').textContent = alamat || '-';
     document.getElementById('dTelp').textContent = telp || '-';
+
     if (tanggalLahir) {
         const d = new Date(tanggalLahir);
         if (!isNaN(d)) document.getElementById('dTanggalLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
         else document.getElementById('dTanggalLahir').textContent = tanggalLahir;
     } else { document.getElementById('dTanggalLahir').textContent = '-'; }
+
     const jkColor = jk == '1' ? '#3B82F6' : '#EC4899';
     const jkBg = jk == '1' ? '#EFF6FF' : '#FDF2F8';
     document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${mapJK[jk] || '-'}</span>`;
     document.getElementById('dJabatan').innerHTML = `<span class="jabatan-badge">${jabatan}</span>`;
+
     const isAktif = (status === 'Aktif');
     document.getElementById('dStatus').innerHTML = `
         <span class="status-pill ${isAktif ? 'sp-ready' : 'sp-maint'}" style="background: ${isAktif ? 'var(--green-lt)' : 'var(--red-lt)'}; color: ${isAktif ? 'var(--green)' : 'var(--red)'}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;">
             <i class="fa-solid ${isAktif ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${status.toUpperCase()}
         </span>`;
+
     document.getElementById('detailModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
