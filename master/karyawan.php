@@ -508,6 +508,143 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .detail-item { border-right: none; }
     .filter-dropdown { width: 100%; right: 0; }
 }
+
+/* ═══ ACTION BAR - SAMA PERSIS LAPANGAN.PHP ═══ */
+.action-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+
+/* ═══ SEARCH BOX - SAMA PERSIS LAPANGAN.PHP ═══ */
+.search-box { position: relative; width: 300px; }
+.search-box i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
+.search-box input { width: 100%; padding: 10px 14px 10px 40px; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; outline: none; transition: all .2s; color: var(--text); }
+.search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
+.search-box input::placeholder { color: #9CA3AF; }
+
+/* ═══ FILTER DROPDOWN WRAP - SAMA PERSIS LAPANGAN.PHP ═══ */
+.filter-dropdown-wrap { position: relative; display: inline-block; }
+.btn-filter {
+    display: inline-flex; 
+    align-items: center; 
+    gap: 8px; 
+    background-color: var(--orange); 
+    color: #ffffff !important;
+    padding: 11px 20px; 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    border: none; 
+    cursor: pointer; 
+    transition: all 0.2s; 
+    box-shadow: 0 4px 12px rgba(255,69,0,0.2);
+}
+.btn-filter:hover { 
+    background-color: var(--orange-dk) !important; 
+    color: #ffffff !important;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 16px rgba(255,69,0,0.35); 
+}
+.btn-filter i.arrow-icon { font-size: 10px; transition: transform 0.3s; }
+.btn-filter.active i.arrow-icon { transform: rotate(180deg); }
+
+.filter-card {
+    position: absolute; 
+    top: calc(100% + 10px); 
+    right: 0; 
+    background: #ffffff; 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    padding: 24px; 
+    width: 300px; 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); 
+    z-index: 50; 
+    display: none;
+}
+.filter-card.open { 
+    display: block; 
+    animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
+@keyframes slideFilter { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+.filter-card h4 { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    margin-bottom: 20px; 
+    text-align: left; 
+}
+.filter-card .filter-group { 
+    margin-bottom: 16px; 
+    text-align: left; 
+}
+.filter-card .filter-group label { 
+    display: block; 
+    font-size: 11px; 
+    font-weight: 800; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    margin-bottom: 8px; 
+}
+.filter-input { 
+    width: 100%; 
+    padding: 10px 14px; 
+    border: 1.5px solid var(--border); 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-family: 'Barlow', sans-serif; 
+    outline: none; 
+    transition: all .2s; 
+    color: var(--text); 
+    cursor: pointer; 
+    appearance: none; 
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); 
+    background-repeat: no-repeat; 
+    background-position: right 14px center; 
+    padding-right: 40px; 
+}
+.filter-input:focus { border-color: var(--orange); }
+
+.filter-buttons { display: flex; gap: 10px; margin-top: 24px; }
+.btn-filter-apply { 
+    flex: 1.2; 
+    background: var(--orange); 
+    color: white; 
+    border: none; 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
+.btn-filter-apply:hover { background: var(--orange-dk); }
+.btn-filter-reset { 
+    flex: 1; 
+    background: var(--border-lt); 
+    color: var(--text-md); 
+    border: 1px solid var(--border); 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
+.btn-filter-reset:hover { background: var(--bg); }
+
 </style>
 </head>
 <body>
@@ -701,64 +838,69 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             </div>
         </div>
 
-        <!-- ═══ TOOLBAR WITH FILTER - TOMBOL TAMBAH DI SAMPING KANAN FILTER ═══ -->
-        <div class="toolbar">
-            <div class="toolbar-left">
-                <!-- FILTER DROPDOWN -->
-                <div class="filter-wrap">
-                    <button class="filter-btn" onclick="toggleFilter()" id="filterBtn">
-                        <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down"></i>
+        <!-- ═══ ACTION BAR - SAMA PERSIS LAYOUT DENGAN LAPANGAN.PHP ═══ -->
+        <div class="action-bar">
+            <!-- SEARCH BOX DI KIRI - SAMA PERSIS LAPANGAN.PHP -->
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="src" placeholder="Cari nama karyawan..." onkeyup="searchTable()">
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <!-- FILTER DI TENGAH - SAMA PERSIS LAPANGAN.PHP -->
+                <div class="filter-dropdown-wrap">
+                    <button class="btn-filter" id="btnFilterToggle">
+                        <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
-                    <div class="filter-dropdown" id="filterDropdown">
-                        <div class="filter-header"><div class="filter-title">Filter Data</div></div>
-                        <div class="filter-body">
-                            <div class="filter-group">
-                                <label class="filter-label">Urut Berdasarkan</label>
-                                <select class="filter-select" id="filterSortBy">
-                                    <option value="ID_Karyawan" <?= $sort_by == 'ID_Karyawan' ? 'selected' : '' ?>>ID Karyawan <?= $sort_by == 'ID_Karyawan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
-                                    <option value="Nama_Karyawan" <?= $sort_by == 'Nama_Karyawan' ? 'selected' : '' ?>>Nama Lengkap <?= $sort_by == 'Nama_Karyawan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
-                                    <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan <?= $sort_by == 'Jabatan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
-                                    <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin <?= $sort_by == 'Jenis_Kelamin' && $sort_order == 'ASC' ? '↑' : '' ?></option>
-                                    <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon <?= $sort_by == 'No_Telepon' && $sort_order == 'ASC' ? '↑' : '' ?></option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Jabatan</label>
-                                <select class="filter-select" id="filterJabatan">
-                                    <option value="0" <?= $filter_jabatan == 0 ? 'selected' : '' ?>>Semua Jabatan</option>
-                                    <?php foreach ($map_jabatan as $id => $val): ?>
-                                    <option value="<?= $id ?>" <?= $filter_jabatan == $id ? 'selected' : '' ?>><?= $val ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Jenis Kelamin</label>
-                                <select class="filter-select" id="filterJK">
-                                    <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Semua Jenis Kelamin</option>
-                                    <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
-                                    <option value="2" <?= $filter_jk == 2 ? 'selected' : '' ?>>Perempuan</option>
-                                </select>
-                            </div>
+
+                    <!-- Floating Card Filter -->
+                    <div class="filter-card" id="filterCard">
+                        <h4>Filter Data</h4>
+                        <div class="filter-group">
+                            <label>Urut Berdasarkan</label>
+                            <select id="filterSortBy" class="filter-input">
+                                <option value="ID_Karyawan" <?= $sort_by == 'ID_Karyawan' ? 'selected' : '' ?>>ID Karyawan <?= $sort_by == 'ID_Karyawan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
+                                <option value="Nama_Karyawan" <?= $sort_by == 'Nama_Karyawan' ? 'selected' : '' ?>>Nama Lengkap <?= $sort_by == 'Nama_Karyawan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
+                                <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan <?= $sort_by == 'Jabatan' && $sort_order == 'ASC' ? '↑' : '' ?></option>
+                                <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin <?= $sort_by == 'Jenis_Kelamin' && $sort_order == 'ASC' ? '↑' : '' ?></option>
+                                <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon <?= $sort_by == 'No_Telepon' && $sort_order == 'ASC' ? '↑' : '' ?></option>
+                            </select>
                         </div>
-                        <div class="filter-footer">
-                            <a href="karyawan.php" class="btn-filter-reset"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-                            <button class="btn-filter-apply" onclick="applyFilter()"><i class="fa-solid fa-check"></i> Terapkan</button>
+                        <div class="filter-group">
+                            <label>Jabatan</label>
+                            <select id="filterJabatan" class="filter-input">
+                                <option value="0" <?= $filter_jabatan == 0 ? 'selected' : '' ?>>Semua Jabatan</option>
+                                <?php foreach ($map_jabatan as $id => $val): ?>
+                                <option value="<?= $id ?>" <?= $filter_jabatan == $id ? 'selected' : '' ?>><?= $val ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Jenis Kelamin</label>
+                            <select id="filterJK" class="filter-input">
+                                <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Semua Jenis Kelamin</option>
+                                <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
+                                <option value="2" <?= $filter_jk == 2 ? 'selected' : '' ?>>Perempuan</option>
+                            </select>
+                        </div>
+                        <div class="filter-buttons">
+                            <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                            <button type="button" class="btn-filter-apply" onclick="applyFilter()"><i class="fa-solid fa-check"></i> Terapkan</button>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- TOMBOL TAMBAH KARYAWAN - DI SAMPING KANAN FILTER -->
-            <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
-        </div>
 
+                <!-- TOMBOL TAMBAH KARYAWAN DI KANAN - SAMA PERSIS LAPANGAN.PHP -->
+                <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-user-tie"></i> Data Karyawan</div>
                 <span class="card-badge"><?= $total_kry ?> total</span>
             </div>
             <?php if ($query_error): ?><div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;"><p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p><p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?php echo htmlspecialchars($query_error_msg); ?></p></div><?php else: ?><div class="table-wrap">
-                <table class="data-table">
+                <table class="data-table" id="tbl">
                     <thead>
                         <tr><th style="width:50px;text-align:center;">No</th><th>Nama Lengkap</th><th>Jabatan</th><th>No. Telepon</th><th style="text-align:left; width:180px;">Aksi</th></tr>
                     </thead>
@@ -844,35 +986,66 @@ function closeDetail(e) {
     document.body.style.overflow = '';
 }
 
-// ═══ FILTER FUNCTIONS ═══
-function toggleFilter() {
-    const dropdown = document.getElementById('filterDropdown');
-    dropdown.classList.toggle('active');
+// ═══ SEARCH TABLE - SAMA PERSIS LAPANGAN.PHP ═══
+function searchTable() {
+    var input = document.getElementById('src').value.toUpperCase();
+    var rows = document.getElementById('tbl').getElementsByTagName('tr');
+
+    for (var i = 1; i < rows.length; i++) {
+        var tdName = rows[i].getElementsByTagName('td')[1];
+        var tdJabatan = rows[i].getElementsByTagName('td')[2];
+        var tdTelp = rows[i].getElementsByTagName('td')[3];
+
+        if (tdName || tdJabatan || tdTelp) {
+            var match = false;
+            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdJabatan && tdJabatan.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdTelp && tdTelp.textContent.toUpperCase().indexOf(input) > -1) match = true;
+
+            rows[i].style.display = match ? '' : 'none';
+        }
+    }
 }
 
+// ═══ FILTER FUNCTIONS - SAMA PERSIS LAPANGAN.PHP ═══
 function applyFilter() {
     const sortBy = document.getElementById('filterSortBy').value;
     const jabatan = document.getElementById('filterJabatan').value;
     const jk = document.getElementById('filterJK').value;
-    
+
     const params = new URLSearchParams(window.location.search);
     params.set('sort_by', sortBy);
     params.set('filter_jabatan', jabatan);
     params.set('filter_jk', jk);
     params.set('page', '1');
-    
+
     window.location.href = 'karyawan.php?' + params.toString();
 }
 
-// Close filter dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    const filterWrap = document.querySelector('.filter-wrap');
-    const filterDropdown = document.getElementById('filterDropdown');
-    if (!filterWrap.contains(e.target)) {
-        filterDropdown.classList.remove('active');
-    }
-});
+function resetFilter() {
+    window.location.href = 'karyawan.php';
+}
 
+// CONTROLLER TOMBOL FILTER & FLOATING CARD - SAMA PERSIS LAPANGAN.PHP
+const btnFilterToggle = document.getElementById('btnFilterToggle');
+const filterCard = document.getElementById('filterCard');
+
+if (btnFilterToggle && filterCard) {
+    btnFilterToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        this.classList.toggle('active');
+        filterCard.classList.toggle('open');
+    });
+
+    filterCard.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+
+    document.addEventListener('click', function() {
+        btnFilterToggle.classList.remove('active');
+        filterCard.classList.remove('open');
+    });
+}
 function validateDate(input) {
     const selected = new Date(input.value);
     const today = new Date();
@@ -966,7 +1139,8 @@ window.onclick = function(e) { if (e.target == document.getElementById('modal'))
 document.addEventListener('keydown', function(e) { 
     if (e.key === 'Escape') {
         closeDetail(); 
-        document.getElementById('filterDropdown').classList.remove('active');
+        if (btnFilterToggle) btnFilterToggle.classList.remove('active');
+        if (filterCard) filterCard.classList.remove('open');
     }
 });
 </script>
