@@ -96,102 +96,7 @@ CREATE TABLE Lapangan (
 );
 GO
 
-<<<<<<< HEAD
-INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('LPN00001', 'Lapangan A',  80000.00,  1, 0, 'KRY00002', '2024-01-02 08:00:00'),
-('LPN00002', 'Lapangan B',  100000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00'),
-('LPN00003', 'Lapangan C',  120000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00'),
-('LPN00004', 'Lapangan VIP',150000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00');
-
--- ============================================================
--- 4. TABEL MASTER: Tipe_Member
--- ============================================================
-CREATE TABLE Tipe_Member (
-    ID_Tipe         VARCHAR(8)      NOT NULL PRIMARY KEY,
-    Nama_Tipe       VARCHAR(10)     NOT NULL,
-    Harga_Member    DECIMAL(18,2)   NOT NULL,
-    Potongan_Harga  DECIMAL(18,2)   NOT NULL,
-    Status          INT             NOT NULL CHECK (Status IN (0,1)),
-    Is_Deleted      BIT             NOT NULL DEFAULT 0,
-    Created_By      VARCHAR(50)     NOT NULL,
-    Created_Date    DATETIME        NOT NULL,
-    Modified_By     VARCHAR(50)     NULL,
-    Modified_Date   DATETIME        NULL,
-    Deleted_By      VARCHAR(50)     NULL,
-    Deleted_Date    DATETIME        NULL
-);
-
-INSERT INTO Tipe_Member (ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('TM000001', 'Silver',   100000.00, 10000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00'),
-('TM000002', 'Gold',     200000.00, 20000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00'),
-('TM000003', 'Platinum', 350000.00, 35000.00, 1, 0, 'KRY00002', '2024-01-02 08:00:00');
-
--- ============================================================
--- 5. TABEL MASTER: Promo
--- ============================================================
-CREATE TABLE Promo (
-    ID_Promo        VARCHAR(8)      NOT NULL PRIMARY KEY,
-    Nama_Promo      VARCHAR(50)     NOT NULL,
-    Diskon          DECIMAL(18,2)   NOT NULL,
-    Tanggal_Mulai   DATE            NOT NULL,
-    Tanggal_Selesai DATE            NOT NULL,
-    Status          INT             NOT NULL CHECK (Status IN (0,1)),
-    Is_Deleted      BIT             NOT NULL DEFAULT 0,
-    Created_By      VARCHAR(50)     NOT NULL,
-    Created_Date    DATETIME        NOT NULL,
-    Modified_By     VARCHAR(50)     NULL,
-    Modified_Date   DATETIME        NULL,
-    Deleted_By      VARCHAR(50)     NULL,
-    Deleted_Date    DATETIME        NULL
-);
-
-INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('PRO00001', 'Promo Hari Raya',  15000.00, '2024-03-20', '2024-04-05', 0, 0, 'KRY00002', '2024-03-15 08:00:00'),
-('PRO00002', 'Promo Weekend',    10000.00, '2024-04-01', '2024-06-30', 1, 0, 'KRY00002', '2024-04-01 08:00:00'),
-('PRO00003', 'Promo New Member', 20000.00, '2024-05-01', '2024-05-31', 0, 0, 'KRY00002', '2024-05-01 08:00:00'),
-('PRO00004', 'Promo Pelajar',    12000.00, '2024-06-01', '2024-12-31', 1, 0, 'KRY00002', '2024-06-01 08:00:00');
-
--- ============================================================
--- 6. TABEL MASTER: Fasilitas_Lapangan
--- ============================================================
-CREATE TABLE Fasilitas_Lapangan (
-    ID_Fasilitas    VARCHAR(8)      NOT NULL PRIMARY KEY,
-    ID_Lapangan     VARCHAR(8)      NOT NULL,
-    Nama_Fasilitas  VARCHAR(25)     NOT NULL,
-    Detail_Fasilitas VARCHAR(50)    NOT NULL,
-    Status          INT             NOT NULL CHECK (Status IN (0,1)),
-    Is_Deleted      BIT             NOT NULL DEFAULT 0,
-    Created_By      VARCHAR(50)     NOT NULL,
-    Created_Date    DATETIME        NOT NULL,
-    Modified_By     VARCHAR(50)     NULL,
-    Modified_Date   DATETIME        NULL,
-    Deleted_By      VARCHAR(50)     NULL,
-    Deleted_Date    DATETIME        NULL,
-    FOREIGN KEY (ID_Lapangan) REFERENCES Lapangan(ID_Lapangan)
-);
-
-INSERT INTO Fasilitas_Lapangan
-(ID_Fasilitas, ID_Lapangan, Nama_Fasilitas, Detail_Fasilitas, Status, Is_Deleted, Created_By, Created_Date)
-VALUES
-('FAS00001', 'LPN00001', 'Bola Basket',  'Bola basket standar SNI',         1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00002', 'LPN00001', 'Pencahayaan',  'Lampu LED 1000 watt',             1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00003', 'LPN00001', 'Jenis Lantai', 'Lantai vinyl anti-slip',          1, 0, 'KRY00002', '2024-01-03 08:00:00'),
-('FAS00004', 'LPN00002', 'Bola Basket',  'Bola basket premium',             1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00005', 'LPN00002', 'Papan Skor',   'Papan skor digital',              1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00006', 'LPN00002', 'Jenis Ring',   'Ring basket adjustable',          1, 0, 'KRY00003', '2024-01-03 08:00:00'),
-('FAS00007', 'LPN00003', 'Bola Basket',  'Bola basket standar SNI',         1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00008', 'LPN00003', 'Pencahayaan',  'Lampu sorot 1500 watt',           1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00009', 'LPN00004', 'Bola Basket',  'Bola basket profesional NBA',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00010', 'LPN00004', 'Papan Skor',   'Papan skor digital wireless',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00011', 'LPN00004', 'Pencahayaan',  'Lampu LED premium 2000 watt',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
-('FAS00012', 'LPN00004', 'AC',           'AC central ruangan tertutup',     1, 0, 'KRY00004', '2024-01-03 08:00:00');
-
--- ============================================================
--- 7. TABEL MASTER: Jadwal
--- ============================================================
-=======
 /* Tabel jadwal */
->>>>>>> f5a72d0e7c104c17a3beea9b2af6e0d48905b497
 CREATE TABLE Jadwal (
     ID_Jadwal VARCHAR(6) NOT NULL PRIMARY KEY,
     ID_Lapangan VARCHAR(6) NOT NULL,
@@ -593,8 +498,4 @@ drop table Akun
 drop table Karyawan
 drop table Customer
 
-<<<<<<< HEAD
-drop table Fasilitas_Lapangan
-=======
->>>>>>> f5a72d0e7c104c17a3beea9b2af6e0d48905b497
 drop database Hoopball
