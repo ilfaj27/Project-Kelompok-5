@@ -67,7 +67,7 @@ if (isset($_POST['login'])) {
                 $error_msg = "Anda tidak bisa login.";
             }
         } else {
-            $error_msg = "Anda tidak bisa login.";
+            $error_msg = "Anda tidak bisa login";
         }
     }
 }
