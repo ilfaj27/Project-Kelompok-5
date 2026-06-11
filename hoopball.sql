@@ -456,4 +456,4 @@ SELECT * FROM Pembatalan_Booking;
 
 
 drop table Fasilitas_Lapangan
-drop database Hoopball
+drop database Hoopbal

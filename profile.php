@@ -3,7 +3,7 @@ session_start();
 include 'includes/config.php';
 
 if (!isset($_SESSION['role'])) {
-    header("Location: ../login.php");
+    header("Location: login.php");
     exit();
 }
 
@@ -11,10 +11,8 @@ $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 
-// Redirect berdasarkan role
-$dashboard_url = ($role === 'pemilik') ? '../view_pemilik.php' : '../view_admin.php';
+$dashboard_url = ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php';
 
-// Ambil data karyawan dari database
 $query = "SELECT * FROM Karyawan WHERE ID_Karyawan = ?";
 $stmt = sqlsrv_query($conn, $query, array($id_karyawan));
 $user_data = null;
@@ -27,22 +25,15 @@ if (!$user_data) {
     exit();
 }
 
-// Format helpers
 function fmtDate($date) {
-    if (!$date) return '-';
-    if (is_object($date) && method_exists($date, 'format')) return $date->format('d M Y H:i');
-    return $date;
-}
-function fmtDateOnly($date) {
     if (!$date) return '-';
     if (is_object($date) && method_exists($date, 'format')) return $date->format('d M Y');
     return $date;
 }
 
 $map_jk = [0 => 'Perempuan', 1 => 'Laki-laki'];
-$map_status = [0 => 'Nonaktif', 1 => 'Aktif'];
 
-// Handle password change
+// Password change
 $pass_msg = '';
 if (isset($_POST['change_password'])) {
     $old = $_POST['old_password'];
@@ -59,7 +50,6 @@ if (isset($_POST['change_password'])) {
         $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($new, $nama, $id_karyawan));
         if ($upd) {
             $pass_msg = 'success';
-            // Refresh data
             $stmt = sqlsrv_query($conn, $query, array($id_karyawan));
             $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         } else {
@@ -68,7 +58,7 @@ if (isset($_POST['change_password'])) {
     }
 }
 
-// Handle photo upload
+// Photo upload
 $photo_msg = '';
 if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     $file = $_FILES['profile_photo'];
@@ -77,8 +67,8 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         if (in_array($ext, $allowed)) {
             $filename = 'uploads/profiles/' . $id_karyawan . '_' . time() . '.' . $ext;
-            if (!is_dir('../uploads/profiles')) mkdir('../uploads/profiles', 0777, true);
-            if (move_uploaded_file($file['tmp_name'], '../' . $filename)) {
+            if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
+            if (move_uploaded_file($file['tmp_name'], $filename)) {
                 $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Profile_Photo = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $id_karyawan));
                 if ($upd) {
                     $_SESSION['Profile_Photo'] = $filename;
@@ -96,7 +86,7 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
 $profile_photo = $user_data['Profile_Photo'] ?? '';
 $photo_path = '';
 if (!empty($profile_photo)) {
-    $photo_path = '../' . $profile_photo;
+    $photo_path = $profile_photo;
     if (!file_exists($photo_path)) $photo_path = '';
 }
 ?>
@@ -113,16 +103,14 @@ if (!empty($profile_photo)) {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
     --green: #10B981; --green-lt: rgba(16,185,129,.10);
     --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
-    --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
-    --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
+    --red: #EF4444; --red-lt: rgba(239,68,68,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
-    --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
+    --text: #111827; --muted: #6B7280; --bg: #F3F4F6;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* Sidebar */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; z-index: 200; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
@@ -185,14 +173,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .info-full { grid-column: span 2; }
 @media(max-width: 768px) { .info-full { grid-column: span 1; } }
 
-.audit-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; margin-top: 24px; }
-.audit-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.audit-title i { color: var(--orange); }
-.audit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.audit-item { padding: 14px 16px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border-lt); }
-.audit-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.audit-value { font-size: 13px; font-weight: 700; color: var(--text); }
-
 .password-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; margin-top: 24px; }
 .password-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .password-title i { color: var(--orange); }
@@ -209,7 +189,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </head>
 <body>
 
-<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
     <a href="<?= $dashboard_url ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
@@ -237,7 +216,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </aside>
 
-<!-- ═══ MAIN ═══ -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -253,7 +231,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
 
         <div class="profile-grid">
-            <!-- LEFT: Photo Card -->
             <div>
                 <div class="profile-card">
                     <div class="profile-photo-wrap">
@@ -270,7 +247,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
                         <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
                     </div>
-
                     <form method="POST" enctype="multipart/form-data" class="photo-upload">
                         <input type="file" name="profile_photo" id="profile_photo" accept="image/*" onchange="this.form.submit()">
                         <input type="hidden" name="upload_photo" value="1">
@@ -286,9 +262,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 </div>
             </div>
 
-            <!-- RIGHT: Info Cards -->
             <div>
-                <!-- Data Pribadi -->
                 <div class="info-card">
                     <div class="info-card-title"><i class="fa-solid fa-id-card"></i> Data Pribadi</div>
                     <div class="info-grid">
@@ -306,7 +280,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fa-solid fa-calendar-day"></i> Tanggal Lahir</div>
-                            <div class="info-value"><?= fmtDateOnly($user_data['Tanggal_Lahir']) ?></div>
+                            <div class="info-value"><?= fmtDate($user_data['Tanggal_Lahir']) ?></div>
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</div>
@@ -323,30 +297,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     </div>
                 </div>
 
-                <!-- Audit Trail -->
-                <div class="audit-card">
-                    <div class="audit-title"><i class="fa-solid fa-clock-rotate-left"></i> Audit Trail</div>
-                    <div class="audit-grid">
-                        <div class="audit-item">
-                            <div class="audit-label">Dibuat Oleh</div>
-                            <div class="audit-value"><?= htmlspecialchars($user_data['Created_By'] ?? 'SYSTEM') ?></div>
-                        </div>
-                        <div class="audit-item">
-                            <div class="audit-label">Tanggal Dibuat</div>
-                            <div class="audit-value"><?= fmtDate($user_data['Created_Date']) ?></div>
-                        </div>
-                        <div class="audit-item">
-                            <div class="audit-label">Diubah Oleh</div>
-                            <div class="audit-value"><?= htmlspecialchars($user_data['Modified_By'] ?? '-') ?></div>
-                        </div>
-                        <div class="audit-item">
-                            <div class="audit-label">Tanggal Diubah</div>
-                            <div class="audit-value"><?= fmtDate($user_data['Modified_Date']) ?></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Ganti Password -->
                 <div class="password-card">
                     <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Password</div>
                     <?php if ($pass_msg === 'success'): ?>
@@ -380,7 +330,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
-// SweetAlert untuk notifikasi
 <?php if ($pass_msg === 'success' || $photo_msg === 'success'): ?>
 Swal.fire({
     icon: 'success',
