@@ -177,6 +177,7 @@ VALUES
 ('FAS00010', 'LPN00004', 'Papan Skor',   'Papan skor digital wireless',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
 ('FAS00011', 'LPN00004', 'Pencahayaan',  'Lampu LED premium 2000 watt',     1, 0, 'KRY00004', '2024-01-03 08:00:00'),
 ('FAS00012', 'LPN00004', 'AC',           'AC central ruangan tertutup',     1, 0, 'KRY00004', '2024-01-03 08:00:00');
+
 -- ============================================================
 -- 7. TABEL MASTER: Jadwal
 -- ============================================================
@@ -454,5 +455,5 @@ SELECT * FROM Detail_Beli_Alat;
 SELECT * FROM Pembatalan_Booking;
 
 
-drop table Promo
+drop table Fasilitas_Lapangan
 drop database Hoopball
