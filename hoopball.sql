@@ -303,7 +303,7 @@ GO
 INSERT INTO Akun 
 (ID_Akun, Username, Email, Kata_Sandi, Role, Status, Created_By)
 VALUES
-('AK0001', 'manajer', 'manajer@hoopball.com', '12345', 1, 1, 'System'),
+('AK0001', 'manajer', 'manajer@hoopball.com', '123456', 1, 1, 'System'),
 ('AK0002', 'karyawan1', 'karyawan1@hoopball.com', '12345', 2, 1, 'System'),
 ('AK0003', 'karyawan2', 'karyawan2@hoopball.com', '12345', 2, 1, 'System'),
 ('AK0004', 'raka', 'raka@gmail.com', '12345', 3, 1, 'System'),
