@@ -1994,6 +1994,15 @@ if (file_exists('includes/config.php')) {
             .nav-menu { position: relative; left: auto; transform: none; display: none; }
         }
 
+        html {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
         @media (max-width: 768px) {
             .exit-message-title { font-size: 36px; }
             .exit-hoop-container { transform: translateX(-50%) scale(0.7); }
