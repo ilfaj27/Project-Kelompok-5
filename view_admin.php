@@ -1,6 +1,6 @@
 <?php
 session_start();
-include '../includes/config.php';
+include 'includes/config.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
     echo "<script>alert('Akses Ditolak!'); window.location='../login.php';</script>";
@@ -13,19 +13,72 @@ $jabatan = $_SESSION['jabatan'] ?? 'Karyawan';
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 
 $profile_photo = $_SESSION['Profile_Photo'] ?? '';
-$photo_path = '';
-if (!empty($profile_photo)) {
-    $photo_path = $profile_photo;
-    if (!file_exists($photo_path)) $photo_path = '';
+if (!empty($profile_photo) && !file_exists($profile_photo)) {
+    $profile_photo = '';
 }
 
-// Statistik
-$total_alat = 0;
-$total_alat_aktif = 0;
-$q = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Alat");
-if ($q && $r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $total_alat = $r['t'];
-$q = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Alat WHERE Status = 1");
-if ($q && $r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $total_alat_aktif = $r['t'];
+// Helper function
+function safeQuery($conn, $sql, $params = array()) {
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) return null;
+    return $stmt;
+}
+function safeFetch($stmt) {
+    if ($stmt === null) return false;
+    return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+}
+
+// ── STATISTIK KARYAWAN SESUAI PROSES BISNIS ──
+$total_customer = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_customer = $d['total'] ?? 0;
+
+$total_booking_today = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE) AND Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_booking_today = $d['total'] ?? 0;
+
+$total_langganan = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_langganan = $d['total'] ?? 0;
+
+$total_pembelian = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembelian_Alat WHERE Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_pembelian = $d['total'] ?? 0;
+
+$total_pembatalan = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan WHERE Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_pembatalan = $d['total'] ?? 0;
+
+$total_omzet = 0;
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status = 'Berhasil' AND Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_omzet = $d['total'] ?? 0;
+
+$total_alat = 0; $total_alat_aktif = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_alat = $d['total'] ?? 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
+$d = safeFetch($q); if ($d) $total_alat_aktif = $d['total'] ?? 0;
+
+// ── CHART DATA: Booking 7 Hari Terakhir ──
+$chart_labels = []; $chart_data = [];
+for ($i = 6; $i >= 0; $i--) {
+    $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(DATEADD(day, -?, GETDATE()) AS DATE) AND Is_Deleted = 0", array($i));
+    $d = safeFetch($q);
+    $chart_data[] = $d ? ($d['total'] ?? 0) : 0;
+    $chart_labels[] = date('D', strtotime("-$i days"));
+}
+
+// ── DATA BOOKING TERBARU ──
+$recent_booking = [];
+$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar FROM Booking b JOIN Customer c ON b.ID_Customer = c.ID_Customer WHERE b.Is_Deleted = 0 ORDER BY b.ID_Booking DESC");
+if ($q !== null) {
+    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+        $recent_booking[] = $row;
+    }
+}
+
+function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
+$status_map = ['pending' => 'Menunggu', 'confirmed' => 'Berhasil', 'cancelled' => 'Dibatalkan', 'completed' => 'Selesai'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -34,192 +87,461 @@ if ($q && $r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $total_alat_aktif = $
 <title>Dashboard Karyawan | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
     --green: #10B981; --green-lt: rgba(16,185,129,.10);
     --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
+    --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
+    --red: #EF4444; --red-lt: rgba(239,68,68,.10);
+    --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
-    --text: #111827; --muted: #6B7280; --bg: #F3F4F6;
+    --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6; --bg-dark: #1F2937;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; z-index: 200; }
+/* SIDEBAR */
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
-.sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
-.sb-brand-name { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
+.sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
+.sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
 .sb-brand-sub { font-size: 9px; color: #4B5563; font-weight: 700; text-transform: uppercase; }
 .sb-section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #374151; letter-spacing: .8px; padding: 0 10px; margin: 22px 0 8px; }
-.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all .2s; }
-.sb-link .sb-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; background: rgba(255,255,255,.04); }
+.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all .2s ease; position: relative; }
+.sb-link .sb-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: .2s; flex-shrink: 0; background: rgba(255,255,255,.04); }
 .sb-link:hover { color: #E5E7EB; background: rgba(255,255,255,.04); }
+.sb-link:hover .sb-icon-wrap { background: rgba(255,255,255,.08); }
 .sb-link.active { color: #fff; background: var(--orange-lt); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
+.sb-link .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
-.sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
+/* MAIN & TOPBAR */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
-.topbar-title { font-family: 'Barlow Condensed'; font-size: 26px; font-weight: 900; color: var(--text); }
-.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
-.topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; transition: .2s; }
+.topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
+.notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
-.t-name { font-size: 13px; font-weight: 800; color: var(--text); text-transform: uppercase; }
+.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
-.dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); padding: 8px 0; z-index: 999; }
+.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
+.dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
+.dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
+/* CONTENT */
 .content { padding: 32px 40px; flex: 1; }
-.page-header { margin-bottom: 28px; }
-.page-title { font-family: 'Barlow Condensed'; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
-.page-subtitle { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.welcome-banner { background: linear-gradient(135deg, #0D1117 0%, #1a1a2e 100%); border-radius: 20px; padding: 32px 36px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; overflow: hidden; position: relative; border: 1px solid rgba(255,69,0,.15); }
+.wb-deco { position: absolute; right: -30px; top: -30px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,69,0,.18) 0%, transparent 70%); }
+.wb-deco2 { position: absolute; right: 120px; bottom: -40px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(255,69,0,.08) 0%, transparent 70%); }
+.wb-text { position: relative; z-index: 1; }
+.wb-greeting { font-size: 13px; color: #6B7280; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .8px; }
+.wb-name { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 900; color: #fff; letter-spacing: -.5px; }
+.wb-sub { font-size: 14px; color: #6B7280; margin-top: 4px; }
+.wb-icon { position: relative; z-index: 1; }
+.wb-icon i { font-size: 64px; color: rgba(255,69,0,.25); }
 
-.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
-@media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
-@media(max-width: 768px) { .stat-grid { grid-template-columns: 1fr; } }
-.stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s; }
+/* STAT GRID */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
+.stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
-.sc-orange::before { background: var(--orange); }
 .sc-blue::before { background: var(--blue); }
 .sc-green::before { background: var(--green); }
+.sc-orange::before { background: var(--orange); }
+.sc-purple::before { background: var(--purple); }
+.sc-red::before { background: var(--red); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.si-orange { background: var(--orange-lt); color: var(--orange); }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
 .si-green { background: var(--green-lt); color: var(--green); }
-.stat-value { font-family: 'Barlow Condensed'; font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 6px; }
+.si-orange { background: var(--orange-lt); color: var(--orange); }
+.si-purple { background: var(--purple-lt); color: var(--purple); }
+.si-red { background: var(--red-lt); color: var(--red); }
+.stat-trend { font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 20px; }
+.trend-up { color: var(--green); background: var(--green-lt); }
+.trend-down { color: var(--red); background: var(--red-lt); }
+.trend-warn { color: var(--yellow); background: var(--yellow-lt); }
+.stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 6px; }
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-.welcome-card { background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dk) 100%); border-radius: 16px; padding: 32px; color: #fff; margin-bottom: 28px; display: flex; align-items: center; gap: 24px; }
-.welcome-icon { width: 64px; height: 64px; background: rgba(255,255,255,.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; backdrop-filter: blur(10px); flex-shrink: 0; }
-.welcome-title { font-family: 'Barlow Condensed'; font-size: 24px; font-weight: 900; margin-bottom: 4px; }
-.welcome-desc { font-size: 14px; opacity: .9; }
+/* CHART SECTION */
+.chart-section { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; margin-bottom: 28px; }
+@media(max-width:1200px){ .chart-section { grid-template-columns: 1fr; } }
+.chart-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 24px; }
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.chart-title i { color: var(--orange); font-size: 14px; }
+.chart-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
+.chart-container { position: relative; height: 280px; }
 
-.quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.qa-item { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 24px; text-decoration: none; color: var(--text); transition: .2s; display: flex; align-items: center; gap: 16px; }
-.qa-item:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); border-color: var(--orange); }
-.qa-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-.qa-orange { background: var(--orange-lt); color: var(--orange); }
-.qa-blue { background: var(--blue-lt); color: var(--blue); }
-.qa-green { background: var(--green-lt); color: var(--green); }
-.qa-title { font-size: 15px; font-weight: 800; }
-.qa-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* MINI STAT ROW */
+.mini-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mini-stat { background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
+.mini-stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.mini-stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
+.mini-stat-value.red { color: var(--red); }
+.mini-stat-value.orange { color: var(--orange); }
+
+/* GRID LAYOUT */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; }
+@media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
+
+/* CARD */
+.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
+.card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
+.card-link { font-size: 12px; font-weight: 700; color: var(--orange); text-decoration: none; display: flex; align-items: center; gap: 4px; transition: .2s; }
+.card-link:hover { gap: 8px; }
+.card-body { padding: 20px 24px; }
+
+/* TABLE */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { padding: 10px 12px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
+.data-table td { padding: 14px 12px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background .15s; }
+.data-table tbody tr:hover td { background: #FAFAFA; }
+
+.cell-name { font-weight: 700; color: var(--text); }
+.cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+.status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-block; }
+.sp-active { background: var(--green-lt); color: var(--green); }
+.sp-inactive { background: var(--red-lt); color: var(--red); }
+.sp-pending { background: var(--yellow-lt); color: #D97706; }
+
+/* QUICK LINKS */
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quick-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-decoration: none; text-align: center; transition: all .2s ease; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.quick-card:hover { border-color: var(--orange); background: var(--orange-lt); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,69,0,.1); }
+.quick-card i { font-size: 24px; transition: .2s; }
+.quick-card:hover i { transform: scale(1.1); }
+.quick-card span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
+
+/* ALERT BOX */
+.alert-box { background: var(--red-lt); border: 1px solid rgba(239,68,68,.2); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.alert-box i { color: var(--red); font-size: 16px; }
+.alert-box span { font-size: 13px; font-weight: 700; color: var(--red); }
+
+/* CLOCK */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 </style>
 </head>
 <body>
 
-<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
-    <a href="view_admin.php" class="sb-brand">
+    <a href="view_karyawan.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
-    <div class="sb-section-label">Menu</div>
+
+    <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="view_admin.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
-        <a href="master/alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div> Kelola Alat</a>
+        <a href="view_karyawan.php" class="sb-link active">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
+            Dashboard
+        </a>
+        <a href="master/customer.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
+        </a>
+        <a href="master/lapangan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+            Kelola Lapangan
+        </a>
+        <a href="master/fasilitas.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
+        </a>
+        <a href="master/jadwal.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
+        </a>
+        <a href="master/promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
+        <a href="master/tipe_member.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="master/alat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
     </nav>
+
+    <div class="sb-section-label">Transaksi</div>
+    <nav>
+        <a href="master/booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
+        </a>
+        <a href="master/langganan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
+        </a>
+        <a href="master/pembelian.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
+        </a>
+        <a href="master/pembatalan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
+        </a>
+    </nav>
+
     <div class="sb-section-label">Akun</div>
-    <a href="profile.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
+    <a href="profile.php" class="sb-link">
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+        Profil Saya
+    </a>
+
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($photo_path): ?><img src="<?= $photo_path ?>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
+                <?php if ($profile_photo): ?>
+                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper($jabatan) ?></div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
-<!-- ═══ MAIN ═══ -->
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Dashboard Karyawan</div>
-            <div class="topbar-breadcrumb">Beranda / Dashboard</div>
+<header class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-title">Dashboard Karyawan</div>
+        <div class="topbar-breadcrumb">Dashboard / Overview</div>
+    </div>
+    <div class="topbar-right">
+        <div id="clock-display">
+            <div class="clock-time"><span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span></div>
+            <div class="clock-divider"></div>
+            <div class="clock-date" id="full-date">MEMUAT...</div>
         </div>
-        <div class="topbar-right">
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i></a>
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar">
-                        <?php if ($photo_path): ?><img src="<?= $photo_path ?>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
-                    </div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= strtoupper($jabatan) ?></div></div>
+        <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
+        <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if($total_booking_today > 0): ?><span class="notif-dot"></span><?php endif; ?></a>
+        <div class="dropdown-wrap">
+            <div class="topbar-user">
+                <div class="t-avatar">
+                    <?php if ($profile_photo): ?>
+                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
                 </div>
-                <div class="dropdown-menu">
-                    <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
+                <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">KARYAWAN</div></div>
+                <i class="fa-solid fa-chevron-down t-chevron"></i>
             </div>
-        </div>
-    </header>
-
-    <div class="content">
-        <div class="welcome-card">
-            <div class="welcome-icon"><i class="fa-solid fa-handshake"></i></div>
-            <div>
-                <div class="welcome-title">Selamat Datang, <?= htmlspecialchars($nama) ?>!</div>
-                <div class="welcome-desc">Anda login sebagai <?= htmlspecialchars($jabatan) ?>. Siap melayani pelanggan HoopBall hari ini.</div>
+            <div class="dropdown-menu">
+                <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                <hr class="dd-divider">
+                <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
             </div>
-        </div>
-
-        <div class="stat-grid">
-            <div class="stat-card sc-orange">
-                <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-toolbox"></i></div></div>
-                <div class="stat-value"><?= $total_alat ?></div>
-                <div class="stat-label">Total Alat</div>
-                <div class="stat-sublabel">Tersedia di sistem</div>
-            </div>
-            <div class="stat-card sc-blue">
-                <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-check-circle"></i></div></div>
-                <div class="stat-value"><?= $total_alat_aktif ?></div>
-                <div class="stat-label">Alat Tersedia</div>
-                <div class="stat-sublabel">Siap digunakan</div>
-            </div>
-            <div class="stat-card sc-green">
-                <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-wrench"></i></div></div>
-                <div class="stat-value"><?= $total_alat - $total_alat_aktif ?></div>
-                <div class="stat-label">Alat Maintenance</div>
-                <div class="stat-sublabel">Perlu perbaikan</div>
-            </div>
-        </div>
-
-        <div class="page-header" style="margin-top: 8px;">
-            <div class="page-title">Akses Cepat</div>
-        </div>
-        <div class="quick-actions">
-            <a href="master/alat.php" class="qa-item">
-                <div class="qa-icon qa-orange"><i class="fa-solid fa-toolbox"></i></div>
-                <div><div class="qa-title">Kelola Alat</div><div class="qa-desc">Cek status & kelola peralatan</div></div>
-            </a>
-            <a href="profile.php" class="qa-item">
-                <div class="qa-icon qa-blue"><i class="fa-solid fa-id-badge"></i></div>
-                <div><div class="qa-title">Profil Saya</div><div class="qa-desc">Lihat & ubah data pribadi</div></div>
-            </a>
         </div>
     </div>
+</header>
+
+<div class="content">
+    <div class="welcome-banner">
+        <div class="wb-deco"></div><div class="wb-deco2"></div>
+        <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> 👋</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
+        <div class="wb-icon"><i class="fa-solid fa-basketball"></i></div>
+    </div>
+
+    <!-- Statistik Karyawan -->
+    <div class="stat-grid">
+        <div class="stat-card sc-blue">
+            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
+            <div class="stat-value"><?= $total_customer ?></div><div class="stat-label">Total Customer</div><div class="stat-sublabel">Customer terdaftar</div>
+        </div>
+        <div class="stat-card sc-green">
+            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Hari Ini</div></div>
+            <div class="stat-value"><?= $total_booking_today ?></div><div class="stat-label">Booking Hari Ini</div><div class="stat-sublabel">Transaksi hari ini</div>
+        </div>
+        <div class="stat-card sc-orange">
+            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-crown"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
+            <div class="stat-value"><?= $total_langganan ?></div><div class="stat-label">Langganan Member</div><div class="stat-sublabel">Member aktif</div>
+        </div>
+        <div class="stat-card sc-purple">
+            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
+            <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($total_omzet) ?></div><div class="stat-label">Total Omzet</div><div class="stat-sublabel">Pendapatan booking</div>
+        </div>
+    </div>
+
+    <!-- Chart Booking -->
+    <div class="chart-section">
+        <div class="chart-card">
+            <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div><span class="chart-badge"><?= array_sum($chart_data) ?> Total</span></div>
+            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
+        </div>
+        <div>
+            <div class="chart-card" style="margin-bottom: 16px;">
+                <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div></div>
+                <div class="mini-stat-row">
+                    <div class="mini-stat"><div class="mini-stat-label">Pembelian Alat</div><div class="mini-stat-value"><?= $total_pembelian ?></div></div>
+                    <div class="mini-stat"><div class="mini-stat-label">Pembatalan</div><div class="mini-stat-value <?= $total_pembatalan > 0 ? 'red' : '' ?>"><?= $total_pembatalan ?></div></div>
+                    <div class="mini-stat"><div class="mini-stat-label">Alat Tersedia</div><div class="mini-stat-value"><?= $total_alat_aktif ?></div></div>
+                    <div class="mini-stat"><div class="mini-stat-label">Total Alat</div><div class="mini-stat-value"><?= $total_alat ?></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Grid -->
+    <div class="dashboard-grid">
+        <!-- Booking Terbaru -->
+        <div class="card">
+            <div class="card-header"><div class="card-title"><i class="fa-solid fa-calendar-check"></i> Booking Terbaru</div><div style="display:flex; align-items:center; gap:12px;"><span class="card-badge"><?= count($recent_booking) ?> data</span><a href="master/booking.php" class="card-link">Kelola <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a></div></div>
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead><tr><th>Customer</th><th>Tanggal</th><th>Status</th><th>Total</th></tr></thead>
+                    <tbody>
+                    <?php if(count($recent_booking) > 0): ?>
+                    <?php foreach($recent_booking as $b):
+                        $status_cls = $b['Status'] == 'confirmed' ? 'sp-active' : ($b['Status'] == 'pending' ? 'sp-pending' : 'sp-inactive');
+                        $status_lbl = $status_map[$b['Status']] ?? $b['Status'];
+                    ?>
+                        <tr>
+                            <td><div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div><div class="cell-detail">#<?= $b['ID_Booking'] ?></div></td>
+                            <td><?= is_object($b['Tanggal_Booking']) ? $b['Tanggal_Booking']->format('d M Y') : $b['Tanggal_Booking'] ?></td>
+                            <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
+                            <td style="font-weight:700;"><?= rupiahFormat($b['Total_Bayar']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="4" style="text-align:center; padding:30px; color:var(--muted);"><i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i><div style="font-size:13px; font-weight:700;">Belum ada data booking</div></td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div style="display:flex; flex-direction:column; gap:20px;">
+            <!-- Akses Cepat -->
+            <div class="card">
+                <div class="card-header"><div class="card-title"><i class="fa-solid fa-bolt"></i> Akses Cepat</div></div>
+                <div class="card-body">
+                    <div class="quick-grid">
+                        <a href="master/customer.php" class="quick-card" style="color:var(--blue);"><i class="fa-solid fa-users"></i><span>Kelola Customer</span></a>
+                        <a href="master/booking.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-calendar-check"></i><span>Kelola Booking</span></a>
+                        <a href="master/langganan.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-crown"></i><span>Kelola Langganan</span></a>
+                        <a href="master/alat.php" class="quick-card" style="color:var(--orange);"><i class="fa-solid fa-toolbox"></i><span>Kelola Alat</span></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Sistem -->
+            <div class="card">
+                <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
+                <div class="card-body">
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--orange-lt); border-radius:8px;">
+                            <i class="fa-solid fa-basketball" style="color:var(--orange); font-size:18px;"></i>
+                            <div><div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall System</div><div style="font-size:11px; color:var(--muted);">v1.0 - Karyawan Dashboard</div></div>
+                        </div>
+                        <div style="font-size:12px; color:var(--muted); line-height:1.6;">Kelola customer, booking, langganan, alat, dan transaksi dari satu dashboard.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </main>
 
+<script>
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000); updateClock();
+
+const ctx = document.getElementById('bookingChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode($chart_labels) ?>,
+        datasets: [{
+            label: 'Booking',
+            data: <?= json_encode($chart_data) ?>,
+            backgroundColor: 'rgba(255, 69, 0, 0.8)',
+            borderColor: '#FF4500',
+            borderWidth: 2,
+            borderRadius: 8,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1F2937',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: false,
+                callbacks: {
+                    label: function(context) {
+                        return 'Booking: ' + context.parsed.y + ' transaksi';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', stepSize: 1 } },
+            x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
+        }
+    }
+});
+</script>
 </body>
 </html>

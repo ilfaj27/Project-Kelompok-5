@@ -7,7 +7,17 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     exit();
 }
 $role = $_SESSION['role'];
-$nama = $_SESSION['nama'];
+$nama = $_SESSION['nama'] ?? 'USER';
+
+// ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
+$profile_photo = '';
+$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
+if ($stmt_photo !== false) {
+    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
+        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+    }
+}
 
 // ═══════════════════════════════════════════
 // HELPER: Safe SQLSRV Operations
@@ -203,21 +213,15 @@ $filter_url = "";
 if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 
-$detail_data = null;
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r_detail = sqlsrv_query($conn, "SELECT * FROM Lapangan WHERE ID_Lapangan=?", array($_GET['detail_id']));
-    if ($r_detail) {
-        $detail_data = sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
-        $show_detail = true; // Flag untuk membuka modal detail
-    }
+// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
+$total_pending = 0;
+if ($q_pending !== false) {
+    $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
+    $total_pending = $row_pending['t'] ?? 0;
 }
 
 function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
-
-// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
-$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -334,15 +338,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table { width: 100%; border-collapse: collapse; }
 
 .data-table th {
-    /* Menggunakan font Barlow Condensed khusus kepala tabel */
     font-family: 'Barlow Condensed', sans-serif !important; 
-    
-    font-size: 13px !important; /* Ukuran pas sesuai gambar contoh */
-    font-weight: 900 !important; /* Ketebalan maksimal (ekstra tebal) */
-    color: var(--muted) !important; /* Warna abu-abu halus */
-    text-transform: uppercase !important; /* Memaksa huruf menjadi kapital */
-    letter-spacing: 0.8px !important; /* Jarak antar huruf diperlebar sedikit */
-    
+    font-size: 13px !important; 
+    font-weight: 900 !important; 
+    color: var(--muted) !important; 
+    text-transform: uppercase !important; 
+    letter-spacing: 0.8px !important; 
     padding: 14px 20px;
     border-bottom: 2px solid var(--border-lt);
 }
@@ -374,12 +375,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table td:nth-child(3) {
     width: 22%;
     text-align: left !important;
-    padding-left: 0 !important; /* Kunci padding kiri di angka 0 */
-    
+    padding-left: 0 !important;
     position: relative;
-    /* UBAH ANGKA MINUS INI UNTUK BERGESER LEBIH KE KIRI:
-       - Ubah ke minus lebih besar (misal: -30px, -40px) untuk geser semakin ke KIRI.
-       - Ubah ke minus lebih kecil (misal: -10px, -20px) jika terlalu ke kiri. */
     left: -0px !important; 
 }
 
@@ -389,36 +386,27 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-size: 15px; 
     color: var(--text);  
 }
+
 /* 4. Kolom Status (Tengah Presisi) */
 .data-table th:nth-child(4),
 .data-table td:nth-child(4) {
     width: 18%;
     text-align: center !important;
-    padding-left: 0 !important; /* Kunci padding kiri di angka 0 */
+    padding-left: 0 !important;
 }
 
-/* 1. Tarik Judul "STATUS" ke kiri menggunakan koordinat minus (-) */
 .data-table th:nth-child(4) {
     position: relative;
-    
-    /* UBAH ANGKA MINUS INI UNTUK BERGESER LEBIH KE KIRI:
-       - Ubah ke minus lebih besar (misal: -40px, -50px) untuk geser semakin ke KIRI.
-       - Ubah ke minus lebih kecil (misal: -10px, -20px) jika terlalu ke kiri. */
     left: -60px !important; 
 }
 
-/* Trik membunuh spasi kosong bawaan HTML */
 .data-table td:nth-child(4) {
     font-size: 0 !important; 
 }
 
-/* 2. Tarik Pil "AKTIF" ke kiri menggunakan koordinat minus (-) yang sama */
 .data-table td:nth-child(4) .status-pill {
     position: relative;
-    
-    /* WAJIB disamakan dengan nilai "left" judul di atas agar tetap sejajar lurus */
     left: -60px !important; 
-    
     display: inline-flex !important;
     font-size: 12px !important; 
     margin: 0 !important; 
@@ -601,7 +589,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     display: inline-flex !important; 
     align-items: center !important; 
     gap: 8px !important; 
-    background-color: var(--text) !important; /* Warna hitam gelap */
+    background-color: var(--text) !important;
     color: #fff !important; 
     padding: 11px 22px !important; 
     border-radius: 10px !important; 
@@ -615,7 +603,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 }
 
 .btn-add:hover { 
-    background-color: var(--orange) !important; /* Berubah oranye saat dihover */
+    background-color: var(--orange) !important;
     transform: translateY(-2px) !important; 
     box-shadow: 0 8px 20px rgba(255,69,0,.3) !important; 
 }
@@ -651,11 +639,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 /* ═══ CSS UNTUK TOMBOL FILTER & KARTU FILTER (BARU) ═══ */
 .filter-dropdown-wrap { position: relative; display: inline-block; }
 .btn-filter {
-       display: inline-flex; 
+    display: inline-flex; 
     align-items: center; 
     gap: 8px; 
     background-color: var(--orange); 
-    color: #ffffff !important; /* Paksa teks & ikon selalu putih sejak awal */
+    color: #ffffff !important;
     padding: 11px 20px; 
     border-radius: 10px; 
     font-size: 13px; 
@@ -666,30 +654,112 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     transition: all 0.2s; 
     box-shadow: 0 4px 12px rgba(255,69,0,0.2);
 }
-.btn-filter:hover { background-color: var(--orange-dk) !important; 
-    
-    color: #ffffff !important; /* Paksa teks & ikon tetap putih menyala saat disentuh kursor */
+.btn-filter:hover { 
+    background-color: var(--orange-dk) !important; 
+    color: #ffffff !important;
     transform: translateY(-2px); 
-    box-shadow: 0 6px 16px rgba(255,69,0,0.35); }
+    box-shadow: 0 6px 16px rgba(255,69,0,0.35); 
+}
 .btn-filter i.arrow-icon { font-size: 10px; transition: transform 0.3s; }
 .btn-filter.active i.arrow-icon { transform: rotate(180deg); }
 
 .filter-card {
-    position: absolute; top: calc(100% + 10px); right: 0; background: #ffffff; border-radius: 16px; border: 1px solid var(--border-color); padding: 24px; width: 300px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); z-index: 50; display: none;
+    position: absolute; 
+    top: calc(100% + 10px); 
+    right: 0; 
+    background: #ffffff; 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    padding: 24px; 
+    width: 300px; 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); 
+    z-index: 50; 
+    display: none;
 }
-.filter-card.open { display: block; animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes slideFilter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.filter-card.open { 
+    display: block; 
+    animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
+@keyframes slideFilter { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
 
-.filter-card h4 { font-size: 15px; font-weight: 800; color: var(--dark-blue); margin-bottom: 20px; text-align: left; }
-.filter-group { margin-bottom: 16px; text-align: left; }
-.filter-group label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-.filter-input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; outline: none; transition: all .2s; color: var(--text); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+.filter-card h4 { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    margin-bottom: 20px; 
+    text-align: left; 
+}
+.filter-group { 
+    margin-bottom: 16px; 
+    text-align: left; 
+}
+.filter-group label { 
+    display: block; 
+    font-size: 11px; 
+    font-weight: 800; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    margin-bottom: 8px; 
+}
+.filter-input { 
+    width: 100%; 
+    padding: 10px 14px; 
+    border: 1.5px solid var(--border); 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-family: 'Barlow', sans-serif; 
+    outline: none; 
+    transition: all .2s; 
+    color: var(--text); 
+    cursor: pointer; 
+    appearance: none; 
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); 
+    background-repeat: no-repeat; 
+    background-position: right 14px center; 
+    padding-right: 40px; 
+}
 .filter-input:focus { border-color: var(--orange); }
 
 .filter-buttons { display: flex; gap: 10px; margin-top: 24px; }
-.btn-filter-apply { flex: 1.2; background: var(--orange); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
-.btn-filter-apply:hover { background: var(--orange-hover); }
-.btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
+.btn-filter-apply { 
+    flex: 1.2; 
+    background: var(--orange); 
+    color: white; 
+    border: none; 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
+.btn-filter-apply:hover { background: var(--orange-dk); }
+.btn-filter-reset { 
+    flex: 1; 
+    background: var(--border-lt); 
+    color: var(--text-md); 
+    border: 1px solid var(--border); 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
 .btn-filter-reset:hover { background: var(--bg); }
 
 /* ═══ RESPONSIVE (KHUSUS LAYAR TABLET & HP) ═══ */
@@ -732,14 +802,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="val-msg" id="val-id_lap"><i class="fa-solid fa-circle-exclamation"></i> ID Lapangan wajib diisi</div>
 
                <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
-                <!-- Ditambahkan batasan panjang fisik maksimal 50 karakter -->
                 <input type="text" name="nama_arena" id="nama_arena" class="modal-input" 
                     value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>" 
                     required minlength="3" maxlength="50" placeholder="Contoh: Basket Indoor Pro">
                 <div class="val-msg" id="val-nama_arena"></div>
 
                 <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
-                <!-- Ditambahkan pembatasan minimal 50000 dan maksimal 1000000 -->
                 <input type="number" name="harga" id="harga" class="modal-input" 
                     value="<?= (int)($edit_data['Harga_Sewa'] ?? 0) ?>" 
                     required placeholder="200000" min="50000" max="1000000">
@@ -755,58 +823,56 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </div>
 
+<!-- ═══ MODAL DETAIL LAPANGAN ═══ -->
+<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+    <div class="modal-box" style="width: 440px;">
+        <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+            <div class="modal-subtitle">Informasi Arena</div>
+            <div class="modal-title">Profil Lapangan</div>
+        </div>
+        <div class="modal-body" style="padding-top: 10px;">
+            <?php if ($detail_data): 
+                $is_ready_detail = $detail_data['Status'] == 1;
+            ?>
+                <div class="detail-photo-card">
+                    <div class="detail-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
+                </div>
 
-<!-- ═══ MODAL DETAIL LAPANGAN (POPUP INDAH SEJAJAR) ═══ -->
-<!-- ═══ MODAL DETAIL LAPANGAN (BARU: POPUP INSTAN DI LAPANGAN.PHP) ═══ -->
-    <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
-        <div class="modal-box" style="width: 440px;">
-            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
-            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
-                <div class="modal-subtitle">Informasi Arena</div>
-                <div class="modal-title">Profil Lapangan</div>
-            </div>
-            <div class="modal-body" style="padding-top: 10px;">
-                <?php if ($detail_data): 
-                    $is_ready_detail = $detail_data['Status'] == 1;
-                ?>
-                    <div class="detail-photo-card">
-                        <div class="detail-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-                        <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
-                    </div>
-
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Lapangan</span>
-                        <!-- ID Lapangan yang disembunyikan di list utama ditampilkan di sini -->
-                        <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Lapangan']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-layer-group"></i> Nama Lapangan</span>
-                        <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa</span>
-                        <span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= rupiah($detail_data['Harga_Sewa']) ?> <span style="font-size:12px; color:var(--muted); font-family:'Barlow'; font-weight:600;">/ jam</span></span>
-                    </div>
-                    <div class="info-row" style="border-bottom:none;">
-                        <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Arena</span>
-                        <span class="info-val">
-                            <span class="status-pill <?= $is_ready_detail ? 'sp-ready' : 'sp-maint' ?>">
-                                <span class="sp-dot"></span>
-                                <?= $is_ready_detail ? 'AKTIF' : 'MAINTENANCE' ?>
-                            </span>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Lapangan</span>
+                    <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Lapangan']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-layer-group"></i> Nama Lapangan</span>
+                    <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa</span>
+                    <span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= rupiah($detail_data['Harga_Sewa']) ?> <span style="font-size:12px; color:var(--muted); font-family:'Barlow'; font-weight:600;">/ jam</span></span>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Arena</span>
+                    <span class="info-val">
+                        <span class="status-pill <?= $is_ready_detail ? 'sp-ready' : 'sp-maint' ?>">
+                            <span class="sp-dot"></span>
+                            <?= $is_ready_detail ? 'AKTIF' : 'MAINTENANCE' ?>
                         </span>
-                    </div>
-                <?php endif; ?>
-                
-                <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
-                    <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
-                </button>
-            </div>
+                    </span>
+                </div>
+            <?php endif; ?>
+            
+            <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+            </button>
         </div>
     </div>
+</div>
+
 <!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
-    <a href="../dashboard.php" class="sb-brand">
+<<aside class="sidebar">
+    <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -814,27 +880,59 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </a>
 
-    <div class="sb-section-label">Menu Utama</div>
+    <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="../view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-         <a href="../booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Booking
+        <a href="customer.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
         </a>
         <a href="lapangan.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Lapangan
+            Kelola Lapangan
         </a>
-        <a href="customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Customer
+        <a href="fasilitas.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
         </a>
-         <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
-            Promo
+        <a href="jadwal.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
+        </a>
+        <a href="promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
+        <a href="tipe_member.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="alat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
+    </nav>
+
+    <div class="sb-section-label">Transaksi</div>
+    <nav>
+        <a href="booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
+        </a>
+        <a href="langganan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
+        </a>
+        <a href="pembelian.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
+        </a>
+        <a href="pembatalan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
         </a>
     </nav>
 
@@ -843,32 +941,30 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
         Profil Saya
     </a>
-    <a href="../riwayat.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
-        Riwayat
-    </a>
 
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                <div class="sb-user-role"><?= strtoupper($role) ?></div>
+            <div class="sb-avatar">
+                <?php if (!empty($profile_photo)): ?>
+                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
             </div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Lapangan</div>
-            <div class="topbar-breadcrumb">Manajemen / Lapangan</div>
+            <div class="topbar-breadcrumb">Operasional / Lapangan</div>
         </div>
         <div class="topbar-right">
-            <!-- Jam Digital Live (Sama Persis dengan view_admin) -->
             <div id="clock-display">
                 <div class="clock-time">
                     <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
@@ -881,7 +977,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
-                <!-- Notifikasi Dinamis dari database pending bookings -->
                 <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
             
@@ -890,13 +985,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <!-- Dinamis menyesuaikan role Akun yang sedang masuk (KARYAWAN / PEMILIK) -->
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <!-- Tautan ../ tetap dipertahankan karena file lapangan.php ini berada di dalam subfolder master/ -->
                     <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -926,7 +1019,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
 
         <!-- ACTION BAR -->
-        <!-- ACTION BAR & FILTER DROPDOWN LAPANGAN (BARU) -->
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -939,35 +1031,32 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
                     
-                    <!-- Floating Card Filter Lapangan -->
                     <div class="filter-card" id="filterCard">
                         <h4>Filter Data</h4>
-                       <!-- Form Filter Lapangan yang Sesuai -->
-<form method="GET" action="lapangan.php">
-    <div class="filter-group">
-        <label>Urut Berdasarkan</label>
-        <select name="f_sort" class="filter-input">
-            <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Lapangan ↑</option>
-            <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Lapangan ↓</option>
-            <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
-        </select>
-    </div>
-    
-    <div class="filter-group">
-        <label>Status Lapangan</label>
-        <!-- Diubah name-nya menjadi f_status agar cocok dengan database query kita -->
-        <select name="f_status" class="filter-input">
-            <option value="">Semua Status</option>
-            <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
-            <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>MAINTENANCE</option>
-        </select>
-    </div>
-    
-    <div class="filter-buttons">
-        <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-        <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i> Terapkan</button>
-    </div>
-</form>
+                        <form method="GET" action="lapangan.php">
+                            <div class="filter-group">
+                                <label>Urut Berdasarkan</label>
+                                <select name="f_sort" class="filter-input">
+                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Lapangan ↑</option>
+                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Lapangan ↓</option>
+                                    <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Status Lapangan</label>
+                                <select name="f_status" class="filter-input">
+                                    <option value="">Semua Status</option>
+                                    <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
+                                    <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>MAINTENANCE</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-buttons">
+                                <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                                <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i> Terapkan</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
                 
@@ -976,7 +1065,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
 
         <!-- TABLE CARD -->
-    <!-- TABLE CARD (BARU: HAPUS AUDIT INFO, GANTI ID JADI NOMOR, GESER STATUS KE KANAN) -->
         <div class="card">
             <?php if ($query_error): ?>
                 <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
@@ -988,7 +1076,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                  <table class="data-table" id="tbl">
                     <thead>
                         <tr>
-                            <th style="width: 80px;">No</th> <!-- ID diganti No -->
+                            <th style="width: 80px;">No</th>
                             <th>Nama Lapangan</th>
                             <th>Harga Sewa</th>
                             <th style="width: 150px;">Status</th>
@@ -999,8 +1087,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <?php
                     $has_data = false;
                     $row_num = 0;
-                    
-                    // Menghitung nomor urut halaman aktif
                     $no = $offset + 1; 
 
                     if (!$query_error && $query):
@@ -1010,27 +1096,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         $is_ready = $row['Status'] == 1;
                     ?>
                         <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
-                            <!-- 1. Menampilkan Nomor Urut (ID Lapangan disembunyikan secara visual) -->
                             <td class="lap-id" style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
-                            
-                            <!-- 2. Nama Lapangan -->
                             <td class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></td>
-                            
-                            <!-- 3. Harga Sewa -->
                             <td class="lap-price"><?= rupiah($row['Harga_Sewa']) ?></td>
-                            
-                            <!-- 4. Kolom Status -->
                             <td>
                                 <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
                                     <span class="sp-dot"></span>
                                     <?= $is_ready ? 'AKTIF' : 'MAINTENANCE' ?>
                                 </span>
                             </td>
-                            
-                            <!-- 5. Kolom Aksi (Menambahkan Tombol Mata Biru Baru) -->
                             <td>
                                 <div class="actions">
-                                    <!-- Tombol Mata membuka modal detail di halaman yang sama -->
                                     <a href="?detail_id=<?= $row['ID_Lapangan'] ?>" class="btn-action btn-view" title="Lihat Detail">
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
@@ -1067,7 +1143,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
 
         <!-- PAGINATION -->
-               <?php if ($total_pages > 1): ?>
+        <?php if ($total_pages > 1): ?>
         <div class="pagination-wrap">
             <div class="pagination-info">
                 Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - 
@@ -1075,11 +1151,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <strong><?= $total_lapangan ?></strong> data
             </div>
             <div class="pagination-nav">
-                <!-- Tombol Halaman Pertama -->
                 <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
                     <i class="fa-solid fa-angles-left"></i>
                 </a>
-                <!-- Tombol Halaman Sebelumnya -->
                 <a href="?page=<?= $page - 1 ?><?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
                     <i class="fa-solid fa-angle-left"></i>
                 </a>
@@ -1100,7 +1174,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
                 <?php endif; ?>
                 
-                <!-- Perulangan Angka Halaman yang Menyimpan Filter Aktif -->
                 <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
                     <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
                 <?php endfor; ?>
@@ -1110,11 +1183,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn"><?= $total_pages ?></a>
                 <?php endif; ?>
                 
-                <!-- Tombol Halaman Selanjutnya -->
                 <a href="?page=<?= $page + 1 ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
                     <i class="fa-solid fa-angle-right"></i>
                 </a>
-                <!-- Tombol Halaman Terakhir -->
                 <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
                     <i class="fa-solid fa-angles-right"></i>
                 </a>
@@ -1127,6 +1198,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             </div>
         </div>
         <?php endif; ?>
+    </div>
 </main>
 
 <script>
@@ -1194,7 +1266,6 @@ function confirmDelete(id, name) {
     });
 }
 
-/* ═══ VALIDASI FORM WAJIB DIISI & SYARAT KEAMANAN KETAT ═══ */
 function validateForm() {
     let valid = true;
     
@@ -1204,7 +1275,6 @@ function validateForm() {
     const valNama = document.getElementById('val-nama_arena');
     const valHarga = document.getElementById('val-harga');
 
-    // 1. Validasi Nama Lapangan
     const namaVal = nama.value.trim();
     const onlyNumbers = /^[0-9\s]+$/;
 
@@ -1233,7 +1303,6 @@ function validateForm() {
         valid = false;
     }
 
-    // 2. Validasi Harga Sewa
     const hargaVal = harga.value.trim();
     const hargaNum = Number(hargaVal);
 
@@ -1275,24 +1344,21 @@ function validateForm() {
     return valid;
 }
 
-// Live validation saat user mengetik & keluar kolom (blur)
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('#nama_arena, #harga');
     inputs.forEach(input => {
         input.addEventListener('input', function() {
-            // Bersihkan error saat mengetik
             this.classList.remove('error');
             const valMsg = document.getElementById('val-' + this.id);
             if (valMsg) valMsg.classList.remove('show');
         });
         
         input.addEventListener('blur', function() {
-            validateForm(); // Picu validasi kustom saat keluar dari kolom input
+            validateForm();
         });
     });
 });
 
-// Jam Digital
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -1309,12 +1375,10 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// SweetAlert untuk notifikasi URL params
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
 
-// CONTROLLER TOMBOL FILTER & FLOATING CARD
 const btnFilterToggle = document.getElementById('btnFilterToggle');
 const filterCard = document.getElementById('filterCard');
 
@@ -1326,7 +1390,7 @@ if (btnFilterToggle && filterCard) {
     });
 
     filterCard.addEventListener('click', function(e) {
-        e.stopPropagation(); // Mencegah klik di dalam card menutup dropdown
+        e.stopPropagation();
     });
 
     document.addEventListener('click', function() {

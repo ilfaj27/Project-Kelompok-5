@@ -7,8 +7,18 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     exit();
 }
 $role = $_SESSION['role'];
-$nama = $_SESSION['nama'];
+$nama = $_SESSION['nama'] ?? 'USER';
 $map_jk = [1 => 'Laki-laki', 2 => 'Perempuan'];
+
+// ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
+$profile_photo = '';
+$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
+if ($stmt_photo !== false) {
+    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
+        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+    }
+}
 
 function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
     $stmt = sqlsrv_query($conn, $sql, $params);
@@ -109,7 +119,11 @@ if ($q_perempuan !== false) {
 }
 
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
-$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+$total_pending = 0;
+if ($q_pending !== false) {
+    $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
+    $total_pending = $row_pending['t'] ?? 0;
+}
 
 $query_sql = "SELECT * FROM Customer WHERE " . $where_sql . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
 $query = safe_sqlsrv_query($conn, $query_sql, $params, false);
@@ -241,7 +255,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .status-inactive { background: #FEF3C7; color: #D97706; }
 .status-deleted { background: var(--red-lt); color: var(--red); }
 
-/* ═══ ACTIONS - SAMA PERSIS DENGAN LAPANGAN.PHP ═══ */
+/* ═══ ACTIONS ═══ */
 .actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
 .btn-action {
     width: 38px;
@@ -593,61 +607,98 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </head>
 <body>
 
-<aside class="sidebar">
-    <a href="../dashboard_karyawan.php" class="sb-brand">
+<<aside class="sidebar">
+    <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
             <div class="sb-brand-sub">MANAGEMENT SYSTEM</div>
         </div>
     </a>
-    <div class="sb-section-label">Menu Utama</div>
+    <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="../view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
-        </a>
-        <a href="../booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Booking
-        </a>
-        <a href="lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Lapangan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
+            Dashboard
         </a>
         <a href="customer.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Customer
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
+        </a>
+        <a href="lapangan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+            Kelola Lapangan
+        </a>
+        <a href="fasilitas.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
+        </a>
+        <a href="jadwal.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
         </a>
         <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>Promo
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
+        <a href="tipe_member.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="alat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
         </a>
     </nav>
-    <div class="sb-section-label">Akun</div>
+
+    <div class="sb-section-label">Transaksi</div>
     <nav>
-        <a href="../profile.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
+        <a href="booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
         </a>
-        <a href="../riwayat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>Riwayat
+        <a href="langganan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
+        </a>
+        <a href="pembelian.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
+        </a>
+        <a href="pembatalan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
         </a>
     </nav>
+
+    <div class="sb-section-label">Akun</div>
+    <a href="../profile.php" class="sb-link">
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+        Profil Saya
+    </a>
+
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                <div class="sb-user-role">KARYAWAN</div>
+            <div class="sb-avatar">
+                <?php if (!empty($profile_photo)): ?>
+                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
             </div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Data Customer</div>
-            <div class="topbar-breadcrumb">Manajemen / Data Customer</div>
+            <div class="topbar-breadcrumb">Operasional / Customer</div>
         </div>
         <div class="topbar-right">
-            <!-- JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP -->
             <div id="clock-display">
                 <div class="clock-time">
                     <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
@@ -816,7 +867,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 </span>
                             </td>
                             <td>
-                                <!-- TOMBOL AKSI - SAMA PERSIS STYLE DENGAN LAPANGAN.PHP -->
                                 <div class="actions">
                                     <button onclick="openDetail('<?= htmlspecialchars($row['ID_Customer']) ?>','<?= htmlspecialchars($row['Nama_Customer']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= htmlspecialchars($row['Alamat'] ?? '') ?>','<?= htmlspecialchars($row['No_Telepon'] ?? '') ?>','<?= $status_label ?>','<?= $row['Is_Deleted'] ?>','<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Modified_By'] ?? '') ?>','<?= $row['Modified_Date'] ? $row['Modified_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Deleted_By'] ?? '') ?>','<?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('Y-m-d H:i:s') : '' ?>')" class="btn-action btn-view" title="Lihat Detail">
                                         <i class="fa-solid fa-eye"></i>
@@ -969,7 +1019,6 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeModal(); if (filterOpen) toggleFilter(); }
 });
 
-// ═══ JAM DIGITAL LIVE - SAMA PERSIS DENGAN LAPANGAN.PHP ═══
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');

@@ -424,6 +424,14 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 .toggle-label { font-size: 11px; font-weight: 800; margin-left: 8px; }
 
+/* Toggle loading state */
+.toggle-loading { opacity: 0.6; pointer-events: none; }
+.toggle-loading .toggle-slider { animation: togglePulse 1s infinite; }
+@keyframes togglePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 /* TOOLBAR & FILTER */
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 .toolbar-left { display: flex; align-items: center; gap: 12px; }
@@ -1071,25 +1079,26 @@ function confirmDelete(id, nama) {
 }
 
 function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
-    // isCurrentlyActive = true  → status sekarang AKTIF    → mau NONAKTIFKAN
-    // isCurrentlyActive = false → status sekarang NONAKTIF → mau AKTIFKAN
+    // ─────────────────────────────────────────────
+    // isCurrentlyActive = true  → Status AKTIF    → Aksi: NONAKTIFKAN
+    // isCurrentlyActive = false → Status NONAKTIF → Aksi: AKTIFKAN
+    // ─────────────────────────────────────────────
 
     const checkbox = wrapper.querySelector('input[type="checkbox"]');
-    const akanMenonaktifkan = isCurrentlyActive; // true = mau nonaktifkan
+    const akanMenonaktifkan = isCurrentlyActive;  // true = mau nonaktifkan
 
-    const actionText  = akanMenonaktifkan ? 'menonaktifkan' : 'mengaktifkan';
-    const resultText  = akanMenonaktifkan ? 'Nonaktif'      : 'Aktif';
-    const confirmColor = akanMenonaktifkan ? '#EF4444'     : '#10B981';
-    const icon        = akanMenonaktifkan ? 'warning'       : 'question';
+    const actionText   = akanMenonaktifkan ? 'menonaktifkan' : 'mengaktifkan';
+    const resultText   = akanMenonaktifkan ? 'Nonaktif'      : 'Aktif';
+    const confirmColor = akanMenonaktifkan ? '#EF4444'       : '#10B981';
+    const swalIcon     = akanMenonaktifkan ? 'warning'       : 'question';
 
-    // Animasi loading pada toggle
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.opacity = '0.6';
+    // Lock toggle (visual feedback loading)
+    wrapper.classList.add('toggle-loading');
 
     Swal.fire({
         title: 'Konfirmasi Perubahan',
         html: `Apakah Anda yakin ingin <strong>${actionText}</strong> karyawan <strong style="color:#FF4500;">${nama}</strong>?`,
-        icon: icon,
+        icon: swalIcon,
         showCancelButton: true,
         confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
@@ -1100,70 +1109,72 @@ function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
         allowOutsideClick: false,
         backdrop: 'rgba(0,0,0,0.4)'
     }).then((result) => {
-        if (result.isConfirmed) {
-            // Kirim ke server
-            fetch('karyawan.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'toggle_status=1&id_kry=' + encodeURIComponent(id)
-            })
-            .then(r => {
-                if (!r.ok) throw new Error('Network error ' + r.status);
-                return r.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    const statusLabel = data.status === 1 ? 'Aktif' : 'Nonaktif';
-                    const iconColor   = data.status === 1 ? '#10B981' : '#EF4444';
-                    const iconIcon    = data.status === 1 ? 'fa-circle-check' : 'fa-circle-xmark';
+        if (!result.isConfirmed) {
+            // ─── USER BATAL ───
+            // Toggle TIDAK BERUBAH (checkbox readonly, tidak perlu rollback)
+            wrapper.classList.remove('toggle-loading');
+            return;
+        }
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Berhasil!',
-                        html: `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;">
-                            <i class="fa-solid ${iconIcon}" style="color:${iconColor};font-size:20px;"></i>
-                            <span>Status karyawan <strong style="color:#FF4500;">${nama}</strong> berhasil diubah menjadi <strong style="color:${iconColor};">${statusLabel}</strong></span>
-                        </div>`,
-                        timer: 2000,
-                        showConfirmButton: false,
-                        iconColor: '#FF4500',
-                        borderRadius: '16px',
-                        customClass: { popup: 'swal-wide' }
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    // Gagal → tidak ubah apa-apa
-                    wrapper.style.pointerEvents = '';
-                    wrapper.style.opacity = '1';
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal!',
-                        text: data.message || 'Gagal mengubah status karyawan',
-                        timer: 3000,
-                        showConfirmButton: false,
-                        borderRadius: '16px'
-                    });
-                }
-            })
-            .catch(err => {
-                wrapper.style.pointerEvents = '';
-                wrapper.style.opacity = '1';
+        // ─── USER KONFIRMASI ───
+        fetch('karyawan.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'toggle_status=1&id_kry=' + encodeURIComponent(id)
+        })
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                wrapper.classList.remove('toggle-loading');
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error!',
-                    text: 'Terjadi kesalahan koneksi: ' + err.message,
+                    title: 'Gagal!',
+                    text: data.message || 'Gagal mengubah status karyawan',
                     timer: 3000,
                     showConfirmButton: false,
                     borderRadius: '16px'
                 });
+                return;
+            }
+
+            // ─── SUKSES ───
+            const isNowActive = data.status === 1;
+            const statusLabel = isNowActive ? 'Aktif' : 'Nonaktif';
+            const iconColor   = isNowActive ? '#10B981' : '#EF4444';
+            const iconClass   = isNowActive ? 'fa-circle-check' : 'fa-circle-xmark';
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                html: `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;">
+                    <i class="fa-solid ${iconClass}" style="color:${iconColor};font-size:22px;"></i>
+                    <div style="text-align:left;">
+                        <div>Status <strong style="color:#FF4500;">${nama}</strong> diubah</div>
+                        <div style="font-size:18px;font-weight:800;color:${iconColor};">${statusLabel}</div>
+                    </div>
+                </div>`,
+                timer: 2000,
+                showConfirmButton: false,
+                iconColor: '#FF4500',
+                borderRadius: '16px'
+            }).then(() => {
+                location.reload();
             });
-        } else {
-            // User batal → tidak ubah apa-apa, toggle tetap seperti semula
-            wrapper.style.pointerEvents = '';
-            wrapper.style.opacity = '1';
-            // Tidak perlu ubah checkbox karena tidak pernah berubah dari awal
-        }
+        })
+        .catch(err => {
+            wrapper.classList.remove('toggle-loading');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Terjadi kesalahan koneksi: ' + err.message,
+                timer: 3000,
+                showConfirmButton: false,
+                borderRadius: '16px'
+            });
+        });
     });
 }
 

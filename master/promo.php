@@ -7,7 +7,17 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     exit();
 }
 $role = $_SESSION['role'];
-$nama_user = $_SESSION['nama'];
+$nama = $_SESSION['nama'] ?? 'USER';
+
+// ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
+$profile_photo = '';
+$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
+if ($stmt_photo !== false) {
+    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
+        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+    }
+}
 
 // ═══════════════════════════════════════════
 // HELPER: Safe SQLSRV Operations
@@ -67,7 +77,7 @@ if (isset($_POST['save_promo'])) {
         exit();
     }
 
-    // CEK NAMA DUPLIKAT: Cari apakah ada nama promo yang sama di database
+    // CEK NAMA DUPLIKAT
     $sql_check_name = "SELECT ID_Promo FROM Promo WHERE Nama_Promo = ? AND ID_Promo <> ?";
     $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_promo, $id), false);
 
@@ -80,7 +90,6 @@ if (isset($_POST['save_promo'])) {
         safe_sqlsrv_query($conn, "UPDATE Promo SET Nama_Promo=?, Diskon=?, Tanggal_Mulai=?, Tanggal_Selesai=? WHERE ID_Promo=?", array($nama_promo, $diskon, $tgl_m, $tgl_s, $id), false);
         header("Location: promo.php?page=1&status=success&msg=Data promo berhasil diperbarui!");
     } else {
-        // Auto-generate ID baru di database jika tidak dikirimkan manual
         if (empty($id)) {
             $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Promo) as max_id FROM Promo", [], false);
             $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
@@ -88,7 +97,7 @@ if (isset($_POST['save_promo'])) {
             $id = "PRM" . sprintf("%03d", $num);
         }
 
-        safe_sqlsrv_query($conn, "INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,?,1,0,?,GETDATE())", array($id, $nama_promo, $diskon, $tgl_m, $tgl_s, $nama_user), false);
+        safe_sqlsrv_query($conn, "INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,?,1,0,?,GETDATE())", array($id, $nama_promo, $diskon, $tgl_m, $tgl_s, $nama), false);
         header("Location: promo.php?page=1&status=success&msg=Promo baru berhasil ditambahkan!");
     }
     exit();
@@ -209,8 +218,13 @@ $filter_url = "";
 if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1"); // Status 1 = pending
-$total_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
+$total_pending = 0;
+if ($q_pending !== false) {
+    $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
+    $total_pending = $row_pending['t'] ?? 0;
+}
 
 function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
 ?>
@@ -263,7 +277,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 /* ═══ MAIN & TOPBAR (MENUTUP CELAH 1PX) ═══ */
 .main { 
-    margin-left: calc(var(--sidebar-w) - 1px); /* Tumpuk 1px ke kiri */
+    margin-left: calc(var(--sidebar-w) - 1px);
     flex: 1; 
     display: flex; 
     flex-direction: column; 
@@ -385,18 +399,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     padding-left: 0 !important; 
 }
 
-/* 1. Tarik Judul "STATUS" ke kiri menggunakan koordinat minus (-) */
 .data-table th:nth-child(4) {
     position: relative;
     left: -60px !important; 
 }
 
-/* Trik membunuh spasi kosong bawaan HTML */
 .data-table td:nth-child(4) {
     font-size: 0 !important; 
 }
 
-/* 2. Tarik Pil "AKTIF" ke kiri menggunakan koordinat minus (-) yang sama */
 .data-table td:nth-child(4) .status-pill {
     position: relative;
     left: -60px !important; 
@@ -832,8 +843,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
-    <a href="../dashboard.php" class="sb-brand">
+<<aside class="sidebar">
+    <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -841,60 +852,89 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </a>
 
-    <div class="sb-section-label">Menu Utama</div>
+    <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="../view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="../booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Booking
+        <a href="customer.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
         </a>
         <a href="lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Lapangan
+            Kelola Lapangan
         </a>
-        <a href="customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Customer
+        <a href="fasilitas.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
+        </a>
+        <a href="jadwal.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
         </a>
         <a href="promo.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
-            Promo
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
+        <a href="tipe_member.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="alat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
+    </nav>
+
+    <div class="sb-section-label">Transaksi</div>
+    <nav>
+        <a href="booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
+        </a>
+        <a href="langganan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
+        </a>
+        <a href="pembelian.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
+        </a>
+        <a href="pembatalan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
         </a>
     </nav>
 
     <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-            Profil Saya
-        </a>
-        <a href="../riwayat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
-            Riwayat
-        </a>
-    </nav>
+    <a href="../profile.php" class="sb-link">
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+        Profil Saya
+    </a>
 
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
-                <div class="sb-user-role"><?= strtoupper($role) ?></div>
+            <div class="sb-avatar">
+                <?php if (!empty($profile_photo)): ?>
+                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
             </div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
-            <div class="topbar-title">Master Promo</div>
-            <div class="topbar-breadcrumb">Dashboard / Promo</div>
+            <div class="topbar-title">Kelola Promo</div>
+            <div class="topbar-breadcrumb">Operasional / Promo</div>
         </div>
         <div class="topbar-right">
             <div id="clock-display">
@@ -916,7 +956,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="topbar-user">
                     <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
                     <div>
-                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama_user)) ?></div>
+                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
@@ -935,7 +975,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="page-header">
             <div>
                 <div class="page-title-tag"></div>
-                <div class="page-title">DAFTAR PROMO</div>
+                <div class="page-title">Kelola Promo</div>
             </div>
             <div class="stat-chips">
                 <div class="stat-chip chip-green">
@@ -963,7 +1003,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
                     
-                    <!-- Floating Card Filter Promo -->
                     <div class="filter-card" id="filterCard">
                         <h4>Filter Data</h4>
                         <form method="GET" action="promo.php">
@@ -992,7 +1031,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         </form>
                     </div>
                 </div>
-                <a href="promo.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> TAMBAH PROMO</a>
+                <a href="promo.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Promo</a>
             </div>
         </div>
 
@@ -1151,17 +1190,16 @@ function searchTable() {
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
     
     for (var i = 1; i < rows.length; i++) {
-        var tdName = rows[i].getElementsByTagName('td')[1]; // Nama Promo
+        var tdName = rows[i].getElementsByTagName('td')[1];
         
         if (tdName) {
             var match = false;
-            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
             rows[i].style.display = match ? '' : 'none';
         }
     }
 }
 
-/* ═══ VALIDASI FORM WAJIB DIISI & SYARAT KEAMANAN KETAT ═══ */
 function validateForm() {
     let valid = true;
     
@@ -1178,7 +1216,6 @@ function validateForm() {
     const valTglS = document.getElementById('val-tgl_s');
     const valTanggal = document.getElementById('val-tanggal');
 
-    // Reset states
     id_prm.classList.remove('error');
     if (valId) valId.classList.remove('show');
     nama_promo.classList.remove('error');
@@ -1191,14 +1228,12 @@ function validateForm() {
     if (valTglS) valTglS.classList.remove('show');
     if (valTanggal) valTanggal.classList.remove('show');
 
-    // 1. ID Promo
     if (id_prm.value.trim() === '') {
         id_prm.classList.add('error');
         if (valId) valId.classList.add('show');
         valid = false;
     }
 
-    // 2. Nama Promo
     const namaVal = nama_promo.value.trim();
     if (namaVal === '') {
         nama_promo.classList.add('error');
@@ -1217,7 +1252,6 @@ function validateForm() {
         valid = false;
     }
 
-    // 3. Diskon
     const diskonVal = diskon.value.trim();
     const diskonNum = Number(diskonVal);
     if (diskonVal === '') {
@@ -1237,7 +1271,6 @@ function validateForm() {
         valid = false;
     }
 
-    // 4. Tanggal Mulai
     if (tgl_m.value === '') {
         tgl_m.classList.add('error');
         if (valTglM) {
@@ -1247,7 +1280,6 @@ function validateForm() {
         valid = false;
     }
 
-    // 5. Tanggal Selesai
     if (tgl_s.value === '') {
         tgl_s.classList.add('error');
         if (valTglS) {
@@ -1257,7 +1289,6 @@ function validateForm() {
         valid = false;
     }
 
-    // 6. Tanggal Logic
     if (tgl_m.value && tgl_s.value && new Date(tgl_s.value) < new Date(tgl_m.value)) {
         tgl_m.classList.add('error');
         tgl_s.classList.add('error');
@@ -1271,7 +1302,6 @@ function validateForm() {
     return valid;
 }
 
-// Live validation
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('#nama_promo, #diskon, #tgl_m, #tgl_s');
     inputs.forEach(input => {
@@ -1329,7 +1359,6 @@ function confirmDelete(id, name) {
     });
 }
 
-// Jam Digital Live
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -1350,7 +1379,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
 
-// CONTROLLER TOMBOL FILTER & FLOATING CARD
 const btnFilterToggle = document.getElementById('btnFilterToggle');
 const filterCard = document.getElementById('filterCard');
 
