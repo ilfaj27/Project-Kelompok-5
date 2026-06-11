@@ -9,8 +9,9 @@ if (isset($_POST['login'])) {
     $user_input = $_POST['user_input'];
     $pass_input = $_POST['password_input'];
 
-    // PERBAIKAN 1: Mengubah nama kolom 'Status_Akun' menjadi 'Status' sesuai database baru Anda
-    $sql = "SELECT * FROM Akun WHERE (Username = ? OR Email = ?) AND Status = 1";
+    // CEK LANGSUNG KE TABEL KARYAWAN (bukan tabel Akun)
+    // Karena data login (Username, Email, Kata_Sandi) ada di tabel Karyawan
+    $sql = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
     $params = array($user_input, $user_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
@@ -20,33 +21,23 @@ if (isset($_POST['login'])) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
         if ($row) {
+            // Bandingkan password (plain text sesuai data Anda)
             if ($pass_input == $row['Kata_Sandi']) {
-                $_SESSION['login']   = true;
-                $_SESSION['id_akun'] = $row['ID_Akun'];
+                $_SESSION['login']      = true;
+                $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
+                $_SESSION['id_akun']     = $row['ID_Akun'] ?? null;
 
-                // PERBAIKAN 2: Mengubah pemetaan angka Role sesuai database baru Anda
-                // 1 = customer, 2 = karyawan, 3 = pemilik (manajer)
-                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
-                $_SESSION['role'] = $role_map[(int)$row['Role']];
-
-                // Ambil nama berdasarkan role dari tabel profil terkait
-                if ($_SESSION['role'] == 'pemilik' || $_SESSION['role'] == 'karyawan') {
-                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
-                    if ($q_prof !== false) {
-                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                        $_SESSION['nama'] = $d_prof['Nama_Karyawan'] ?? 'Admin';
-                    } else {
-                        $_SESSION['nama'] = 'Admin';
-                    }
+                // Mapping Jabatan ke Role
+                // Manajer = pemilik, Karyawan/Kasir/Staf/Keamanan = karyawan
+                $jabatan = strtolower($row['Jabatan']);
+                if ($jabatan == 'manajer') {
+                    $_SESSION['role'] = 'pemilik';
                 } else {
-                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Customer FROM Customer WHERE ID_Akun = ?", array($row['ID_Akun']));
-                    if ($q_prof !== false) {
-                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                        $_SESSION['nama'] = $d_prof['Nama_Customer'] ?? 'Customer';
-                    } else {
-                        $_SESSION['nama'] = 'Customer';
-                    }
+                    $_SESSION['role'] = 'karyawan';
                 }
+
+                $_SESSION['nama'] = $row['Nama_Karyawan'];
+                $_SESSION['jabatan'] = $row['Jabatan'];
 
                 if (isset($_POST['remember'])) {
                     setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
@@ -57,17 +48,15 @@ if (isset($_POST['login'])) {
                 // Redirect berdasarkan role
                 if ($_SESSION['role'] == 'pemilik') {
                     header("Location: view_pemilik.php");
-                } elseif ($_SESSION['role'] == 'karyawan') {
-                    header("Location: view_admin.php"); 
                 } else {
-                    header("Location: view_customer.php"); 
+                    header("Location: view_admin.php"); 
                 }
                 exit();
             } else {
-                $error_msg = "Username atau Kata Sandi yang Anda masukkan salah.";
+                $error_msg = "Username/Email atau Kata Sandi yang Anda masukkan salah.";
             }
         } else {
-            $error_msg = "Akun tidak ditemukan atau sedang dinonaktifkan.";
+            $error_msg = "Akun tidak ditemukan, dinonaktifkan, atau sudah dihapus.";
         }
     }
 }
@@ -106,34 +95,19 @@ if (isset($_POST['login'])) {
             overflow-x: hidden;
         }
 
-        /* HEADER / BACK HOME BUTTON */
-    
-
-        .btn-back-home:hover {
-            background: var(--orange);
-            transform: translateX(-4px);
-        }
-
-        /* HERO AUTH WRAPPER (DARK BACKGROUND) */
         .auth-hero-wrapper {
-       background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
                 url('login.png') no-repeat center center;
-    background-size: cover;
-    
-    /* GANTI INI: Diubah menjadi 100vh agar memenuhi tinggi 1 layar penuh tanpa celah */
-    min-height: 100vh; 
-    
-    /* Sesuaikan kembali padding-nya secara seimbang agar rapi */
-    padding: 80px 8% 80px 8%; 
-    
-    display: grid;
-    grid-template-columns: 1.12fr 1fr;
-    gap: 50px;
-    align-items: center;
-    position: relative;
+            background-size: cover;
+            min-height: 100vh; 
+            padding: 80px 8% 80px 8%; 
+            display: grid;
+            grid-template-columns: 1.12fr 1fr;
+            gap: 50px;
+            align-items: center;
+            position: relative;
         }
 
-        /* SISI KIRI: INFORMASI PROMO */
         .auth-info h2 {
             font-size: 48px;
             font-weight: 900;
@@ -154,7 +128,6 @@ if (isset($_POST['login'])) {
             max-width: 500px;
         }
 
-        /* List Keuntungan */
         .info-list {
             display: flex;
             flex-direction: column;
@@ -162,21 +135,19 @@ if (isset($_POST['login'])) {
         }
 
         .info-item {
-               display: flex;
+            display: flex;
             align-items: center;
             gap: 16px;
             cursor: pointer;
-            
-            /* Transisi geser horizontal */
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-         .info-item:hover {
+        .info-item:hover {
             transform: translateX(8px);
         }
 
         .info-icon {
-          width: 44px;
+            width: 44px;
             height: 44px;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -187,11 +158,9 @@ if (isset($_POST['login'])) {
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            
             transition: all 0.3s ease;
         }
 
-           /* Ikon berubah oranye solid saat item info dihover */
         .info-item:hover .info-icon {
             background: var(--orange);
             border-color: var(--orange);
@@ -211,7 +180,6 @@ if (isset($_POST['login'])) {
             color: #94A3B8;
         }
 
-        /* SISI KANAN: FLOATING WHITE CARD LOGIN */
         .auth-card-container {
             display: flex;
             justify-content: flex-end;
@@ -241,15 +209,14 @@ if (isset($_POST['login'])) {
             display: block;
         }
 
-        /* FORM INPUT */
         .input-group {
-          margin-bottom: 20px;
+            margin-bottom: 20px;
             text-align: left;
             transition: all 0.3s ease;
         }
 
         .input-group label {
-           font-size: 12px;
+            font-size: 12px;
             font-weight: 700;
             color: var(--text-dark);
             margin-bottom: 8px;
@@ -257,12 +224,11 @@ if (isset($_POST['login'])) {
             transition: color 0.3s ease;
         }
 
-         /* Ketika kolom input sedang aktif diketik (focus), ubah labelnya menjadi oranye */
         .input-group:focus-within label {
             color: var(--orange);
         }
 
-         .input-group:focus-within .input-wrapper i.icon-left {
+        .input-group:focus-within .input-wrapper i.icon-left {
             color: var(--orange);
         }
 
@@ -309,7 +275,6 @@ if (isset($_POST['login'])) {
             padding: 4px;
         }
 
-        /* CHECKBOX / REMEMBER ROW */
         .remember-row {
             display: flex;
             align-items: center;
@@ -323,8 +288,8 @@ if (isset($_POST['login'])) {
         }
 
         .card-footer a:hover {
-              color: var(--orange-hover);
-    text-decoration: underline !important;
+            color: var(--orange-hover);
+            text-decoration: underline !important;
         }
 
         .check-container {
@@ -355,7 +320,6 @@ if (isset($_POST['login'])) {
             text-decoration: none;
         }
 
-        /* SUBMIT BUTTON */
         .btn-submit {
             width: 100%;
             padding: 15px;
@@ -375,7 +339,6 @@ if (isset($_POST['login'])) {
             box-shadow: 0 8px 20px rgba(255, 84, 0, 0.25);
         }
 
-        /* DIVIDER */
         .divider {
             display: flex;
             align-items: center;
@@ -397,9 +360,8 @@ if (isset($_POST['login'])) {
             padding: 0 12px;
         }
 
-        /* GOOGLE LOGIN */
         .btn-google {
-           width: 100%;
+            width: 100%;
             padding: 13px;
             background: #ffffff;
             color: var(--text-dark);
@@ -412,17 +374,15 @@ if (isset($_POST['login'])) {
             gap: 10px;
             font-weight: 700;
             font-size: 13px;
-            
-            /* Transisi melayang */
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-         .btn-google img {
+        .btn-google img {
             transition: transform 0.3s ease;
         }
 
         .btn-google:hover {
-           background: var(--bg-light);
+            background: var(--bg-light);
             border-color: #CBD5E1;
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
@@ -432,23 +392,19 @@ if (isset($_POST['login'])) {
             transform: scale(1.1);
         }
 
-
-        /* CARD FOOTER */
         .card-footer {
-             margin-top: 20px; /* Jarak pas 20px tepat di bawah tombol Masuk */
-    font-size: 12px;
-    color: var(--text-muted);
-    text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
         }
 
         .card-footer a {
-              color: var(--orange);
-    text-decoration: none;
-    font-weight: 700;
+            color: var(--orange);
+            text-decoration: none;
+            font-weight: 700;
         }
 
-
-        /* FEATURES BAR (WHITE HORIZONTAL BAR) */
         .features-bar {
             padding: 40px 8%;
             background: #FFFFFF;
@@ -459,25 +415,22 @@ if (isset($_POST['login'])) {
         }
 
         .feat-bar-item {
-              display: flex;
+            display: flex;
             align-items: center;
             gap: 16px;
             padding: 12px 16px;
             border-radius: 12px;
             cursor: pointer;
-            
-            /* Transisi super halus */
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-          /* EFEK HOVER: Item melayang naik tipis & background abu-abu sangat pudar */
         .feat-bar-item:hover {
             transform: translateY(-5px);
             background-color: var(--bg-light);
         }
 
         .feat-bar-icon {
-           width: 52px;
+            width: 52px;
             height: 52px;
             background: #FFF0E9;
             border-radius: 50%;
@@ -487,17 +440,14 @@ if (isset($_POST['login'])) {
             flex-shrink: 0;
             color: var(--orange);
             font-size: 18px;
-            
-            /* Transisi melayang ikon */
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Ikon membesar, berputar tipis, dan berpendar saat dihover */
         .feat-bar-item:hover .feat-bar-icon {
             background: var(--orange);
             color: #ffffff;
-            transform: scale(1.08); /* Sedikit membesar */
-            box-shadow: 0 8px 16px rgba(255, 84, 0, 0.2); /* Efek pendaran cahaya oranye */
+            transform: scale(1.08);
+            box-shadow: 0 8px 16px rgba(255, 84, 0, 0.2);
         }
 
         .feat-bar-icon i {
@@ -505,7 +455,6 @@ if (isset($_POST['login'])) {
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* Rotasi mikro ikon saat dihover */
         .feat-bar-item:hover .feat-bar-icon i {
             transform: scale(1.1) rotate(10deg);
         }
@@ -518,7 +467,6 @@ if (isset($_POST['login'])) {
             transition: color 0.3s ease;
         }
 
-         /* Judul teks berubah menjadi oranye saat dihover */
         .feat-bar-item:hover .feat-bar-text h4 {
             color: var(--orange);
         }
@@ -528,8 +476,6 @@ if (isset($_POST['login'])) {
             color: var(--text-muted);
         }
 
-
-        /* MAIN FOOTER (DARK THEME) */
         footer {
             background: #0F172A;
             color: #94A3B8;
@@ -559,7 +505,7 @@ if (isset($_POST['login'])) {
         }
 
         .footer-brand p {
-          font-size: 13px;
+            font-size: 13px;
             line-height: 1.6;
             margin-bottom: 24px;
         }
@@ -570,37 +516,34 @@ if (isset($_POST['login'])) {
         }
 
         .social-links a {
-              width: 36px;
-    height: 36px;
-    background: #1E293B;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    
-    /* TAMBAHKAN DUA BARIS INI: Paksa hilangkan segala jenis garis bawah */
-    text-decoration: none !important;
-    border-bottom: none !important;
-    
-    transition: all 0.3s ease;
+            width: 36px;
+            height: 36px;
+            background: #1E293B;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none !important;
+            border-bottom: none !important;
+            transition: all 0.3s ease;
         }
 
         .social-links a:hover {
             background: var(--orange);
-    text-decoration: none !important;
-    border-bottom: none !important;
+            text-decoration: none !important;
+            border-bottom: none !important;
         }
 
         .footer-col h4 {
-             color: white;
+            color: white;
             font-size: 15px;
             font-weight: 700;
             margin-bottom: 24px;
         }
 
         .footer-links {
-          list-style: none;
+            list-style: none;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -618,7 +561,7 @@ if (isset($_POST['login'])) {
         }
 
         .footer-contact-info {
-          display: flex;
+            display: flex;
             flex-direction: column;
             gap: 16px;
         }
@@ -635,13 +578,12 @@ if (isset($_POST['login'])) {
         }
 
         .footer-bottom {
-           padding-top: 40px;
+            padding-top: 40px;
             border-top: 1px solid #1E293B;
             text-align: center;
             font-size: 12px;
         }
 
-         /* 1. TOMBOL SILANG (X) BULAT MELAYANG DENGAN EFEK ROTASI */
         .btn-close-auth {
             position: absolute;
             top: 30px;
@@ -653,7 +595,7 @@ if (isset($_POST['login'])) {
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: #ffffff;
-            border-radius: 50%; /* Bulat Sempurna */
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -661,43 +603,37 @@ if (isset($_POST['login'])) {
             text-decoration: none;
             z-index: 100;
             cursor: pointer;
-            
-            /* Transisi putaran mekanis */
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-         .btn-close-auth:hover {
+        .btn-close-auth:hover {
             background: var(--orange);
             border-color: var(--orange);
             color: #ffffff;
-            transform: scale(1.08) rotate(90deg); /* Berputar elegan */
+            transform: scale(1.08) rotate(90deg);
             box-shadow: 0 8px 20px rgba(255, 84, 0, 0.3);
         }
 
-         /* Ketika kolom error: Garis tepi berubah merah & latar merah pudar */
         .input-wrapper.error input {
             border-color: #EF4444 !important; 
             background-color: #FEF2F2 !important; 
         }
 
-         /* Ikon dalam kolom ikut berubah merah saat error */
         .input-wrapper.error i.icon-left {
             color: #EF4444 !important;
         }
 
-             /* Label teks di atas kolom ikut berubah merah saat error */
         .input-group.error-active label {
             color: #EF4444 !important;
         }
 
-        /* Gaya teks peringatan "Wajib diisi" di bawah kolom */
         .error-text {
             font-size: 11px;
             color: #EF4444;
             font-weight: 600;
             margin-top: 6px;
-            display: none; /* Tersembunyi secara default */
-            animation: fadeInError 0.2s ease-out; /* Animasi memancar halus */
+            display: none;
+            animation: fadeInError 0.2s ease-out;
         }
 
         @keyframes fadeInError {
@@ -705,7 +641,6 @@ if (isset($_POST['login'])) {
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* RESPONSIVITAS */
         @media (max-width: 992px) {
             .auth-hero-wrapper {
                 grid-template-columns: 1fr;
@@ -731,14 +666,14 @@ if (isset($_POST['login'])) {
             }
         }
 
-               html {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
-}
+        html {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
 
-html::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-}
+        html::-webkit-scrollbar {
+            display: none;
+        }
 
         @media (max-width: 576px) {
             .footer-grid {
@@ -749,18 +684,15 @@ html::-webkit-scrollbar {
 </head>
 <body>
 
-    <!-- KEMBALI KE BERANDA -->
-     <a href="index.php" class="btn-close-auth" title="Kembali ke Beranda">
+    <a href="index.php" class="btn-close-auth" title="Kembali ke Beranda">
         <i class="fa-solid fa-xmark"></i>
     </a>
 
-    <!-- AUTH HERO SECTION -->
     <div class="auth-hero-wrapper">
-        <!-- Kiri: Info Hoopball -->
         <div class="auth-info">
             <h2>Masuk ke Akun<br><span>HoopBall</span></h2>
             <p class="intro-p">Login untuk booking lapangan, cek jadwal, dan nikmati promo member dengan lebih mudah.</p>
-            
+
             <div class="info-list">
                 <div class="info-item">
                     <div class="info-icon"><i class="fa-solid fa-bolt"></i></div>
@@ -786,52 +718,47 @@ html::-webkit-scrollbar {
             </div>
         </div>
 
-        <!-- Kanan: White Floating Card -->
         <div class="auth-card-container">
-<div class="auth-card">
-    <h3>Login</h3>
-    <span class="card-subtitle">Selamat datang kembali!</span>
+            <div class="auth-card">
+                <h3>Login</h3>
+                <span class="card-subtitle">Selamat datang kembali!</span>
 
-    <!-- FORM LOGIN RINGKAS (TANPA GOOGLE) -->
-    <form method="POST" action="" id="loginForm" novalidate>
-        <div class="input-group">
-            <label>Email<span style="color: red;">*</span></label>
-            <div class="input-wrapper">
-                <i class="fa-regular fa-envelope icon-left"></i>
-                <input type="text" name="user_input" placeholder="Masukkan email Anda" value="<?= htmlspecialchars($remembered_user) ?>">
+                <form method="POST" action="" id="loginForm" novalidate>
+                    <div class="input-group">
+                        <label>Username / Email<span style="color: red;">*</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-envelope icon-left"></i>
+                            <input type="text" name="user_input" placeholder="Masukkan username atau email" value="<?= htmlspecialchars($remembered_user) ?>">
+                        </div>
+                        <span class="error-text" id="emailError"></span>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password<span style="color: red;">*</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-lock icon-left"></i>
+                            <input type="password" name="password_input" id="passwordInput" placeholder="Masukkan password Anda">
+                            <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
+                        </div>
+                        <span class="error-text" id="passwordError"></span>
+                    </div>
+
+                    <div class="remember-row">
+                        <div class="check-container">
+                            <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
+                            <label for="rem">Ingat saya</label>
+                        </div>
+                        <a href="forgot-password.php" class="forgot-link">Lupa password?</a>
+                    </div>
+
+                    <button type="submit" name="login" class="btn-submit">Masuk</button>
+
+                    <p class="card-footer">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
+                </form>
             </div>
-            <span class="error-text" id="emailError"></span>
-        </div>
-        
-        <div class="input-group">
-            <label>Password<span style="color: red;">*</span></label>
-            <div class="input-wrapper">
-                <i class="fa-solid fa-lock icon-left"></i>
-                <input type="password" name="password_input" id="passwordInput" placeholder="Masukkan password Anda">
-                <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
-            </div>
-            <span class="error-text" id="passwordError"></span>
-        </div>
-
-        <div class="remember-row">
-            <div class="check-container">
-                <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
-                <label for="rem">Ingat saya</label>
-            </div>
-            <a href="forgot-password.php" class="forgot-link">Lupa password?</a>
-        </div>
-
-        <!-- Tombol Masuk -->
-        <button type="submit" name="login" class="btn-submit">Masuk</button>
-
-        <!-- PINDAH KE SINI: Kalimat Daftar Sekarang tepat di bawah tombol Masuk -->
-        <p class="card-footer">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
-    </form>
-</div>
         </div>
     </div>
 
-    <!-- FEATURES BAR -->
     <section class="features-bar">
         <div class="feat-bar-item">
             <div class="feat-bar-icon"><i class="fa-regular fa-circle-check"></i></div>
@@ -856,12 +783,10 @@ html::-webkit-scrollbar {
         </div>
     </section>
 
-    <!-- FOOTER -->
-     <footer id="tentang-kami">
+    <footer id="tentang-kami">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="#" class="logo"><i class="fa-solid fa-basketball"
-                        style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
+                <a href="#" class="logo"><i class="fa-solid fa-basketball" style="color: var(--orange)"></i>Hoop<span>Ball</span></a>
                 <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
                 <div class="social-links">
                     <a href="#"><i class="fa-brands fa-instagram"></i></a>
@@ -916,7 +841,6 @@ html::-webkit-scrollbar {
         </div>
     </footer>
 
-    <!-- SWEETALERT ERROR NOTIFICATION -->
     <?php if($error_msg): ?>
     <script>
         Swal.fire({
@@ -930,12 +854,10 @@ html::-webkit-scrollbar {
     </script>
     <?php endif; ?>
 
-    <!-- TOGGLE PASSWORD VISIBILITY SCRIPT -->
     <script>
     function togglePassword() {
         const passInput = document.getElementById('passwordInput');
         const toggleIcon = document.getElementById('togglePass');
-
         if (passInput.type === 'password') {
             passInput.type = 'text';
             toggleIcon.classList.remove('fa-eye');
@@ -947,65 +869,54 @@ html::-webkit-scrollbar {
         }
     }
 
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('loginForm');
+        const userInput = document.querySelector('input[name="user_input"]');
+        const passwordInput = document.getElementById('passwordInput');
+        const emailError = document.getElementById('emailError');
+        const passwordError = document.getElementById('passwordError');
 
-    // LOGIKA VALIDASI FORM KUSTOM (AKAN BERJALAN SAAT TOMBOL MASUK DIKLIK)
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('loginForm');
-            const userInput = document.querySelector('input[name="user_input"]');
-            const passwordInput = document.getElementById('passwordInput');
-            
-            const emailError = document.getElementById('emailError');
-            const passwordError = document.getElementById('passwordError');
-
-            form.addEventListener('submit', function (e) {
-                let isValid = true;
-
-                // 1. Validasi Kolom Email / Username
-                if (userInput.value.trim() === '') {
-                    userInput.parentElement.classList.add('error');
-                    userInput.parentElement.parentElement.classList.add('error-active');
-                    emailError.textContent = 'Email atau Username wajib diisi.';
-                    emailError.style.display = 'block';
-                    isValid = false;
-                } else {
-                    userInput.parentElement.classList.remove('error');
-                    userInput.parentElement.parentElement.classList.remove('error-active');
-                    emailError.style.display = 'none';
-                }
-
-                // 2. Validasi Kolom Password
-                if (passwordInput.value.trim() === '') {
-                    passwordInput.parentElement.classList.add('error');
-                    passwordInput.parentElement.parentElement.classList.add('error-active');
-                    passwordError.textContent = 'Password wajib diisi.';
-                    passwordError.style.display = 'block';
-                    isValid = false;
-                } else {
-                    passwordInput.parentElement.classList.remove('error');
-                    passwordInput.parentElement.parentElement.classList.remove('error-active');
-                    passwordError.style.display = 'none';
-                }
-
-                // Jika ada kolom yang kosong, cegah form dikirimkan ke database
-                if (!isValid) {
-                    e.preventDefault();
-                }
-            });
-
-            // EFEK SANGAT MULUS (CLEAR ERROR ON TYPE): 
-            // Begitu pengguna mengetik di kolom tersebut, warna merah & pesan error langsung hilang otomatis
-            userInput.addEventListener('input', () => {
+        form.addEventListener('submit', function (e) {
+            let isValid = true;
+            if (userInput.value.trim() === '') {
+                userInput.parentElement.classList.add('error');
+                userInput.parentElement.parentElement.classList.add('error-active');
+                emailError.textContent = 'Username atau Email wajib diisi.';
+                emailError.style.display = 'block';
+                isValid = false;
+            } else {
                 userInput.parentElement.classList.remove('error');
                 userInput.parentElement.parentElement.classList.remove('error-active');
                 emailError.style.display = 'none';
-            });
-
-            passwordInput.addEventListener('input', () => {
+            }
+            if (passwordInput.value.trim() === '') {
+                passwordInput.parentElement.classList.add('error');
+                passwordInput.parentElement.parentElement.classList.add('error-active');
+                passwordError.textContent = 'Password wajib diisi.';
+                passwordError.style.display = 'block';
+                isValid = false;
+            } else {
                 passwordInput.parentElement.classList.remove('error');
                 passwordInput.parentElement.parentElement.classList.remove('error-active');
                 passwordError.style.display = 'none';
-            });
+            }
+            if (!isValid) {
+                e.preventDefault();
+            }
         });
+
+        userInput.addEventListener('input', () => {
+            userInput.parentElement.classList.remove('error');
+            userInput.parentElement.parentElement.classList.remove('error-active');
+            emailError.style.display = 'none';
+        });
+
+        passwordInput.addEventListener('input', () => {
+            passwordInput.parentElement.classList.remove('error');
+            passwordInput.parentElement.parentElement.classList.remove('error-active');
+            passwordError.style.display = 'none';
+        });
+    });
     </script>
 
 </body>

@@ -44,11 +44,11 @@ if (isset($conn)) {
     }
 }
 
-// Fetch Akun data
-$akun = null;
+// Fetch Karyawan data directly (no separate Akun table)
+$karyawan_data = null;
 if (isset($conn)) {
-    $res = sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ?", array($id_akun));
-    $akun = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+    $res = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Akun = ? OR ID_Karyawan = ?", array($id_akun, $id_akun));
+    $karyawan_data = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
 }
 
 // Fetch biodata
@@ -131,9 +131,9 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
         exit();
     }
 
-    // Update database
-    $sql = "UPDATE Akun SET Profile_Photo = ? WHERE ID_Akun = ?";
-    $stmt = sqlsrv_query($conn, $sql, array($upload_path, $id_akun));
+    // Update database (Karyawan table)
+    $sql = "UPDATE Karyawan SET Profile_Photo = ? WHERE ID_Akun = ? OR ID_Karyawan = ?";
+    $stmt = sqlsrv_query($conn, $sql, array($upload_path, $id_akun, $id_akun));
 
     if ($stmt) {
         // Consume all results
@@ -219,7 +219,14 @@ if (isset($_POST['update_password']) && !$is_karyawan) {
     $new_pass = trim($_POST['new_password'] ?? '');
     $confirm_pass = trim($_POST['confirm_password'] ?? '');
 
-    if ($old_pass !== ($akun['Kata_Sandi'] ?? '')) {
+    // Check password from Karyawan table
+    $pass_check = null;
+    if (isset($conn)) {
+        $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Karyawan WHERE ID_Akun = ? OR ID_Karyawan = ?", array($id_akun, $id_akun));
+        $pass_check = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+    }
+
+    if ($old_pass !== ($pass_check['Kata_Sandi'] ?? '')) {
         header("Location: profile.php?status=error&msg=" . urlencode('Password lama tidak sesuai.'));
         exit();
     } elseif (strlen($new_pass) < 6) {
@@ -229,8 +236,8 @@ if (isset($_POST['update_password']) && !$is_karyawan) {
         header("Location: profile.php?status=error&msg=" . urlencode('Konfirmasi password tidak cocok.'));
         exit();
     } else {
-        $sql = "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?";
-        $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun));
+        $sql = "UPDATE Karyawan SET Kata_Sandi = ? WHERE ID_Akun = ? OR ID_Karyawan = ?";
+        $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun, $id_akun));
 
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {
@@ -519,7 +526,6 @@ html::-webkit-scrollbar {
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
-        <a href="master/akun.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div> Kelola Akun</a>
         <a href="master/karyawan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
         <a href="master/alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-truck-fast"></i></div> Kelola Alat</a>
         <a href="laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
@@ -793,7 +799,7 @@ html::-webkit-scrollbar {
                     </div>
                     <div class="info-row">
                         <span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span>
-                        <span class="info-val"><?= htmlspecialchars($akun['Email'] ?? '-') ?></span>
+                        <span class="info-val"><?= htmlspecialchars($karyawan_data['Email'] ?? $biodata['Email'] ?? '-') ?></span>
                     </div>
                     <?php if (!$is_karyawan): ?>
                     <div class="info-row">
@@ -857,7 +863,7 @@ html::-webkit-scrollbar {
 <script>
 // Toggle password visibility
 let passVisible = false;
-const realPass = '<?= addslashes($akun['Kata_Sandi'] ?? '') ?>';
+const realPass = '<?= addslashes($karyawan_data['Kata_Sandi'] ?? $biodata['Kata_Sandi'] ?? '') ?>';
 function togglePass() {
     const dots = document.getElementById('passDots');
     const btn = document.getElementById('toggleBtn');

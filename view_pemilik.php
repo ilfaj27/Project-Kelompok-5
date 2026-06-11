@@ -32,20 +32,10 @@ function safeFetch($stmt) {
 
 // ── STATISTIK MANAJEMEN ──
 
-// 1. Total Akun Aktif
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Akun WHERE Status_Akun = 1");
-$d = safeFetch($q);
-$total_akun = $d ? ($d['total'] ?? 0) : 0;
-
-// 2. Total Karyawan Aktif
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan k JOIN Akun a ON k.ID_Akun = a.ID_Akun WHERE a.Status_Akun = 1");
+// 1. Total Karyawan Aktif
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q);
 $total_karyawan = $d ? ($d['total'] ?? 0) : 0;
-
-// 3. Total Customer Aktif
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer c JOIN Akun a ON c.ID_Akun = a.ID_Akun WHERE a.Status_Akun = 1");
-$d = safeFetch($q);
-$total_customer = $d ? ($d['total'] ?? 0) : 0;
 
 // 4. Total Alat/Stok Rendah
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Stok < 10");
@@ -89,15 +79,6 @@ if ($q !== null) {
     }
 }
 
-// ── DATA AKUN TERBARU ──
-$recent_akun = [];
-$q = safeQuery($conn, "SELECT TOP 5 ID_Akun, Username, Email, Role, Status_Akun FROM Akun ORDER BY ID_Akun DESC");
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $recent_akun[] = $row;
-    }
-}
-
 // ── CHART DATA: Omzet 7 Hari Terakhir ──
 $chart_labels = [];
 $chart_data = [];
@@ -113,7 +94,6 @@ function rupiahFormat($n) {
 }
 
 $jabatan_map = [1 => 'Manajer', 2 => 'Supervisor', 3 => 'Kasir', 4 => 'Staf', 5 => 'Operator'];
-$role_map = [1 => 'Manajer', 2 => 'Karyawan', 3 => 'Customer'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -309,10 +289,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="master/akun.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div>
-            Kelola Akun
-        </a>
         <a href="master/karyawan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
             Kelola Karyawan
@@ -399,7 +375,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <div class="stat-grid">
         <div class="stat-card sc-blue">
             <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-            <div class="stat-value"><?= $total_akun ?></div><div class="stat-label">Total Akun Aktif</div><div class="stat-sublabel"><?= $total_karyawan ?> karyawan, <?= $total_customer ?> customer</div>
+            <div class="stat-value"><?= $total_karyawan ?></div><div class="stat-label">Karyawan Aktif</div><div class="stat-sublabel">Total karyawan terdaftar</div>
         </div>
         <div class="stat-card sc-green">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> <?= rupiahFormat($pendapatan_hari) ?></div></div>
@@ -470,7 +446,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="card-header"><div class="card-title"><i class="fa-solid fa-bolt"></i> Akses Cepat</div></div>
                 <div class="card-body">
                     <div class="quick-grid">
-                        <a href="master/akun.php" class="quick-card" style="color:var(--blue);"><i class="fa-solid fa-user-shield"></i><span>Kelola Akun</span></a>
                         <a href="master/karyawan.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-user-tie"></i><span>Kelola Karyawan</span></a>
                         <a href="master/supplier.php" class="quick-card" style="color:var(--orange);"><i class="fa-solid fa-truck-fast"></i><span>Kelola Alat</span></a>
                         <a href="laporan/omzet.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-chart-line"></i><span>Laporan & Omzet</span></a>
@@ -478,29 +453,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 </div>
             </div>
 
-            <!-- Akun Terbaru -->
+            <!-- Info Tambahan -->
             <div class="card">
-                <div class="card-header"><div class="card-title"><i class="fa-solid fa-users"></i> Akun Terbaru</div><span class="card-badge"><?= count($recent_akun) ?> data</span></div>
+                <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
                 <div class="card-body">
-                    <?php if(count($recent_akun) > 0): ?>
-                    <table class="data-table">
-                        <thead><tr><th>Username</th><th>Role</th><th>Status</th></tr></thead>
-                        <tbody>
-                        <?php foreach($recent_akun as $a): 
-                            $status_cls = $a['Status_Akun'] == 1 ? 'sp-active' : 'sp-inactive';
-                            $status_lbl = $a['Status_Akun'] == 1 ? 'Aktif' : 'Nonaktif';
-                        ?>
-                            <tr>
-                                <td><div class="cell-name"><?= htmlspecialchars($a['Username']) ?></div><div class="cell-detail"><?= htmlspecialchars($a['Email']) ?></div></td>
-                                <td><?= $role_map[$a['Role']] ?? 'Unknown' ?></td>
-                                <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    <?php else: ?>
-                    <div style="text-align:center; padding:20px; color:var(--muted);"><i class="fa-solid fa-inbox" style="font-size:24px; margin-bottom:8px; opacity:.5; display:block;"></i><div style="font-size:12px; font-weight:700;">Belum ada data akun</div></div>
-                    <?php endif; ?>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--orange-lt); border-radius:8px;">
+                            <i class="fa-solid fa-basketball" style="color:var(--orange); font-size:18px;"></i>
+                            <div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall System</div>
+                                <div style="font-size:11px; color:var(--muted);">v1.0 - Management System</div>
+                            </div>
+                        </div>
+                        <div style="font-size:12px; color:var(--muted); line-height:1.6;">
+                            Kelola karyawan, alat, dan laporan omzet dari satu dashboard.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
