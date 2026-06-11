@@ -135,7 +135,7 @@ if (!$edit_data) {
 $where_clauses = array("Is_Deleted = 0"); // Hanya menampilkan data aktif
 $query_params = array();
 
-// Filter berdasarkan Status (READY / MAINTENANCE)
+// Filter berdasarkan Status (AKTIF / MAINTENANCE)
 if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
     $where_clauses[] = "Status = ?";
     $query_params[] = intval($_GET['f_status']);
@@ -185,7 +185,7 @@ $offset = ($page - 1) * $limit;
 
 // --- 2. EKSEKUSI QUERY DENGAN ATURAN FILTER & SORTING AKTIF ---
 $query_sql = "SELECT * FROM Lapangan WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, $query_params, false);
+$query = safe_sqlsrv_query($conn, "SELECT * FROM Lapangan WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY", $query_params, false);
 
 $query_error = ($query === false);
 $query_error_msg = '';
@@ -412,7 +412,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-size: 0 !important; 
 }
 
-/* 2. Tarik Pil "READY" ke kiri menggunakan koordinat minus (-) yang sama */
+/* 2. Tarik Pil "AKTIF" ke kiri menggunakan koordinat minus (-) yang sama */
 .data-table td:nth-child(4) .status-pill {
     position: relative;
     
@@ -792,7 +792,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <span class="info-val">
                             <span class="status-pill <?= $is_ready_detail ? 'sp-ready' : 'sp-maint' ?>">
                                 <span class="sp-dot"></span>
-                                <?= $is_ready_detail ? 'READY' : 'MAINTENANCE' ?>
+                                <?= $is_ready_detail ? 'AKTIF' : 'MAINTENANCE' ?>
                             </span>
                         </span>
                     </div>
@@ -914,7 +914,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             </div>
             <div class="stat-chips">
                 <div class="stat-chip chip-green">
-                    <i class="fa-solid fa-circle-check"></i> READY <span class="chip-val"><?= $cnt_ready ?></span>
+                    <i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $cnt_ready ?></span>
                 </div>
                 <div class="stat-chip chip-red">
                     <i class="fa-solid fa-triangle-exclamation"></i> MAINTENANCE <span class="chip-val"><?= $cnt_maint ?></span>
@@ -958,7 +958,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <!-- Diubah name-nya menjadi f_status agar cocok dengan database query kita -->
         <select name="f_status" class="filter-input">
             <option value="">Semua Status</option>
-            <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>READY</option>
+            <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
             <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>MAINTENANCE</option>
         </select>
     </div>
@@ -1023,7 +1023,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <td>
                                 <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
                                     <span class="sp-dot"></span>
-                                    <?= $is_ready ? 'READY' : 'MAINTENANCE' ?>
+                                    <?= $is_ready ? 'AKTIF' : 'MAINTENANCE' ?>
                                 </span>
                             </td>
                             
