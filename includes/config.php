@@ -1,9 +1,9 @@
 <?php
-$serverName = "localhost"; 
+$serverName = "."; 
 $connectionOptions = array(
     "Database" => "Hoopball",
-    "Uid" => "sa", 
-    "PWD" => "F@nsdolalynomor1",
+    "Uid" => "", 
+    "PWD" => "",
     "TrustServerCertificate" => true
 );
 
