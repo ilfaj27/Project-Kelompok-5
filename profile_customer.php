@@ -4,7 +4,9 @@ session_start();
 // DEBUG SEMENTARA: lihat isi session SEBELUM cek_akses() dipanggil
 if (isset($_GET['debug'])) {
     echo "<pre style='background:#111;color:#0f0;padding:20px;font-size:14px;'>";
-    echo "Isi \$_SESSION sebelum cek_akses():\n\n";
+    echo "Isi \$_SESSION sebelum cek_akses():
+
+";
     print_r($_SESSION);
     echo "</pre>";
     exit();
@@ -35,20 +37,30 @@ if (file_exists('includes/config.php')) {
 $swal_status = '';
 $swal_msg = '';
 
-// --- UPDATE BIODATA ---
+// ============================================================================
+// UPDATE BIODATA — HANYA FIELD YANG DIPERBOLEHKAN UNTUK DIEDIT CUSTOMER
+// Yang BISA diedit: Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir,
+//                   Alamat, No_Telepon, Email
+// Yang TIDAK BISA diedit: ID_Customer (PK), Username, Status, Kata_Sandi
+// ============================================================================
 if (isset($_POST['update_biodata'])) {
     $nama = trim($_POST['nama_customer'] ?? '');
     $jk = intval($_POST['jenis_kelamin'] ?? 0); // 0 = Laki-laki, 1 = Perempuan
     $alamat = trim($_POST['alamat'] ?? '');
     $telepon = trim($_POST['no_telepon'] ?? '');
     $email = trim($_POST['email'] ?? '');
-
     $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
     $tmp_lahir = $_POST['tempat_lahir'] ?? '';
+
+    // --- VALIDASI ---
+    $username_input = trim($_POST['username'] ?? '');
 
     $errors = [];
     if (empty($nama) || strlen($nama) < 3 || !preg_match('/^[a-zA-Z\s]+$/', $nama)) {
         $errors[] = 'Nama minimal 3 karakter, hanya huruf dan spasi.';
+    }
+    if (empty($username_input) || strlen($username_input) < 3 || !preg_match('/^[a-zA-Z0-9_]+$/', $username_input)) {
+        $errors[] = 'Username minimal 3 karakter, hanya huruf, angka, dan underscore.';
     }
     if (empty($tgl_lahir)) {
         $errors[] = 'Tanggal lahir wajib diisi.';
@@ -78,12 +90,48 @@ if (isset($_POST['update_biodata'])) {
         $errors[] = 'Jenis kelamin tidak valid.';
     }
 
+    // --- CEK KEBERADAAN EMAIL & TELEPON (unik di tabel Customer) ---
     if (empty($errors)) {
-        // Update tabel Customer (Modified_By & Modified_Date sesuai schema baru)
+        $cek_username = sqlsrv_query($conn,
+            "SELECT ID_Customer FROM Customer WHERE Username = ? AND ID_Customer != ? AND Is_Deleted = 0",
+            array($username_input, $ID_Customer)
+        );
+        if ($cek_username && sqlsrv_fetch_array($cek_username, SQLSRV_FETCH_ASSOC)) {
+            $errors[] = 'Username sudah digunakan oleh customer lain.';
+        }
+        $cek_email = sqlsrv_query($conn,
+            "SELECT ID_Customer FROM Customer WHERE Email = ? AND ID_Customer != ? AND Is_Deleted = 0",
+            array($email, $ID_Customer)
+        );
+        if ($cek_email && sqlsrv_fetch_array($cek_email, SQLSRV_FETCH_ASSOC)) {
+            $errors[] = 'Email sudah digunakan oleh customer lain.';
+        }
+        $cek_telp = sqlsrv_query($conn,
+            "SELECT ID_Customer FROM Customer WHERE No_Telepon = ? AND ID_Customer != ? AND Is_Deleted = 0",
+            array($telepon, $ID_Customer)
+        );
+        if ($cek_telp && sqlsrv_fetch_array($cek_telp, SQLSRV_FETCH_ASSOC)) {
+            $errors[] = 'Nomor telepon sudah digunakan oleh customer lain.';
+        }
+    }
+
+    if (empty($errors)) {
+        // UPDATE field yang diperbolehkan — TIDAK menyentuh ID_Customer (PK) dan Status
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
         $stmt = sqlsrv_query($conn,
-            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ?, Email = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
-            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Customer)
+            "UPDATE Customer SET
+                Nama_Customer = ?,
+                Username = ?,
+                Jenis_Kelamin = ?,
+                Tanggal_Lahir = ?,
+                Tempat_Lahir = ?,
+                Alamat = ?,
+                No_Telepon = ?,
+                Email = ?,
+                Modified_By = ?,
+                Modified_Date = GETDATE()
+             WHERE ID_Customer = ?",
+            array($nama, $username_input, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Customer)
         );
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {}
@@ -103,7 +151,9 @@ if (isset($_POST['update_biodata'])) {
     }
 }
 
-// --- UPDATE PASSWORD ---
+// ============================================================================
+// UPDATE PASSWORD — Terpisah dari biodata, hanya update Kata_Sandi
+// ============================================================================
 if (isset($_POST['update_password'])) {
     $old_pass = trim($_POST['old_password'] ?? '');
     $new_pass = trim($_POST['new_password'] ?? '');
@@ -139,10 +189,9 @@ if (isset($_POST['update_password'])) {
     }
 }
 
-// --- UPLOAD FOTO ---
-// Catatan: tabel Customer pada schema baru belum punya kolom Profile_Photo,
-// jadi foto disimpan di server & session saja (tidak dipersist ke DB).
-// Tambahkan kolom Profile_Photo VARCHAR(...) di tabel Customer jika ingin disimpan permanen.
+// ============================================================================
+// UPLOAD FOTO — Disimpan di server & session (tidak ke DB karena belum ada kolom)
+// ============================================================================
 if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     $file = $_FILES['photo'];
     $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -171,8 +220,9 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     }
 }
 
-// --- AMBIL DATA ---
-// Akun & Customer sudah digabung menjadi satu tabel Customer
+// ============================================================================
+// AMBIL DATA CUSTOMER — ID_Customer dari session, tidak bisa diubah user
+// ============================================================================
 $res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($ID_Customer));
 $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
 
@@ -189,6 +239,7 @@ $alamat = $biodata['Alamat'] ?? '-';
 $jk = $biodata['Jenis_Kelamin'] ?? 0;
 $tgl_lahir = $biodata['Tanggal_Lahir'] ?? '';
 $tmp_lahir = $biodata['Tempat_Lahir'] ?? '';
+$status = $biodata['Status'] ?? 1;
 
 // Jenis_Kelamin sesuai CHECK (0,1) pada tabel Customer: 0 = Laki-laki, 1 = Perempuan
 function jk_label($jk) {
@@ -561,6 +612,10 @@ function format_date_display($date) {
             background: rgba(22,163,74,0.15);
             color: var(--green);
         }
+        .card-badge.red {
+            background: rgba(220,38,38,0.15);
+            color: var(--red);
+        }
         .card-body { padding: 24px; }
 
         /* FORM */
@@ -599,6 +654,25 @@ function format_date_display($date) {
             padding-right: 40px;
         }
         textarea.form-input { resize: vertical; min-height: 80px; }
+
+        /* Read-only display */
+        .form-display {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid var(--dark-border);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Barlow', sans-serif;
+            color: #888;
+            background: var(--black);
+            cursor: not-allowed;
+            user-select: none;
+        }
+        .form-display .lock-icon {
+            color: var(--orange);
+            margin-right: 8px;
+            font-size: 12px;
+        }
 
         /* Validasi */
         .form-input.error { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(220,38,38,0.1) !important; }
@@ -659,6 +733,7 @@ function format_date_display($date) {
         .info-key i { color: var(--orange); font-size: 14px; width: 20px; text-align: center; }
         .info-val { font-size: 14px; font-weight: 700; color: #fff; text-align: right; }
         .info-val.highlight { color: var(--orange); }
+        .info-val.muted { color: #666; font-style: italic; }
         .info-badge {
             display: inline-flex;
             align-items: center;
@@ -669,6 +744,13 @@ function format_date_display($date) {
             font-weight: 700;
         }
         .badge-active { background: rgba(22,163,74,0.15); color: var(--green); }
+        .badge-inactive { background: rgba(220,38,38,0.15); color: var(--red); }
+        .badge-locked {
+            background: rgba(136,136,136,0.15);
+            color: #888;
+            font-size: 10px;
+            padding: 2px 8px;
+        }
 
         /* Password */
         .password-mask { display: flex; align-items: center; gap: 8px; }
@@ -689,7 +771,7 @@ function format_date_display($date) {
         /* Swal Dark */
         .swal2-popup.swal-dark { background: #151515 !important; color: #fff !important; border: 1px solid #333 !important; }
         .swal2-popup.swal-dark .swal2-title { color: #fff !important; }
-    
+
         /* Input Date Dark Theme */
         input[type="date"].form-input {
             color-scheme: dark;
@@ -698,6 +780,14 @@ function format_date_display($date) {
         input[type="date"].form-input::-webkit-calendar-picker-indicator {
             filter: invert(0.6);
             cursor: pointer;
+        }
+
+        /* Tooltip for locked fields */
+        .locked-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+            font-style: italic;
         }
 </style>
 </head>
@@ -753,7 +843,7 @@ function format_date_display($date) {
         <div class="hero-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
         <div class="hero-role"><i class="fa-solid fa-shield-halved"></i> CUSTOMER</div>
         <div class="hero-meta">
-            <div class="hero-meta-item">Username: <span><?= htmlspecialchars($username) ?></span></div>
+            <div class="hero-meta-item">ID Customer: <span><?= htmlspecialchars($ID_Customer) ?></span></div>
             <div class="hero-meta-item">Email: <span><?= htmlspecialchars($email) ?></span></div>
         </div>
     </div>
@@ -762,7 +852,7 @@ function format_date_display($date) {
 <!-- MAIN CONTENT -->
 <main class="main">
     <div class="profile-grid">
-        <!-- BIODATA -->
+        <!-- BIODATA — HANYA FIELD YANG BOLEH DIEDIT -->
         <div class="p-card">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-address-card"></i> Biodata Diri</div>
@@ -770,6 +860,24 @@ function format_date_display($date) {
             </div>
             <div class="card-body">
                 <form method="POST" id="formBiodata">
+                    <!-- ID Customer — TIDAK BOLEH DIEDIT (Read-only display) -->
+                    <div class="form-group">
+                        <label class="form-label">ID Customer <span class="badge-locked"><i class="fa-solid fa-lock"></i> TIDAK BISA DIEDIT</span></label>
+                        <div class="form-display">
+                            <i class="fa-solid fa-lock lock-icon"></i><?= htmlspecialchars($ID_Customer) ?>
+                        </div>
+                        <div class="locked-hint">ID Customer adalah primary key dan tidak dapat diubah.</div>
+                    </div>
+
+                    <!-- Username — BISA DIEDIT -->
+                    <div class="form-group">
+                        <label class="form-label">Username <span class="required">*</span></label>
+                        <input type="text" name="username" id="username" class="form-input"
+                               value="<?= htmlspecialchars($username) ?>"
+                               placeholder="Masukkan username" autocomplete="off" maxlength="20">
+                        <div class="error-msg" id="usernameError">Username minimal 3 karakter, hanya huruf, angka, dan underscore.</div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Nama Lengkap <span class="required">*</span></label>
@@ -821,6 +929,21 @@ function format_date_display($date) {
                                maxlength="14" placeholder="Contoh: 08123456789">
                         <div class="error-msg" id="teleponError">Nomor telepon harus 10-14 digit angka.</div>
                     </div>
+
+                    <!-- Status — TIDAK BOLEH DIEDIT (Read-only display) -->
+                    <div class="form-group">
+                        <label class="form-label">Status Akun <span class="badge-locked"><i class="fa-solid fa-lock"></i> TIDAK BISA DIEDIT</span></label>
+                        <div class="form-display" style="display:flex; align-items:center; gap:8px;">
+                            <?php if ($status == 1): ?>
+                                <span class="info-badge badge-active"><i class="fa-solid fa-check-circle"></i> Aktif</span>
+                            <?php else: ?>
+                                <span class="info-badge badge-inactive"><i class="fa-solid fa-circle-xmark"></i> Non-Aktif</span>
+                            <?php endif; ?>
+                            <span style="color:#666; font-size:12px;">— Dikontrol oleh sistem</span>
+                        </div>
+                        <div class="locked-hint">Status akun dikelola oleh admin dan tidak dapat diubah sendiri.</div>
+                    </div>
+
                     <button type="submit" name="update_biodata" class="btn-save">
                         <i class="fa-solid fa-floppy-disk"></i> SIMPAN PERUBAHAN
                     </button>
@@ -828,13 +951,17 @@ function format_date_display($date) {
             </div>
         </div>
 
-        <!-- INFORMASI AKUN -->
+        <!-- INFORMASI AKUN — READ ONLY -->
         <div class="p-card">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Informasi Akun</div>
-                <span class="card-badge"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Aktif</span>
+                <span class="card-badge"><i class="fa-solid fa-circle-check" style="font-size:10px;"></i> Detail</span>
             </div>
             <div class="card-body">
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Customer</span>
+                    <span class="info-val muted"><?= htmlspecialchars($ID_Customer) ?> <span class="badge-locked"><i class="fa-solid fa-lock"></i></span></span>
+                </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-user-tag"></i> Username</span>
                     <span class="info-val"><?= htmlspecialchars($username) ?></span>
@@ -870,12 +997,18 @@ function format_date_display($date) {
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
-                    <span class="info-val"><span class="info-badge badge-active"><i class="fa-solid fa-check-circle"></i> Aktif</span></span>
+                    <span class="info-val">
+                        <?php if ($status == 1): ?>
+                            <span class="info-badge badge-active"><i class="fa-solid fa-check-circle"></i> Aktif</span>
+                        <?php else: ?>
+                            <span class="info-badge badge-inactive"><i class="fa-solid fa-circle-xmark"></i> Non-Aktif</span>
+                        <?php endif; ?>
+                    </span>
                 </div>
             </div>
         </div>
 
-        <!-- PASSWORD -->
+        <!-- PASSWORD — Terpisah, hanya update Kata_Sandi -->
         <div class="p-card p-card-wide">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-lock"></i> Keamanan — Ubah Password</div>
@@ -955,6 +1088,7 @@ function togglePass() {
 
 // Validasi Realtime
 const namaInput = document.getElementById('nama_customer');
+const usernameInput = document.getElementById('username');
 const tglLahirInput = document.getElementById('tanggal_lahir');
 const tmpLahirInput = document.getElementById('tempat_lahir');
 const teleponInput = document.getElementById('no_telepon');
@@ -967,6 +1101,26 @@ if (namaInput) {
         validateNama();
     });
     namaInput.addEventListener('blur', validateNama);
+}
+
+// Username validation
+if (usernameInput) {
+    usernameInput.addEventListener('input', function() {
+        this.value = this.value.replace(/[^a-zA-Z0-9_]/g, '');
+        validateUsername();
+    });
+    usernameInput.addEventListener('blur', validateUsername);
+}
+
+function validateUsername() {
+    if (!usernameInput) return true;
+    const val = usernameInput.value.trim();
+    const error = document.getElementById('usernameError');
+    if (val.length < 3 || !/^[a-zA-Z0-9_]+$/.test(val)) {
+        usernameInput.classList.add('error'); usernameInput.classList.remove('valid'); error.classList.add('show'); return false;
+    } else {
+        usernameInput.classList.remove('error'); usernameInput.classList.add('valid'); error.classList.remove('show'); return true;
+    }
 }
 
 // Filter Tempat Lahir - hanya huruf dan spasi
@@ -1086,6 +1240,7 @@ if (formBiodata) {
     formBiodata.addEventListener('submit', function(e) {
         let valid = true;
         if (!validateNama()) valid = false;
+        if (!validateUsername()) valid = false;
         if (!validateTglLahir()) valid = false;
         if (!validateTmpLahir()) valid = false;
         if (!validateAlamat()) valid = false;
