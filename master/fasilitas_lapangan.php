@@ -480,7 +480,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -489,73 +489,74 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </a>
 
-    <?php if ($role === 'karyawan'): ?>
     <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="../view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
+            Dashboard
         </a>
         <a href="customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Kelola Customer
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
         </a>
         <a href="lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Kelola Lapangan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+            Kelola Lapangan
         </a>
         <a href="fasilitas_lapangan.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>Kelola Fasilitas
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
         </a>
         <a href="jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
         </a>
         <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
         </a>
         <a href="tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
         </a>
         <a href="alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
+        <a href="../m_Alat/index.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
+            Alat
+        </a>
+        <a href="../m_Jadwal/index.php" class="sb-link"> 
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
+            Jadwal
         </a>
     </nav>
+
     <div class="sb-section-label">Transaksi</div>
     <nav>
         <a href="booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
         </a>
         <a href="langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
         </a>
         <a href="pembelian.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
         </a>
         <a href="pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
         </a>
     </nav>
-    <?php else: ?>
-    <div class="sb-section-label">Menu Admin</div>
-    <nav>
-        <a href="../view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
-        </a>
-        <a href="akun.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-shield"></i></div>Kelola Akun
-        </a>
-        <a href="karyawan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users-gear"></i></div>Kelola Karyawan
-        </a>
-        <a href="alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
-        </a>
-        <a href="laporan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>Laporan & Omzet
-        </a>
-    </nav>
-    <?php endif; ?>
 
     <div class="sb-section-label">Akun</div>
     <a href="../profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+        Profil Saya
     </a>
 
     <div class="sb-bottom">
@@ -567,7 +568,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
