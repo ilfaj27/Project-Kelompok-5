@@ -403,6 +403,15 @@ html::-webkit-scrollbar {
             <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
             Promo
         </a>
+        <!-- INI MENU BARU UNTUK MASTER ALAT -->
+        <a href="m_Alat/index.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
+            Alat
+        </a>
+        <a href="m_Jadwal/index.php" class="sb-link"> 
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
+            Jadwal
+        </a>
     </nav>
 
     <!-- SEKSI 2: AKUN -->
@@ -743,6 +752,10 @@ html::-webkit-scrollbar {
                     <a href="master/promo.php" class="quick-card" style="color:var(--orange);">
                         <i class="fa-solid fa-tag" style="color:var(--orange);"></i>
                         <span style="color:var(--text);">Buat Promo</span>
+                    </a>
+                    <a href="m_Alat/index.php" class="quick-card" style="color:var(--blue);">
+                        <i class="fa-solid fa-boxes-stacked" style="color:var(--blue);"></i>
+                        <span style="color:var(--text);">Kelola Alat</span>
                     </a>
                 </div>
             </div>
