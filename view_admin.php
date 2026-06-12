@@ -301,6 +301,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
+        <!-- INI MENU BARU UNTUK MASTER ALAT -->
+        <a href="m_Alat/index.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
+            Alat
+        </a>
+        <a href="m_Jadwal/index.php" class="sb-link"> 
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
+            Jadwal
+        </a>
     </nav>
 
     <div class="sb-section-label">Transaksi</div>
@@ -406,20 +415,65 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </div>
 
-    <!-- Chart Booking -->
-    <div class="chart-section">
-        <div class="chart-card">
-            <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div><span class="chart-badge"><?= array_sum($chart_data) ?> Total</span></div>
-            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
-        </div>
-        <div>
-            <div class="chart-card" style="margin-bottom: 16px;">
-                <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div></div>
-                <div class="mini-stat-row">
-                    <div class="mini-stat"><div class="mini-stat-label">Pembelian Alat</div><div class="mini-stat-value"><?= $total_pembelian ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Pembatalan</div><div class="mini-stat-value <?= $total_pembatalan > 0 ? 'red' : '' ?>"><?= $total_pembatalan ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Alat Tersedia</div><div class="mini-stat-value"><?= $total_alat_aktif ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Total Alat</div><div class="mini-stat-value"><?= $total_alat ?></div></div>
+                <!-- Promo Aktif -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-tags"></i> Promo Aktif</div>
+                        <span class="card-badge"><?= count($promo_aktif) ?> promo</span>
+                    </div>
+                    <div class="card-body">
+                        <?php if(count($promo_aktif) > 0): ?>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Promo</th>
+                                    <th>Diskon</th>
+                                    <th>Berakhir</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach($promo_aktif as $p): ?>
+                                <tr>
+                                    <td>
+                                        <div class="cell-name"><?= htmlspecialchars($p['Nama_Promo']) ?></div>
+                                    </td>
+                                    <td><span class="price-col" style="color:var(--orange);"><?= (int)$p['Diskon'] ?>%</span></td>
+                                    <td><span class="status-pill sp-active"><?= formatTanggal($p['Tanggal_Selesai']) ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <div style="text-align:center; padding:20px; color:var(--muted);">
+                            <i class="fa-solid fa-inbox" style="font-size:24px; margin-bottom:8px; opacity:.5; display:block;"></i>
+                            <div style="font-size:12px; font-weight:700;">Tidak ada promo aktif</div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-grid">
+                    <a href="booking.php" class="quick-card" style="color:var(--orange);">
+                        <i class="fa-solid fa-calendar-plus" style="color:var(--orange);"></i>
+                        <span style="color:var(--text);">Booking Baru</span>
+                    </a>
+                    <a href="master/customer.php" class="quick-card" style="color:var(--green);">
+                        <i class="fa-solid fa-user-plus" style="color:var(--green);"></i>
+                        <span style="color:var(--text);">Customer Baru</span>
+                    </a>
+                    <a href="master/lapangan.php" class="quick-card" style="color:var(--purple);">
+                        <i class="fa-solid fa-map" style="color:var(--purple);"></i>
+                        <span style="color:var(--text);">Cek Lapangan</span>
+                    </a>
+                    <a href="master/promo.php" class="quick-card" style="color:var(--orange);">
+                        <i class="fa-solid fa-tag" style="color:var(--orange);"></i>
+                        <span style="color:var(--text);">Buat Promo</span>
+                    </a>
+                    <a href="m_Alat/index.php" class="quick-card" style="color:var(--blue);">
+                        <i class="fa-solid fa-boxes-stacked" style="color:var(--blue);"></i>
+                        <span style="color:var(--text);">Kelola Alat</span>
+                    </a>
                 </div>
             </div>
         </div>

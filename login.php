@@ -19,82 +19,55 @@ if (isset($_POST['login'])) {
         $params = array($user_input, $user_input);
         $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
 
-        if ($stmt === false) {
-            $error_msg = "Terjadi kesalahan koneksi database. Silakan coba lagi.";
-        } else {
-            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($row) {
+            if ($pass_input == $row['Kata_Sandi']) {
+                $_SESSION['login']   = true;
+                $_SESSION['id_akun'] = $row['ID_Akun'];
 
-            if ($row) {
-                // ═══ LOGIN SEBAGAI KARYAWAN/PEMILIK ═══
-                if ($pass_input == $row['Kata_Sandi']) {
-                    $_SESSION['login'] = true;
-                    $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
-                    $_SESSION['id_akun'] = $row['ID_Akun'] ?? null;
+                // PERBAIKAN 2: Mengubah pemetaan angka Role sesuai database baru Anda
+                // 1 = customer, 2 = karyawan, 3 = pemilik (manajer)
+                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
+                $_SESSION['role'] = $role_map[(int)$row['Role']];
 
-                    $jabatan = strtolower($row['Jabatan']);
-                    $_SESSION['role'] = ($jabatan == 'manajer') ? 'pemilik' : 'karyawan';
-                    $_SESSION['nama'] = $row['Nama_Karyawan'];
-                    $_SESSION['jabatan'] = $row['Jabatan'];
-                    $_SESSION['Profile_Photo'] = $row['Profile_Photo'] ?? '';
-
-                    if (isset($_POST['remember'])) {
-                        setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                // Ambil nama berdasarkan role dari tabel profil terkait
+                if ($_SESSION['role'] == 'pemilik' || $_SESSION['role'] == 'karyawan') {
+                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
+                    if ($q_prof !== false) {
+                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
+                        $_SESSION['nama'] = $d_prof['Nama_Karyawan'] ?? 'Admin';
                     } else {
-                        setcookie('remember_me', '', time() - 3600, "/");
+                        $_SESSION['nama'] = 'Admin';
                     }
-
-                    if ($_SESSION['role'] == 'pemilik') {
-                        header("Location: view_pemilik.php");
-                    } else {
-                        header("Location: view_admin.php");
-                    }
-                    exit();
                 } else {
-                    $error_msg = "Username/Email atau Kata Sandi yang Anda masukkan salah.";
+                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Customer FROM Customer WHERE ID_Akun = ?", array($row['ID_Akun']));
+                    if ($q_prof !== false) {
+                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
+                        $_SESSION['nama'] = $d_prof['Nama_Customer'] ?? 'Customer';
+                    } else {
+                        $_SESSION['nama'] = 'Customer';
+                    }
                 }
+
+                if (isset($_POST['remember'])) {
+                    setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                } else {
+                    setcookie('remember_me', '', time() - 3600, "/");
+                }
+
+                // Redirect berdasarkan role
+                if ($_SESSION['role'] == 'pemilik') {
+                    header("Location: view_pemilik.php");
+                } elseif ($_SESSION['role'] == 'karyawan') {
+                    header("Location: view_admin.php"); 
+                } else {
+                    header("Location: view_customer.php"); 
+                }
+                exit();
             } else {
-                // ════════════════════════════════════════════════════════
-                // JIKA BUKAN KARYAWAN, CEK KE TABEL CUSTOMER
-                // ════════════════════════════════════════════════════════
-                $sql_customer = "SELECT * FROM Customer WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
-                $params_customer = array($user_input, $user_input);
-                $stmt_customer = sqlsrv_query($conn, $sql_customer, $params_customer);
-
-                if ($stmt_customer === false) {
-                    $error_msg = "Terjadi kesalahan koneksi database. Silakan coba lagi.";
-                } else {
-                    $row_customer = sqlsrv_fetch_array($stmt_customer, SQLSRV_FETCH_ASSOC);
-
-                    if ($row_customer) {
-                        // ═══ LOGIN SEBAGAI CUSTOMER ═══
-                        if ($pass_input == $row_customer['Kata_Sandi']) {
-                            $_SESSION['login'] = true;
-                            $_SESSION['id_customer'] = $row_customer['ID_Customer'];
-                            $_SESSION['role'] = 'customer';
-                            $_SESSION['nama'] = $row_customer['Nama_Customer'];
-                            $_SESSION['email'] = $row_customer['Email'];
-                            $_SESSION['no_telepon'] = $row_customer['No_Telepon'];
-                            $_SESSION['alamat'] = $row_customer['Alamat'] ?? '';
-                            $_SESSION['jenis_kelamin'] = $row_customer['Jenis_Kelamin'];
-                            $_SESSION['tanggal_lahir'] = $row_customer['Tanggal_Lahir'] ?? '';
-                            $_SESSION['tempat_lahir'] = $row_customer['Tempat_Lahir'] ?? '';
-
-                            if (isset($_POST['remember'])) {
-                                setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
-                            } else {
-                                setcookie('remember_me', '', time() - 3600, "/");
-                            }
-
-                            header("Location: dashboard.php");
-                            exit();
-                        } else {
-                            $error_msg = "Username/Email atau Kata Sandi yang Anda masukkan salah.";
-                        }
-                    } else {
-                        $error_msg = "Akun tidak ditemukan, dinonaktifkan, atau sudah dihapus.";
-                    }
-                }
+                $error_msg = "Anda tidak bisa login.";
             }
+        } else {
+            $error_msg = "Anda tidak bisa login";
         }
     }
 }

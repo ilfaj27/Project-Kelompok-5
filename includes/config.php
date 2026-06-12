@@ -1,5 +1,5 @@
 <?php
-$serverName = "localhost"; 
+$serverName = "."; 
 $connectionOptions = array(
     "Database" => "Hoopball",
     "Uid" => "", 
