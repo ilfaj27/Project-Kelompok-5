@@ -443,7 +443,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Kelola Lapangan
         </a>
-        <a href="fasilitas.php" class="sb-link">
+        <a href="fasilitas_lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
             Kelola Fasilitas
         </a>
