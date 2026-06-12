@@ -42,15 +42,15 @@ $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Is_Deleted 
 $d = safeFetch($q); if ($d) $total_langganan = $d['total'] ?? 0;
 
 $total_pembelian = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembelian_Alat WHERE Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_pembelian = $d['total'] ?? 0;
 
 $total_pembatalan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan WHERE Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan_Booking WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_pembatalan = $d['total'] ?? 0;
 
 $total_omzet = 0;
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status = 'Berhasil' AND Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2) AND Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_omzet = $d['total'] ?? 0;
 
 $total_alat = 0; $total_alat_aktif = 0;
@@ -58,6 +58,18 @@ $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0")
 $d = safeFetch($q); if ($d) $total_alat = $d['total'] ?? 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_alat_aktif = $d['total'] ?? 0;
+
+// ── DATA PROMO AKTIF ──
+$promo_aktif = [];
+$q = safeQuery($conn, "SELECT TOP 5 ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai 
+    FROM Promo 
+    WHERE Status = 1 AND Is_Deleted = 0 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)
+    ORDER BY Tanggal_Mulai DESC");
+if ($q !== null) {
+    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+        $promo_aktif[] = $row;
+    }
+}
 
 // ── CHART DATA: Booking 7 Hari Terakhir ──
 $chart_labels = []; $chart_data = [];
@@ -70,7 +82,11 @@ for ($i = 6; $i >= 0; $i--) {
 
 // ── DATA BOOKING TERBARU ──
 $recent_booking = [];
-$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar FROM Booking b JOIN Customer c ON b.ID_Customer = c.ID_Customer WHERE b.Is_Deleted = 0 ORDER BY b.ID_Booking DESC");
+$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar 
+    FROM Booking b 
+    JOIN Customer c ON b.ID_Customer = c.ID_Customer 
+    WHERE b.Is_Deleted = 0 
+    ORDER BY b.ID_Booking DESC");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_booking[] = $row;
@@ -78,7 +94,20 @@ if ($q !== null) {
 }
 
 function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
-$status_map = ['pending' => 'Menunggu', 'confirmed' => 'Berhasil', 'cancelled' => 'Dibatalkan', 'completed' => 'Selesai'];
+
+function formatTanggal($tanggal) {
+    if (is_object($tanggal) && method_exists($tanggal, 'format')) {
+        return $tanggal->format('d M Y');
+    }
+    return date('d M Y', strtotime($tanggal));
+}
+
+$status_map = [
+    0 => ['label' => 'Menunggu', 'class' => 'sp-pending'],
+    1 => ['label' => 'Berhasil', 'class' => 'sp-active'],
+    2 => ['label' => 'Selesai', 'class' => 'sp-active'],
+    3 => ['label' => 'Dibatalkan', 'class' => 'sp-inactive']
+];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -261,7 +290,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </head>
 <body>
 
-<aside class="sidebar">
+<<aside class="sidebar">
     <a href="view_karyawan.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
@@ -301,7 +330,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
-        <!-- INI MENU BARU UNTUK MASTER ALAT -->
         <a href="m_Alat/index.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
             Alat
@@ -353,8 +381,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </aside>
 
-<main class="main">
-<header class="topbar">
+<<main class="main">
+<<header class="topbar">
     <div class="topbar-left">
         <div class="topbar-title">Dashboard Karyawan</div>
         <div class="topbar-breadcrumb">Dashboard / Overview</div>
@@ -415,65 +443,34 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </div>
 
-                <!-- Promo Aktif -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title"><i class="fa-solid fa-tags"></i> Promo Aktif</div>
-                        <span class="card-badge"><?= count($promo_aktif) ?> promo</span>
-                    </div>
-                    <div class="card-body">
-                        <?php if(count($promo_aktif) > 0): ?>
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Promo</th>
-                                    <th>Diskon</th>
-                                    <th>Berakhir</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach($promo_aktif as $p): ?>
-                                <tr>
-                                    <td>
-                                        <div class="cell-name"><?= htmlspecialchars($p['Nama_Promo']) ?></div>
-                                    </td>
-                                    <td><span class="price-col" style="color:var(--orange);"><?= (int)$p['Diskon'] ?>%</span></td>
-                                    <td><span class="status-pill sp-active"><?= formatTanggal($p['Tanggal_Selesai']) ?></span></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                        <?php else: ?>
-                        <div style="text-align:center; padding:20px; color:var(--muted);">
-                            <i class="fa-solid fa-inbox" style="font-size:24px; margin-bottom:8px; opacity:.5; display:block;"></i>
-                            <div style="font-size:12px; font-weight:700;">Tidak ada promo aktif</div>
+    <!-- Chart & Promo -->
+    <div class="chart-section">
+        <div class="chart-card">
+            <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div><span class="chart-badge"><?= array_sum($chart_data) ?> Total</span></div>
+            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
+        </div>
+        <div>
+            <div class="chart-card" style="margin-bottom: 16px;">
+                <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-tags"></i> Promo Aktif</div><span class="card-badge"><?= count($promo_aktif) ?> promo</span></div>
+                <div class="card-body" style="padding: 0 24px 24px;">
+                    <?php if(count($promo_aktif) > 0): ?>
+                        <?php foreach($promo_aktif as $p): ?>
+                        <div class="promo-card" style="background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all .2s ease;">
+                            <div class="promo-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <span class="promo-name" style="font-size: 14px; font-weight: 800; color: var(--text);"><?= htmlspecialchars($p['Nama_Promo']) ?></span>
+                                <span class="promo-discount" style="font-size: 12px; font-weight: 800; color: var(--orange); background: var(--orange-lt); padding: 4px 10px; border-radius: 20px;"><?= number_format($p['Diskon'], 0, ',', '.') ?></span>
+                            </div>
+                            <div class="promo-date" style="font-size: 11px; color: var(--muted);">
+                                <?= formatTanggal($p['Tanggal_Mulai']) ?> - <?= formatTanggal($p['Tanggal_Selesai']) ?>
+                            </div>
                         </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="quick-grid">
-                    <a href="booking.php" class="quick-card" style="color:var(--orange);">
-                        <i class="fa-solid fa-calendar-plus" style="color:var(--orange);"></i>
-                        <span style="color:var(--text);">Booking Baru</span>
-                    </a>
-                    <a href="master/customer.php" class="quick-card" style="color:var(--green);">
-                        <i class="fa-solid fa-user-plus" style="color:var(--green);"></i>
-                        <span style="color:var(--text);">Customer Baru</span>
-                    </a>
-                    <a href="master/lapangan.php" class="quick-card" style="color:var(--purple);">
-                        <i class="fa-solid fa-map" style="color:var(--purple);"></i>
-                        <span style="color:var(--text);">Cek Lapangan</span>
-                    </a>
-                    <a href="master/promo.php" class="quick-card" style="color:var(--orange);">
-                        <i class="fa-solid fa-tag" style="color:var(--orange);"></i>
-                        <span style="color:var(--text);">Buat Promo</span>
-                    </a>
-                    <a href="m_Alat/index.php" class="quick-card" style="color:var(--blue);">
-                        <i class="fa-solid fa-boxes-stacked" style="color:var(--blue);"></i>
-                        <span style="color:var(--text);">Kelola Alat</span>
-                    </a>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div style="text-align:center; padding:20px; color:var(--muted);">
+                            <i class="fa-solid fa-tag" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i>
+                            <div style="font-size:13px; font-weight:700;">Tidak ada promo aktif</div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -490,13 +487,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <tbody>
                     <?php if(count($recent_booking) > 0): ?>
                     <?php foreach($recent_booking as $b):
-                        $status_cls = $b['Status'] == 'confirmed' ? 'sp-active' : ($b['Status'] == 'pending' ? 'sp-pending' : 'sp-inactive');
-                        $status_lbl = $status_map[$b['Status']] ?? $b['Status'];
+                        $status = $status_map[$b['Status']] ?? ['label' => 'Unknown', 'class' => 'sp-pending'];
                     ?>
                         <tr>
                             <td><div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div><div class="cell-detail">#<?= $b['ID_Booking'] ?></div></td>
-                            <td><?= is_object($b['Tanggal_Booking']) ? $b['Tanggal_Booking']->format('d M Y') : $b['Tanggal_Booking'] ?></td>
-                            <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
+                            <td><?= formatTanggal($b['Tanggal_Booking']) ?></td>
+                            <td><span class="status-pill <?= $status['class'] ?>"><?= $status['label'] ?></span></td>
                             <td style="font-weight:700;"><?= rupiahFormat($b['Total_Bayar']) ?></td>
                         </tr>
                     <?php endforeach; ?>

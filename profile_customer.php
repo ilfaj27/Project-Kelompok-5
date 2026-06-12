@@ -1,17 +1,27 @@
 <?php
 session_start();
 
-// Cek login - kompatibel dengan semua cara session
-$id_akun = $ID_Akun ?? $_SESSION['id_akun'] ?? '';
-$role = $_SESSION['Role'] ?? $_SESSION['role'] ?? '';
-
-if (empty($id_akun)) {
-    header("Location: login.php");
+// DEBUG SEMENTARA: lihat isi session SEBELUM cek_akses() dipanggil
+if (isset($_GET['debug'])) {
+    echo "<pre style='background:#111;color:#0f0;padding:20px;font-size:14px;'>";
+    echo "Isi \$_SESSION sebelum cek_akses():\n\n";
+    print_r($_SESSION);
+    echo "</pre>";
     exit();
 }
 
-// Set ID_Akun yang konsisten
-$ID_Akun = $id_akun;
+// Pakai helper yang sama dengan halaman lain (booking.php dll) supaya
+// logic cek login & role konsisten di semua halaman.
+include 'includes/auth_helper.php';
+cek_akses('customer');
+
+// Cek ID_Customer (sebelumnya ID_Akun, sekarang tabel Akun sudah dihapus
+// dan digantikan oleh tabel Customer dengan primary key ID_Customer)
+$ID_Customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? $_SESSION['ID_Akun'] ?? '';
+if (empty($ID_Customer)) {
+    header("Location: login.php");
+    exit();
+}
 
 // Include config
 if (file_exists('includes/config.php')) {
@@ -28,10 +38,10 @@ $swal_msg = '';
 // --- UPDATE BIODATA ---
 if (isset($_POST['update_biodata'])) {
     $nama = trim($_POST['nama_customer'] ?? '');
-    $jk = intval($_POST['jenis_kelamin'] ?? 1);
+    $jk = intval($_POST['jenis_kelamin'] ?? 0); // 0 = Laki-laki, 1 = Perempuan
     $alamat = trim($_POST['alamat'] ?? '');
     $telepon = trim($_POST['no_telepon'] ?? '');
-    $email = trim($_POST['email'] ?? ''); // Email baru ditambahkan
+    $email = trim($_POST['email'] ?? '');
 
     $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
     $tmp_lahir = $_POST['tempat_lahir'] ?? '';
@@ -64,13 +74,16 @@ if (isset($_POST['update_biodata'])) {
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Email tidak valid.';
     }
+    if ($jk !== 0 && $jk !== 1) {
+        $errors[] = 'Jenis kelamin tidak valid.';
+    }
 
     if (empty($errors)) {
-        // Update Customer table (dengan Modified_By & Modified_Date di database)
+        // Update tabel Customer (Modified_By & Modified_Date sesuai schema baru)
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
         $stmt = sqlsrv_query($conn,
-            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ?, Email = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Akun = ?",
-            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Akun)
+            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ?, Email = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
+            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Customer)
         );
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {}
@@ -96,10 +109,10 @@ if (isset($_POST['update_password'])) {
     $new_pass = trim($_POST['new_password'] ?? '');
     $confirm_pass = trim($_POST['confirm_password'] ?? '');
 
-    $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Akun WHERE ID_Akun = ?", array($ID_Akun));
-    $akunData = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+    $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?", array($ID_Customer));
+    $custData = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
 
-    if ($old_pass !== ($akunData['Kata_Sandi'] ?? '')) {
+    if ($old_pass !== ($custData['Kata_Sandi'] ?? '')) {
         $swal_status = 'error';
         $swal_msg = 'Password lama tidak sesuai.';
     } elseif (strlen($new_pass) < 6) {
@@ -109,7 +122,11 @@ if (isset($_POST['update_password'])) {
         $swal_status = 'error';
         $swal_msg = 'Konfirmasi password tidak cocok.';
     } else {
-        $stmt = sqlsrv_query($conn, "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?", array($new_pass, $ID_Akun));
+        $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        $stmt = sqlsrv_query($conn,
+            "UPDATE Customer SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
+            array($new_pass, $modified_by, $ID_Customer)
+        );
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
@@ -123,6 +140,9 @@ if (isset($_POST['update_password'])) {
 }
 
 // --- UPLOAD FOTO ---
+// Catatan: tabel Customer pada schema baru belum punya kolom Profile_Photo,
+// jadi foto disimpan di server & session saja (tidak dipersist ke DB).
+// Tambahkan kolom Profile_Photo VARCHAR(...) di tabel Customer jika ingin disimpan permanen.
 if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     $file = $_FILES['photo'];
     $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -131,24 +151,15 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     if ($file['error'] === 0) {
         if (in_array($file['type'], $allowed) && $file['size'] <= $max_size) {
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'profile_' . $ID_Akun . '_' . time() . '.' . $ext;
+            $filename = 'profile_' . $ID_Customer . '_' . time() . '.' . $ext;
             $upload_dir = 'uploads/profiles/';
             if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
             $upload_path = $upload_dir . $filename;
 
             if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                $stmt = sqlsrv_query($conn, "UPDATE Akun SET Profile_Photo = ? WHERE ID_Akun = ?", array($upload_path, $ID_Akun));
-                if ($stmt) {
-                    while (sqlsrv_next_result($stmt)) {}
-                    sqlsrv_free_stmt($stmt);
-                    $_SESSION['Profile_Photo'] = $upload_path;
-                    $swal_status = 'success';
-                    $swal_msg = 'Foto profil berhasil diperbarui!';
-                } else {
-                    unlink($upload_path);
-                    $swal_status = 'error';
-                    $swal_msg = 'Gagal menyimpan foto ke database.';
-                }
+                $_SESSION['Profile_Photo'] = $upload_path;
+                $swal_status = 'success';
+                $swal_msg = 'Foto profil berhasil diperbarui!';
             } else {
                 $swal_status = 'error';
                 $swal_msg = 'Gagal mengunggah foto.';
@@ -161,10 +172,8 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
 }
 
 // --- AMBIL DATA ---
-$res = sqlsrv_query($conn, "SELECT * FROM Akun WHERE ID_Akun = ?", array($ID_Akun));
-$akun = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
-
-$res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Akun = ?", array($ID_Akun));
+// Akun & Customer sudah digabung menjadi satu tabel Customer
+$res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($ID_Customer));
 $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
 
 $profile_photo = $_SESSION['Profile_Photo'] ?? '';
@@ -173,16 +182,17 @@ if (empty($profile_photo) || !file_exists($profile_photo)) {
 }
 
 $nama = $biodata['Nama_Customer'] ?? $_SESSION['nama'] ?? 'Customer';
-$username = $akun['Username'] ?? '-';
-$email = $biodata['Email'] ?? $akun['Email'] ?? '-'; // Email dari Customer table
+$username = $biodata['Username'] ?? '-';
+$email = $biodata['Email'] ?? '-';
 $telepon = $biodata['No_Telepon'] ?? '-';
 $alamat = $biodata['Alamat'] ?? '-';
-$jk = $biodata['Jenis_Kelamin'] ?? 1;
+$jk = $biodata['Jenis_Kelamin'] ?? 0;
 $tgl_lahir = $biodata['Tanggal_Lahir'] ?? '';
 $tmp_lahir = $biodata['Tempat_Lahir'] ?? '';
 
+// Jenis_Kelamin sesuai CHECK (0,1) pada tabel Customer: 0 = Laki-laki, 1 = Perempuan
 function jk_label($jk) {
-    return $jk == 1 ? 'Laki-laki' : ($jk == 2 ? 'Perempuan' : '-');
+    return $jk == 0 ? 'Laki-laki' : ($jk == 1 ? 'Perempuan' : '-');
 }
 
 function format_date_input($date) {
@@ -694,7 +704,7 @@ function format_date_display($date) {
 <body>
 
 <!-- NAVBAR -->
-<<nav>
+<nav>
     <a href="view_customer.php" class="nav-logo">
         <img src="logo.png" alt="HoopBall" class="nav-logo-img">
     </a>
@@ -750,7 +760,7 @@ function format_date_display($date) {
 </div>
 
 <!-- MAIN CONTENT -->
-<<main class="main">
+<main class="main">
     <div class="profile-grid">
         <!-- BIODATA -->
         <div class="p-card">
@@ -771,8 +781,8 @@ function format_date_display($date) {
                         <div class="form-group">
                             <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
                             <select name="jenis_kelamin" id="jenis_kelamin" class="form-input">
-                                <option value="1" <?= ($jk == 1) ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="2" <?= ($jk == 2) ? 'selected' : '' ?>>Perempuan</option>
+                                <option value="0" <?= ($jk == 0) ? 'selected' : '' ?>>Laki-laki</option>
+                                <option value="1" <?= ($jk == 1) ? 'selected' : '' ?>>Perempuan</option>
                             </select>
                         </div>
                     </div>
@@ -851,6 +861,10 @@ function format_date_display($date) {
                     <span class="info-val"><?= htmlspecialchars($tmp_lahir) ?: '-' ?></span>
                 </div>
                 <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-venus-mars"></i> Jenis Kelamin</span>
+                    <span class="info-val"><?= jk_label($jk) ?></span>
+                </div>
+                <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-user-shield"></i> Role</span>
                     <span class="info-val"><span class="info-badge badge-active"><i class="fa-solid fa-check-circle"></i> Customer</span></span>
                 </div>
@@ -896,7 +910,7 @@ function format_date_display($date) {
     </div>
 </main>
 
-<<footer>
+<footer>
     <p>© 2024 Hoop Arena. All rights reserved.</p>
 </footer>
 
@@ -921,7 +935,7 @@ Swal.fire({
 
 // Toggle Password
 let passVisible = false;
-const realPass = '<?= addslashes($akun['Kata_Sandi'] ?? '') ?>';
+const realPass = '<?= addslashes($biodata['Kata_Sandi'] ?? '') ?>';
 function togglePass() {
     const dots = document.getElementById('passDots');
     const btn = document.getElementById('toggleBtn');

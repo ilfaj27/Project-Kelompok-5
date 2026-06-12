@@ -914,6 +914,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
+        <a href="../m_Alat/index.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
+            Alat
+        </a>
+        <a href="../m_Jadwal/index.php" class="sb-link"> 
+            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
+            Jadwal
+        </a>
     </nav>
 
     <div class="sb-section-label">Transaksi</div>
@@ -933,14 +941,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="pembatalan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
             Kelola Pembatalan
-        </a>
-        <a href="../m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
         </a>
     </nav>
 

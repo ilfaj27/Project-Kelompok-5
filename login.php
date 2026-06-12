@@ -18,35 +18,26 @@ if (isset($_POST['login'])) {
         $sql_karyawan = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
         $params = array($user_input, $user_input);
         $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
         if ($row) {
             if ($pass_input == $row['Kata_Sandi']) {
                 $_SESSION['login']   = true;
-                $_SESSION['id_akun'] = $row['ID_Akun'];
+                $_SESSION['id_akun'] = $row['ID_Karyawan']; // pakai ID_Karyawan
 
-                // PERBAIKAN 2: Mengubah pemetaan angka Role sesuai database baru Anda
-                // 1 = customer, 2 = karyawan, 3 = pemilik (manajer)
-                $role_map = [1 => 'pemilik', 2 => 'karyawan', 3 => 'customer'];
-                $_SESSION['role'] = $role_map[(int)$row['Role']];
-
-                // Ambil nama berdasarkan role dari tabel profil terkait
-                if ($_SESSION['role'] == 'pemilik' || $_SESSION['role'] == 'karyawan') {
-                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Karyawan FROM Karyawan WHERE ID_Akun = ?", array($row['ID_Akun']));
-                    if ($q_prof !== false) {
-                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                        $_SESSION['nama'] = $d_prof['Nama_Karyawan'] ?? 'Admin';
-                    } else {
-                        $_SESSION['nama'] = 'Admin';
-                    }
+                // FIX: Role berdasarkan Jabatan, bukan angka
+                // 'Manajer' = pemilik, 'Karyawan' = karyawan
+                $jabatan = strtolower(trim($row['Jabatan']));
+                if ($jabatan == 'manajer') {
+                    $_SESSION['role'] = 'pemilik';
+                } elseif ($jabatan == 'karyawan') {
+                    $_SESSION['role'] = 'karyawan';
                 } else {
-                    $q_prof = sqlsrv_query($conn, "SELECT Nama_Customer FROM Customer WHERE ID_Akun = ?", array($row['ID_Akun']));
-                    if ($q_prof !== false) {
-                        $d_prof = sqlsrv_fetch_array($q_prof, SQLSRV_FETCH_ASSOC);
-                        $_SESSION['nama'] = $d_prof['Nama_Customer'] ?? 'Customer';
-                    } else {
-                        $_SESSION['nama'] = 'Customer';
-                    }
+                    $_SESSION['role'] = 'karyawan';
                 }
+
+                $_SESSION['nama'] = $row['Nama_Karyawan'] ?? 'Admin';
+                $_SESSION['jabatan'] = $row['Jabatan'];
 
                 if (isset($_POST['remember'])) {
                     setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
@@ -64,10 +55,39 @@ if (isset($_POST['login'])) {
                 }
                 exit();
             } else {
-                $error_msg = "Anda tidak bisa login.";
+                $error_msg = "Password salah!";
             }
         } else {
-            $error_msg = "Anda tidak bisa login";
+            // ════════════════════════════════════════════════════════
+            // JIKA TIDAK KETEMU DI KARYAWAN, CEK KE TABEL CUSTOMER
+            // ════════════════════════════════════════════════════════
+            $sql_customer = "SELECT * FROM Customer WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
+            $params2 = array($user_input, $user_input);
+            $stmt2 = sqlsrv_query($conn, $sql_customer, $params2);
+            $row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
+
+            if ($row2) {
+                if ($pass_input == $row2['Kata_Sandi']) {
+                    $_SESSION['login']   = true;
+                    $_SESSION['id_akun'] = $row2['ID_Customer'];
+                    $_SESSION['role']    = 'customer';
+                    $_SESSION['nama']    = $row2['Nama_Customer'] ?? 'Customer';
+                    $_SESSION['jabatan'] = 'Customer';
+
+                    if (isset($_POST['remember'])) {
+                        setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                    } else {
+                        setcookie('remember_me', '', time() - 3600, "/");
+                    }
+
+                    header("Location: view_customer.php");
+                    exit();
+                } else {
+                    $error_msg = "Password salah!";
+                }
+            } else {
+                $error_msg = "Akun tidak ditemukan atau tidak aktif.";
+            }
         }
     }
 }
