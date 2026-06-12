@@ -439,11 +439,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
-.sp-ready { background: var(--green-lt); color: var(--green); }
-.sp-maint { background: var(--red-lt); color: var(--red); }
+.sp-active { background: var(--green-lt); color: var(--green); }
+.sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.sp-ready .sp-dot { background: var(--green); }
-.sp-maint .sp-dot { background: var(--red); }
+.sp-active .sp-dot { background: var(--green); }
+.sp-inactive .sp-dot { background: var(--red); }
 
 /* ═══ ACTIONS ═══ */
 .actions { 
@@ -855,7 +855,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="info-row" style="border-bottom:none;">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Arena</span>
                     <span class="info-val">
-                        <span class="status-pill <?= $is_ready_detail ? 'sp-ready' : 'sp-maint' ?>">
+                        <span class="status-pill <?= $is_ready_detail ? 'sp-active' : 'sp-inactive' ?>">
                             <span class="sp-dot"></span>
                             <?= $is_ready_detail ? 'AKTIF' : 'MAINTENANCE' ?>
                         </span>
@@ -871,7 +871,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -913,14 +913,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
-        </a>
-        <a href="../m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
         </a>
     </nav>
 
@@ -966,7 +958,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Lapangan</div>
@@ -1030,7 +1022,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari nama lapangan..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari lapangan..." onkeyup="searchTable()">
             </div>
             
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -1103,12 +1095,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         $row_num++;
                         $is_ready = $row['Status'] == 1;
                     ?>
-                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
+                        <tr >
                             <td class="lap-id" style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                             <td class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></td>
                             <td class="lap-price"><?= rupiah($row['Harga_Sewa']) ?></td>
                             <td>
-                                <span class="status-pill <?= $is_ready ? 'sp-ready' : 'sp-maint' ?>">
+                                <span class="status-pill <?= $is_ready ? 'sp-active' : 'sp-inactive' ?>">
                                     <span class="sp-dot"></span>
                                     <?= $is_ready ? 'AKTIF' : 'MAINTENANCE' ?>
                                 </span>

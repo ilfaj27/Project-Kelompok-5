@@ -12,7 +12,21 @@ $role = $_SESSION['role'];
 $jabatan = $_SESSION['jabatan'] ?? 'Karyawan';
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 
-$profile_photo = $_SESSION['Profile_Photo'] ?? '';
+// Ambil foto profil dari database untuk sidebar
+$profile_photo = '';
+if (!empty($id_karyawan)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Profile_Photo FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Profile_Photo'])) {
+            $profile_photo = $row_photo['Profile_Photo'];
+            $_SESSION['Profile_Photo'] = $profile_photo;
+        }
+    }
+}
+if (empty($profile_photo)) {
+    $profile_photo = $_SESSION['Profile_Photo'] ?? '';
+}
 if (!empty($profile_photo) && !file_exists($profile_photo)) {
     $profile_photo = '';
 }
@@ -134,9 +148,8 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
 /* SIDEBAR */
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
 .sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
@@ -151,7 +164,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -162,6 +176,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
+.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
@@ -169,7 +184,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -286,19 +302,27 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+@media(max-width: 768px) {
+    .sidebar { width: 0; overflow: hidden; padding: 0; }
+    .main { margin-left: 0; }
+    .content { padding: 20px; }
+    .topbar { padding: 0 20px; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+}
 </style>
 </head>
 <body>
 
-<<aside class="sidebar">
-    <a href="view_karyawan.php" class="sb-brand">
+<aside class="sidebar">
+    <a href="view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
 
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="view_karyawan.php" class="sb-link active">
+        <a href="view_admin.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
@@ -329,14 +353,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="master/alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
-        </a>
-        <a href="m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
         </a>
     </nav>
 
@@ -370,7 +386,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="sb-user">
             <div class="sb-avatar">
                 <?php if ($profile_photo): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img src="<?= $profile_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -381,8 +397,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </aside>
 
-<<main class="main">
-<<header class="topbar">
+<main class="main">
+<header class="topbar">
     <div class="topbar-left">
         <div class="topbar-title">Dashboard Karyawan</div>
         <div class="topbar-breadcrumb">Dashboard / Overview</div>
@@ -399,7 +415,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="topbar-user">
                 <div class="t-avatar">
                     <?php if ($profile_photo): ?>
-                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        <img src="<?= $profile_photo ?>" alt="Profile">
                     <?php else: ?>
                         <i class="fa-solid fa-user"></i>
                     <?php endif; ?>

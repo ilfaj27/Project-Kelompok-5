@@ -60,12 +60,12 @@ if (isset($_GET['toggle_id'])) {
         $current_status = $row_check['Status'] ?? 1;
         $new_status = $current_status == 1 ? 0 : 1;
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
-        
+
         $stmt_toggle = safe_sqlsrv_query($conn, 
             "UPDATE Customer SET Status = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?", 
             array($new_status, $modified_by, $toggle_id), false
         );
-        
+
         if ($stmt_toggle) {
             $status_text = $new_status == 1 ? 'Aktif' : 'Nonaktif';
             header("Location: customer.php?page=1&status=success&msg=Status customer berhasil diubah menjadi " . $status_text . "!");
@@ -86,7 +86,7 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// --- DETAIL CUSTOMER (PHP-based like lapangan) ---
+// --- DETAIL CUSTOMER ---
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
@@ -176,7 +176,6 @@ if ($query === false) {
     }
 }
 
-// Helper untuk format tanggal
 function format_tgl_display($date) {
     if (empty($date)) return '-';
     if (is_object($date) && method_exists($date, 'format')) {
@@ -216,7 +215,6 @@ function jk_label($jk) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -238,7 +236,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* MAIN & TOPBAR */
 .main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -262,7 +259,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
@@ -279,7 +275,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-chip { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; transition: all .2s; }
 .stat-chip:hover { transform: translateY(-2px); }
 .chip-total  { background: var(--bg); color: #374151; border: 1px solid var(--border); }
+.chip-green { background: var(--green-lt); color: var(--green); }
 .chip-blue   { background: var(--blue-lt); color: var(--blue); }
+.chip-red   { background: var(--red-lt); color: var(--red); }
 .chip-pink   { background: var(--pink-lt); color: var(--pink); }
 .chip-val    { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; }
 
@@ -309,7 +307,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .status-inactive { background: #FEF3C7; color: #D97706; }
 .status-deleted { background: var(--red-lt); color: var(--red); }
 
-/* ACTIONS */
 .actions { display: flex; gap: 8px; justify-content: flex-start; align-items: center; }
 .btn-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; background: none; }
 .btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
@@ -332,9 +329,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
-/* ═══════════════════════════════════════════
-   MODAL DETAIL - SAMA PERSIS KAYAK LAPANGAN
-   ═══════════════════════════════════════════ */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 85vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
@@ -345,21 +339,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* Detail Photo Card - Centered Icon */
 .detail-photo-card { text-align: center; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1.5px dashed var(--border); }
 .detail-icon-wrap { width: 60px; height: 60px; background: var(--orange-lt); color: var(--orange); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
 .detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-/* Info Row - Horizontal like lapangan */
 .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
 .info-row:last-child { border-bottom: none; }
 .info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
 .info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
 .info-val { font-size: 14px; font-weight: 700; color: var(--text); }
 .info-val.id-code { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
-.info-val.price { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); font-weight: 800; }
 
-/* Status pill */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .sp-ready { background: var(--green-lt); color: var(--green); }
 .sp-maint { background: var(--red-lt); color: var(--red); }
@@ -367,7 +357,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-ready .sp-dot { background: var(--green); }
 .sp-maint .sp-dot { background: var(--red); }
 
-/* Full width button */
 .btn-submit { width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-submit:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
 
@@ -389,16 +378,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
+/* ============================================
+   FILTER - SAMA PERSIS KAYAK FASILITAS/LAPANGAN
+   ============================================ */
 .filter-wrap { position: relative; display: inline-block; }
-.btn-filter-toggle { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: all .2s ease; font-family: 'Barlow', sans-serif; }
-.btn-filter-toggle:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,69,0,.25); }
-.btn-filter-toggle i { font-size: 12px; }
-.btn-filter-toggle .chevron { transition: transform .2s; }
-.btn-filter-toggle.active .chevron { transform: rotate(180deg); }
+.btn-filter { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: all .2s ease; font-family: 'Barlow', sans-serif; }
+.btn-filter:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,69,0,.25); }
+.btn-filter i { font-size: 12px; }
+.btn-filter .arrow-icon { transition: transform .2s; }
+.btn-filter.active .arrow-icon { transform: rotate(180deg); }
 
-.filter-panel { position: absolute; top: calc(100% + 12px); right: 0; width: 320px; max-height: calc(100vh - 200px); background: #fff; border-radius: 16px; border: 1px solid var(--border-lt); box-shadow: 0 20px 60px rgba(0,0,0,.15); z-index: 3000; padding: 24px; overflow-y: auto; opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.98); transform-origin: top right; transition: all .2s cubic-bezier(.4,0,.2,1); }
-.filter-panel.active { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
-.filter-panel::before { content: ''; position: absolute; top: -6px; right: 50px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-left: 1px solid var(--border-lt); border-top: 1px solid var(--border-lt); }
+.filter-card { position: absolute; top: calc(100% + 12px); right: 0; width: 320px; max-height: calc(100vh - 200px); background: #fff; border-radius: 16px; border: 1px solid var(--border-lt); box-shadow: 0 20px 60px rgba(0,0,0,.15); z-index: 3000; padding: 24px; overflow-y: auto; opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.98); transform-origin: top right; transition: all .2s cubic-bezier(.4,0,.2,1); }
+.filter-card.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.filter-card::before { content: ''; position: absolute; top: -6px; right: 50px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-left: 1px solid var(--border-lt); border-top: 1px solid var(--border-lt); }
 .filter-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .filter-title { font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 800; color: var(--text); letter-spacing: -.2px; }
 .filter-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: .2s; font-size: 14px; }
@@ -420,8 +412,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </style>
 </head>
 <body>
-
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -462,14 +453,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
-        </a>
-        <a href="../m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
         </a>
     </nav>
 
@@ -514,7 +497,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </aside>
 
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Data Customer</div>
@@ -528,7 +511,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            
+
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
@@ -559,35 +542,29 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="page-title">Data Customer</div>
             </div>
             <div class="stat-chips">
-                <div class="stat-chip chip-total">
-                    <i class="fa-solid fa-users"></i> TOTAL <span class="chip-val"><?= $total_cust ?></span>
-                </div>
-                <div class="stat-chip chip-blue">
-                    <i class="fa-solid fa-mars"></i> LAKI-LAKI <span class="chip-val"><?= $total_laki ?></span>
-                </div>
-                <div class="stat-chip chip-pink">
-                    <i class="fa-solid fa-venus"></i> PEREMPUAN <span class="chip-val"><?= $total_perempuan ?></span>
-                </div>
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-users"></i> TOTAL <span class="chip-val"><?= $total_cust ?></span></div>
+                <div class="stat-chip chip-green"><i class="fa-solid fa-mars"></i> LAKI-LAKI <span class="chip-val"><?= $total_laki ?></span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-venus"></i> PEREMPUAN <span class="chip-val"><?= $total_perempuan ?></span></div>
             </div>
         </div>
 
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari nama, email, atau telepon..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari customer..." onkeyup="searchTable()">
             </div>
             <div class="filter-wrap">
                 <?php if ($filter_jk > 0 || $filter_status != 'all'): ?>
                 <span class="filter-active-badge"><i class="fa-solid fa-filter"></i> Filter Aktif</span>
                 <?php endif; ?>
-                <button class="btn-filter-toggle" id="btnFilter" onclick="toggleFilter()">
-                    <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down chevron"></i>
+                <button class="btn-filter" id="btnFilterToggle">
+                    <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                 </button>
 
-                <div class="filter-panel" id="filterPanel">
+                <div class="filter-card" id="filterCard">
                     <div class="filter-head">
                         <div class="filter-title">Filter Data</div>
-                        <button type="button" class="filter-close" onclick="toggleFilter()">
+                        <button type="button" class="filter-close" id="filterClose">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
@@ -734,10 +711,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <?php endif; ?>
     </div>
 </main>
-
-<!-- ═══════════════════════════════════════════
+<!-- ============================================
    MODAL DETAIL CUSTOMER - SAMA KAYAK LAPANGAN
-   ═══════════════════════════════════════════ -->
+   ============================================ -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: auto;">
         <button class="modal-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
@@ -804,7 +780,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     </span>
                 </div>
             <?php endif; ?>
-            
+
             <button onclick="closeDetail()" class="btn-submit" style="margin-top: 16px; background: #0D1117;">
                 <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
             </button>
@@ -813,28 +789,45 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <script>
-let filterOpen = false;
+// ============================================
+// CLOCK / JAM
+// ============================================
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
 
-function toggleFilter() {
-    const panel = document.getElementById('filterPanel');
-    const btn = document.getElementById('btnFilter');
-    filterOpen = !filterOpen;
-    if (filterOpen) {
-        panel.classList.add('active');
-        btn.classList.add('active');
-    } else {
-        panel.classList.remove('active');
-        btn.classList.remove('active');
-    }
+    document.getElementById('h').innerText = h;
+    document.getElementById('m').innerText = m;
+    document.getElementById('s').innerText = s;
+
+    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+    const dayName = days[now.getDay()];
+    const date = now.getDate();
+    const monthName = months[now.getMonth()];
+    const year = now.getFullYear();
+
+    document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
 }
 
-document.addEventListener('click', function(e) {
-    const wrap = document.querySelector('.filter-wrap');
-    if (filterOpen && wrap && !wrap.contains(e.target)) {
-        toggleFilter();
-    }
-});
+updateClock();
+setInterval(updateClock, 1000);
 
+
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+function closeDetail() { 
+    window.location.href = 'customer.php'; 
+}
+
+
+// ============================================
+// SEARCH TABLE
+// ============================================
 function searchTable() {
     var input = document.getElementById('src').value.toUpperCase();
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
@@ -842,68 +835,129 @@ function searchTable() {
         var tdName = rows[i].getElementsByTagName('td')[1];
         var tdEmail = rows[i].getElementsByTagName('td')[2];
         var tdPhone = rows[i].getElementsByTagName('td')[4];
-        var match = false;
-        if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-        if (tdEmail && tdEmail.textContent.toUpperCase().indexOf(input) > -1) match = true;
-        if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
-        rows[i].style.display = match ? '' : 'none';
+        if (tdName || tdEmail || tdPhone) {
+            var match = false;
+            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdEmail && tdEmail.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
+            rows[i].style.display = match ? '' : 'none';
+        }
     }
 }
 
+
+// ============================================
+// NOTIFIKASI TOAST
+// ============================================
+function showToast(type, title, message) {
+    Swal.fire({
+        icon: type,
+        title: title,
+        text: message,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true,
+        showCloseButton: true,
+        customClass: {
+            popup: 'colored-toast'
+        }
+    });
+}
+
+
+// ============================================
+// DELETE CONFIRMATION
+// ============================================
 function confirmDelete(id, name) {
     Swal.fire({
-        title: 'Hapus Customer?', 
-        html: `Anda akan menghapus data <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong> dan tidak bisa dikembalikan!`,
-        icon: 'warning', 
-        showCancelButton: true, 
-        confirmButtonColor: '#EF4444', 
+        title: 'Hapus Customer?',
+        html: 'Anda akan menghapus data <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara permanen</span>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!', 
-        cancelButtonText: 'Batal', 
-        reverseButtons: true
-    }).then((result) => { 
-        if (result.isConfirmed) { 
-            window.location.href = '?delete_id=' + id; 
-        } 
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Menghapus customer',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            setTimeout(() => {
+                window.location.href = '?delete_id=' + id;
+            }, 600);
+        }
     });
 }
 
-function closeDetail() {
-    window.location.href = 'customer.php';
-}
 
-function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('h').innerText = h;
-    document.getElementById('m').innerText = m;
-    document.getElementById('s').innerText = s;
+// ============================================
+// FILTER DROPDOWN - SAMA KAYAK FASILITAS/LAPANGAN
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const btnFilterToggle = document.getElementById('btnFilterToggle');
+    const filterCard = document.getElementById('filterCard');
+    const filterClose = document.getElementById('filterClose');
 
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000);
-updateClock();
+    if (btnFilterToggle && filterCard) {
+        btnFilterToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.toggle('active');
+            filterCard.classList.toggle('open');
+        });
 
-const urlParams = new URLSearchParams(window.location.search);
-const status = urlParams.get('status');
-const msg = urlParams.get('msg');
-if (status && msg) {
-    Swal.fire({ 
-        icon: status === 'success' ? 'success' : 'error', 
-        title: status === 'success' ? 'Berhasil!' : 'Gagal!', 
-        text: msg, 
-        timer: 3000, 
-        showConfirmButton: false, 
-        toast: true, 
-        position: 'top-end', 
-        timerProgressBar: true 
-    });
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
+        filterCard.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        if (filterClose) {
+            filterClose.addEventListener('click', function() {
+                btnFilterToggle.classList.remove('active');
+                filterCard.classList.remove('open');
+            });
+        }
+
+        document.addEventListener('click', function() {
+            btnFilterToggle.classList.remove('active');
+            filterCard.classList.remove('open');
+        });
+    }
+
+
+// ============================================
+// URL PARAMETER NOTIFICATION (Status & Msg)
+// ============================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const msg = urlParams.get('msg');
+
+    if (status && msg) {
+        const isSuccess = status === 'success';
+
+        Swal.fire({
+            icon: isSuccess ? 'success' : 'error',
+            title: isSuccess ? 'Berhasil!' : 'Gagal!',
+            text: msg,
+            timer: 3000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true
+        });
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
 </script>
 </body>
 </html>

@@ -396,6 +396,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; letter-spacing: -.5px; }
 
+.stat-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-chip { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; transition: all .2s; }
+.stat-chip:hover { transform: translateY(-2px); }
+.chip-green { background: var(--green-lt); color: var(--green); }
+.chip-red   { background: var(--red-lt); color: var(--red); }
+.chip-blue  { background: var(--blue-lt); color: var(--blue); }
+.chip-val   { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; }
+
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 28px; }
 .stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
@@ -803,7 +811,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 </div>
 
 <!-- SIDEBAR -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
@@ -838,10 +846,10 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
         <div class="topbar-right">
             <div id="clock-display">
                 <div class="clock-time">
-                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
+                    <span id="clock-h">00</span><span class="clock-colon">:</span><span id="clock-m">00</span><span class="clock-colon">:</span><span id="clock-s">00</span>
                 </div>
                 <div class="clock-divider"></div>
-                <div class="clock-date" id="full-date">MEMUAT...</div>
+                <div class="clock-date" id="clock-date">MEMUAT...</div>
             </div>
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
@@ -865,27 +873,17 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     <div class="content">
         <div class="page-header">
             <div><div class="page-title-tag"></div><div class="page-title">Daftar Karyawan</div></div>
-        </div>
-
-        <div class="stat-grid">
-            <div class="stat-card sc-purple">
-                <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-user-tie"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
-                <div class="stat-value"><?= $total_kry ?></div><div class="stat-label">Total Karyawan</div><div class="stat-sublabel">Terdaftar di sistem</div>
-            </div>
-            <div class="stat-card sc-blue">
-                <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-                <div class="stat-value"><?= $total_aktif ?></div><div class="stat-label">Karyawan Aktif</div><div class="stat-sublabel">Status aktif saat ini</div>
-            </div>
-            <div class="stat-card sc-green">
-                <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-briefcase"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Posisi</div></div>
-                <div class="stat-value">5</div><div class="stat-label">Jenis Jabatan</div><div class="stat-sublabel">Posisi tersedia di sistem</div>
+            <div class="stat-chips">
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-user-tie"></i> TOTAL <span class="chip-val"><?= $total_kry ?></span></div>
+                <div class="stat-chip chip-green"><i class="fa-solid fa-users"></i> AKTIF <span class="chip-val"><?= $total_aktif ?></span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-briefcase"></i> JABATAN <span class="chip-val">5</span></div>
             </div>
         </div>
 
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari nama karyawan..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari karyawan..." onkeyup="searchTable()">
             </div>
 
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -979,7 +977,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                             $status_label = $map_status[$row['Status']] ?? 'Tidak diketahui';
                             $is_active = $row['Status'] == 1;
                     ?>
-                        <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>" id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
+                        <tr  id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
                             <td class="row-num"><?= $row_num ?></td>
                             <td>
                                 <div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div>
@@ -994,7 +992,7 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <div class="action-group">
+                                <div class="actions">
                                     <div class="toggle-switch" title="Klik untuk ubah status" onclick="handleToggleClick('<?= htmlspecialchars($row['ID_Karyawan']) ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>', <?= $is_active ? 'true' : 'false' ?>, this)" style="cursor: pointer;">
                                         <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onclick="return false;" readonly style="pointer-events: none;">
                                         <span class="toggle-slider"></span>
@@ -1069,54 +1067,67 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 function openModal()  { document.getElementById('modal').classList.remove('hidden'); }
 function closeModal() { window.location.href = 'karyawan.php'; }
 
+// ============================================
+// DELETE CONFIRMATION
+// ============================================
 function confirmDelete(id, nama) {
     Swal.fire({
         title: 'Hapus Karyawan?',
-        html: `Karyawan <strong style="color:#FF4500;">${nama}</strong> (${id}) akan dihapus <strong style="color:#DC2626;">(soft delete)</strong>!`,
-        icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF4444', cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true, borderRadius: '16px'
-    }).then((r) => { if (r.isConfirmed) window.location.href = '?page=<?= $page ?>&delete_id=' + id; });
+        html: 'Anda akan menghapus karyawan <strong style="color:var(--orange);">' + nama + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara soft-delete</span>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Menghapus karyawan',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+            setTimeout(() => {
+                window.location.href = '?page=<?= $page ?>&delete_id=' + id;
+            }, 600);
+        }
+    });
 }
 
+// ============================================
+// TOGGLE STATUS
+// ============================================
 function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
-    // ─────────────────────────────────────────────
-    // isCurrentlyActive = true  → Status AKTIF    → Aksi: NONAKTIFKAN
-    // isCurrentlyActive = false → Status NONAKTIF → Aksi: AKTIFKAN
-    // ─────────────────────────────────────────────
-
-    const checkbox = wrapper.querySelector('input[type="checkbox"]');
-    const akanMenonaktifkan = isCurrentlyActive;  // true = mau nonaktifkan
-
-    const actionText   = akanMenonaktifkan ? 'menonaktifkan' : 'mengaktifkan';
-    const resultText   = akanMenonaktifkan ? 'Nonaktif'      : 'Aktif';
-    const confirmColor = akanMenonaktifkan ? '#EF4444'       : '#10B981';
-    const swalIcon     = akanMenonaktifkan ? 'warning'       : 'question';
-
-    // Lock toggle (visual feedback loading)
-    wrapper.classList.add('toggle-loading');
+    const actionText = isCurrentlyActive ? 'nonaktifkan' : 'aktifkan';
+    const iconType = isCurrentlyActive ? 'warning' : 'question';
 
     Swal.fire({
-        title: 'Konfirmasi Perubahan',
-        html: `Apakah Anda yakin ingin <strong>${actionText}</strong> karyawan <strong style="color:#FF4500;">${nama}</strong>?`,
-        icon: swalIcon,
+        title: 'Konfirmasi Perubahan Status',
+        text: 'Apakah Anda yakin ingin ' + actionText + ' karyawan ' + nama + '?',
+        icon: iconType,
         showCancelButton: true,
-        confirmButtonColor: confirmColor,
+        confirmButtonColor: '#FF4500',
         cancelButtonColor: '#6B7280',
         confirmButtonText: 'Ya, ' + actionText + '!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
-        borderRadius: '16px',
-        allowOutsideClick: false,
-        backdrop: 'rgba(0,0,0,0.4)'
+        allowOutsideClick: false
     }).then((result) => {
         if (!result.isConfirmed) {
-            // ─── USER BATAL ───
-            // Toggle TIDAK BERUBAH (checkbox readonly, tidak perlu rollback)
-            wrapper.classList.remove('toggle-loading');
             return;
         }
 
-        // ─── USER KONFIRMASI ───
+        // Show loading
+        Swal.fire({
+            title: 'Memproses...',
+            text: 'Mengubah status karyawan',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
         fetch('karyawan.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1128,51 +1139,48 @@ function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
         })
         .then(data => {
             if (!data.success) {
-                wrapper.classList.remove('toggle-loading');
                 Swal.fire({
                     icon: 'error',
                     title: 'Gagal!',
-                    text: data.message || 'Gagal mengubah status karyawan',
+                    text: data.message || 'Gagal mengubah status',
                     timer: 3000,
                     showConfirmButton: false,
-                    borderRadius: '16px'
+                    toast: true,
+                    position: 'top-end',
+                    timerProgressBar: true
                 });
                 return;
             }
 
-            // ─── SUKSES ───
             const isNowActive = data.status === 1;
             const statusLabel = isNowActive ? 'Aktif' : 'Nonaktif';
-            const iconColor   = isNowActive ? '#10B981' : '#EF4444';
-            const iconClass   = isNowActive ? 'fa-circle-check' : 'fa-circle-xmark';
+            const iconColor = isNowActive ? '#10B981' : '#EF4444';
 
             Swal.fire({
                 icon: 'success',
                 title: 'Berhasil!',
-                html: `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;">
-                    <i class="fa-solid ${iconClass}" style="color:${iconColor};font-size:22px;"></i>
-                    <div style="text-align:left;">
-                        <div>Status <strong style="color:#FF4500;">${nama}</strong> diubah</div>
-                        <div style="font-size:18px;font-weight:800;color:${iconColor};">${statusLabel}</div>
-                    </div>
-                </div>`,
+                html: '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;">' +
+                    '<i class="fa-solid ' + (isNowActive ? 'fa-circle-check' : 'fa-circle-xmark') + '" style="color:' + iconColor + ';font-size:22px;"></i>' +
+                    '<div style="text-align:left;">' +
+                    '<div>Status <strong style="color:#FF4500;">' + nama + '</strong> diubah</div>' +
+                    '<div style="font-size:18px;font-weight:800;color:' + iconColor + ';">' + statusLabel + '</div>' +
+                    '</div></div>',
                 timer: 2000,
-                showConfirmButton: false,
-                iconColor: '#FF4500',
-                borderRadius: '16px'
+                showConfirmButton: false
             }).then(() => {
                 location.reload();
             });
         })
         .catch(err => {
-            wrapper.classList.remove('toggle-loading');
             Swal.fire({
                 icon: 'error',
                 title: 'Error!',
                 text: 'Terjadi kesalahan koneksi: ' + err.message,
                 timer: 3000,
                 showConfirmButton: false,
-                borderRadius: '16px'
+                toast: true,
+                position: 'top-end',
+                timerProgressBar: true
             });
         });
     });
@@ -1275,50 +1283,459 @@ function validateDate(input) {
     return true;
 }
 
+// ============================================
+// VALIDASI FORM - REAL TIME & SUBMIT
+// ============================================
+function validateField(fieldId, valId, rules) {
+    const field = document.getElementById(fieldId);
+    if (!field) return true;
+    const valMsg = document.getElementById(valId);
+    const value = field.value.trim();
+
+    field.classList.remove('error');
+    if (valMsg) valMsg.classList.remove('show');
+
+    // Required check
+    if (rules.required && value === '') {
+        field.classList.add('error');
+        if (valMsg) {
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
+            valMsg.classList.add('show');
+        }
+        return false;
+    }
+
+    // Min length check
+    if (rules.minLength && value.length < rules.minLength) {
+        field.classList.add('error');
+        if (valMsg) {
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
+            valMsg.classList.add('show');
+        }
+        return false;
+    }
+
+    // Max length check
+    if (rules.maxLength && value.length > rules.maxLength) {
+        field.classList.add('error');
+        if (valMsg) {
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
+            valMsg.classList.add('show');
+        }
+        return false;
+    }
+
+    // Pattern check (hanya huruf, angka, spasi, dan tanda baca umum)
+    if (rules.pattern && value !== '') {
+        const regex = /^[a-zA-Z0-9\s\-_.(),&/@]+$/;
+        if (!regex.test(value)) {
+            field.classList.add('error');
+            if (valMsg) {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Hanya huruf, angka, spasi, dan tanda baca umum';
+                valMsg.classList.add('show');
+            }
+            return false;
+        }
+    }
+
+    // Email validation
+    if (rules.email && value !== '') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+            field.classList.add('error');
+            if (valMsg) {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Format email tidak valid';
+                valMsg.classList.add('show');
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function validateForm(form) {
     let valid = true;
-    const inputs = form.querySelectorAll('.modal-input[required]');
-    inputs.forEach(input => {
-        const valMsg = document.getElementById('val-' + input.id);
-        if (input.type === 'date' && input.value) { if (!validateDate(input)) valid = false; }
-        else if (!input.checkValidity()) { if (valMsg) valMsg.classList.add('show'); input.classList.add('error'); valid = false; }
-        else { if (valMsg) valMsg.classList.remove('show'); input.classList.remove('error'); }
-    });
+
+    // Validasi ID Karyawan
+    if (!validateField('id_kry', 'val-id_kry', {
+        required: true,
+        minLength: 3,
+        maxLength: 20,
+        pattern: true,
+        label: 'ID Karyawan'
+    })) valid = false;
+
+    // Validasi Nama
+    if (!validateField('nama', 'val-nama', {
+        required: true,
+        minLength: 3,
+        maxLength: 100,
+        pattern: true,
+        label: 'Nama lengkap'
+    })) valid = false;
+
+    // Validasi Username
+    if (!validateField('username', 'val-username', {
+        required: true,
+        minLength: 3,
+        maxLength: 50,
+        pattern: true,
+        label: 'Username'
+    })) valid = false;
+
+    // Validasi Password
+    if (!validateField('password', 'val-password', {
+        required: true,
+        minLength: 6,
+        maxLength: 100,
+        label: 'Password'
+    })) valid = false;
+
+    // Validasi Email
+    if (!validateField('email', 'val-email', {
+        required: true,
+        email: true,
+        label: 'Email'
+    })) valid = false;
+
+    // Validasi No Telepon
+    if (!validateField('telp', 'val-telp', {
+        required: true,
+        minLength: 10,
+        maxLength: 15,
+        label: 'Nomor telepon'
+    })) valid = false;
+
+    // Validasi Tempat Lahir
+    if (!validateField('tempat_lahir', 'val-tempat_lahir', {
+        required: true,
+        minLength: 2,
+        maxLength: 50,
+        pattern: true,
+        label: 'Tempat lahir'
+    })) valid = false;
+
+    // Validasi Tanggal Lahir
+    const tglLahir = document.getElementById('tanggal_lahir');
+    if (tglLahir && tglLahir.value) {
+        if (!validateDate(tglLahir)) valid = false;
+    }
+
+    // Validasi Alamat
+    if (!validateField('alamat', 'val-alamat', {
+        required: true,
+        minLength: 5,
+        maxLength: 200,
+        label: 'Alamat'
+    })) valid = false;
+
+    // Jika tidak valid, tampilkan notifikasi error
+    if (!valid) {
+        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
+    }
+
     return valid;
 }
 
+// ============================================
+// REAL-TIME VALIDATION EVENT LISTENERS
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.modal-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) { if (!this.checkValidity() && this.value !== '') { valMsg.classList.add('show'); this.classList.add('error'); } else { valMsg.classList.remove('show'); this.classList.remove('error'); } }
+    // Validasi real-time Nama
+    const namaField = document.getElementById('nama');
+    if (namaField) {
+        namaField.addEventListener('blur', function() {
+            validateField('nama', 'val-nama', {
+                required: true,
+                minLength: 3,
+                maxLength: 100,
+                pattern: true,
+                label: 'Nama lengkap'
+            });
         });
-        input.addEventListener('blur', function() {
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) { if (!this.checkValidity()) { valMsg.classList.add('show'); this.classList.add('error'); } else { valMsg.classList.remove('show'); this.classList.remove('error'); } }
+        namaField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('nama', 'val-nama', {
+                    required: true,
+                    minLength: 3,
+                    maxLength: 100,
+                    pattern: true,
+                    label: 'Nama lengkap'
+                });
+            }
         });
-    });
+    }
+
+    // Validasi real-time Username
+    const usernameField = document.getElementById('username');
+    if (usernameField) {
+        usernameField.addEventListener('blur', function() {
+            validateField('username', 'val-username', {
+                required: true,
+                minLength: 3,
+                maxLength: 50,
+                pattern: true,
+                label: 'Username'
+            });
+        });
+        usernameField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('username', 'val-username', {
+                    required: true,
+                    minLength: 3,
+                    maxLength: 50,
+                    pattern: true,
+                    label: 'Username'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Password
+    const passwordField = document.getElementById('password');
+    if (passwordField) {
+        passwordField.addEventListener('blur', function() {
+            validateField('password', 'val-password', {
+                required: true,
+                minLength: 6,
+                maxLength: 100,
+                label: 'Password'
+            });
+        });
+        passwordField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('password', 'val-password', {
+                    required: true,
+                    minLength: 6,
+                    maxLength: 100,
+                    label: 'Password'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Email
+    const emailField = document.getElementById('email');
+    if (emailField) {
+        emailField.addEventListener('blur', function() {
+            validateField('email', 'val-email', {
+                required: true,
+                email: true,
+                label: 'Email'
+            });
+        });
+        emailField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('email', 'val-email', {
+                    required: true,
+                    email: true,
+                    label: 'Email'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time No Telepon
+    const telpField = document.getElementById('telp');
+    if (telpField) {
+        telpField.addEventListener('blur', function() {
+            validateField('telp', 'val-telp', {
+                required: true,
+                minLength: 10,
+                maxLength: 15,
+                label: 'Nomor telepon'
+            });
+        });
+        telpField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('telp', 'val-telp', {
+                    required: true,
+                    minLength: 10,
+                    maxLength: 15,
+                    label: 'Nomor telepon'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Tempat Lahir
+    const tempatLahirField = document.getElementById('tempat_lahir');
+    if (tempatLahirField) {
+        tempatLahirField.addEventListener('blur', function() {
+            validateField('tempat_lahir', 'val-tempat_lahir', {
+                required: true,
+                minLength: 2,
+                maxLength: 50,
+                pattern: true,
+                label: 'Tempat lahir'
+            });
+        });
+        tempatLahirField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('tempat_lahir', 'val-tempat_lahir', {
+                    required: true,
+                    minLength: 2,
+                    maxLength: 50,
+                    pattern: true,
+                    label: 'Tempat lahir'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Alamat
+    const alamatField = document.getElementById('alamat');
+    if (alamatField) {
+        alamatField.addEventListener('blur', function() {
+            validateField('alamat', 'val-alamat', {
+                required: true,
+                minLength: 5,
+                maxLength: 200,
+                label: 'Alamat'
+            });
+        });
+        alamatField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('alamat', 'val-alamat', {
+                    required: true,
+                    minLength: 5,
+                    maxLength: 200,
+                    label: 'Alamat'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time ID Karyawan
+    const idKryField = document.getElementById('id_kry');
+    if (idKryField) {
+        idKryField.addEventListener('blur', function() {
+            validateField('id_kry', 'val-id_kry', {
+                required: true,
+                minLength: 3,
+                maxLength: 20,
+                pattern: true,
+                label: 'ID Karyawan'
+            });
+        });
+        idKryField.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('id_kry', 'val-id_kry', {
+                    required: true,
+                    minLength: 3,
+                    maxLength: 20,
+                    pattern: true,
+                    label: 'ID Karyawan'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Tanggal Lahir
+    const tglLahirField = document.getElementById('tanggal_lahir');
+    if (tglLahirField) {
+        tglLahirField.addEventListener('change', function() {
+            validateDate(this);
+        });
+    }
 });
 
+// ============================================
+// CLOCK / JAM
+// ============================================
 function updateClock() {
-    const now = new Date();
-    document.getElementById('h').innerText = String(now.getHours()).padStart(2, '0');
-    document.getElementById('m').innerText = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('s').innerText = String(now.getSeconds()).padStart(2, '0');
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000); updateClock();
+    try {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
 
-const urlParams = new URLSearchParams(window.location.search);
-const status = urlParams.get('status');
-const msg = urlParams.get('msg');
-if (status && msg) {
-    Swal.fire({ icon: status === 'success' ? 'success' : 'error', title: status === 'success' ? 'Berhasil!' : 'Gagal!', text: msg, timer: 3000, showConfirmButton: false, iconColor: '#FF4500' });
-    window.history.replaceState({}, document.title, window.location.pathname);
+        const hEl = document.getElementById('clock-h');
+        const mEl = document.getElementById('clock-m');
+        const sEl = document.getElementById('clock-s');
+        const dateEl = document.getElementById('clock-date');
+
+        if (hEl) hEl.textContent = h;
+        if (mEl) mEl.textContent = m;
+        if (sEl) sEl.textContent = s;
+
+        const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+        if (dateEl) dateEl.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+    } catch (e) {
+        console.error('Clock error:', e);
+    }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateClock();
+    setInterval(updateClock, 1000);
+});
+
+
+// ============================================
+// NOTIFIKASI TOAST
+// ============================================
+function showToast(type, title, message) {
+    Swal.fire({
+        icon: type,
+        title: title,
+        text: message,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true,
+        showCloseButton: true,
+        customClass: {
+            popup: 'colored-toast'
+        }
+    });
+}
+
+// ============================================
+// NOTIFIKASI TOAST
+// ============================================
+function showToast(type, title, message) {
+    Swal.fire({
+        icon: type,
+        title: title,
+        text: message,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true,
+        showCloseButton: true
+    });
+}
+
+// ============================================
+// URL PARAMETER NOTIFICATION (Status & Msg)
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const msg = urlParams.get('msg');
+
+    if (status && msg) {
+        const isSuccess = status === 'success';
+        Swal.fire({
+            icon: isSuccess ? 'success' : 'error',
+            title: isSuccess ? 'Berhasil!' : 'Gagal!',
+            text: msg,
+            timer: 3000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
 
 window.onclick = function(e) { if (e.target == document.getElementById('modal')) closeModal(); };
 document.addEventListener('keydown', function(e) { 

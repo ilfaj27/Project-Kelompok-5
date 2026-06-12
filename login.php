@@ -12,9 +12,7 @@ if (isset($_POST['login'])) {
     if (empty($user_input) || empty($pass_input)) {
         $error_msg = "Username/Email dan Password wajib diisi!";
     } else {
-        // ════════════════════════════════════════════════════════
         // CEK KE TABEL KARYAWAN DULU (Admin/Pemilik/Karyawan)
-        // ════════════════════════════════════════════════════════
         $sql_karyawan = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
         $params = array($user_input, $user_input);
         $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
@@ -23,10 +21,10 @@ if (isset($_POST['login'])) {
         if ($row) {
             if ($pass_input == $row['Kata_Sandi']) {
                 $_SESSION['login']   = true;
-                $_SESSION['id_akun'] = $row['ID_Karyawan']; // pakai ID_Karyawan
+                $_SESSION['id_akun'] = $row['ID_Karyawan'];
+                // FIX: Simpan id_karyawan ke session
+                $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
 
-                // FIX: Role berdasarkan Jabatan, bukan angka
-                // 'Manajer' = pemilik, 'Karyawan' = karyawan
                 $jabatan = strtolower(trim($row['Jabatan']));
                 if ($jabatan == 'manajer') {
                     $_SESSION['role'] = 'pemilik';
@@ -38,6 +36,8 @@ if (isset($_POST['login'])) {
 
                 $_SESSION['nama'] = $row['Nama_Karyawan'] ?? 'Admin';
                 $_SESSION['jabatan'] = $row['Jabatan'];
+                // FIX: Simpan Profile_Photo ke session
+                $_SESSION['Profile_Photo'] = $row['Profile_Photo'] ?? '';
 
                 if (isset($_POST['remember'])) {
                     setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
@@ -45,7 +45,6 @@ if (isset($_POST['login'])) {
                     setcookie('remember_me', '', time() - 3600, "/");
                 }
 
-                // Redirect berdasarkan role
                 if ($_SESSION['role'] == 'pemilik') {
                     header("Location: view_pemilik.php");
                 } elseif ($_SESSION['role'] == 'karyawan') {
@@ -58,9 +57,7 @@ if (isset($_POST['login'])) {
                 $error_msg = "Password salah!";
             }
         } else {
-            // ════════════════════════════════════════════════════════
-            // JIKA TIDAK KETEMU DI KARYAWAN, CEK KE TABEL CUSTOMER
-            // ════════════════════════════════════════════════════════
+            // CEK KE TABEL CUSTOMER
             $sql_customer = "SELECT * FROM Customer WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
             $params2 = array($user_input, $user_input);
             $stmt2 = sqlsrv_query($conn, $sql_customer, $params2);

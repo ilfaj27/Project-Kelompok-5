@@ -480,7 +480,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- SIDEBAR -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -522,14 +522,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
-        </a>
-        <a href="../m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
         </a>
     </nav>
 

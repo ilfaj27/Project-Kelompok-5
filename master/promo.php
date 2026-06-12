@@ -443,11 +443,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
-.sp-ready { background: var(--green-lt); color: var(--green); }
-.sp-maint { background: var(--red-lt); color: var(--red); }
+.sp-active { background: var(--green-lt); color: var(--green); }
+.sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.sp-ready .sp-dot { background: var(--green); }
-.sp-maint .sp-dot { background: var(--red); }
+.sp-active .sp-dot { background: var(--green); }
+.sp-inactive .sp-dot { background: var(--red); }
 
 /* ═══ ACTIONS ═══ */
 .actions { 
@@ -727,14 +727,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 
                 <label class="modal-label">Nama Promo <span class="required">*</span></label>
                 <input type="text" name="nama_promo" id="nama_promo" class="modal-input" 
-                    placeholder="Masukkan nama promo (misal: Promo Akhir Tahun)" 
+                    placeholder="Masukkan nama promo (misal: Promo Akhir Tahun)" autocomplete="off" 
                     value="<?= htmlspecialchars($edit_data['Nama_Promo'] ?? '') ?>" 
                     required minlength="3" maxlength="100">
                 <div class="val-msg" id="val-nama_promo"></div>
                 
                 <label class="modal-label">Diskon (Rp) <span class="required">*</span></label>
                 <input type="number" name="diskon" id="diskon" class="modal-input" 
-                    placeholder="10000" min="0"
+                    placeholder="10000" min="0" autocomplete="off"
                     value="<?= (int)($edit_data['Diskon'] ?? 0) ?>" required>
                 <div class="val-msg" id="val-diskon"></div>
                 
@@ -827,7 +827,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="info-row" style="border-bottom:none;">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Promo</span>
                     <span class="info-val">
-                        <span class="status-pill <?= $is_active_detail ? 'sp-ready' : 'sp-maint' ?>">
+                        <span class="status-pill <?= $is_active_detail ? 'sp-active' : 'sp-inactive' ?>">
                             <span class="sp-dot"></span>
                             <?= $is_active_detail ? 'AKTIF' : 'EXPIRED' ?>
                         </span>
@@ -843,7 +843,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </div>
 
 <!-- ═══ SIDEBAR ═══ -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -886,14 +886,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
-        <a href="../m_Alat/index.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
-        </a>
     </nav>
 
     <div class="sb-section-label">Transaksi</div>
@@ -931,14 +923,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
 
 <!-- ═══ MAIN & TOPBAR ═══ -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Promo</div>
@@ -986,15 +978,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="page-title">Kelola Promo</div>
             </div>
             <div class="stat-chips">
-                <div class="stat-chip chip-green">
-                    <i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $active_count ?></span>
-                </div>
-                <div class="stat-chip chip-red">
-                    <i class="fa-solid fa-circle-xmark"></i> EXPIRED <span class="chip-val"><?= $expired_count ?></span>
-                </div>
-                <div class="stat-chip chip-blue">
-                    <i class="fa-solid fa-list"></i> TOTAL <span class="chip-val"><?= $total_data ?></span>
-                </div>
+                <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $active_count ?></span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> EXPIRED <span class="chip-val"><?= $expired_count ?></span></div>
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span class="chip-val"><?= $total_data ?></span></div>
             </div>
         </div>
 
@@ -1002,7 +988,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari nama promo..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari promo..." onkeyup="searchTable()">
             </div>
             
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -1083,11 +1069,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             $is_active = $is_ready && $is_time_active;
                         ?>
                             <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
-                                <td class="promo-id-badge" style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
-                                <td class="promo-name"><?= htmlspecialchars($row['Nama_Promo']) ?></td>
-                                <td class="promo-disc"><?= rupiah($row['Diskon']) ?></td>
+                                <td style="font-family:'Barlow'; font-weight:700;"><?= $no++ ?></td>
                                 <td>
-                                    <span class="status-pill <?= $is_active ? 'sp-ready' : 'sp-maint' ?>">
+                                    <div class="promo-name"><?= htmlspecialchars($row['Nama_Promo']) ?></div>
+                                </td>
+                                <td>
+                                    <div class="promo-disc"><?= rupiah($row['Diskon']) ?></div>
+                                </td>
+                                <td>
+                                    <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
                                         <span class="sp-dot"></span>
                                         <?= $is_active ? 'AKTIF' : 'EXPIRED' ?>
                                     </span>
@@ -1189,218 +1179,305 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
-function closeModal() { 
-    window.location.href = 'promo.php'; 
-}
-
-function searchTable() {
-    var input = document.getElementById('src').value.toUpperCase();
-    var rows = document.getElementById('tbl').getElementsByTagName('tr');
-    
-    for (var i = 1; i < rows.length; i++) {
-        var tdName = rows[i].getElementsByTagName('td')[1];
-        
-        if (tdName) {
-            var match = false;
-            if (tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            rows[i].style.display = match ? '' : 'none';
-        }
-    }
-}
-
-function validateForm() {
-    let valid = true;
-    
-    const id_prm = document.getElementById('id_prm');
-    const nama_promo = document.getElementById('nama_promo');
-    const diskon = document.getElementById('diskon');
-    const tgl_m = document.getElementById('tgl_m');
-    const tgl_s = document.getElementById('tgl_s');
-    
-    const valId = document.getElementById('val-id_prm');
-    const valNama = document.getElementById('val-nama_promo');
-    const valDiskon = document.getElementById('val-diskon');
-    const valTglM = document.getElementById('val-tgl_m');
-    const valTglS = document.getElementById('val-tgl_s');
-    const valTanggal = document.getElementById('val-tanggal');
-
-    id_prm.classList.remove('error');
-    if (valId) valId.classList.remove('show');
-    nama_promo.classList.remove('error');
-    valNama.classList.remove('show');
-    diskon.classList.remove('error');
-    valDiskon.classList.remove('show');
-    tgl_m.classList.remove('error');
-    if (valTglM) valTglM.classList.remove('show');
-    tgl_s.classList.remove('error');
-    if (valTglS) valTglS.classList.remove('show');
-    if (valTanggal) valTanggal.classList.remove('show');
-
-    if (id_prm.value.trim() === '') {
-        id_prm.classList.add('error');
-        if (valId) valId.classList.add('show');
-        valid = false;
-    }
-
-    const namaVal = nama_promo.value.trim();
-    if (namaVal === '') {
-        nama_promo.classList.add('error');
-        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama promo wajib diisi';
-        valNama.classList.add('show');
-        valid = false;
-    } else if (namaVal.length < 3) {
-        nama_promo.classList.add('error');
-        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama promo minimal 3 karakter';
-        valNama.classList.add('show');
-        valid = false;
-    } else if (namaVal.length > 100) {
-        nama_promo.classList.add('error');
-        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama promo maksimal 100 karakter';
-        valNama.classList.add('show');
-        valid = false;
-    }
-
-    const diskonVal = diskon.value.trim();
-    const diskonNum = Number(diskonVal);
-    if (diskonVal === '') {
-        diskon.classList.add('error');
-        valDiskon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Diskon wajib diisi';
-        valDiskon.classList.add('show');
-        valid = false;
-    } else if (isNaN(diskonNum)) {
-        diskon.classList.add('error');
-        valDiskon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Diskon harus berupa angka';
-        valDiskon.classList.add('show');
-        valid = false;
-    } else if (diskonNum < 0) {
-        diskon.classList.add('error');
-        valDiskon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Diskon tidak boleh negatif';
-        valDiskon.classList.add('show');
-        valid = false;
-    }
-
-    if (tgl_m.value === '') {
-        tgl_m.classList.add('error');
-        if (valTglM) {
-            valTglM.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Pilih tanggal mulai';
-            valTglM.classList.add('show');
-        }
-        valid = false;
-    }
-
-    if (tgl_s.value === '') {
-        tgl_s.classList.add('error');
-        if (valTglS) {
-            valTglS.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Pilih tanggal selesai';
-            valTglS.classList.add('show');
-        }
-        valid = false;
-    }
-
-    if (tgl_m.value && tgl_s.value && new Date(tgl_s.value) < new Date(tgl_m.value)) {
-        tgl_m.classList.add('error');
-        tgl_s.classList.add('error');
-        if (valTanggal) {
-            valTanggal.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal selesai tidak boleh mendahului tanggal mulai';
-            valTanggal.classList.add('show');
-        }
-        valid = false;
-    }
-
-    return valid;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('#nama_promo, #diskon, #tgl_m, #tgl_s');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            this.classList.remove('error');
-            const valMsg = document.getElementById('val-' + this.id);
-            if (valMsg) valMsg.classList.remove('show');
-        });
-        
-        input.addEventListener('blur', function() {
-            validateForm(); 
-        });
-    });
-});
-
-function confirmToggle(id, status) {
-    const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
-    const icon = status == 1 ? 'warning' : 'question';
-    
-    Swal.fire({
-        title: 'Konfirmasi',
-        text: `Apakah Anda yakin ingin ${action} promo ini?`,
-        icon: icon,
-        showCancelButton: true,
-        confirmButtonColor: '#FF4500',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: `Ya, ${action}!`,
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = `?toggle_id=${id}&s=${status}`;
-        } else {
-            var checkbox = document.querySelector(`input[onchange*="confirmToggle('${id}'"]`);
-            if (checkbox) checkbox.checked = !checkbox.checked;
-        }
-    });
-}
-
-function confirmDelete(id, name) {
-    Swal.fire({
-        title: 'Hapus Promo?',
-        html: `Anda akan menghapus promo <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong>!`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = '?delete_id=' + id;
-        }
-    });
-}
-
+// ============================================
+// CLOCK / JAM
+// ============================================
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
+
     document.getElementById('h').innerText = h;
     document.getElementById('m').innerText = m;
     document.getElementById('s').innerText = s;
 
     const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+    const dayName = days[now.getDay()];
+    const date = now.getDate();
+    const monthName = months[now.getMonth()];
+    const year = now.getFullYear();
+
+    document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
 }
-setInterval(updateClock, 1000);
+
+// Jalankan clock segera dan set interval
 updateClock();
+setInterval(updateClock, 1000);
 
-const urlParams = new URLSearchParams(window.location.search);
-const status = urlParams.get('status');
-const msg = urlParams.get('msg');
 
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+function closeModal() { 
+    window.location.href = 'promo.php'; 
+}
+
+
+// ============================================
+// SEARCH TABLE
+// ============================================
+function searchTable() {
+    var input = document.getElementById('src').value.toUpperCase();
+    var rows = document.getElementById('tbl').getElementsByTagName('tr');
+    for (var i = 1; i < rows.length; i++) {
+        var tdName = rows[i].getElementsByTagName('td')[1];
+        if (tdName) {
+            var match = tdName.textContent.toUpperCase().indexOf(input) > -1;
+            rows[i].style.display = match ? '' : 'none';
+        }
+    }
+}
+
+
+// ============================================
+// VALIDASI FORM - REAL TIME & SUBMIT
+// ============================================
+
+// Validasi individual field
+function validateField(fieldId, valId, rules) {
+    const field = document.getElementById(fieldId);
+    const valMsg = document.getElementById(valId);
+    const value = field.value.trim();
+
+    field.classList.remove('error');
+    valMsg.classList.remove('show');
+
+    // Required check
+    if (rules.required && value === '') {
+        field.classList.add('error');
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
+        valMsg.classList.add('show');
+        return false;
+    }
+
+    // Min length check
+    if (rules.minLength && value.length < rules.minLength) {
+        field.classList.add('error');
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
+        valMsg.classList.add('show');
+        return false;
+    }
+
+    // Max length check
+    if (rules.maxLength && value.length > rules.maxLength) {
+        field.classList.add('error');
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
+        valMsg.classList.add('show');
+        return false;
+    }
+
+    // Pattern check (hanya huruf, angka, spasi, dan tanda baca umum)
+    if (rules.pattern && value !== '') {
+        const regex = /^[a-zA-Z0-9\s\-_.(),&/]+$/;
+        if (!regex.test(value)) {
+            field.classList.add('error');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Hanya huruf, angka, spasi, dan tanda baca umum';
+            valMsg.classList.add('show');
+            return false;
+        }
+    }
+
+    // Min number check
+    if (rules.minNum !== undefined && value !== '') {
+        const num = Number(value);
+        if (num < rules.minNum) {
+            field.classList.add('error');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minNum;
+            valMsg.classList.add('show');
+            return false;
+        }
+    }
+
+    // Max number check
+    if (rules.maxNum !== undefined && value !== '') {
+        const num = Number(value);
+        if (num > rules.maxNum) {
+            field.classList.add('error');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxNum;
+            valMsg.classList.add('show');
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Validasi saat submit
+function validateForm() {
+    let valid = true;
+
+    // Validasi ID Promo
+    if (!validateField('id_prm', 'val-id_prm', {
+        required: true,
+        label: 'ID Promo'
+    })) valid = false;
+
+    // Validasi Nama Promo
+    if (!validateField('nama_promo', 'val-nama_promo', {
+        required: true,
+        minLength: 3,
+        maxLength: 100,
+        pattern: true,
+        label: 'Nama promo'
+    })) valid = false;
+
+    // Validasi Diskon
+    if (!validateField('diskon', 'val-diskon', {
+        required: true,
+        minNum: 0,
+        label: 'Diskon'
+    })) valid = false;
+
+    // Validasi Tanggal Mulai
+    if (!validateField('tgl_m', 'val-tgl_m', {
+        required: true,
+        label: 'Tanggal mulai'
+    })) valid = false;
+
+    // Validasi Tanggal Selesai
+    if (!validateField('tgl_s', 'val-tgl_s', {
+        required: true,
+        label: 'Tanggal selesai'
+    })) valid = false;
+
+    // Validasi tanggal selesai >= tanggal mulai
+    const tgl_m = document.getElementById('tgl_m');
+    const tgl_s = document.getElementById('tgl_s');
+    const valTanggal = document.getElementById('val-tanggal');
+    if (tgl_m.value && tgl_s.value && new Date(tgl_s.value) < new Date(tgl_m.value)) {
+        tgl_m.classList.add('error');
+        tgl_s.classList.add('error');
+        valTanggal.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal selesai tidak boleh mendahului tanggal mulai';
+        valTanggal.classList.add('show');
+        valid = false;
+    }
+
+    // Jika tidak valid, tampilkan notifikasi error
+    if (!valid) {
+        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
+    }
+
+    return valid;
+}
+
+
+// ============================================
+// NOTIFIKASI TOAST
+// ============================================
+function showToast(type, title, message) {
+    Swal.fire({
+        icon: type,
+        title: title,
+        text: message,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true,
+        showCloseButton: true,
+        customClass: {
+            popup: 'colored-toast'
+        }
+    });
+}
+
+
+// ============================================
+// TOGGLE STATUS
+// ============================================
+function confirmToggle(id, status) {
+    const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
+    const iconType = status == 1 ? 'warning' : 'question';
+
+    Swal.fire({
+        title: 'Konfirmasi Perubahan Status',
+        text: 'Apakah Anda yakin ingin ' + action + ' promo ini?',
+        icon: iconType,
+        showCancelButton: true,
+        confirmButtonColor: '#FF4500',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, ' + action + '!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Tampilkan loading
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Mengubah status promo',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Redirect setelah delay singkat untuk efek loading
+            setTimeout(() => {
+                window.location.href = '?toggle_id=' + id + '&s=' + status;
+            }, 600);
+        } else {
+            // Kembalikan checkbox ke posisi semula
+            var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
+            if (checkbox) checkbox.checked = !checkbox.checked;
+        }
+    });
+}
+
+
+// ============================================
+// DELETE CONFIRMATION
+// ============================================
+function confirmDelete(id, name) {
+    Swal.fire({
+        title: 'Hapus Promo?',
+        html: 'Anda akan menghapus promo <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara permanen</span>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Tampilkan loading
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Menghapus promo',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Redirect setelah delay singkat
+            setTimeout(() => {
+                window.location.href = '?delete_id=' + id;
+            }, 600);
+        }
+    });
+}
+
+
+// ============================================
+// FILTER DROPDOWN
+// ============================================
 const btnFilterToggle = document.getElementById('btnFilterToggle');
 const filterCard = document.getElementById('filterCard');
-
 if (btnFilterToggle && filterCard) {
     btnFilterToggle.addEventListener('click', function(e) {
         e.stopPropagation();
         this.classList.toggle('active');
         filterCard.classList.toggle('open');
     });
-
     filterCard.addEventListener('click', function(e) {
-        e.stopPropagation(); 
+        e.stopPropagation();
     });
-
     document.addEventListener('click', function() {
         btnFilterToggle.classList.remove('active');
         filterCard.classList.remove('open');
@@ -1411,19 +1488,103 @@ function resetFilter() {
     window.location.href = 'promo.php';
 }
 
-if (status && msg) {
-    Swal.fire({
-        icon: status === 'success' ? 'success' : 'error',
-        title: status === 'success' ? 'Berhasil!' : 'Gagal!',
-        text: msg,
-        timer: 3000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end',
-        timerProgressBar: true
-    });
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
+
+// ============================================
+// URL PARAMETER NOTIFICATION (Status & Msg)
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const msg = urlParams.get('msg');
+
+    if (status && msg) {
+        const isSuccess = status === 'success';
+
+        Swal.fire({
+            icon: isSuccess ? 'success' : 'error',
+            title: isSuccess ? 'Berhasil!' : 'Gagal!',
+            text: msg,
+            timer: 3000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true
+        });
+
+        // Hapus parameter dari URL tanpa reload
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // ============================================
+    // REAL-TIME VALIDATION EVENT LISTENERS
+    // ============================================
+    // Validasi real-time Nama Promo
+    const namaPromo = document.getElementById('nama_promo');
+    if (namaPromo) {
+        namaPromo.addEventListener('blur', function() {
+            validateField('nama_promo', 'val-nama_promo', {
+                required: true,
+                minLength: 3,
+                maxLength: 100,
+                pattern: true,
+                label: 'Nama promo'
+            });
+        });
+        namaPromo.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('nama_promo', 'val-nama_promo', {
+                    required: true,
+                    minLength: 3,
+                    maxLength: 100,
+                    pattern: true,
+                    label: 'Nama promo'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Diskon
+    const diskon = document.getElementById('diskon');
+    if (diskon) {
+        diskon.addEventListener('blur', function() {
+            validateField('diskon', 'val-diskon', {
+                required: true,
+                minNum: 0,
+                label: 'Diskon'
+            });
+        });
+        diskon.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('diskon', 'val-diskon', {
+                    required: true,
+                    minNum: 0,
+                    label: 'Diskon'
+                });
+            }
+        });
+    }
+
+    // Validasi real-time Tanggal
+    const tglM = document.getElementById('tgl_m');
+    const tglS = document.getElementById('tgl_s');
+    if (tglM) {
+        tglM.addEventListener('change', function() {
+            validateField('tgl_m', 'val-tgl_m', {
+                required: true,
+                label: 'Tanggal mulai'
+            });
+        });
+    }
+    if (tglS) {
+        tglS.addEventListener('change', function() {
+            validateField('tgl_s', 'val-tgl_s', {
+                required: true,
+                label: 'Tanggal selesai'
+            });
+        });
+    }
+});
 </script>
 </body>
 </html>
