@@ -31,6 +31,7 @@ if (isset($_POST['update_biodata'])) {
     $jk = intval($_POST['jenis_kelamin'] ?? 1);
     $alamat = trim($_POST['alamat'] ?? '');
     $telepon = trim($_POST['no_telepon'] ?? '');
+    $email = trim($_POST['email'] ?? ''); // Email baru ditambahkan
 
     $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
     $tmp_lahir = $_POST['tempat_lahir'] ?? '';
@@ -60,14 +61,16 @@ if (isset($_POST['update_biodata'])) {
     if (empty($telepon) || !preg_match('/^[0-9]{10,14}$/', $telepon)) {
         $errors[] = 'Nomor telepon harus 10-14 digit angka.';
     }
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Email tidak valid.';
+    }
 
     if (empty($errors)) {
-        $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
-        $tmp_lahir = $_POST['tempat_lahir'] ?? '';
-
+        // Update Customer table (dengan Modified_By & Modified_Date di database)
+        $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
         $stmt = sqlsrv_query($conn,
-            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ? WHERE ID_Akun = ?",
-            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $ID_Akun)
+            "UPDATE Customer SET Nama_Customer = ?, Jenis_Kelamin = ?, Tanggal_Lahir = ?, Tempat_Lahir = ?, Alamat = ?, No_Telepon = ?, Email = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Akun = ?",
+            array($nama, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Akun)
         );
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {}
@@ -171,7 +174,7 @@ if (empty($profile_photo) || !file_exists($profile_photo)) {
 
 $nama = $biodata['Nama_Customer'] ?? $_SESSION['nama'] ?? 'Customer';
 $username = $akun['Username'] ?? '-';
-$email = $akun['Email'] ?? '-';
+$email = $biodata['Email'] ?? $akun['Email'] ?? '-'; // Email dari Customer table
 $telepon = $biodata['No_Telepon'] ?? '-';
 $alamat = $biodata['Alamat'] ?? '-';
 $jk = $biodata['Jenis_Kelamin'] ?? 1;
@@ -232,7 +235,7 @@ function format_date_display($date) {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Barlow', sans-serif; background: var(--black); color: var(--white); overflow-x: hidden; min-height: 100vh; }
 
-        /* ---- NAVBAR ---- */
+        /* NAVBAR */
         nav {
             background: var(--black);
             padding: 0 60px;
@@ -286,7 +289,7 @@ function format_date_display($date) {
         .nav-links a:hover { color: #fff; }
         .nav-links a.active { color: #fff; border-bottom-color: var(--orange); }
 
-        /* ---- USER DROPDOWN ---- */
+        /* USER DROPDOWN */
         .nav-user-container {
             position: relative;
             height: 68px;
@@ -343,7 +346,7 @@ function format_date_display($date) {
         .dropdown-divider { height: 1px; background: #333; margin: 8px 0; }
         .dropdown-menu a.logout:hover { color: var(--red); }
 
-        /* ---- PROFILE HERO ---- */
+        /* PROFILE HERO */
         .profile-hero {
             background: linear-gradient(135deg, #1a1a24 0%, #0f0f16 100%);
             border-bottom: 3px solid var(--orange);
@@ -470,7 +473,7 @@ function format_date_display($date) {
         }
         .hero-meta-item span { color: var(--orange); font-weight: 800; }
 
-        /* ---- MAIN CONTENT ---- */
+        /* MAIN CONTENT */
         .main { padding: 50px 60px; max-width: 1200px; margin: 0 auto; }
 
         /* Section Title */
@@ -500,7 +503,7 @@ function format_date_display($date) {
             border-radius: 2px;
         }
 
-        /* ---- CARDS ---- */
+        /* CARDS */
         .profile-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -550,7 +553,7 @@ function format_date_display($date) {
         }
         .card-body { padding: 24px; }
 
-        /* ---- FORM ---- */
+        /* FORM */
         .form-group { margin-bottom: 20px; }
         .form-group:last-child { margin-bottom: 0; }
         .form-label {
@@ -626,7 +629,7 @@ function format_date_display($date) {
         .btn-save:hover { background: var(--orange-light); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,107,0,0.3); }
         .btn-save:active { transform: translateY(0); }
 
-        /* ---- INFO ROWS ---- */
+        /* INFO ROWS */
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -691,7 +694,7 @@ function format_date_display($date) {
 <body>
 
 <!-- NAVBAR -->
-<nav>
+<<nav>
     <a href="view_customer.php" class="nav-logo">
         <img src="logo.png" alt="HoopBall" class="nav-logo-img">
     </a>
@@ -747,7 +750,7 @@ function format_date_display($date) {
 </div>
 
 <!-- MAIN CONTENT -->
-<main class="main">
+<<main class="main">
     <div class="profile-grid">
         <!-- BIODATA -->
         <div class="p-card">
@@ -788,6 +791,13 @@ function format_date_display($date) {
                                    placeholder="Contoh: Jakarta, Bekasi" autocomplete="off">
                             <div class="error-msg" id="tmpLahirError">Tempat lahir minimal 3 karakter, hanya huruf dan spasi.</div>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" name="email" id="email" class="form-input"
+                               value="<?= htmlspecialchars($email) ?>"
+                               placeholder="Contoh: email@domain.com" autocomplete="off">
+                        <div class="error-msg" id="emailError">Email tidak valid.</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
@@ -886,7 +896,7 @@ function format_date_display($date) {
     </div>
 </main>
 
-<footer>
+<<footer>
     <p>© 2024 Hoop Arena. All rights reserved.</p>
 </footer>
 
@@ -935,6 +945,7 @@ const tglLahirInput = document.getElementById('tanggal_lahir');
 const tmpLahirInput = document.getElementById('tempat_lahir');
 const teleponInput = document.getElementById('no_telepon');
 const alamatInput = document.getElementById('alamat');
+const emailInput = document.getElementById('email');
 
 if (namaInput) {
     namaInput.addEventListener('input', function() {
@@ -951,6 +962,30 @@ if (tmpLahirInput) {
         validateTmpLahir();
     });
     tmpLahirInput.addEventListener('blur', validateTmpLahir);
+}
+
+// Email validation
+if (emailInput) {
+    emailInput.addEventListener('input', validateEmail);
+    emailInput.addEventListener('blur', validateEmail);
+}
+
+function validateEmail() {
+    if (!emailInput) return true;
+    const val = emailInput.value.trim();
+    const error = document.getElementById('emailError');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (val === '' || !emailRegex.test(val)) {
+        emailInput.classList.add('error'); 
+        emailInput.classList.remove('valid'); 
+        error.classList.add('show'); 
+        return false;
+    } else {
+        emailInput.classList.remove('error'); 
+        emailInput.classList.add('valid'); 
+        error.classList.remove('show'); 
+        return true;
+    }
 }
 
 function validateTglLahir() {
@@ -1041,6 +1076,7 @@ if (formBiodata) {
         if (!validateTmpLahir()) valid = false;
         if (!validateAlamat()) valid = false;
         if (!validateTelepon()) valid = false;
+        if (!validateEmail()) valid = false;
         if (!valid) {
             e.preventDefault();
             Swal.fire({

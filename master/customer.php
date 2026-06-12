@@ -10,7 +10,6 @@ $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 $map_jk = [1 => 'Laki-laki', 2 => 'Perempuan'];
 
-// ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
 $profile_photo = '';
 $stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
 if ($stmt_photo !== false) {
@@ -52,6 +51,32 @@ function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
     return sqlsrv_fetch_array($stmt, $fetch_type);
 }
 
+// --- TOGGLE STATUS ---
+if (isset($_GET['toggle_id'])) {
+    $toggle_id = $_GET['toggle_id'];
+    $stmt_check = safe_sqlsrv_query($conn, "SELECT Status, Nama_Customer FROM Customer WHERE ID_Customer = ?", array($toggle_id), false);
+    if ($stmt_check !== false) {
+        $row_check = safe_sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC);
+        $current_status = $row_check['Status'] ?? 1;
+        $new_status = $current_status == 1 ? 0 : 1;
+        $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        
+        $stmt_toggle = safe_sqlsrv_query($conn, 
+            "UPDATE Customer SET Status = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?", 
+            array($new_status, $modified_by, $toggle_id), false
+        );
+        
+        if ($stmt_toggle) {
+            $status_text = $new_status == 1 ? 'Aktif' : 'Nonaktif';
+            header("Location: customer.php?page=1&status=success&msg=Status customer berhasil diubah menjadi " . $status_text . "!");
+        } else {
+            header("Location: customer.php?page=1&status=error&msg=Gagal mengubah status customer!");
+        }
+        exit();
+    }
+}
+
+// --- SOFT DELETE ---
 if (isset($_GET['delete_id'])) {
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
     $stmt = safe_sqlsrv_query($conn, "UPDATE Customer SET Is_Deleted=1, Status=0,
@@ -61,12 +86,23 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
+// --- DETAIL CUSTOMER (PHP-based like lapangan) ---
+$detail_data = null;
+$show_detail = false;
+if (isset($_GET['detail_id'])) {
+    $r_detail = safe_sqlsrv_query($conn, "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status, Is_Deleted FROM Customer WHERE ID_Customer = ?", array($_GET['detail_id']), false);
+    if ($r_detail) {
+        $detail_data = safe_sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
+        $show_detail = true;
+    }
+}
+
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
 $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
 $filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : 0;
 $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 
-$allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Created_Date'];
+$allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort)) $sort_by = 'ID_Customer';
 
 $where_clauses = [];
@@ -125,7 +161,7 @@ if ($q_pending !== false) {
     $total_pending = $row_pending['t'] ?? 0;
 }
 
-$query_sql = "SELECT * FROM Customer WHERE " . $where_sql . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
+$query_sql = "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status, Is_Deleted FROM Customer WHERE " . $where_sql . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
 $query = safe_sqlsrv_query($conn, $query_sql, $params, false);
 
 $query_error = false;
@@ -138,6 +174,22 @@ if ($query === false) {
             $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
         }
     }
+}
+
+// Helper untuk format tanggal
+function format_tgl_display($date) {
+    if (empty($date)) return '-';
+    if (is_object($date) && method_exists($date, 'format')) {
+        $d = $date->format('Y-m-d');
+        $bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        $parts = explode('-', $d);
+        return (int)$parts[2] . ' ' . $bulan[(int)$parts[1]-1] . ' ' . $parts[0];
+    }
+    return $date;
+}
+
+function jk_label($jk) {
+    return $jk == 1 ? 'Laki-laki' : ($jk == 2 ? 'Perempuan' : '-');
 }
 ?>
 <!DOCTYPE html>
@@ -155,6 +207,7 @@ if ($query === false) {
     --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
     --pink: #EC4899; --pink-lt: rgba(236,72,153,.10);
     --red: #EF4444; --red-lt: rgba(239,68,68,.10);
+    --purple: #8B5CF6;
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
     --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
@@ -163,7 +216,7 @@ if ($query === false) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* ═══ SIDEBAR ═══ */
+/* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -185,7 +238,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* ═══ MAIN & TOPBAR ═══ */
+/* MAIN & TOPBAR */
 .main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -209,7 +262,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* ═══ CLOCK ═══ */
+/* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
@@ -249,41 +302,20 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:hover td { background: #FFEDD5 !important; }
 
 .cust-name { font-weight: 700; color: var(--text); font-size: 14px; }
+.cust-email { font-size: 12px; color: var(--muted); font-weight: 500; }
 
 .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .status-active { background: var(--green-lt); color: var(--green); }
 .status-inactive { background: #FEF3C7; color: #D97706; }
 .status-deleted { background: var(--red-lt); color: var(--red); }
 
-/* ═══ ACTIONS ═══ */
-.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
-.btn-action {
-    width: 38px;
-    height: 38px;
-    display: inline-flex; 
-    align-items: center; 
-    justify-content: center; 
-    border-radius: 10px; 
-    font-size: 14px; 
-    font-weight: 700;
-    transition: all .25s cubic-bezier(.4,0,.2,1); 
-    border: 1.5px solid transparent; 
-}
-.btn-view {
-    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
-}
-.btn-view:hover {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
-    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
-}
-.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
-.btn-delete {
-    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
-}
-.btn-delete:hover {
-    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
-    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
-}
+/* ACTIONS */
+.actions { display: flex; gap: 8px; justify-content: flex-start; align-items: center; }
+.btn-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; background: none; }
+.btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
+.btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
+.btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
+.btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -300,99 +332,47 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
-.modal-overlay {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 1000;
-    align-items: center; justify-content: center; padding: 20px;
-    animation: fadeIn .2s ease;
-}
-.modal-overlay.active { display: flex; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* ═══════════════════════════════════════════
+   MODAL DETAIL - SAMA PERSIS KAYAK LAPANGAN
+   ═══════════════════════════════════════════ */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 85vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-header { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
+.modal-subtitle { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 4px; letter-spacing: .8px; }
+.modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); }
+.modal-body { padding: 16px 24px 24px; }
+.modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
+.modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-.modal-box {
-    background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border);
-    width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto;
-    box-shadow: 0 25px 50px rgba(0,0,0,.15); animation: slideUp .3s ease;
-}
-@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* Detail Photo Card - Centered Icon */
+.detail-photo-card { text-align: center; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1.5px dashed var(--border); }
+.detail-icon-wrap { width: 60px; height: 60px; background: var(--orange-lt); color: var(--orange); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-.modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 24px 28px; border-bottom: 1px solid var(--border-lt);
-}
-.modal-header-left { display: flex; align-items: center; gap: 14px; }
-.modal-avatar {
-    width: 56px; height: 56px; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dk) 100%);
-    border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 24px; flex-shrink: 0;
-}
-.modal-header-info { display: flex; flex-direction: column; }
-.modal-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
-.modal-id {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
-    color: var(--orange); background: var(--orange-lt); padding: 3px 10px; border-radius: 6px; margin-top: 4px; width: fit-content;
-}
-.modal-close {
-    width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border);
-    color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer;
-    transition: all .2s; font-size: 14px;
-}
-.modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+/* Info Row - Horizontal like lapangan */
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
+.info-row:last-child { border-bottom: none; }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.info-val.id-code { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
+.info-val.price { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); font-weight: 800; }
 
-.modal-body { padding: 0; }
-.modal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
-.modal-item { padding: 16px 24px; border-bottom: 1px solid var(--border-lt); border-right: 1px solid var(--border-lt); }
-.modal-item:nth-child(2n) { border-right: none; }
-.modal-item:nth-last-child(-n+2) { border-bottom: none; }
-.modal-item:nth-last-child(1):nth-child(odd) { border-bottom: none; grid-column: 1 / -1; }
+/* Status pill */
+.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.sp-ready { background: var(--green-lt); color: var(--green); }
+.sp-maint { background: var(--red-lt); color: var(--red); }
+.sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.sp-ready .sp-dot { background: var(--green); }
+.sp-maint .sp-dot { background: var(--red); }
 
-.modal-label {
-    display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800;
-    text-transform: uppercase; color: var(--muted); letter-spacing: .5px; margin-bottom: 6px;
-}
-.modal-label i { font-size: 11px; width: 14px; text-align: center; }
-.modal-value { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
-.modal-value-muted { color: var(--muted); font-weight: 600; }
-
-.modal-gender {
-    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
-    font-size: 12px; font-weight: 800; text-transform: uppercase;
-}
-.mg-laki { background: var(--blue-lt); color: var(--blue); }
-.mg-perempuan { background: var(--pink-lt); color: var(--pink); }
-
-.modal-status {
-    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
-    font-size: 12px; font-weight: 800; text-transform: uppercase;
-}
-.ms-active { background: var(--green-lt); color: var(--green); }
-.ms-inactive { background: #FEF3C7; color: #D97706; }
-.ms-deleted { background: var(--red-lt); color: var(--red); }
-
-.modal-deleted-banner {
-    margin: 16px 24px 0; padding: 12px 16px; background: var(--red-lt); border: 1px solid rgba(239,68,68,.2);
-    border-radius: 10px; display: flex; align-items: center; gap: 10px;
-}
-.modal-deleted-banner i { color: var(--red); font-size: 16px; }
-.modal-deleted-text { font-size: 12px; font-weight: 700; color: var(--red); }
-.modal-deleted-date { font-size: 11px; color: var(--muted); font-weight: 600; }
-
-.modal-footer {
-    padding: 16px 24px; border-top: 1px solid var(--border-lt); display: flex; gap: 10px; justify-content: flex-end;
-}
-.btn-modal {
-    display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px;
-    font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer;
-    transition: all .2s; border: 1.5px solid transparent; text-decoration: none;
-}
-.btn-modal-close { background: var(--bg); color: var(--text-md); border-color: var(--border); }
-.btn-modal-close:hover { background: var(--text); color: #fff; border-color: var(--text); }
+/* Full width button */
+.btn-submit { width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-submit:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
 
 @media(max-width: 640px) {
-    .modal-grid { grid-template-columns: 1fr; }
-    .modal-item { border-right: none; }
-    .modal-item:nth-last-child(1):nth-child(odd) { grid-column: auto; }
-    .modal-box { max-height: 95vh; }
+    .modal-box { width: 90%; margin: 20px; }
 }
 
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
@@ -409,200 +389,34 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
-.filter-wrap {
-    position: relative;
-    display: inline-block;
-}
-.btn-filter-toggle {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--orange); color: #fff;
-    padding: 10px 20px; border-radius: 10px;
-    font-size: 13px; font-weight: 800; border: none;
-    cursor: pointer; text-transform: uppercase; letter-spacing: .5px;
-    transition: all .2s ease;
-    font-family: 'Barlow', sans-serif;
-}
+.filter-wrap { position: relative; display: inline-block; }
+.btn-filter-toggle { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: all .2s ease; font-family: 'Barlow', sans-serif; }
 .btn-filter-toggle:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,69,0,.25); }
 .btn-filter-toggle i { font-size: 12px; }
 .btn-filter-toggle .chevron { transition: transform .2s; }
 .btn-filter-toggle.active .chevron { transform: rotate(180deg); }
 
-.filter-panel {
-    position: absolute;
-    top: calc(100% + 12px);
-    right: 0;
-    width: 320px;
-    max-height: calc(100vh - 200px);
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid var(--border-lt);
-    box-shadow: 0 20px 60px rgba(0,0,0,.15);
-    z-index: 3000;
-    padding: 24px;
-    overflow-y: auto;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px) scale(0.98);
-    transform-origin: top right;
-    transition: all .2s cubic-bezier(.4,0,.2,1);
-}
-.filter-panel.active {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0) scale(1);
-}
-.filter-panel::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    right: 50px;
-    width: 12px;
-    height: 12px;
-    background: #fff;
-    transform: rotate(45deg);
-    border-left: 1px solid var(--border-lt);
-    border-top: 1px solid var(--border-lt);
-}
-.filter-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-.filter-title {
-    font-family: 'Barlow', sans-serif;
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--text);
-    letter-spacing: -.2px;
-}
-.filter-close {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: .2s;
-    font-size: 14px;
-}
+.filter-panel { position: absolute; top: calc(100% + 12px); right: 0; width: 320px; max-height: calc(100vh - 200px); background: #fff; border-radius: 16px; border: 1px solid var(--border-lt); box-shadow: 0 20px 60px rgba(0,0,0,.15); z-index: 3000; padding: 24px; overflow-y: auto; opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.98); transform-origin: top right; transition: all .2s cubic-bezier(.4,0,.2,1); }
+.filter-panel.active { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.filter-panel::before { content: ''; position: absolute; top: -6px; right: 50px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-left: 1px solid var(--border-lt); border-top: 1px solid var(--border-lt); }
+.filter-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.filter-title { font-family: 'Barlow', sans-serif; font-size: 16px; font-weight: 800; color: var(--text); letter-spacing: -.2px; }
+.filter-close { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: .2s; font-size: 14px; }
 .filter-close:hover { color: var(--red); }
-.filter-group {
-    margin-bottom: 16px;
-}
-.filter-label {
-    font-size: 11px;
-    font-weight: 800;
-    color: var(--text);
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    margin-bottom: 8px;
-    display: block;
-}
-.filter-select {
-    width: 100%;
-    padding: 10px 14px;
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    font-family: 'Barlow', sans-serif;
-    font-size: 13px;
-    color: var(--text-md);
-    background: #fff;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 40px;
-    transition: all .2s;
-}
-.filter-select:focus {
-    outline: none;
-    border-color: var(--orange);
-    box-shadow: 0 0 0 3px var(--orange-lt);
-}
+.filter-group { margin-bottom: 16px; }
+.filter-label { font-size: 11px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; display: block; }
+.filter-select { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 13px; color: var(--text-md); background: #fff; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; transition: all .2s; }
+.filter-select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .filter-select:hover { border-color: #D1D5DB; }
-.filter-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-lt);
-}
-.btn-filter-apply {
-    flex: 1;
-    background: var(--orange);
-    color: #fff;
-    border: none;
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-family: 'Barlow', sans-serif;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    transition: .2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-}
-.btn-filter-apply:hover {
-    background: var(--orange-dk);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(255,69,0,.25);
-}
+.filter-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-lt); }
+.btn-filter-apply { flex: 1; background: var(--orange); color: #fff; border: none; padding: 10px 14px; border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-filter-apply:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,69,0,.25); }
 .btn-filter-apply i { font-size: 11px; }
-.btn-filter-reset {
-    flex: 1;
-    background: var(--bg);
-    color: var(--text-md);
-    border: 1.5px solid var(--border);
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-family: 'Barlow', sans-serif;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    transition: .2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    text-decoration: none;
-}
-.btn-filter-reset:hover {
-    background: var(--border-lt);
-    border-color: var(--text-md);
-}
+.btn-filter-reset { flex: 1; background: var(--bg); color: var(--text-md); border: 1.5px solid var(--border); padding: 10px 14px; border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.btn-filter-reset:hover { background: var(--border-lt); border-color: var(--text-md); }
 .btn-filter-reset i { font-size: 11px; }
-.filter-active-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--orange-lt);
-    color: var(--orange);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    margin-right: 8px;
-}
-.cust-id {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 800;
-    color: var(--orange);
-    font-size: 14px;
-}
+.filter-active-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--orange-lt); color: var(--orange); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; margin-right: 8px; }
+.cust-id { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -752,7 +566,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari nama customer..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari nama, email, atau telepon..." onkeyup="searchTable()">
             </div>
             <div class="filter-wrap">
                 <?php if ($filter_jk > 0 || $filter_status != 'all'): ?>
@@ -780,6 +594,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                 <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
                                 <option value="Alamat" <?= $sort_by == 'Alamat' ? 'selected' : '' ?>>Alamat</option>
                                 <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon</option>
+                                <option value="Email" <?= $sort_by == 'Email' ? 'selected' : '' ?>>Email</option>
                                 <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>Tanggal Dibuat</option>
                             </select>
                         </div>
@@ -838,10 +653,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <tr>
                             <th style="width:50px;">No</th>
                             <th>Nama Lengkap</th>
+                            <th>Email</th>
                             <th>Alamat</th>
                             <th>No. Telepon</th>
-                            <th style="width:120px; text-align:center;">Status</th>
-                            <th style="text-align:left; width:180px;">Aksi</th>
+                            <th style="width:100px; text-align:center;">Status</th>
+                            <th style="text-align:center; width:100px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -858,19 +674,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     ?>
                         <tr>
                             <td style="font-weight:800; color:var(--muted);"><?= $no++ ?></td>
-                            <td><div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div></td>
-                            <td style="color:var(--muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars($row['Alamat'] ?? '') ?>"><?= htmlspecialchars($row['Alamat'] ?? '-') ?></td>
+                            <td>
+                                <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
+                            </td>
+                            <td><span class="cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></span></td>
+                            <td style="color:var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?= htmlspecialchars($row['Alamat'] ?? '') ?>"><?= htmlspecialchars($row['Alamat'] ?? '-') ?></td>
                             <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon'] ?? '-') ?></td>
                             <td style="text-align:center;">
                                 <span class="status-badge <?= $status_class ?>">
                                     <i class="fa-solid fa-circle" style="font-size:6px;"></i> <?= $status_label ?>
                                 </span>
                             </td>
-                            <td>
+                            <td style="text-align:center;">
                                 <div class="actions">
-                                    <button onclick="openDetail('<?= htmlspecialchars($row['ID_Customer']) ?>','<?= htmlspecialchars($row['Nama_Customer']) ?>','<?= $row['Jenis_Kelamin'] ?>','<?= $row['Tanggal_Lahir'] ? $row['Tanggal_Lahir']->format('Y-m-d') : '' ?>','<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>','<?= htmlspecialchars($row['Alamat'] ?? '') ?>','<?= htmlspecialchars($row['No_Telepon'] ?? '') ?>','<?= $status_label ?>','<?= $row['Is_Deleted'] ?>','<?= htmlspecialchars($row['Created_By'] ?? 'SYSTEM') ?>','<?= $row['Created_Date'] ? $row['Created_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Modified_By'] ?? '') ?>','<?= $row['Modified_Date'] ? $row['Modified_Date']->format('Y-m-d H:i:s') : '' ?>','<?= htmlspecialchars($row['Deleted_By'] ?? '') ?>','<?= $row['Deleted_Date'] ? $row['Deleted_Date']->format('Y-m-d H:i:s') : '' ?>')" class="btn-action btn-view" title="Lihat Detail">
+                                    <a href="?detail_id=<?= htmlspecialchars($row['ID_Customer']) ?>" class="btn-action btn-view" title="Lihat Detail">
                                         <i class="fa-solid fa-eye"></i>
-                                    </button>
+                                    </a>
                                     <?php if (!$is_deleted): ?>
                                     <button onclick="confirmDelete('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>')" class="btn-action btn-delete" title="Hapus Data">
                                         <i class="fa-solid fa-trash-can"></i>
@@ -881,7 +700,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         </tr>
                     <?php endwhile; endif; ?>
                     <?php if (!$has_data): ?>
-                        <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-users"></i><div>Belum ada data customer</div><div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Data customer akan muncul di sini setelah registrasi</div></div></td></tr>
+                        <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-users"></i><div>Belum ada data customer</div><div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Data customer akan muncul di sini setelah registrasi</div></div></td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -908,36 +727,79 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </div>
 </main>
 
-<div class="modal-overlay" id="modalDetail" onclick="closeModal(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <div class="modal-header-left">
-                <div class="modal-avatar"><i class="fa-solid fa-user"></i></div>
-                <div class="modal-header-info">
-                    <div class="modal-name" id="mdlNama">-</div>
-                    <div class="modal-id"><i class="fa-solid fa-fingerprint"></i> <span id="mdlId">-</span></div>
+<!-- ═══════════════════════════════════════════
+   MODAL DETAIL CUSTOMER - SAMA KAYAK LAPANGAN
+   ═══════════════════════════════════════════ -->
+<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+    <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: auto;">
+        <button class="modal-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0; padding-top: 20px;">
+            <div class="modal-subtitle">Informasi Pelanggan</div>
+            <div class="modal-title">Profil Customer</div>
+        </div>
+        <div class="modal-body" style="padding-top: 8px;">
+            <?php if ($detail_data): 
+                $is_active = $detail_data['Status'] == 1;
+                $is_deleted = $detail_data['Is_Deleted'] == 1;
+                $jk_icon = $detail_data['Jenis_Kelamin'] == 1 ? 'fa-mars' : 'fa-venus';
+                $jk_color = $detail_data['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
+            ?>
+                <div class="detail-photo-card">
+                    <div class="detail-icon-wrap"><i class="fa-solid fa-user"></i></div>
+                    <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Customer']) ?></div>
                 </div>
-            </div>
-            <button class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-            <div class="modal-deleted-banner" id="mdlDeletedBanner" style="display:none;">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <div><div class="modal-deleted-text">Data telah dihapus (soft delete)</div><div class="modal-deleted-date" id="mdlDeletedInfo">-</div></div>
-            </div>
-            <div class="modal-grid">
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-fingerprint" style="color:var(--orange);"></i> ID Customer</div><div class="modal-value" id="mdlId2">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-user" style="color:var(--orange);"></i> Nama Lengkap</div><div class="modal-value" id="mdlNama2">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-venus-mars" style="color:var(--purple);"></i> Jenis Kelamin</div><div class="modal-value" id="mdlJK">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-cake-candles" style="color:var(--pink);"></i> Tanggal Lahir</div><div class="modal-value" id="mdlTglLahir">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-location-dot" style="color:var(--red);"></i> Tempat Lahir</div><div class="modal-value" id="mdlTempatLahir">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-map-location-dot" style="color:var(--green);"></i> Alamat</div><div class="modal-value" id="mdlAlamat">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-phone" style="color:var(--blue);"></i> No. Telepon</div><div class="modal-value" id="mdlTelepon">-</div></div>
-                <div class="modal-item"><div class="modal-label"><i class="fa-solid fa-shield-halved" style="color:var(--yellow);"></i> Status</div><div class="modal-value" id="mdlStatus">-</div></div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-modal btn-modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Tutup</button>
+
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Customer</span>
+                    <span class="info-val id-code"><?= htmlspecialchars($detail_data['ID_Customer']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
+                    <span class="info-val"><?= htmlspecialchars($detail_data['Nama_Customer']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span>
+                    <span class="info-val"><?= htmlspecialchars($detail_data['Email'] ?? '-') ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-venus-mars" style="color:<?= $jk_color ?>"></i> Jenis Kelamin</span>
+                    <span class="info-val" style="color:<?= $jk_color ?>; font-weight:800;">
+                        <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($detail_data['Jenis_Kelamin']) ?>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-cake-candles"></i> Tanggal Lahir</span>
+                    <span class="info-val"><?= format_tgl_display($detail_data['Tanggal_Lahir']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</span>
+                    <span class="info-val"><?= htmlspecialchars($detail_data['Tempat_Lahir'] ?? '-') ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-map-location-dot"></i> Alamat</span>
+                    <span class="info-val" style="max-width: 200px; text-align: right;"><?= htmlspecialchars($detail_data['Alamat'] ?? '-') ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-phone"></i> No. Telepon</span>
+                    <span class="info-val"><?= htmlspecialchars($detail_data['No_Telepon'] ?? '-') ?></span>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="info-key"><i class="fa-solid fa-shield-halved"></i> Status</span>
+                    <span class="info-val">
+                        <?php if ($is_deleted): ?>
+                            <span class="status-pill sp-maint"><span class="sp-dot"></span> DIHAPUS</span>
+                        <?php elseif ($is_active): ?>
+                            <span class="status-pill sp-ready"><span class="sp-dot"></span> AKTIF</span>
+                        <?php else: ?>
+                            <span class="status-pill sp-maint"><span class="sp-dot"></span> NONAKTIF</span>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+            
+            <button onclick="closeDetail()" class="btn-submit" style="margin-top: 16px; background: #0D1117;">
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+            </button>
         </div>
     </div>
 </div>
@@ -970,9 +832,11 @@ function searchTable() {
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
     for (var i = 1; i < rows.length; i++) {
         var tdName = rows[i].getElementsByTagName('td')[1];
-        var tdPhone = rows[i].getElementsByTagName('td')[3];
+        var tdEmail = rows[i].getElementsByTagName('td')[2];
+        var tdPhone = rows[i].getElementsByTagName('td')[4];
         var match = false;
         if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
+        if (tdEmail && tdEmail.textContent.toUpperCase().indexOf(input) > -1) match = true;
         if (tdPhone && tdPhone.textContent.toUpperCase().indexOf(input) > -1) match = true;
         rows[i].style.display = match ? '' : 'none';
     }
@@ -980,44 +844,25 @@ function searchTable() {
 
 function confirmDelete(id, name) {
     Swal.fire({
-        title: 'Hapus Customer?', html: `Anda akan menghapus data <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong> dan tidak bisa dikembalikan!`,
-        icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF4444', cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true
-    }).then((result) => { if (result.isConfirmed) { window.location.href = '?delete_id=' + id; } });
+        title: 'Hapus Customer?', 
+        html: `Anda akan menghapus data <strong style="color:var(--orange);">${name}</strong><br>Data akan dihapus <strong style="color:var(--red);">permanen</strong> dan tidak bisa dikembalikan!`,
+        icon: 'warning', 
+        showCancelButton: true, 
+        confirmButtonColor: '#EF4444', 
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!', 
+        cancelButtonText: 'Batal', 
+        reverseButtons: true
+    }).then((result) => { 
+        if (result.isConfirmed) { 
+            window.location.href = '?delete_id=' + id; 
+        } 
+    });
 }
 
-function openDetail(id, nama, jk, tglLahir, tempatLahir, alamat, telepon, status, isDeleted, createdBy, createdDate, modifiedBy, modifiedDate, deletedBy, deletedDate) {
-    const mapJK = { '1': 'Laki-laki', '2': 'Perempuan' };
-    const isLaki = (jk == '1');
-    const isDel = (isDeleted == '1');
-    document.getElementById('mdlId').textContent = id;
-    document.getElementById('mdlId2').textContent = id;
-    document.getElementById('mdlNama').textContent = nama;
-    document.getElementById('mdlNama2').textContent = nama;
-    document.getElementById('mdlJK').innerHTML = '<span class="modal-gender ' + (isLaki ? 'mg-laki' : 'mg-perempuan') + '"><i class="fa-solid ' + (isLaki ? 'fa-mars' : 'fa-venus') + '"></i> ' + (mapJK[jk] || '-') + '</span>';
-    if (tglLahir) { const d = new Date(tglLahir); const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']; document.getElementById('mdlTglLahir').textContent = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear(); document.getElementById('mdlTglLahir').className = 'modal-value'; } else { document.getElementById('mdlTglLahir').innerHTML = '<span class="modal-value-muted">-</span>'; }
-    if (tempatLahir) { document.getElementById('mdlTempatLahir').textContent = tempatLahir; document.getElementById('mdlTempatLahir').className = 'modal-value'; } else { document.getElementById('mdlTempatLahir').innerHTML = '<span class="modal-value-muted">-</span>'; }
-    if (alamat) { document.getElementById('mdlAlamat').textContent = alamat; document.getElementById('mdlAlamat').className = 'modal-value'; } else { document.getElementById('mdlAlamat').innerHTML = '<span class="modal-value-muted">-</span>'; }
-    if (telepon) { document.getElementById('mdlTelepon').textContent = telepon; document.getElementById('mdlTelepon').className = 'modal-value'; } else { document.getElementById('mdlTelepon').innerHTML = '<span class="modal-value-muted">-</span>'; }
-    
-    const isInactive = (status === 'Nonaktif');
-    document.getElementById('mdlStatus').innerHTML = '<span class="modal-status ' + (isDel ? 'ms-deleted' : (isInactive ? 'ms-inactive' : 'ms-active')) + '"><i class="fa-solid ' + (isDel ? 'fa-circle-xmark' : (isInactive ? 'fa-circle' : 'fa-circle-check')) + '"></i> ' + (isDel ? 'Dihapus' : status) + '</span>';
-    
-    const delBanner = document.getElementById('mdlDeletedBanner');
-    if (isDel) { delBanner.style.display = 'flex'; document.getElementById('mdlDeletedInfo').textContent = 'Oleh ' + (deletedBy || 'SYSTEM') + ' pada ' + (deletedDate || '-'); } else { delBanner.style.display = 'none'; }
-    document.getElementById('modalDetail').classList.add('active');
-    document.body.style.overflow = 'hidden';
+function closeDetail() {
+    window.location.href = 'customer.php';
 }
-
-function closeModal(e) {
-    if (e && e.target !== e.currentTarget) return;
-    document.getElementById('modalDetail').classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeModal(); if (filterOpen) toggleFilter(); }
-});
 
 function updateClock() {
     const now = new Date();
@@ -1039,7 +884,16 @@ const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
 if (status && msg) {
-    Swal.fire({ icon: status === 'success' ? 'success' : 'error', title: status === 'success' ? 'Berhasil!' : 'Gagal!', text: msg, timer: 3000, showConfirmButton: false, toast: true, position: 'top-end', timerProgressBar: true });
+    Swal.fire({ 
+        icon: status === 'success' ? 'success' : 'error', 
+        title: status === 'success' ? 'Berhasil!' : 'Gagal!', 
+        text: msg, 
+        timer: 3000, 
+        showConfirmButton: false, 
+        toast: true, 
+        position: 'top-end', 
+        timerProgressBar: true 
+    });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
