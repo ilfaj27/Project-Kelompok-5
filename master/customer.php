@@ -483,6 +483,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 85vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+/* Menyembunyikan scrollbar pada modal box */
+.modal-box {
+    -ms-overflow-style: none;  /* Untuk Internet Explorer dan Edge */
+    scrollbar-width: none;     /* Untuk Firefox */
+}
+.modal-box::-webkit-scrollbar {
+    display: none;             /* Untuk Chrome, Safari, dan Opera */
+}
 .modal-header { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
 .modal-subtitle { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 4px; letter-spacing: .8px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); }
@@ -580,6 +588,10 @@ body::-webkit-scrollbar {
 .btn-filter-reset i { font-size: 11px; }
 .filter-active-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--orange-lt); color: var(--orange); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; margin-right: 8px; }
 .cust-id { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--orange); font-size: 14px; }
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+}
 </style>
 </head>
 <body>
@@ -881,7 +893,7 @@ body::-webkit-scrollbar {
    MODAL DETAIL CUSTOMER
    ============================================ -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
-    <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: auto;">
+    <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: hidden;">
         <button class="modal-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header" style="border-bottom: none; padding-bottom: 0; padding-top: 20px;">
             <div class="modal-subtitle">Informasi Pelanggan</div>

@@ -581,6 +581,16 @@ body::-webkit-scrollbar {
     display: block !important;
 }
 
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+}
+
+/* Memaksa elemen select dengan class modal-input agar berwarna putih */
+select.modal-input {
+    background-color: #FFFFFF !important;
+}
+
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
     .main { margin-left: 0; }
@@ -892,12 +902,10 @@ body::-webkit-scrollbar {
                         <tr>
                             <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                             <td>
-                                <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
-                                <div class="fas-detail"><?= htmlspecialchars($row['Detail_Fasilitas'] ?? '-') ?></div>
-                            </td>
+    <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
+</td>
                             <td>
                                 <div class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
-                                <div class="lap-detail"><?= rupiah($row['Harga_Sewa']) ?>/jam</div>
                             </td>
                             <td>
                                 <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
@@ -1109,10 +1117,6 @@ function validateForm() {
         label: 'Detail fasilitas'
     })) valid = false;
 
-    // Jika tidak valid, tampilkan notifikasi error
-    if (!valid) {
-        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
-    }
 
     return valid;
 }
