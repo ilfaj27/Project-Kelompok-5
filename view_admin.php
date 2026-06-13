@@ -191,6 +191,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
+/* Mendukung pembukaan menu dropdown via klik */
+.dropdown-wrap.active .dropdown-menu { 
+    display: block; 
+}
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -234,14 +238,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
 /* CHART SECTION */
-.chart-section { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; margin-bottom: 28px; }
-@media(max-width:1200px){ .chart-section { grid-template-columns: 1fr; } }
+.chart-section { display: grid; grid-template-columns: 1fr 340px; gap: 22px; margin-bottom: 28px; }
+@media(max-width:1100px){ .chart-section { grid-template-columns: 1fr; } }
 .chart-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 24px; }
 .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .chart-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .chart-title i { color: var(--orange); font-size: 14px; }
 .chart-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
-.chart-container { position: relative; height: 280px; }
+.chart-container { position: relative; height: 350px; }
 
 /* MINI STAT ROW */
 .mini-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -302,6 +306,20 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -459,34 +477,38 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
     </div>
 
-    <!-- Chart & Promo -->
+    <!-- Chart & Ringkasan -->
     <div class="chart-section">
+        <!-- Kolom Kiri: Booking Chart -->
         <div class="chart-card">
-            <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div><span class="chart-badge"><?= array_sum($chart_data) ?> Total</span></div>
+            <div class="chart-header">
+                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div>
+                <span class="chart-badge"><?= array_sum($chart_data) ?> Total</span>
+            </div>
             <div class="chart-container"><canvas id="bookingChart"></canvas></div>
         </div>
-        <div>
-            <div class="chart-card" style="margin-bottom: 16px;">
-                <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-tags"></i> Promo Aktif</div><span class="card-badge"><?= count($promo_aktif) ?> promo</span></div>
-                <div class="card-body" style="padding: 0 24px 24px;">
-                    <?php if(count($promo_aktif) > 0): ?>
-                        <?php foreach($promo_aktif as $p): ?>
-                        <div class="promo-card" style="background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all .2s ease;">
-                            <div class="promo-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                <span class="promo-name" style="font-size: 14px; font-weight: 800; color: var(--text);"><?= htmlspecialchars($p['Nama_Promo']) ?></span>
-                                <span class="promo-discount" style="font-size: 12px; font-weight: 800; color: var(--orange); background: var(--orange-lt); padding: 4px 10px; border-radius: 20px;"><?= number_format($p['Diskon'], 0, ',', '.') ?></span>
-                            </div>
-                            <div class="promo-date" style="font-size: 11px; color: var(--muted);">
-                                <?= formatTanggal($p['Tanggal_Mulai']) ?> - <?= formatTanggal($p['Tanggal_Selesai']) ?>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="text-align:center; padding:20px; color:var(--muted);">
-                            <i class="fa-solid fa-tag" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i>
-                            <div style="font-size:13px; font-weight:700;">Tidak ada promo aktif</div>
-                        </div>
-                    <?php endif; ?>
+
+        <!-- Kolom Kanan: Ringkasan Operasional -->
+        <div class="chart-card" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="chart-header">
+                <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div>
+            </div>
+            <div class="mini-stat-row" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 12px; flex-grow: 1;">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Booking Hari Ini</div>
+                    <div class="mini-stat-value orange"><?= $total_booking_today ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Total Pembatalan</div>
+                    <div class="mini-stat-value red"><?= $total_pembatalan ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Alat Tersedia</div>
+                    <div class="mini-stat-value"><?= $total_alat_aktif ?> / <?= $total_alat ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Total Omzet</div>
+                    <div class="mini-stat-value"><?= rupiahFormat($total_omzet) ?></div>
                 </div>
             </div>
         </div>
@@ -554,6 +576,24 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
+// Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation();
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
+
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
