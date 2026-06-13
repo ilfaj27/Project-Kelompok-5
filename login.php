@@ -301,6 +301,12 @@ if (isset($_POST['login'])) {
 
         html { scrollbar-width: none; -ms-overflow-style: none; }
         html::-webkit-scrollbar { display: none; }
+
+        /* Mencegah pergeseran halaman belakang saat SweetAlert2 aktif */
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+}
     </style>
 </head>
 <body>

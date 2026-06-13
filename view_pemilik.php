@@ -204,14 +204,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
 /* CHART SECTION */
-.chart-section { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; margin-bottom: 28px; }
-@media(max-width:1200px){ .chart-section { grid-template-columns: 1fr; } }
+.chart-section { display: grid; grid-template-columns: 1fr 340px; gap: 22px; margin-bottom: 28px; }
+@media(max-width:1100px){ .chart-section { grid-template-columns: 1fr; } }
 .chart-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 24px; }
 .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .chart-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .chart-title i { color: var(--orange); font-size: 14px; }
 .chart-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
-.chart-container { position: relative; height: 280px; }
+.chart-container { position: relative; height: 350px; }
 
 /* MINI STAT ROW */
 .mini-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -403,18 +403,37 @@ body::-webkit-scrollbar {
 
     <!-- Chart Omzet -->
     <div class="chart-section">
+            <!-- Kolom Kiri: Omzet (Tinggi ditentukan oleh grafik) -->
         <div class="chart-card">
-            <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-chart-column"></i> Omzet 7 Hari Terakhir</div><span class="chart-badge"><?= rupiahFormat(array_sum($chart_data)) ?> Total</span></div>
+            <div class="chart-header">
+                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Omzet 7 Hari Terakhir</div>
+                <span class="chart-badge"><?= rupiahFormat(array_sum($chart_data)) ?> Total</span>
+            </div>
             <div class="chart-container"><canvas id="omzetChart"></canvas></div>
         </div>
-        <div>
-            <div class="chart-card" style="margin-bottom: 16px;">
-                <div class="chart-header"><div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div></div>
-                <div class="mini-stat-row">
-                    <div class="mini-stat"><div class="mini-stat-label">Booking Pending</div><div class="mini-stat-value orange"><?= $total_pending ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Dibatalkan Bulan Ini</div><div class="mini-stat-value red"><?= $total_cancelled ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Stok Alat Rendah</div><div class="mini-stat-value <?= $stok_rendah > 0 ? 'red' : '' ?>"><?= $stok_rendah ?></div></div>
-                    <div class="mini-stat"><div class="mini-stat-label">Pendapatan Bulan</div><div class="mini-stat-value"><?= rupiahFormat($pendapatan_bulan) ?></div></div>
+
+        <!-- Kolom Kanan: Ringkasan Operasional (Tanpa div pembungkus luar agar tinggi sejajar sempurna) -->
+        <div class="chart-card" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="chart-header">
+                <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div>
+            </div>
+            <!-- Grid indikator 2x2 yang meregang vertikal secara seimbang mengisi sisa tinggi card -->
+            <div class="mini-stat-row" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 12px; flex-grow: 1;">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Booking Pending</div>
+                    <div class="mini-stat-value orange"><?= $total_pending ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Dibatalkan Bulan Ini</div>
+                    <div class="mini-stat-value red"><?= $total_cancelled ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Stok Alat Rendah</div>
+                    <div class="mini-stat-value <?= $stok_rendah > 0 ? 'red' : '' ?>"><?= $stok_rendah ?></div>
+                </div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                    <div class="mini-stat-label">Pendapatan Bulan</div>
+                    <div class="mini-stat-value"><?= rupiahFormat($pendapatan_bulan) ?></div>
                 </div>
             </div>
         </div>

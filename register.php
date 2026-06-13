@@ -212,6 +212,12 @@ if (isset($_POST['register'])) {
         html { scrollbar-width: none; -ms-overflow-style: none; }
         html::-webkit-scrollbar { display: none; }
 
+        /* Mencegah pergeseran halaman belakang saat SweetAlert2 aktif */
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+}
+
         @media (max-width: 992px) {
             .auth-hero-wrapper { grid-template-columns: 1fr; padding-top: 140px; text-align: center; }
             .auth-info .intro-p { margin: 0 auto 40px auto; }
@@ -596,12 +602,12 @@ if (isset($_POST['register'])) {
                 clearValidationError(tmpLahir, tmpLahirError);
             }
 
-            const phonePattern = /^08[0-9]{8,10}$/; 
+            const phonePattern = /^08[0-9]{8,11}$/; 
             if (telp.value.trim() === '') {
                 setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
                 isStep1Valid = false;
             } else if (!phonePattern.test(telp.value.trim())) {
-                setValidationError(telp, telpError, 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-12 digit.');
+                setValidationError(telp, telpError, 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.');
                 isStep1Valid = false;
             } else {
                 clearValidationError(telp, telpError);

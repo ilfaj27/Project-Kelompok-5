@@ -3,6 +3,20 @@
 -- Urutan: Master Tables → Transaksi Tables
 -- ============================================================
 
+-- Status Customer/Karyawan/Lapangan/Alat/Promo:
+-- 0 = Nonaktif
+-- 1 = Aktif
+
+-- Status Jadwal:
+-- 0 = Tidak Tersedia
+-- 1 = Tersedia
+
+-- Status Langganan:
+-- 0 = Menunggu Konfirmasi
+-- 1 = Aktif
+-- 2 = Berakhir
+-- 3 = Ditolak
+
 CREATE DATABASE Hoopball;
 USE Hoopball;
 -- ============================================================
@@ -30,6 +44,12 @@ CREATE TABLE Karyawan (
     Deleted_By      VARCHAR(50)     NULL,
     Deleted_Date    DATETIME        NULL
 );
+
+ALTER TABLE Karyawan
+ADD CONSTRAINT UQ_Karyawan_Email UNIQUE (Email);
+
+ALTER TABLE Karyawan
+ADD CONSTRAINT UQ_Karyawan_Username UNIQUE (Username);
 
 INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Is_Deleted, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted2, Created_By, Created_Date) VALUES
 ('KRY00001', 'Rizky Pratama',    '1995-03-12', 'Jakarta',   'Jl. Mawar No.1 Jakarta',       1, 0, 'Manajer',  '081211110001', 'rizky@hoopball.com',   'rizky_p',   'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
@@ -62,6 +82,12 @@ CREATE TABLE Customer (
     Deleted_Date    DATETIME        NULL
 );
 
+ALTER TABLE Customer
+ADD CONSTRAINT UQ_Customer_Email UNIQUE (Email);
+
+ALTER TABLE Customer
+ADD CONSTRAINT UQ_Customer_Username UNIQUE (Username);
+
 INSERT INTO Customer (ID_Customer, Nama_Customer, Tanggal_Lahir, Tempat_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('CST00001', 'Dimas Arya',       '2000-04-10', 'Jakarta',    1, 'Jl. Cempaka No.2 Jakarta',     '08121234001', 'dimas@mail.com',   'dimas_a',   'cust@1234', 1, 0, 'SYSTEM', '2024-01-05 09:00:00'),
 ('CST00002', 'Laila Putri',      '2001-08-15', 'Bandung',    0, 'Jl. Flamboyan No.4 Bandung',   '08121234002', 'laila@mail.com',   'laila_p',   'cust@1234', 1, 0, 'SYSTEM', '2024-01-06 09:00:00'),
@@ -88,6 +114,9 @@ CREATE TABLE Lapangan (
     Deleted_By      VARCHAR(50)     NULL,
     Deleted_Date    DATETIME        NULL
 );
+
+ALTER TABLE Lapangan
+ADD CONSTRAINT CK_Lapangan_Harga CHECK (Harga_Sewa >= 0);
 
 INSERT INTO Lapangan (ID_Lapangan, Nama_Lapangan, Harga_Sewa, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('LPN00001', 'Lapangan A',  80000.00,  1, 0, 'KRY00002', '2024-01-02 08:00:00'),
@@ -136,6 +165,10 @@ CREATE TABLE Promo (
     Deleted_By      VARCHAR(50)     NULL,
     Deleted_Date    DATETIME        NULL
 );
+
+ALTER TABLE Promo
+ADD CONSTRAINT CK_Promo_Tanggal
+CHECK (Tanggal_Mulai <= Tanggal_Selesai);
 
 INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('PRO00001', 'Promo Hari Raya',  15000.00, '2024-03-20', '2024-04-05', 0, 0, 'KRY00002', '2024-03-15 08:00:00'),
@@ -198,6 +231,14 @@ CREATE TABLE Jadwal (
     FOREIGN KEY (ID_Lapangan) REFERENCES Lapangan(ID_Lapangan)
 );
 
+ALTER TABLE Jadwal
+ADD CONSTRAINT UQ_Jadwal_Lapangan_Waktu 
+UNIQUE (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai);
+
+ALTER TABLE Jadwal
+ADD CONSTRAINT CK_Jadwal_Jam 
+CHECK (Jam_Mulai < Jam_Selesai);
+
 INSERT INTO Jadwal (ID_Jadwal, ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('JDW00001', 'LPN00001', '2024-06-01', '08:00:00', '10:00:00', 0, 0, 'KRY00002', '2024-01-03 08:00:00'),
 ('JDW00002', 'LPN00001', '2024-06-02', '10:00:00', '12:00:00', 0, 0, 'KRY00002', '2024-01-03 08:00:00'),
@@ -233,6 +274,10 @@ CREATE TABLE Booking (
     FOREIGN KEY (ID_Promo)    REFERENCES Promo(ID_Promo)
 );
 
+ CREATE UNIQUE INDEX UQ_Booking_Jadwal_Aktif
+    ON Booking(ID_Jadwal)
+    WHERE Status <> 3;
+
 -- Status: 0=Menunggu Konfirmasi, 1=Berhasil, 2=Selesai, 3=Dibatalkan
 INSERT INTO Booking (ID_Booking, ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date, Modified_By, Modified_Date) VALUES
 ('BKG00001', 'CST00001', 'KRY00002', 'JDW00001', NULL,       '2024-05-30', 'Transfer Bank', 160000.00, 2, 'CST00001', '2024-05-30 10:00:00', 'KRY00002', '2024-05-30 11:00:00'),
@@ -266,6 +311,8 @@ CREATE TABLE Pembatalan_Booking (
     Modified_Date   DATETIME        NULL,
     FOREIGN KEY (ID_Booking)   REFERENCES Booking(ID_Booking),
     FOREIGN KEY (ID_Karyawan)  REFERENCES Karyawan(ID_Karyawan)
+    ALTER TABLE Pembatalan_Booking
+    ADD CONSTRAINT UQ_Pembatalan_Booking UNIQUE (ID_Booking);
 );
 
 -- Biaya_Batal = 50% total bayar, Nominal_Refund = 50% total bayar
@@ -321,6 +368,12 @@ CREATE TABLE Alat (
     Deleted_Date    DATETIME        NULL
 );
 
+ALTER TABLE Alat
+ADD CONSTRAINT CK_Alat_Stok CHECK (Stok >= 0);
+
+ALTER TABLE Alat
+ADD CONSTRAINT CK_Alat_Harga CHECK (Harga_Alat >= 0);
+
 INSERT INTO Alat (ID_Alat, Nama_Alat, Stok, Harga_Alat, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('ALT00001', 'Bola Basket SNI',       15, 150000.00, 1, 0, 'KRY00002', '2024-01-04 08:00:00'),
 ('ALT00002', 'Bola Basket Premium',   10, 250000.00, 1, 0, 'KRY00002', '2024-01-04 08:00:00'),
@@ -369,6 +422,12 @@ CREATE TABLE Detail_Beli_Alat (
     FOREIGN KEY (ID_Alat) REFERENCES Alat(ID_Alat),
     FOREIGN KEY (ID_Beli) REFERENCES Beli_Alat(ID_Beli)
 );
+
+ALTER TABLE Detail_Beli_Alat
+ADD CONSTRAINT CK_Detail_Jumlah CHECK (Jumlah > 0);
+
+ALTER TABLE Detail_Beli_Alat
+ADD CONSTRAINT CK_Detail_SubTotal CHECK (SubTotal >= 0);
 
 INSERT INTO Detail_Beli_Alat (ID_Alat, ID_Beli, Jumlah, SubTotal) VALUES
 -- BLA00001: CST00001 beli Bola SNI x2 = 300000
