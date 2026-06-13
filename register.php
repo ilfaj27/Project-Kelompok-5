@@ -22,16 +22,42 @@ if (isset($_POST['register'])) {
         $jk = 1; // Default Laki-laki
     }
 
-    // Cek duplikat Username atau Email di tabel Customer
-    $sql_check = "SELECT Username, Email FROM Customer WHERE Username = ? OR Email = ?";
-    $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email));
+  // Cek duplikat Username, Email, atau Nomor Telepon di tabel Customer
+    $sql_check = "SELECT Username, Email, No_Telepon FROM Customer WHERE Username = ? OR Email = ? OR No_Telepon = ?";
+    $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email, $telp));
 
     if ($stmt_check === false) {
         $res_status = "error";
         $res_msg = "Terjadi kesalahan koneksi database.";
     } else if (sqlsrv_has_rows($stmt_check)) {
         $res_status = "error";
-        $res_msg = "Username atau Email sudah terdaftar!";
+        
+        // Memeriksa kolom mana yang menyebabkan duplikasi agar notifikasi lebih spesifik
+        $exist_user = false;
+        $exist_email = false;
+        $exist_telp = false;
+
+        while ($row_check = sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC)) {
+            if (strtolower($row_check['Username']) === strtolower($username)) {
+                $exist_user = true;
+            }
+            if (strtolower($row_check['Email']) === strtolower($email)) {
+                $exist_email = true;
+            }
+            if ($row_check['No_Telepon'] === $telp) {
+                $exist_telp = true;
+            }
+        }
+
+        if ($exist_telp) {
+            $res_msg = "Nomor telepon sudah terdaftar! Gunakan nomor lain.";
+        } else if ($exist_user) {
+            $res_msg = "Username sudah terdaftar! Gunakan username lain.";
+        } else if ($exist_email) {
+            $res_msg = "Email sudah terdaftar! Gunakan email lain.";
+        } else {
+            $res_msg = "Data akun sudah terdaftar!";
+        }
     } else {
         sqlsrv_begin_transaction($conn);
 
