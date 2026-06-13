@@ -1412,11 +1412,6 @@ if (!validateField('diskon', 'val-diskon', {
         valid = false;
     }
 
-    // Jika tidak valid, tampilkan notifikasi error
-    if (!valid) {
-        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
-    }
-
     return valid;
 }
 
