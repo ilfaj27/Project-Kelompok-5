@@ -295,10 +295,16 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
+/* Menampilkan menu dropdown saat class 'active' aktif akibat diklik */
+.dropdown-wrap.active .dropdown-menu {
+    display: block !important;
+}
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
+
+
 
 /* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
@@ -779,6 +785,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .modal-box { width: 90%; margin: 20px; }
 }
+
+  /* Tempelkan kode baru di luar/di bawah kurung penutup tersebut */
+        .topbar-btn:hover, .topbar-user:hover {
+            background-color: #E5E7EB !important;
+            border-color: #D1D5DB !important;
+            color: #4B5563 !important;
+        }
+
+        .topbar-btn:active, .topbar-user:active {
+            background-color: #D1D5DB !important;
+            border-color: #9CA3AF !important;
+            color: #1F2937 !important;
+        }
 </style>
 </head>
 <body>
@@ -1202,6 +1221,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
+
+// Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
+
 function closeModal() { 
     window.location.href = 'lapangan.php'; 
 }

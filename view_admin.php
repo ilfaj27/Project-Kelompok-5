@@ -180,6 +180,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
+.topbar-btn, .topbar-user {
+    background-color: #FFFFFF !important;
+}
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
@@ -319,6 +322,19 @@ html, body {
 html::-webkit-scrollbar, 
 body::-webkit-scrollbar {
     display: none;
+}
+
+/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
+    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
+    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
+    border-color: #9CA3AF !important;    /* Batas border saat diklik */
+    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
 }
 
 @media(max-width: 768px) {

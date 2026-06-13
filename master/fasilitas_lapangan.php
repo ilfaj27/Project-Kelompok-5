@@ -244,6 +244,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
+.topbar-btn, .topbar-user {
+    background-color: #FFFFFF !important;
+}
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
@@ -545,6 +548,38 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
+
+/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
+    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
+    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
+    border-color: #9CA3AF !important;    /* Batas border saat diklik */
+    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
+}
+
+/* Menampilkan menu dropdown saat class 'active' aktif akibat diklik */
+.dropdown-wrap.active .dropdown-menu {
+    display: block !important;
+}
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -921,6 +956,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
+
+// Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
+
 // ============================================
 // CLOCK / JAM
 // ============================================
