@@ -364,7 +364,7 @@ body::-webkit-scrollbar {
                 <i class="fa-solid fa-chevron-down t-chevron"></i>
             </div>
             <div class="dropdown-menu">
-                <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                <a href="profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                 <hr class="dd-divider">
                 <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
             </div>

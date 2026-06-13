@@ -323,15 +323,11 @@ body::-webkit-scrollbar {
 <body>
 
 <aside class="sidebar">
-    <a href="<?= ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php' ?>" class="sb-brand">
+    <a href="view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
 
-
-
-<?php if ($role === 'pemilik') { ?>
-    <!-- ====== MENU PEMILIK / MANAJER ====== -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link">
@@ -347,67 +343,9 @@ body::-webkit-scrollbar {
             Laporan & Omzet
         </a>
     </nav>
-<?php } else { ?>
-    <!-- ====== MENU KARYAWAN ====== -->
-    <div class="sb-section-label">Operasional</div>
-    <nav>
-        <a href="view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
-        </a>
-        <a href="master/customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Kelola Customer
-        </a>
-        <a href="master/lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Kelola Lapangan
-        </a>
-        <a href="master/fasilitas_lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
-        </a>
-        <a href="master/jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-            Kelola Jadwal
-        </a>
-        <a href="master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
-        </a>
-        <a href="master/tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
-        </a>
-        <a href="master/alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Transaksi</div>
-    <nav>
-        <a href="master/booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Kelola Booking
-        </a>
-        <a href="master/langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
-            Kelola Langganan
-        </a>
-        <a href="master/pembelian.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
-            Kelola Pembelian Alat
-        </a>
-        <a href="master/pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
-            Kelola Pembatalan
-        </a>
-    </nav>
-<?php } ?>
 
     <div class="sb-section-label">Akun</div>
-    <a href="profile.php" class="sb-link active">
+    <a href="profile_pemilik.php" class="sb-link active">
         <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
         Profil Saya
     </a>
@@ -415,16 +353,13 @@ body::-webkit-scrollbar {
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($sidebar_photo) { ?>
+                <?php if ($sidebar_photo): ?>
                     <img src="<?= $sidebar_photo ?>" alt="Profile">
-                <?php } else { ?>
+                <?php else: ?>
                     <i class="fa-solid fa-user"></i>
-                <?php } ?>
+                <?php endif; ?>
             </div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                <div class="sb-user-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div>
-            </div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -447,11 +382,11 @@ body::-webkit-scrollbar {
                     <div class="t-avatar">
                         <?php if ($photo_path): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
                     </div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div></div>
+                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>

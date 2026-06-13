@@ -262,23 +262,102 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
-.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
+/* ═══ CARD & TABLE (SINKRON DENGAN LAPANGAN) ═══ */
+.card { 
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    overflow: hidden; 
+    transition: all .2s ease; 
+    background-color: #FFFFFF !important;
+}
+.main, .content { background-color: #F3F4F6 !important; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 900; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 20px; border-bottom: 2px solid var(--border-lt); text-align: left; }
-.data-table td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tbody tr { transition: background .15s; }
-.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
-.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
-.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 
+.data-table th {
+    font-family: 'Barlow Condensed', sans-serif !important; 
+    font-size: 13px !important; 
+    font-weight: 900 !important; 
+    color: var(--muted) !important; 
+    text-transform: uppercase !important; 
+    letter-spacing: 0.8px !important; 
+    padding: 14px 20px;
+    border-bottom: 2px solid var(--border-lt);
+}
+
+.data-table th, .data-table td { 
+    padding: 16px 20px; 
+    vertical-align: middle; 
+}
+
+/* 1. Kolom No (Rata Tengah) */
+.data-table th:nth-child(1),
+.data-table td:nth-child(1) {
+    text-align: center !important;
+    width: 8%;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* 2. Kolom Nama Fasilitas */
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    width: 32%;
+    text-align: left;
+}
 .fas-name { font-weight: 700; color: var(--text); font-size: 15px; }
 .fas-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.lap-name { color: var(--orange); font-weight: 700; font-size: 13px; }
+
+/* 3. Kolom Lapangan */
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+    width: 22%;
+    text-align: left !important;
+}
+
+.lap-name { 
+    font-family: 'Barlow', sans-serif; 
+    font-weight: 700; 
+    font-size: 15px; 
+    color: var(--text);  
+}
 .lap-detail { font-size: 11px; color: var(--muted); }
 
+/* 4. Kolom Status (Tengah Presisi) */
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+    width: 18%;
+    text-align: center !important;
+    padding-left: 0 !important;
+}
+
+.data-table th:nth-child(4) {
+    position: relative;
+    left: -60px !important; 
+}
+
+.data-table td:nth-child(4) {
+    font-size: 0 !important; 
+}
+
+.data-table td:nth-child(4) .status-pill {
+    position: relative;
+    left: -60px !important; 
+    display: inline-flex !important;
+    font-size: 12px !important; 
+    margin: 0 !important; 
+}
+
+/* 5. Kolom Aksi (Rata Kiri) */
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) {
+    width: 20%;
+    text-align: left !important;
+}
+
+/* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
@@ -286,15 +365,86 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
-.btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s; border: 1.5px solid transparent; cursor: pointer; }
-.btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
-.btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
-.btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
-.btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
-.btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
-.btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
+/* ═══ ACTIONS (SAMAKAN DENGAN LAPANGAN) ═══ */
+.actions { 
+    display: flex;
+    gap: 12px; 
+    justify-content: flex-start; 
+    align-items: center;  
+}
+.btn-action {
+    width: 38px;
+    height: 38px;
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 10px; 
+    font-size: 14px; 
+    font-weight: 700;
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    border: 1.5px solid transparent; 
+    cursor: pointer;
+}
+.btn-view {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE;
+}
+.btn-view:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.btn-edit {
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE;
+}
+.btn-edit:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.btn-delete {
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); 
+    color: #DC2626; 
+    border-color: #FECACA;
+}
+.btn-delete:hover {
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
+    color: #fff; 
+    border-color: #EF4444;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(239,68,68,.35);
+}
 
+/* ═══ TOGGLE SWITCH (SAMAKAN DENGAN LAPANGAN) ═══ */
+.toggle-switch { 
+    position: relative; 
+    display: inline-flex;
+    align-items: center;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+    margin: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
+.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.toggle-switch:hover .toggle-slider { opacity: .9; }
+
+/* ═══ ZEBRA STRIPING & HOVER (SAMAKAN DENGAN LAPANGAN) ═══ */
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+.data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
+.data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 .toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
@@ -676,7 +826,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <th>Nama Fasilitas</th>
                             <th>Lapangan</th>
                             <th style="width: 150px;">Status</th>
-                            <th style="width: 180px;">Aksi</th>
+                            <th style="text-align: left; width: 180px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -688,7 +838,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         $has_data = true;
                     ?>
                         <tr>
-                            <td style="font-family:'Barlow'; font-weight:700;"><?= $no++ ?></td>
+                            <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
                                 <div class="fas-detail"><?= htmlspecialchars($row['Detail_Fasilitas'] ?? '-') ?></div>

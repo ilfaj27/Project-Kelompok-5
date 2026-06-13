@@ -2538,7 +2538,7 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             </a>
         </nav>
         <div class="sb-section-label">Akun</div>
-        <a href="../profile.php" class="sb-link">
+        <a href="../profile_pemilik.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya
         </a>
         <div class="sb-bottom">

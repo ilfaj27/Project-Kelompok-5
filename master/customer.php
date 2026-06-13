@@ -344,8 +344,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 /* 3. Kolom Email */
 .data-table th:nth-child(3),
 .data-table td:nth-child(3) {
-    width: 22%;
-    text-align: left !important;
+    width: 30%;
+    text-align: relative !important;
 }
 
 .cust-email { 
@@ -780,7 +780,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         <tr>
                             <th style="width: 80px;">No</th>
                             <th>Nama</th>
-                            <th>Email</th>
+                            <th style="text-align: left; width: 35%;">Email</th>
                             <th style="width: 150px;">Status</th>
                             <th style="text-align: left; width: 180px;">Aksi</th>
                         </tr>
