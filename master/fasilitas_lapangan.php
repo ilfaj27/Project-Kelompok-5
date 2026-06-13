@@ -32,6 +32,23 @@ if (isset($_POST['save_fasilitas'])) {
     $nama_fasilitas = trim($_POST['nama_fasilitas']);
     $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
 
+    // ── VALIDASI DUPLIKAT NAMA FASILITAS ──
+    $sql_check_nama = "SELECT ID_Fasilitas FROM Fasilitas_Lapangan WHERE Nama_Fasilitas = ? AND ID_Fasilitas <> ? AND Is_Deleted = 0";
+    $q_check_nama = safeQuery($conn, $sql_check_nama, [$nama_fasilitas, $id]);
+    if ($q_check_nama && safeFetch($q_check_nama)) {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Nama fasilitas sudah terdaftar! Gunakan nama lain.");
+        exit();
+    }
+
+    // ── VALIDASI DUPLIKAT DETAIL FASILITAS ──
+    $sql_check_detail = "SELECT ID_Fasilitas FROM Fasilitas_Lapangan WHERE Detail_Fasilitas = ? AND ID_Fasilitas <> ? AND Is_Deleted = 0";
+    $q_check_detail = safeQuery($conn, $sql_check_detail, [$detail_fasilitas, $id]);
+    if ($q_check_detail && safeFetch($q_check_detail)) {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Detail fasilitas sudah terdaftar! Gunakan detail lain.");
+        exit();
+    }
+
+    // ── VALIDASI DUPLIKAT DI LAPANGAN YANG SAMA ──
     $sql_check = "SELECT ID_Fasilitas FROM Fasilitas_Lapangan WHERE Nama_Fasilitas = ? AND ID_Lapangan = ? AND ID_Fasilitas <> ? AND Is_Deleted = 0";
     $q_check = safeQuery($conn, $sql_check, [$nama_fasilitas, $id_lapangan, $id]);
     if ($q_check && safeFetch($q_check)) {

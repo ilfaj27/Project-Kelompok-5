@@ -123,6 +123,20 @@ if (isset($_POST['add_karyawan'])) {
         exit();
     }
 
+    // ── VALIDASI DUPLIKAT USERNAME ──
+    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND Is_Deleted=0", array($username), false);
+    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
+        header("Location: karyawan.php?status=error&msg=Username sudah terdaftar! Gunakan username lain.");
+        exit();
+    }
+
+    // ── VALIDASI DUPLIKAT NOMOR TELEPON ──
+    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND Is_Deleted=0", array($telp), false);
+    if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
+        header("Location: karyawan.php?status=error&msg=Nomor telepon sudah terdaftar! Gunakan nomor lain.");
+        exit();
+    }
+
     $stmt = safe_sqlsrv_query(
         $conn,
         "INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Is_Deleted, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted2, Created_By, Created_Date) 
@@ -150,6 +164,20 @@ if (isset($_POST['update_karyawan'])) {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
+
+    // ── VALIDASI DUPLIKAT USERNAME (EDIT) ──
+    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $_POST['id_kry']), false);
+    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
+        header("Location: karyawan.php?status=error&msg=Username sudah terdaftar! Gunakan username lain.");
+        exit();
+    }
+
+    // ── VALIDASI DUPLIKAT NOMOR TELEPON (EDIT) ──
+    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND ID_Karyawan<>? AND Is_Deleted=0", array($telp, $_POST['id_kry']), false);
+    if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
+        header("Location: karyawan.php?status=error&msg=Nomor telepon sudah terdaftar! Gunakan nomor lain.");
+        exit();
+    }
 
     $stmt = safe_sqlsrv_query(
         $conn,
