@@ -1,6 +1,28 @@
 <?php
+session_start();
 include 'includes/auth_helper.php';
+include 'includes/config.php';
 cek_akses('customer');
+
+// --- HARD DELETE AKUN CUSTOMER ---
+if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
+    $id_customer = $_SESSION['id_customer'] ?? '';
+    $nama = $_SESSION['nama'] ?? '';
+
+    if (!empty($id_customer)) {
+        // Hapus data customer dari database
+        $stmt = sqlsrv_query($conn, "DELETE FROM Customer WHERE ID_Customer = ?", array($id_customer));
+        if ($stmt) {
+            // Hapus session dan redirect ke login
+            session_destroy();
+            header("Location: login.php?status=success&msg=Akun berhasil dihapus. Terima kasih telah menggunakan layanan kami!");
+            exit();
+        } else {
+            header("Location: view_customer.php?status=error&msg=Gagal menghapus akun. Silakan coba lagi.");
+            exit();
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -10,6 +32,7 @@ cek_akses('customer');
     <title>Hoop Arena | Booking Lapangan Basket</title>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
             --orange: #FF6B00;
@@ -574,6 +597,7 @@ cek_akses('customer');
             <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
+            <a href="#" onclick="confirmHapusAkun(event)" style="color: var(--red);"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
@@ -738,5 +762,62 @@ cek_akses('customer');
     <p>© 2024 Hoop Arena Kelompok 05. All rights reserved.</p>
 </footer>
 
+<script>
+// ============================================
+// HAPUS AKUN CONFIRMATION
+// ============================================
+function confirmHapusAkun(e) {
+    e.preventDefault();
+    Swal.fire({
+        title: 'Hapus Akun?',
+        html: '<strong style="color:#DC2626;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>Semua data Anda akan dihapus secara permanen dari sistem.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus Akun Saya!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Menghapus akun Anda',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            setTimeout(() => {
+                window.location.href = '?hapus_akun=1';
+            }, 1000);
+        }
+    });
+}
+
+// ============================================
+// URL PARAMETER NOTIFICATION
+// ============================================
+const urlParams = new URLSearchParams(window.location.search);
+const status = urlParams.get('status');
+const msg = urlParams.get('msg');
+
+if (status && msg) {
+    const isSuccess = status === 'success';
+    Swal.fire({
+        icon: isSuccess ? 'success' : 'error',
+        title: isSuccess ? 'Berhasil!' : 'Gagal!',
+        text: msg,
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end',
+        timerProgressBar: true,
+        showCloseButton: true
+    });
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+</script>
 </body>
 </html>
