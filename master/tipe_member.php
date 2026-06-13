@@ -56,21 +56,80 @@ function safe_sqlsrv_has_rows($stmt) {
 }
 
 // CRUD
+// CRUD
 if (isset($_POST['save_tipe'])) {
     $id = trim($_POST['id_tipe']);
     $nama_tipe = trim($_POST['nama_tipe']);
-    $harga_member = floatval($_POST['harga_member']);
-    $potongan_harga = floatval($_POST['potongan_harga']);
+    $harga_member_raw = $_POST['harga_member'];
+    $potongan_harga_raw = $_POST['potongan_harga'];
 
-    if ($harga_member < 0 || $potongan_harga < 0) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga tidak boleh negatif!");
+    // ── VALIDASI NAMA TIPE MEMBER ──
+    if ($nama_tipe === '') {
+        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member wajib diisi.");
+        exit();
+    }
+    if (strlen($nama_tipe) < 3) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member minimal 3 karakter.");
+        exit();
+    }
+    if (is_numeric($nama_tipe)) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member tidak boleh hanya angka.");
         exit();
     }
 
+    // ── VALIDASI HARGA MEMBER ──
+    if ($harga_member_raw === '') {
+        header("Location: tipe_member.php?page=1&status=error&msg=Harga member wajib diisi.");
+        exit();
+    }
+    if (!is_numeric($harga_member_raw)) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Harga member harus berupa angka.");
+        exit();
+    }
+    $harga_member = floatval($harga_member_raw);
+    if ($harga_member == 0) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Harga member tidak boleh 0.");
+        exit();
+    }
+    if ($harga_member < 0) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Harga member tidak boleh kurang dari 0.");
+        exit();
+    }
+    if ($harga_member < 80000) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Harga member minimal 80000.");
+        exit();
+    }
+
+    // ── VALIDASI POTONGAN HARGA ──
+// ── VALIDASI POTONGAN HARGA ──
+    if ($potongan_harga_raw === '') {
+        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga wajib diisi.");
+        exit();
+    }
+    if (!is_numeric($potongan_harga_raw)) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga harus berupa angka.");
+        exit();
+    }
+    $potongan_harga = floatval($potongan_harga_raw);
+    if ($potongan_harga < 0) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga tidak boleh kurang dari 0.");
+        exit();
+    }
+    // Tambahkan baris pengecekan minimal 50000 di bawah ini:
+    if ($potongan_harga < 50000) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga minimal 50000.");
+        exit();
+    }
+    if ($potongan_harga > $harga_member) {
+        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga tidak boleh lebih besar dari harga member.");
+        exit();
+    }
+
+    // Validasi duplikat nama tipe
     $sql_check_name = "SELECT ID_Tipe FROM Tipe_Member WHERE Nama_Tipe = ? AND ID_Tipe <> ? AND Is_Deleted = 0";
     $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_tipe, $id), false);
     if ($q_check_name && safe_sqlsrv_has_rows($q_check_name)) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member sudah tersedia!");
+        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member sudah terdaftar.");
         exit();
     }
 
@@ -1003,6 +1062,7 @@ function searchTable() {
 // ============================================
 // VALIDASI FORM - REAL TIME & SUBMIT
 // ============================================
+// VALIDASI FIELD INDIVIDUAL
 function validateField(fieldId, valId, rules) {
     const field = document.getElementById(fieldId);
     const valMsg = document.getElementById(valId);
@@ -1011,65 +1071,100 @@ function validateField(fieldId, valId, rules) {
     field.classList.remove('error');
     valMsg.classList.remove('show');
 
+    // Cek Wajib Diisi (Required)
     if (rules.required && value === '') {
         field.classList.add('error');
-        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi.';
         valMsg.classList.add('show');
         return false;
     }
 
-    if (rules.minLength && value.length < rules.minLength) {
-        field.classList.add('error');
-        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
-        valMsg.classList.add('show');
-        return false;
-    }
-
-    if (rules.maxLength && value.length > rules.maxLength) {
-        field.classList.add('error');
-        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
-        valMsg.classList.add('show');
-        return false;
-    }
-
-    if (rules.pattern && value !== '') {
-        const regex = /^[a-zA-Z0-9\s\-_.(),&/]+$/;
-        if (!regex.test(value)) {
+    // Aturan Khusus Nama Tipe Member
+    if (fieldId === 'nama_tipe') {
+        if (value.length < 3) {
             field.classList.add('error');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Hanya huruf, angka, spasi, dan tanda baca umum';
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama tipe member minimal 3 karakter.';
+            valMsg.classList.add('show');
+            return false;
+        }
+        if (/^\d+$/.test(value)) {
+            field.classList.add('error');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama tipe member tidak boleh hanya angka.';
             valMsg.classList.add('show');
             return false;
         }
     }
 
-    if (rules.minNum !== undefined && value !== '') {
-        const num = Number(value);
-        if (num < rules.minNum) {
+    // Aturan Angka (Harga Member & Potongan Harga)
+    if (rules.isNumeric) {
+        if (isNaN(value) || value === '') {
             field.classList.add('error');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minNum;
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' harus berupa angka.';
             valMsg.classList.add('show');
             return false;
+        }
+        const numVal = parseFloat(value);
+        
+        if (rules.notZero && numVal === 0) {
+            field.classList.add('error');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh 0.';
+            valMsg.classList.add('show');
+            return false;
+        }
+        
+        if (rules.minVal !== undefined && numVal < rules.minVal) {
+            field.classList.add('error');
+            if (fieldId === 'harga_member' && rules.minVal === 80000) {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga member minimal 80000.';
+            } else if (fieldId === 'potongan_harga' && rules.minVal === 50000) {
+                // Tambahkan baris pengecekan ini:
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Potongan harga minimal 50000.';
+            } else {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh kurang dari ' + rules.minVal + '.';
+            }
+            valMsg.classList.add('show');
+            return false;
+        }
+
+        // Aturan Khusus Potongan tidak boleh lebih besar dari harga member
+        if (fieldId === 'potongan_harga') {
+            const hargaValRaw = document.getElementById('harga_member').value.trim();
+            const hargaVal = parseFloat(hargaValRaw);
+            if (!isNaN(hargaVal) && numVal > hargaVal) {
+                field.classList.add('error');
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Potongan harga tidak boleh lebih besar dari harga member.';
+                valMsg.classList.add('show');
+                return false;
+            }
         }
     }
 
     return true;
 }
 
+// VALIDASI SAAT SUBMIT FORM
 function validateForm() {
     let valid = true;
 
-    if (!validateField('id_tipe', 'val-id_tipe', { required: true, label: 'ID Tipe' })) valid = false;
-    if (!validateField('nama_tipe', 'val-nama_tipe', { required: true, minLength: 3, maxLength: 10, pattern: true, label: 'Nama tipe' })) valid = false;
-    if (!validateField('harga_member', 'val-harga_member', { required: true, minNum: 0, label: 'Harga member' })) valid = false;
-    if (!validateField('potongan_harga', 'val-potongan_harga', { required: true, minNum: 0, label: 'Potongan harga' })) valid = false;
-
-    if (!valid) {
-        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
-    }
+    if (!validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' })) valid = false;
+    
+    if (!validateField('harga_member', 'val-harga_member', { 
+        required: true, 
+        isNumeric: true, 
+        notZero: true, 
+        minVal: 80000, 
+        label: 'Harga member' 
+    })) valid = false;
+    
+    if (!validateField('potongan_harga', 'val-potongan_harga', { 
+        required: true, 
+        isNumeric: true, 
+        minVal: 50000, // <-- Ubah dari 0 menjadi 50000
+        label: 'Potongan harga' 
+    })) valid = false;
 
     return valid;
 }
-
 
 // ============================================
 // NOTIFIKASI TOAST
@@ -1238,14 +1333,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Real-time validation
+// Real-time validation
     const namaTipe = document.getElementById('nama_tipe');
     if (namaTipe) {
         namaTipe.addEventListener('blur', function() {
-            validateField('nama_tipe', 'val-nama_tipe', { required: true, minLength: 3, maxLength: 10, pattern: true, label: 'Nama tipe' });
+            validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' });
         });
         namaTipe.addEventListener('input', function() {
             if (this.classList.contains('error')) {
-                validateField('nama_tipe', 'val-nama_tipe', { required: true, minLength: 3, maxLength: 10, pattern: true, label: 'Nama tipe' });
+                validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' });
             }
         });
     }
@@ -1253,11 +1349,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const hargaMember = document.getElementById('harga_member');
     if (hargaMember) {
         hargaMember.addEventListener('blur', function() {
-            validateField('harga_member', 'val-harga_member', { required: true, minNum: 0, label: 'Harga member' });
+            validateField('harga_member', 'val-harga_member', { 
+                required: true, 
+                isNumeric: true, 
+                notZero: true, 
+                minVal: 80000, 
+                label: 'Harga member' 
+            });
         });
         hargaMember.addEventListener('input', function() {
             if (this.classList.contains('error')) {
-                validateField('harga_member', 'val-harga_member', { required: true, minNum: 0, label: 'Harga member' });
+                validateField('harga_member', 'val-harga_member', { 
+                    required: true, 
+                    isNumeric: true, 
+                    notZero: true, 
+                    minVal: 80000, 
+                    label: 'Harga member' 
+                });
             }
         });
     }
@@ -1265,15 +1373,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const potonganHarga = document.getElementById('potongan_harga');
     if (potonganHarga) {
         potonganHarga.addEventListener('blur', function() {
-            validateField('potongan_harga', 'val-potongan_harga', { required: true, minNum: 0, label: 'Potongan harga' });
+            validateField('potongan_harga', 'val-potongan_harga', { 
+                required: true, 
+                isNumeric: true, 
+                minVal: 50000, // <-- Ubah dari 0 menjadi 50000
+                label: 'Potongan harga' 
+            });
         });
         potonganHarga.addEventListener('input', function() {
             if (this.classList.contains('error')) {
-                validateField('potongan_harga', 'val-potongan_harga', { required: true, minNum: 0, label: 'Potongan harga' });
+                validateField('potongan_harga', 'val-potongan_harga', { 
+                    required: true, 
+                    isNumeric: true, 
+                    minVal: 50000, // <-- Ubah dari 0 menjadi 50000
+                    label: 'Potongan harga' 
+                });
             }
         });
     }
-});
+    });
 </script>
 </body>
 </html>
