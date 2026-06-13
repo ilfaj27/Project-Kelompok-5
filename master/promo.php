@@ -294,6 +294,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
+.topbar-btn, .topbar-user {
+    background-color: #FFFFFF !important;
+}
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
@@ -686,6 +689,39 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
 .btn-filter-reset:hover { background: #E5E7EB; }
 
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
+
+/* Mendukung pembukaan menu dropdown via klik */
+.dropdown-wrap.active .dropdown-menu { 
+    display: block; 
+}
+
+/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
+    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
+    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
+    border-color: #9CA3AF !important;    /* Batas border saat diklik */
+    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
+}
+
+
 /* ═══ RESPONSIVE (KHUSUS LAYAR TABLET & HP) ═══ */
 @media(max-width: 1100px) { 
     .page-header { flex-direction: column; align-items: flex-start; } 
@@ -813,8 +849,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Promo']) ?></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Diskon</span>
-                    <span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= rupiah($detail_data['Diskon']) ?></span>
+                    <span class="info-key"><i class="fa-solid fa-percent"></i> Diskon</span>
+<span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= htmlspecialchars((int)$detail_data['Diskon']) ?>%</span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-calendar-days"></i> Periode Mulai</span>
@@ -1074,7 +1110,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                     <div class="promo-name"><?= htmlspecialchars($row['Nama_Promo']) ?></div>
                                 </td>
                                 <td>
-                                    <div class="promo-disc"><?= rupiah($row['Diskon']) ?></div>
+                                    <div class="promo-disc"><?= htmlspecialchars((int)$row['Diskon']) ?>%</div>
                                 </td>
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
@@ -1179,6 +1215,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
+
+// Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
+
 // ============================================
 // CLOCK / JAM
 // ============================================
@@ -1325,11 +1380,13 @@ function validateForm() {
     })) valid = false;
 
     // Validasi Diskon
-    if (!validateField('diskon', 'val-diskon', {
-        required: true,
-        minNum: 0,
-        label: 'Diskon'
-    })) valid = false;
+    // Validasi Diskon
+if (!validateField('diskon', 'val-diskon', {
+    required: true,
+    minNum: 0,
+    maxNum: 100,
+    label: 'Diskon'
+})) valid = false;
 
     // Validasi Tanggal Mulai
     if (!validateField('tgl_m', 'val-tgl_m', {
@@ -1544,26 +1601,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Validasi real-time Diskon
-    const diskon = document.getElementById('diskon');
-    if (diskon) {
-        diskon.addEventListener('blur', function() {
+// Validasi real-time Diskon
+const diskon = document.getElementById('diskon');
+if (diskon) {
+    diskon.addEventListener('blur', function() {
+        validateField('diskon', 'val-diskon', {
+            required: true,
+            minNum: 0,
+            maxNum: 100,
+            label: 'Diskon'
+        });
+    });
+    diskon.addEventListener('input', function() {
+        if (this.classList.contains('error')) {
             validateField('diskon', 'val-diskon', {
                 required: true,
                 minNum: 0,
+                maxNum: 100,
                 label: 'Diskon'
             });
-        });
-        diskon.addEventListener('input', function() {
-            if (this.classList.contains('error')) {
-                validateField('diskon', 'val-diskon', {
-                    required: true,
-                    minNum: 0,
-                    label: 'Diskon'
-                });
-            }
-        });
-    }
+        }
+    });
+}
 
     // Validasi real-time Tanggal
     const tglM = document.getElementById('tgl_m');

@@ -442,6 +442,29 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
 .btn-filter-reset:hover { background: #E5E7EB; }
 
+.topbar-btn, .topbar-user {
+    background-color: #FFFFFF !important;
+}
+
+/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
+    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
+    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
+    border-color: #9CA3AF !important;    /* Batas border saat diklik */
+    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
+}
+
+/* Mendukung pembukaan menu dropdown via klik */
+.dropdown-wrap.active .dropdown-menu { 
+    display: block; 
+}
+
+
 /* RESPONSIVE */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
@@ -897,6 +920,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
+
+// Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
+
 // ============================================
 // CLOCK / JAM REAL-TIME
 // ============================================
