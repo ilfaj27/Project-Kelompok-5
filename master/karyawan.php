@@ -588,6 +588,20 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
 
 .action-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
+
 @media(max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -820,7 +834,6 @@ input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
     <nav>
         <a href="../view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
         <a href="karyawan.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
-        <a href="alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div> Kelola Alat</a>
         <a href="../laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
     </nav>
     <div class="sb-section-label">Akun</div>

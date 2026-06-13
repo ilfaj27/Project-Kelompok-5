@@ -279,6 +279,20 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .msg-success { background: var(--green-lt); color: var(--green); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(16,185,129,.2); }
 .msg-error { background: var(--red-lt); color: var(--red); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(239,68,68,.2); }
 
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
+
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
     .main { margin-left: 0; }
@@ -299,7 +313,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="<?= $dashboard_url ?>" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
         <?php if ($role === 'pemilik'): ?>
         <a href="master/karyawan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
-        <a href="master/alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div> Kelola Alat</a>
         <a href="laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
         <?php endif; ?>
     </nav>

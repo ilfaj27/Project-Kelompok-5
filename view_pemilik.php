@@ -272,6 +272,20 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
 </style>
 </head>
 <body>
@@ -292,10 +306,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <a href="master/karyawan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
             Kelola Karyawan
-        </a>
-        <a href="master/supplier.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
         </a>
         <a href="laporan/omzet.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
@@ -447,7 +457,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <div class="card-body">
                     <div class="quick-grid">
                         <a href="master/karyawan.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-user-tie"></i><span>Kelola Karyawan</span></a>
-                        <a href="master/supplier.php" class="quick-card" style="color:var(--orange);"><i class="fa-solid fa-truck-fast"></i><span>Kelola Alat</span></a>
                         <a href="laporan/omzet.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-chart-line"></i><span>Laporan & Omzet</span></a>
                     </div>
                 </div>
