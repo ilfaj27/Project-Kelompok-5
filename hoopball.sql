@@ -29,14 +29,13 @@ CREATE TABLE Karyawan (
     Tempat_Lahir    VARCHAR(50)     NOT NULL,
     Alamat          VARCHAR(100)    NOT NULL,
     Jenis_Kelamin   INT             NOT NULL CHECK (Jenis_Kelamin IN (0,1)),
-    Is_Deleted      INT             NOT NULL CHECK (Is_Deleted IN (0,1)),
     Jabatan         VARCHAR(15)     NOT NULL,
     No_Telepon      VARCHAR(15)     NOT NULL,
     Email           VARCHAR(50)     NOT NULL,
     Username        VARCHAR(20)     NOT NULL,
     Kata_Sandi      VARCHAR(20)     NOT NULL,
     Status          INT             NOT NULL CHECK (Status IN (0,1)),
-    Is_Deleted2     BIT             NOT NULL DEFAULT 0,
+    Is_Deleted      BIT             NOT NULL DEFAULT 0,
     Created_By      VARCHAR(50)     NOT NULL,
     Created_Date    DATETIME        NOT NULL,
     Modified_By     VARCHAR(50)     NULL,
@@ -51,12 +50,15 @@ ADD CONSTRAINT UQ_Karyawan_Email UNIQUE (Email);
 ALTER TABLE Karyawan
 ADD CONSTRAINT UQ_Karyawan_Username UNIQUE (Username);
 
-INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Is_Deleted, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted2, Created_By, Created_Date) VALUES
-('KRY00001', 'Rizky Pratama',    '1995-03-12', 'Jakarta',   'Jl. Mawar No.1 Jakarta',       1, 0, 'Manajer',  '081211110001', 'rizky@hoopball.com',   'rizky_p',   'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('KRY00002', 'Sari Dewi',        '1997-07-22', 'Bandung',   'Jl. Melati No.5 Bandung',      0, 0, 'Karyawan', '081211110002', 'sari@hoopball.com',    'sari_d',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('KRY00003', 'Andi Setiawan',    '1996-11-05', 'Surabaya',  'Jl. Kenanga No.10 Surabaya',   1, 0, 'Karyawan', '081211110003', 'andi@hoopball.com',    'andi_s',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('KRY00004', 'Budi Santoso',     '1994-05-18', 'Yogyakarta','Jl. Dahlia No.3 Yogyakarta',   1, 0, 'Karyawan', '081211110004', 'budi@hoopball.com',    'budi_s',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('KRY00005', 'Nina Rahayu',      '1998-09-30', 'Semarang',  'Jl. Anggrek No.7 Semarang',    0, 0, 'Karyawan', '081211110005', 'nina@hoopball.com',    'nina_r',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00');
+ALTER TABLE Karyawan
+ADD CONSTRAINT UQ_Karyawan_NoTelepon UNIQUE (No_Telepon);
+
+INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted, Created_By, Created_Date) VALUES
+('KRY00001', 'Rizky Pratama',    '1995-03-12', 'Jakarta',   'Jl. Mawar No.1 Jakarta',       1,'Manajer',  '081211110001', 'rizky@hoopball.com',   'rizky_p',   'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('KRY00002', 'Sari Dewi',        '1997-07-22', 'Bandung',   'Jl. Melati No.5 Bandung',      0,'Karyawan', '081211110002', 'sari@hoopball.com',    'sari_d',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('KRY00003', 'Andi Setiawan',    '1996-11-05', 'Surabaya',  'Jl. Kenanga No.10 Surabaya',   1,'Karyawan', '081211110003', 'andi@hoopball.com',    'andi_s',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('KRY00004', 'Budi Santoso',     '1994-05-18', 'Yogyakarta','Jl. Dahlia No.3 Yogyakarta',   1,'Karyawan', '081211110004', 'budi@hoopball.com',    'budi_s',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('KRY00005', 'Nina Rahayu',      '1998-09-30', 'Semarang',  'Jl. Anggrek No.7 Semarang',    0,'Karyawan', '081211110005', 'nina@hoopball.com',    'nina_r',    'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00');
 
 -- ============================================================
 -- 2. TABEL MASTER: Customer
@@ -87,6 +89,10 @@ ADD CONSTRAINT UQ_Customer_Email UNIQUE (Email);
 
 ALTER TABLE Customer
 ADD CONSTRAINT UQ_Customer_Username UNIQUE (Username);
+
+ALTER TABLE Customer
+ADD CONSTRAINT UQ_Customer_NoTelepon UNIQUE (No_Telepon);
+
 
 INSERT INTO Customer (ID_Customer, Nama_Customer, Tanggal_Lahir, Tempat_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted, Created_By, Created_Date) VALUES
 ('CST00001', 'Dimas Arya',       '2000-04-10', 'Jakarta',    1, 'Jl. Cempaka No.2 Jakarta',     '08121234001', 'dimas@mail.com',   'dimas_a',   'cust@1234', 1, 0, 'SYSTEM', '2024-01-05 09:00:00'),
@@ -304,21 +310,21 @@ CREATE TABLE Pembatalan_Booking (
     Nominal_Refund  DECIMAL(18,2)   NOT NULL,
     Metode_Refund   VARCHAR(20)     NOT NULL,
     Status          INT             NOT NULL CHECK (Status IN (0,1)),
-    Is_Deleted      BIT             NOT NULL DEFAULT 0,
     Created_By      VARCHAR(50)     NOT NULL,
     Created_Date    DATETIME        NOT NULL,
     Modified_By     VARCHAR(50)     NULL,
     Modified_Date   DATETIME        NULL,
     FOREIGN KEY (ID_Booking)   REFERENCES Booking(ID_Booking),
     FOREIGN KEY (ID_Karyawan)  REFERENCES Karyawan(ID_Karyawan)
-    ALTER TABLE Pembatalan_Booking
-    ADD CONSTRAINT UQ_Pembatalan_Booking UNIQUE (ID_Booking);
 );
 
+ ALTER TABLE Pembatalan_Booking
+ ADD CONSTRAINT UQ_Pembatalan_Booking UNIQUE (ID_Booking);
+
 -- Biaya_Batal = 50% total bayar, Nominal_Refund = 50% total bayar
-INSERT INTO Pembatalan_Booking (ID_Pembatalan, ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('PBT00001', 'BKG00006', 'KRY00004', '2024-06-06', 'Ada keperluan mendadak',         110000.00, 110000.00, 'QRIS',          1, 0, 'KRY00004', '2024-06-06 10:00:00'),
-('PBT00002', 'BKG00010', 'KRY00005', '2024-06-16', 'Jadwal bentrok dengan acara lain', 95000.00,  95000.00, 'QRIS',          1, 0, 'KRY00005', '2024-06-16 19:00:00');
+INSERT INTO Pembatalan_Booking (ID_Pembatalan, ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Created_By, Created_Date) VALUES
+('PBT00001', 'BKG00006', 'KRY00004', '2024-06-06', 'Ada keperluan mendadak',         110000.00, 110000.00, 'QRIS',          1, 'KRY00004', '2024-06-06 10:00:00'),
+('PBT00002', 'BKG00010', 'KRY00005', '2024-06-16', 'Jadwal bentrok dengan acara lain', 95000.00,  95000.00, 'QRIS',          1, 'KRY00005', '2024-06-16 19:00:00');
 
 -- ============================================================
 -- 10. TABEL TRANSAKSI: Langganan
@@ -331,7 +337,7 @@ CREATE TABLE Langganan (
     Tanggal_Selesai     DATE            NOT NULL,
     Total_Bayar         DECIMAL(18,2)   NOT NULL,
     Metode_Pembayaran   VARCHAR(20)     NOT NULL,
-    Status              INT             NOT NULL CHECK (Status IN (0,1)),
+    Status              INT             NOT NULL CHECK (Status IN (0,1,2,3)),
     Created_By          VARCHAR(50)     NOT NULL,
     Created_Date        DATETIME        NOT NULL,
     Modified_By         VARCHAR(50)     NULL,
