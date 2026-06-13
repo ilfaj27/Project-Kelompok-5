@@ -356,7 +356,7 @@ body::-webkit-scrollbar {
             <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
             Kelola Fasilitas
         </a>
-        <a href="master/jadwal.php" class="sb-link">
+        <a href="../m_Jadwal/index.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
             Kelola Jadwal
         </a>
