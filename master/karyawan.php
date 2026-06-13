@@ -764,6 +764,11 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             display: block;
         }
 
+        /* Mendukung pembukaan menu dropdown via klik */
+.dropdown-wrap.active .dropdown-menu { 
+    display: block; 
+}
+
         .dd-item {
             display: flex;
             align-items: center;
@@ -2853,6 +2858,24 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
     </main>
     <!-- JAVASCRIPT -->
     <script>
+
+        // Mengaktifkan interaksi klik/tekan pada dropdown profil user
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            this.classList.toggle('active');
+        });
+    }
+
+    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
+    document.addEventListener('click', function () {
+        if (userDropdown) {
+            userDropdown.classList.remove('active');
+        }
+    });
+});
 
         // Fungsi untuk memunculkan / menyembunyikan password (Show/Hide)
 function togglePassword() {
