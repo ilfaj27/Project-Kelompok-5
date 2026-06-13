@@ -338,21 +338,21 @@ if (file_exists('includes/config.php')) {
             overflow: hidden;
         }
 
-        .hero-visual img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            pointer-events: none;
-            transition: transform 8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+        .hero-visual video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+    transition: transform 8s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-        .hero-section:hover .hero-visual img {
-            transform: scale(1.04);
-        }
+.hero-section:hover .hero-visual video {
+    transform: scale(1.04);
+}
 
         .fade-overlay {
             position: absolute;
@@ -2059,7 +2059,11 @@ html::-webkit-scrollbar {
             </div>
         </div>
         <div class="hero-visual">
-            <img src="gambar 1 landing page.png" alt="HoopBall Court">
+             <!-- Mengganti img dengan video -->
+    <video autoplay loop muted playsinline>
+        <source src="video.mp4" type="video/mp4">
+        Browser Anda tidak mendukung pemutaran video.
+    </video>
             <div class="fade-overlay"></div>
             <div class="bottom-fade-overlay"></div>
 
