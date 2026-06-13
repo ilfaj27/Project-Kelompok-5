@@ -61,6 +61,11 @@ if (isset($_POST['save_alat'])) {
         exit();
     }
 
+    if ($stok == 0) {
+        header("Location: alat.php?page=1&status=error&msg=Stok tidak boleh 0.");
+        exit();
+    }
+
     // ── VALIDASI HARGA JUAL ──
     if ($harga_raw === '') {
         header("Location: alat.php?page=1&status=error&msg=Harga jual wajib diisi.");
@@ -77,6 +82,11 @@ if (isset($_POST['save_alat'])) {
     }
     if ($harga_alat < 0) {
         header("Location: alat.php?page=1&status=error&msg=Harga jual tidak boleh kurang dari 0.");
+        exit();
+    }
+    // Tambahkan baris ini:
+    if ($harga_alat < 20000) {
+        header("Location: alat.php?page=1&status=error&msg=Harga jual minimal 20000.");
         exit();
     }
 
@@ -898,6 +908,7 @@ function validateField(fieldId, valId, rules) {
     }
 
     // Aturan Khusus Angka (Stok & Harga)
+   // Aturan Khusus Angka (Stok & Harga)
     if (rules.isNumeric) {
         if (isNaN(value) || value === '') {
             field.classList.add('error');
@@ -914,15 +925,19 @@ function validateField(fieldId, valId, rules) {
         }
         if (rules.minVal !== undefined && numVal < rules.minVal) {
             field.classList.add('error');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh kurang dari ' + rules.minVal + '.';
+            // Tambahkan percabangan kondisi pesan kustom ini:
+            if (fieldId === 'harga_alat' && rules.minVal === 20000) {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga jual minimal 20000.';
+            } else {
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh kurang dari ' + rules.minVal + '.';
+            }
             valMsg.classList.add('show');
             return false;
         }
     }
-
-    return true;
 }
 
+// VALIDASI SAAT SUBMIT FORM
 // VALIDASI SAAT SUBMIT FORM
 function validateForm() {
     let valid = true;
@@ -935,6 +950,7 @@ function validateForm() {
     if (!validateField('stok', 'val-stok', {
         required: true,
         isNumeric: true,
+        notZero: true, // <-- Tambahkan baris ini
         minVal: 0,
         label: 'Stok'
     })) valid = false;
@@ -943,7 +959,7 @@ function validateForm() {
         required: true,
         isNumeric: true,
         notZero: true,
-        minVal: 0,
+        minVal: 20000, // <-- Ubah dari 0 menjadi 20000
         label: 'Harga jual'
     })) valid = false;
 
@@ -1084,11 +1100,11 @@ document.addEventListener('DOMContentLoaded', function() {
 const stok = document.getElementById('stok');
     if (stok) {
         stok.addEventListener('blur', function() {
-            validateField('stok', 'val-stok', { required: true, isNumeric: true, minVal: 0, label: 'Stok' });
+            validateField('stok', 'val-stok', { required: true, isNumeric: true, notZero: true, minVal: 0, label: 'Stok' }); // <-- Sesuaikan baris ini
         });
         stok.addEventListener('input', function() {
             if (this.classList.contains('error')) {
-                validateField('stok', 'val-stok', { required: true, isNumeric: true, minVal: 0, label: 'Stok' });
+                validateField('stok', 'val-stok', { required: true, isNumeric: true, notZero: true, minVal: 0, label: 'Stok' }); // <-- Sesuaikan baris ini
             }
         });
     }
@@ -1096,15 +1112,14 @@ const stok = document.getElementById('stok');
     const hargaAlat = document.getElementById('harga_alat');
     if (hargaAlat) {
         hargaAlat.addEventListener('blur', function() {
-            validateField('harga_alat', 'val-harga_alat', { required: true, isNumeric: true, notZero: true, minVal: 0, label: 'Harga jual' });
+            validateField('harga_alat', 'val-harga_alat', { required: true, isNumeric: true, notZero: true, minVal: 20000, label: 'Harga jual' }); // <-- Sesuaikan baris ini
         });
         hargaAlat.addEventListener('input', function() {
             if (this.classList.contains('error')) {
-                validateField('harga_alat', 'val-harga_alat', { required: true, isNumeric: true, notZero: true, minVal: 0, label: 'Harga jual' });
+                validateField('harga_alat', 'val-harga_alat', { required: true, isNumeric: true, notZero: true, minVal: 20000, label: 'Harga jual' }); // <-- Sesuaikan baris ini
             }
         });
     }
-
     });
 </script>
 </body>
