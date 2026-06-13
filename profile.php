@@ -143,6 +143,7 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     }
 }
 
+
 $profile_photo = $user_data['Profile_Photo'] ?? '';
 $photo_path = '';
 if (!empty($profile_photo)) {
@@ -155,6 +156,17 @@ $sidebar_photo = $_SESSION['Profile_Photo'] ?? '';
 if (!empty($sidebar_photo) && !file_exists($sidebar_photo)) {
     $sidebar_photo = '';
 }
+
+$last_pwd_change_raw = $user_data['Modified_Date'] ?? null;
+$last_pwd_change_formatted = '-';
+if ($last_pwd_change_raw) {
+    if (is_object($last_pwd_change_raw) && method_exists($last_pwd_change_raw, 'format')) {
+        $last_pwd_change_formatted = $last_pwd_change_raw->format('d M Y');
+    } else {
+        $last_pwd_change_formatted = date('d M Y', strtotime($last_pwd_change_raw));
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -234,17 +246,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { font-family: 'Barlow Condensed'; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-.profile-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+.profile-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: stretch; }
 @media(max-width: 1100px) { .profile-grid { grid-template-columns: 1fr; } }
 
-.profile-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; text-align: center; }
-.profile-photo-wrap { width: 120px; height: 120px; border-radius: 50%; background: var(--orange-lt); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; position: relative; overflow: hidden; border: 3px solid var(--orange); }
+.profile-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.profile-photo-wrap { width: 120px; height: 120px; border-radius: 50%; background: var(--orange-lt); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; position: relative; overflow: hidden; border: 3px solid var(--orange); margin-left: auto; margin-right: auto; }
 .profile-photo-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .profile-photo-wrap i { font-size: 48px; color: var(--orange); }
 .profile-name { font-family: 'Barlow Condensed'; font-size: 22px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 .profile-role { font-size: 12px; color: var(--orange); font-weight: 800; text-transform: uppercase; margin-top: 4px; }
 .profile-id { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 6px; font-family: 'Barlow Condensed'; }
-.profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; margin-top: 12px; }
+.profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; margin-top: 12px; margin-left: auto; margin-right: auto; }
 .status-active { background: var(--green-lt); color: var(--green); }
 .status-inactive { background: var(--red-lt); color: var(--red); }
 
@@ -266,7 +278,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .info-full { grid-column: span 2; }
 @media(max-width: 768px) { .info-full { grid-column: span 1; } }
 
-.password-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; margin-top: 24px; }
+.password-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 28px; align-self: start; }
 .password-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .password-title i { color: var(--orange); }
 .form-group { margin-bottom: 16px; }
@@ -279,18 +291,21 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .msg-success { background: var(--green-lt); color: var(--green); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(16,185,129,.2); }
 .msg-error { background: var(--red-lt); color: var(--red); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(239,68,68,.2); }
 
+/* Menghapus scrollbar halaman */
 html, body {
-    /* Untuk Firefox */
-    scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
-    -ms-overflow-style: none;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
 }
-
-/* Untuk Chrome, Safari, dan Opera */
 html::-webkit-scrollbar, 
 body::-webkit-scrollbar {
-    display: none;
+    display: none; /* Chrome, Safari, Opera */
+}
+
+
+@media(max-width: 991px) {
+    .bottom-row-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media(max-width: 768px) {
@@ -366,101 +381,120 @@ body::-webkit-scrollbar {
         </div>
 
         <div class="profile-grid">
-            <div>
-                <div class="profile-card">
-                    <div class="profile-photo-wrap">
-                        <?php if ($photo_path): ?>
-                            <img src="<?= $photo_path ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fa-solid fa-user-tie"></i>
-                        <?php endif; ?>
-                    </div>
-                    <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
-                    <div class="profile-role"><?= strtoupper(htmlspecialchars($user_data['Jabatan'] ?? 'Karyawan')) ?></div>
-                    <div class="profile-id"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
-                    <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
-                        <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
-                        <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
-                    </div>
-                    <form method="POST" enctype="multipart/form-data" class="photo-upload">
-                        <input type="file" name="profile_photo" id="profile_photo" accept="image/*" onchange="this.form.submit()">
-                        <input type="hidden" name="upload_photo" value="1">
-                        <label for="profile_photo" class="btn-upload">
-                            <i class="fa-solid fa-camera"></i> Ganti Foto
-                        </label>
-                    </form>
-                    <?php if ($photo_msg === 'success'): ?>
-                        <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto berhasil diperbarui!</div>
-                    <?php elseif ($photo_msg): ?>
-                        <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i> <?= $photo_msg ?></div>
+            <!-- 1. KIRI ATAS: FOTO PROFIL -->
+            <div class="profile-card">
+                <div class="profile-photo-wrap">
+                    <?php if ($photo_path): ?>
+                        <img src="<?= $photo_path ?>" alt="Profile">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user-tie"></i>
                     <?php endif; ?>
                 </div>
+                <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
+                <div class="profile-role"><?= strtoupper(htmlspecialchars($user_data['Jabatan'] ?? 'Karyawan')) ?></div>
+                <div class="profile-id"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
+                    <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
+                    <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
+                </div>
+                <form method="POST" enctype="multipart/form-data" class="photo-upload">
+                    <input type="file" name="profile_photo" id="profile_photo" accept="image/*" onchange="this.form.submit()">
+                    <input type="hidden" name="upload_photo" value="1">
+                    <label for="profile_photo" class="btn-upload">
+                        <i class="fa-solid fa-camera"></i> Ganti Foto
+                    </label>
+                </form>
+                <?php if ($photo_msg === 'success'): ?>
+                    <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto berhasil diperbarui!</div>
+                <?php elseif ($photo_msg): ?>
+                    <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i> <?= $photo_msg ?></div>
+                <?php endif; ?>
             </div>
 
-            <div>
-                <div class="info-card">
-                    <div class="info-card-title"><i class="fa-solid fa-id-card"></i> Data Pribadi</div>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</div>
-                            <div class="info-value-mono"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-user"></i> Nama Lengkap</div>
-                            <div class="info-value"><?= htmlspecialchars($user_data['Nama_Karyawan'] ?? '-') ?></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-venus-mars"></i> Jenis Kelamin</div>
-                            <div class="info-value"><?= $map_jk[$user_data['Jenis_Kelamin']] ?? 'Tidak diketahui' ?></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-calendar-day"></i> Tanggal Lahir</div>
-                            <div class="info-value"><?= fmtDate($user_data['Tanggal_Lahir'] ?? null) ?></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</div>
-                            <div class="info-value"><?= htmlspecialchars($user_data['Tempat_Lahir'] ?? '-') ?></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label"><i class="fa-solid fa-phone"></i> No. Telepon</div>
-                            <div class="info-value"><?= htmlspecialchars($user_data['No_Telepon'] ?? '-') ?></div>
-                        </div>
-                        <div class="info-item info-full">
-                            <div class="info-label"><i class="fa-solid fa-map-location-dot"></i> Alamat Lengkap</div>
-                            <div class="info-value"><?= htmlspecialchars($user_data['Alamat'] ?? '-') ?></div>
-                        </div>
+            <!-- 2. KANAN ATAS: DATA PRIBADI -->
+            <div class="info-card">
+                <div class="info-card-title"><i class="fa-solid fa-id-card"></i> Data Pribadi</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</div>
+                        <div class="info-value-mono"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-user"></i> Nama Lengkap</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['Nama_Karyawan'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-venus-mars"></i> Jenis Kelamin</div>
+                        <div class="info-value"><?= $map_jk[$user_data['Jenis_Kelamin']] ?? 'Tidak diketahui' ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-calendar-day"></i> Tanggal Lahir</div>
+                        <div class="info-value"><?= fmtDate($user_data['Tanggal_Lahir'] ?? null) ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['Tempat_Lahir'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-phone"></i> No. Telepon</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['No_Telepon'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item info-full">
+                        <div class="info-label"><i class="fa-solid fa-map-location-dot"></i> Alamat Lengkap</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['Alamat'] ?? '-') ?></div>
                     </div>
                 </div>
-
-                <div class="password-card">
-                    <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Password</div>
-                    <?php if ($pass_msg === 'success'): ?>
-                        <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Password berhasil diubah!</div>
-                    <?php elseif ($pass_msg): ?>
-                        <div class="msg-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $pass_msg ?></div>
-                    <?php endif; ?>
-                    <form method="POST">
-                        <div class="info-grid">
-                            <div class="form-group">
-                                <label class="form-label">Password Lama</label>
-                                <input type="password" name="old_password" class="form-input" required placeholder="Masukkan password lama">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Password Baru</label>
-                                <input type="password" name="new_password" class="form-input" required minlength="8" placeholder="Minimal 8 karakter">
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label class="form-label">Konfirmasi Password Baru</label>
-                                <input type="password" name="confirm_password" class="form-input" required placeholder="Ulangi password baru">
-                            </div>
-                        </div>
-                        <button type="submit" name="change_password" class="btn-save" style="margin-top: 8px;">
-                            <i class="fa-solid fa-key"></i> Ubah Password
-                        </button>
-                    </form>
-                </div>
             </div>
+             
+   <!-- 3. KIRI BAWAH: INFORMASI LOGIN -->
+<div class="info-card login-info-card" style="display: flex; flex-direction: column;">
+    <div class="info-card-title" style="margin-bottom: 20px;"><i class="fa-solid fa-shield-halved"></i> Informasi Login</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-grow: 1; align-content: space-between;">
+        <div class="info-item" style="grid-column: span 2;">
+            <div class="info-label"><i class="fa-solid fa-user-gear"></i> Username</div>
+            <div class="info-value"><?= htmlspecialchars($user_data['Username'] ?? '-') ?></div>
         </div>
+        <div class="info-item" style="grid-column: span 2;">
+            <div class="info-label"><i class="fa-solid fa-envelope"></i> Email</div>
+            <div class="info-value"><?= htmlspecialchars($user_data['Email'] ?? '-') ?></div>
+        </div>
+        <div class="info-item" style="grid-column: span 2;">
+            <div class="info-label"><i class="fa-solid fa-key"></i> Terakhir Ganti Password</div>
+            <!-- Menggunakan data dinamis tanggal modifikasi password -->
+            <div class="info-value"><?= $last_pwd_change_formatted ?></div>
+        </div>
+    </div>
+</div>
+
+            <!-- 4. KANAN BAWAH: GANTI PASSWORD -->
+            <div class="password-card">
+                <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Password</div>
+                <?php if ($pass_msg === 'success'): ?>
+                    <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Password berhasil diubah!</div>
+                <?php elseif ($pass_msg): ?>
+                    <div class="msg-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $pass_msg ?></div>
+                <?php endif; ?>
+                <form method="POST">
+                    <div class="info-grid">
+                        <div class="form-group">
+                            <label class="form-label">Password Lama</label>
+                            <input type="password" name="old_password" class="form-input" required placeholder="Masukkan password lama">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Password Baru</label>
+                            <input type="password" name="new_password" class="form-input" required minlength="8" placeholder="Minimal 8 karakter">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label">Konfirmasi Password Baru</label>
+                            <input type="password" name="confirm_password" class="form-input" required placeholder="Ulangi password baru">
+                        </div>
+                    </div>
+                    <button type="submit" name="change_password" class="btn-save" style="margin-top: 8px;">
+                        <i class="fa-solid fa-key"></i> Ubah Password
+                    </button>
+                </form>
+            </div>
+        </div> <!-- Akhir penutup .profile-grid -->
     </div>
 </main>
 
@@ -477,6 +511,20 @@ function updateClock() {
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     document.getElementById('full-date').innerText = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
 }
+
+function sesuaikanTinggiInformasiLogin() {
+    const cardPassword = document.querySelector('.password-card');
+    const cardLogin = document.querySelector('.login-info-card');
+    if (cardPassword && cardLogin) {
+        // Mengatur tinggi card login agar sama persis dengan tinggi card password
+        cardLogin.style.height = cardPassword.offsetHeight + 'px';
+    }
+}
+
+// Jalankan fungsi saat halaman dimuat dan saat ukuran layar berubah
+window.addEventListener('load', sesuaikanTinggiInformasiLogin);
+window.addEventListener('resize', sesuaikanTinggiInformasiLogin);
+
 updateClock();
 setInterval(updateClock, 1000);
 

@@ -54,7 +54,7 @@ if (isset($_POST['login'])) {
                 }
                 exit();
             } else {
-                $error_msg = "Password salah!";
+                $error_msg = "Akun tidak ditemukan";
             }
         } else {
             // CEK KE TABEL CUSTOMER
@@ -80,10 +80,10 @@ if (isset($_POST['login'])) {
                     header("Location: view_customer.php");
                     exit();
                 } else {
-                    $error_msg = "Password salah!";
+                    $error_msg = "Akun tidak ditemukan";
                 }
             } else {
-                $error_msg = "Akun tidak ditemukan atau tidak aktif.";
+                $error_msg = "Akun tidak ditemukan";
             }
         }
     }
