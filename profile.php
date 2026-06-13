@@ -338,7 +338,7 @@ body::-webkit-scrollbar {
             <div class="sb-avatar">
                 <?php if ($sidebar_photo): ?><img src="<?= $sidebar_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper($role) ?></div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= ($role === 'pemilik') ? 'MANAJER' : strtoupper($role) ?></div></div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -356,13 +356,12 @@ body::-webkit-scrollbar {
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar">
                         <?php if ($photo_path): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
                     </div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= strtoupper($role) ?></div></div>
+                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= ($role === 'pemilik') ? 'MANAJER' : strtoupper($role) ?></div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">

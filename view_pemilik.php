@@ -347,8 +347,6 @@ body::-webkit-scrollbar {
             <div class="clock-divider"></div>
             <div class="clock-date" id="full-date">MEMUAT...</div>
         </div>
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?></a>
         <div class="dropdown-wrap">
             <div class="topbar-user">
                 <div class="t-avatar">

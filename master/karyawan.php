@@ -343,13 +343,13 @@ $q_max_id = safe_sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan ORD
 if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
     $row_max = safe_sqlsrv_fetch_array($q_max_id, SQLSRV_FETCH_ASSOC);
     $last_id = $row_max['ID_Karyawan']; // Contoh hasil: "KRY00005"
-    
+
     // Memisahkan teks "KRY" dan mengambil angka di belakangnya (00005 -> 5)
-    $num_part = intval(substr($last_id, 3)); 
+    $num_part = intval(substr($last_id, 3));
     $next_num = $num_part + 1; // Menambahkan nilai 1 (5 + 1 = 6)
-    
+
     // Menggabungkan kembali teks "KRY" dengan angka baru berformat 5 digit (6 -> "00006")
-    $next_id_kry = 'KRY' . str_pad($next_num, 5, '0', STR_PAD_LEFT); 
+    $next_id_kry = 'KRY' . str_pad($next_num, 5, '0', STR_PAD_LEFT);
 }
 
 ?>
@@ -1707,16 +1707,19 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             background: var(--red-lt);
         }
 
-        .modal-box, 
-.detail-modal-box {
-    scrollbar-width: none; /* Untuk Firefox */
-    -ms-overflow-style: none; /* Untuk IE dan Edge */
-}
+        .modal-box,
+        .detail-modal-box {
+            scrollbar-width: none;
+            /* Untuk Firefox */
+            -ms-overflow-style: none;
+            /* Untuk IE dan Edge */
+        }
 
-.modal-box::-webkit-scrollbar, 
-.detail-modal-box::-webkit-scrollbar {
-    display: none; /* Untuk Chrome, Safari, dan Opera */
-}
+        .modal-box::-webkit-scrollbar,
+        .detail-modal-box::-webkit-scrollbar {
+            display: none;
+            /* Untuk Chrome, Safari, dan Opera */
+        }
 
         .form-grid {
             display: grid;
@@ -1767,19 +1770,18 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
 
         .modal-input[type="date"] {
             cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            padding-right: 40px;
+            background-image: none !important;
+            /* Menghapus gambar kustom yang memblokir klik */
+            padding-right: 14px;
         }
 
+        /* Menghapus position absolute agar target klik ikon kalender berfungsi kembali */
         .modal-input[type="date"]::-webkit-calendar-picker-indicator {
-            opacity: 0;
+            opacity: 1 !important;
+            /* Menampilkan ikon bawaan sepenuhnya */
             cursor: pointer;
-            position: absolute;
-            right: 0;
-            width: 40px;
-            height: 100%;
+            filter: opacity(0.6) grayscale(1);
+            /* Memberikan warna abu-abu elegan agar serasi dengan form */
         }
 
         .modal-input[readonly] {
@@ -2136,6 +2138,59 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             padding-right: 0px !important;
         }
 
+        /* CSS Tambahan untuk Radio Card Jenis Kelamin (Sama seperti halaman Register) */
+        .radio-group-container {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .radio-card {
+            flex: 1;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .radio-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .radio-custom-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px;
+            background: #FFFFFF;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .radio-card:hover .radio-custom-box {
+            border-color: #CBD5E1;
+            background-color: var(--border-lt);
+        }
+
+        .radio-card input[type="radio"]:checked+.radio-custom-box {
+            border-color: var(--orange);
+            background-color: rgba(255, 69, 0, 0.02);
+            color: var(--orange);
+            box-shadow: 0 0 12px rgba(255, 69, 0, 0.08);
+        }
+
+        .radio-custom-box i {
+            font-size: 15px;
+        }
+
         @media(max-width: 1100px) {
             .stat-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -2195,14 +2250,17 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                 </div>
             </div>
             <div class="modal-body">
-                <form method="POST" id="formKaryawan" onsubmit="return validateForm(this)">
+                <form method="POST" id="formKaryawan" onsubmit="return validateForm(this)" novalidate>
                     <div class="form-grid">
                         <div>
-    <label class="field-label">ID Karyawan <span class="required">*</span></label>
-    <!-- Menggunakan value $next_id_kry untuk data baru dan dikunci dengan atribut 'readonly' -->
-    <input type="text" name="id_kry" id="id_kry" class="modal-input" value="<?= $edit_data['ID_Karyawan'] ?? $next_id_kry ?>" readonly placeholder="KRY00001">
-    <div class="val-msg" id="val-id_kry"><i class="fa-solid fa-circle-exclamation"></i> ID Karyawan wajib diisi</div>
-</div>
+                            <label class="field-label">ID Karyawan <span class="required">*</span></label>
+                            <!-- Menggunakan value $next_id_kry untuk data baru dan dikunci dengan atribut 'readonly' -->
+                            <input type="text" name="id_kry" id="id_kry" class="modal-input"
+                                value="<?= $edit_data['ID_Karyawan'] ?? $next_id_kry ?>" readonly
+                                placeholder="KRY00001">
+                            <div class="val-msg" id="val-id_kry"><i class="fa-solid fa-circle-exclamation"></i> ID
+                                Karyawan wajib diisi</div>
+                        </div>
                         <div>
                             <label class="field-label">Nama Lengkap <span class="required">*</span></label>
                             <input type="text" name="nama" id="nama" class="modal-input"
@@ -2214,19 +2272,25 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                         <div>
                             <label class="field-label">Username <span class="required">*</span></label>
                             <input type="text" name="username" id="username" class="modal-input"
-                                value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3"
-                                maxlength="50" placeholder="username_karyawan">
+    value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3"
+    maxlength="50" placeholder="username_karyawan" autocomplete="new-username">
                             <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i>
                                 Username minimal 3 karakter</div>
                         </div>
                         <div>
-                            <label class="field-label">Password <span class="required">*</span></label>
-                            <input type="password" name="password" id="password" class="modal-input"
-                                value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6"
-                                maxlength="100" placeholder="••••••">
-                            <div class="val-msg" id="val-password"><i class="fa-solid fa-circle-exclamation"></i>
-                                Password minimal 6 karakter</div>
-                        </div>
+    <label class="field-label">Password <span class="required">*</span></label>
+    <!-- Wrapper relatif agar ikon mata berada di dalam input sebelah kanan -->
+    <div style="position: relative; width: 100%;">
+        <input type="password" name="password" id="password" class="modal-input"
+    value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6"
+    maxlength="100" placeholder="••••••" style="padding-right: 42px;" autocomplete="new-password">
+        <!-- Ikon Mata (Klik untuk memicu fungsi togglePassword) -->
+        <i class="fa-solid fa-eye" id="togglePass" onclick="togglePassword()" 
+           style="position: absolute; right: 14px; top: 22px; transform: translateY(-50%); cursor: pointer; color: var(--muted); z-index: 10; font-size: 14px;"></i>
+    </div>
+    <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i>
+        Password minimal 6 karakter</div>
+</div>
                         <div>
                             <label class="field-label">Email <span class="required">*</span></label>
                             <input type="email" name="email" id="email" class="modal-input"
@@ -2273,10 +2337,22 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                         </div>
                         <div>
                             <label class="field-label">Jenis Kelamin <span class="required">*</span></label>
-                            <select name="jk" id="jk" class="modal-input" required>
-                                <option value="1" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin'] == 1) ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="0" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin'] == 0) ? 'selected' : '' ?>>Perempuan</option>
-                            </select>
+                            <div class="radio-group-container">
+                                <!-- Laki-laki (Value = 1, Otomatis terpilih jika data baru atau berjenis kelamin Laki-laki) -->
+                                <label class="radio-card">
+                                    <input type="radio" name="jk" value="1" <?= (!isset($edit_data['Jenis_Kelamin']) || $edit_data['Jenis_Kelamin'] == 1) ? 'checked' : '' ?>>
+                                    <span class="radio-custom-box">
+                                        <i class="fa-solid fa-mars"></i> Laki-laki
+                                    </span>
+                                </label>
+                                <!-- Perempuan (Value = 0, Otomatis terpilih jika data yang diedit berjenis kelamin Perempuan) -->
+                                <label class="radio-card">
+                                    <input type="radio" name="jk" value="0" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin'] == 0) ? 'checked' : '' ?>>
+                                    <span class="radio-custom-box">
+                                        <i class="fa-solid fa-venus"></i> Perempuan
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                         <div>
                             <label class="field-label">Jabatan <span class="required">*</span></label>
@@ -2288,14 +2364,22 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                                 <option value="Keamanan" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Keamanan') ? 'selected' : '' ?>>Keamanan</option>
                             </select>
                         </div>
-                        <div>
+                        <div class="full-width">
                             <label class="field-label">Status <span class="required">*</span></label>
-                            <select name="status" id="status" class="modal-input" required>
-                                <option value="1" <?= (isset($edit_data['Status']) && $edit_data['Status'] == 1) ? 'selected' : '' ?>>Aktif</option>
-                                <option value="0" <?= (isset($edit_data['Status']) && $edit_data['Status'] == 0) ? 'selected' : '' ?>>Nonaktif</option>
-                            </select>
+                            <?php if ($edit_data): ?>
+                                <!-- Mode Edit: Pemilik bebas mengubah status antara Aktif / Nonaktif -->
+                                <select name="status" id="status" class="modal-input" required>
+                                    <option value="1" <?= ($edit_data['Status'] == 1) ? 'selected' : '' ?>>Aktif</option>
+                                    <option value="0" <?= ($edit_data['Status'] == 0) ? 'selected' : '' ?>>Nonaktif</option>
+                                </select>
+                            <?php else: ?>
+                                <!-- Mode Tambah Baru: Hanya ada opsi "Aktif" dan dikunci agar tidak bisa diganti manual -->
+                                <select name="status" id="status" class="modal-input" required
+                                    style="background-color: var(--border-lt); color: var(--muted); pointer-events: none;">
+                                    <option value="1" selected>Aktif</option>
+                                </select>
+                            <?php endif; ?>
                         </div>
-
                         <!-- AUDIT TRAIL - SHOW IN EDIT MODE -->
                         <?php if ($edit_data && $edit_audit): ?>
                             <div class="audit-box">
@@ -2484,8 +2568,6 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                     <div class="clock-divider"></div>
                     <div class="clock-date" id="clock-date">MEMUAT...</div>
                 </div>
-                <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-                <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><span class="notif-dot"></span></a>
                 <div class="dropdown-wrap">
                     <div class="topbar-user">
                         <div class="t-avatar">
@@ -2612,7 +2694,8 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                         <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i>
                             Gagal mengambil data dari database.</p>
                         <p style="color:#666;font-size:11px;margin:5px 0 0;">Error:
-                            <?= htmlspecialchars($query_error_msg) ?></p>
+                            <?= htmlspecialchars($query_error_msg) ?>
+                        </p>
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
@@ -2646,7 +2729,8 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                                             </td>
                                             <td><span class="jabatan-badge"><?= htmlspecialchars($row['Jabatan']) ?></span></td>
                                             <td style="color:var(--muted); font-weight:600;">
-                                                <?= htmlspecialchars($row['No_Telepon']) ?></td>
+                                                <?= htmlspecialchars($row['No_Telepon']) ?>
+                                            </td>
                                             <td style="text-align:left;padding-left:5px;">
                                                 <?php if ($is_active): ?>
                                                     <span class="status-badge status-aktif"><i class="fa-solid fa-circle-check"></i>
@@ -2720,7 +2804,8 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                 <div class="pagination-wrap">
                     <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
                         <strong><?= min($page * $limit, $total_rows) ?></strong> dari <strong><?= $total_rows ?></strong>
-                        data</div>
+                        data
+                    </div>
                     <div class="pagination-nav">
                         <a href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>"
                             class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
@@ -2760,15 +2845,322 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             <?php else: ?>
                 <div class="pagination-wrap">
                     <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_rows ?></strong> dari
-                        <strong><?= $total_rows ?></strong> data</div>
+                        <strong><?= $total_rows ?></strong> data
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </main>
     <!-- JAVASCRIPT -->
     <script>
+
+        // Fungsi untuk memunculkan / menyembunyikan password (Show/Hide)
+function togglePassword() {
+    const passInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('togglePass');
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+
+        // ============================================
+        // POP-UP & MODAL CONTROLS
+        // ============================================
         function openModal() { document.getElementById('modal').classList.remove('hidden'); }
         function closeModal() { window.location.href = 'karyawan.php'; }
+
+        // ============================================
+        // VALIDASI UTAMA - SET & CLEAR ERROR (Sesuai Register)
+        // ============================================
+        function setValidationError(inputEl, errorEl, message) {
+            if (!inputEl || !errorEl) return;
+            inputEl.classList.add('error');
+            errorEl.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
+            errorEl.classList.add('show');
+        }
+
+        function clearValidationError(inputEl, errorEl) {
+            if (!inputEl || !errorEl) return;
+            inputEl.classList.remove('error');
+            errorEl.classList.remove('show');
+        }
+
+        // ============================================
+        // VALIDASI TANGGAL LAHIR (Batas Usia Kerja 17-60 Tahun)
+        // ============================================
+        function validateDate(input) {
+            const selected = new Date(input.value);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const valMsg = document.getElementById('val-tanggal_lahir');
+
+            if (!input.value) {
+                if (valMsg) setValidationError(input, valMsg, 'Tanggal lahir wajib diisi.');
+                return false;
+            }
+            if (selected > today) {
+                if (valMsg) setValidationError(input, valMsg, 'Tanggal lahir tidak boleh di masa depan!');
+                return false;
+            }
+
+            const age = today.getFullYear() - selected.getFullYear();
+            if (age < 17) {
+                if (valMsg) setValidationError(input, valMsg, 'Karyawan harus berusia minimal 17 tahun!');
+                return false;
+            }
+            if (age > 60) {
+                if (valMsg) setValidationError(input, valMsg, 'Usia karyawan maksimal 60 tahun!');
+                return false;
+            }
+
+            if (valMsg) clearValidationError(input, valMsg);
+            return true;
+        }
+
+        // ============================================
+        // VALIDASI FORM UTAMA (SINKRON DENGAN REGISTER)
+        // ============================================
+        function validateForm(form) {
+            let valid = true;
+
+            const idKry = document.getElementById('id_kry');
+            const idKryError = document.getElementById('val-id_kry');
+            const nama = document.getElementById('nama');
+            const namaError = document.getElementById('val-nama');
+            const username = document.getElementById('username');
+            const usernameError = document.getElementById('val-username');
+            const password = document.getElementById('password');
+            const passwordError = document.getElementById('val-password');
+            const email = document.getElementById('email');
+            const emailError = document.getElementById('val-email');
+            const telp = document.getElementById('telp');
+            const telpError = document.getElementById('val-telp');
+            const tmpLahir = document.getElementById('tempat_lahir');
+            const tmpLahirError = document.getElementById('val-tempat_lahir');
+            const tglLahir = document.getElementById('tanggal_lahir');
+            const alamat = document.getElementById('alamat');
+            const alamatError = document.getElementById('val-alamat');
+
+            // 1. Validasi ID Karyawan (Khusus Karyawan)
+            if (idKry && !idKry.readOnly) {
+                if (idKry.value.trim() === '') {
+                    setValidationError(idKry, idKryError, 'ID Karyawan wajib diisi.');
+                    valid = false;
+                } else {
+                    clearValidationError(idKry, idKryError);
+                }
+            }
+
+            // 2. Validasi Nama Lengkap (Hanya Huruf & Spasi)
+            if (nama) {
+                const namaVal = nama.value.trim();
+                if (namaVal === '') {
+                    setValidationError(nama, namaError, 'Nama lengkap wajib diisi.');
+                    valid = false;
+                } else if (namaVal.length < 3 || namaVal.length > 100) {
+                    setValidationError(nama, namaError, 'Nama lengkap minimal 3 karakter dan maksimal 100 karakter.');
+                    valid = false;
+                } else {
+                    clearValidationError(nama, namaError);
+                }
+            }
+
+            // 3. Validasi Username (Alfanumerik, Titik, Underscore)
+            if (username) {
+                const usernameVal = username.value.trim();
+                const usernamePattern = /^[a-zA-Z0-9\._]+$/;
+                if (usernameVal === '') {
+                    setValidationError(username, usernameError, 'Username wajib diisi.');
+                    valid = false;
+                } else if (usernameVal.length < 3 || usernameVal.length > 20) {
+                    setValidationError(username, usernameError, 'Username minimal 3 karakter dan maksimal 20 karakter.');
+                    valid = false;
+                } else if (usernameVal.includes(' ')) {
+                    setValidationError(username, usernameError, 'Username tidak boleh mengandung spasi.');
+                    valid = false;
+                } else if (!usernamePattern.test(usernameVal)) {
+                    setValidationError(username, usernameError, 'Username hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).');
+                    valid = false;
+                } else {
+                    clearValidationError(username, usernameError);
+                }
+            }
+
+            // 4. Validasi Password (Kombinasi Huruf & Angka, Min 8 Karakter, Tidak Terlalu Mudah)
+            if (password) {
+                const passwordVal = password.value.trim();
+                const hasLetter = /[a-zA-Z]/;
+                const hasNumber = /[0-9]/;
+                const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'hoopball', 'hoopball123'];
+
+                if (passwordVal === '') {
+                    setValidationError(password, passwordError, 'Kata sandi wajib diisi.');
+                    valid = false;
+                } else if (passwordVal.length < 8) {
+                    setValidationError(password, passwordError, 'Kata sandi minimal berisi 8 karakter.');
+                    valid = false;
+                } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
+                    setValidationError(password, passwordError, 'Kata sandi harus berisi kombinasi huruf dan angka.');
+                    valid = false;
+                } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
+                    setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak. Silakan gunakan kombinasi lain.');
+                    valid = false;
+                } else {
+                    clearValidationError(password, passwordError);
+                }
+            }
+
+            // 5. Validasi Email (Harus diakhiri @gmail.com)
+            if (email) {
+                const emailVal = email.value.trim();
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (emailVal === '') {
+                    setValidationError(email, emailError, 'Email wajib diisi.');
+                    valid = false;
+                } else if (!emailPattern.test(emailVal)) {
+                    setValidationError(email, emailError, 'Format email yang dimasukkan tidak valid.');
+                    valid = false;
+                } else if (!emailVal.toLowerCase().endsWith('@gmail.com')) {
+                    setValidationError(email, emailError, 'Email wajib menggunakan domain @gmail.com.');
+                    valid = false;
+                } else {
+                    clearValidationError(email, emailError);
+                }
+            }
+
+            // 6. Validasi No Telepon (Awalan 08, panjang 10-13 digit)
+            if (telp) {
+                const phonePattern = /^08[0-9]{8,11}$/;
+                if (telp.value.trim() === '') {
+                    setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
+                    valid = false;
+                } else if (!phonePattern.test(telp.value.trim())) {
+                    setValidationError(telp, telpError, 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.');
+                    valid = false;
+                } else {
+                    clearValidationError(telp, telpError);
+                }
+            }
+
+            // 7. Validasi Tempat Lahir (Hanya Huruf & Spasi, Min 3 Karakter)
+            if (tmpLahir) {
+                const tmpVal = tmpLahir.value.trim();
+                if (tmpVal === '') {
+                    setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir wajib diisi.');
+                    valid = false;
+                } else if (tmpVal.length < 3 || tmpVal.length > 50) {
+                    setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir minimal 3 karakter dan maksimal 50 karakter.');
+                    valid = false;
+                } else if (!/^[a-zA-Z\s]+$/.test(tmpVal)) {
+                    setValidationError(tmpLahir, tmpLahirError, 'Tempat lahir hanya boleh huruf dan spasi.');
+                    valid = false;
+                } else {
+                    clearValidationError(tmpLahir, tmpLahirError);
+                }
+            }
+
+            // 8. Validasi Tanggal Lahir (Karyawan)
+            if (tglLahir) {
+                if (!validateDate(tglLahir)) {
+                    valid = false;
+                }
+            }
+
+            // 9. Validasi Alamat (Hanya karakter umum, tidak boleh angka/simbol murni, panjang 10-100)
+            if (alamat) {
+                const alamatValue = alamat.value.trim();
+                const allowedCharsPattern = /^[a-zA-Z0-9\s,\.\/\-]+$/;
+                const onlyNumbersPattern = /^[0-9\s]+$/;
+                const onlySymbolsPattern = /^[^a-zA-Z0-9]+$/;
+
+                if (alamatValue === '') {
+                    setValidationError(alamat, alamatError, 'Alamat rumah wajib diisi.');
+                    valid = false;
+                } else if (alamatValue.length < 10 || alamatValue.length > 100) {
+                    setValidationError(alamat, alamatError, 'Alamat minimal 10 karakter dan maksimal 100 karakter.');
+                    valid = false;
+                } else if (!allowedCharsPattern.test(alamatValue)) {
+                    setValidationError(alamat, alamatError, 'Alamat hanya boleh menggunakan huruf, angka, spasi, koma (,), titik (.), garis miring (/), dan tanda strip (-).');
+                    valid = false;
+                } else if (onlyNumbersPattern.test(alamatValue)) {
+                    setValidationError(alamat, alamatError, 'Alamat tidak boleh hanya berupa angka murni.');
+                    valid = false;
+                } else if (onlySymbolsPattern.test(alamatValue)) {
+                    setValidationError(alamat, alamatError, 'Alamat tidak boleh hanya berupa simbol murni.');
+                    valid = false;
+                } else {
+                    clearValidationError(alamat, alamatError);
+                }
+            }
+
+            if (!valid) {
+                showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
+            }
+
+            return valid;
+        }
+
+        // ============================================
+        // DISIPLIN INPUT - REAL-TIME INPUT FILTERING
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const namaInput = document.getElementById('nama');
+            const tmpLahirInput = document.getElementById('tempat_lahir');
+            const telpInput = document.getElementById('telp');
+
+            // Filter input nama (Hanya huruf dan spasi)
+            if (namaInput) {
+                namaInput.addEventListener('input', () => {
+                    namaInput.value = namaInput.value.replace(/[^a-zA-Z\s]/g, '');
+                });
+            }
+
+            // Filter input tempat lahir (Hanya huruf dan spasi)
+            if (tmpLahirInput) {
+                tmpLahirInput.addEventListener('input', () => {
+                    tmpLahirInput.value = tmpLahirInput.value.replace(/[^a-zA-Z\s]/g, '');
+                });
+            }
+
+            // Filter input nomor telepon (Hanya angka)
+            if (telpInput) {
+                telpInput.addEventListener('input', () => {
+                    telpInput.value = telpInput.value.replace(/[^0-9]/g, '');
+                });
+            }
+
+            // Real-time clearance of validation errors
+            const fields = [
+                { el: document.getElementById('nama'), err: document.getElementById('val-nama') },
+                { el: document.getElementById('username'), err: document.getElementById('val-username') },
+                { el: document.getElementById('password'), err: document.getElementById('val-password') },
+                { el: document.getElementById('email'), err: document.getElementById('val-email') },
+                { el: document.getElementById('telp'), err: document.getElementById('val-telp') },
+                { el: document.getElementById('tempat_lahir'), err: document.getElementById('val-tempat_lahir') },
+                { el: document.getElementById('alamat'), err: document.getElementById('val-alamat') },
+                { el: document.getElementById('id_kry'), err: document.getElementById('val-id_kry') }
+            ];
+
+            fields.forEach(field => {
+                if (field.el) {
+                    field.el.addEventListener('input', () => {
+                        clearValidationError(field.el, field.err);
+                    });
+                }
+            });
+
+            const tglLahirField = document.getElementById('tanggal_lahir');
+            if (tglLahirField) {
+                tglLahirField.addEventListener('change', function () {
+                    validateDate(this);
+                });
+            }
+        });
 
         // ============================================
         // DELETE CONFIRMATION
@@ -2823,7 +3215,6 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
                     return;
                 }
 
-                // Show loading
                 Swal.fire({
                     title: 'Memproses...',
                     text: 'Mengubah status karyawan',
@@ -2889,6 +3280,9 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             });
         }
 
+        // ============================================
+        // DETAIL MODAL INITIATOR
+        // ============================================
         function openDetail(id, nama, username, password, email, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
             const mapJK = { '1': 'LAKI-LAKI', '0': 'PEREMPUAN' };
             const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -2929,6 +3323,9 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             document.body.style.overflow = '';
         }
 
+        // ============================================
+        // SEARCH TABLE REAL-TIME
+        // ============================================
         function searchTable() {
             var input = document.getElementById('src').value.toUpperCase();
             var rows = document.getElementById('tbl').getElementsByTagName('tr');
@@ -2943,6 +3340,9 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             }
         }
 
+        // ============================================
+        // FILTER & RESET CONTROLS
+        // ============================================
         function applyFilter() {
             const sortBy = document.getElementById('filterSortBy').value;
             const jabatan = document.getElementById('filterJabatan').value;
@@ -2958,6 +3358,9 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
         }
         function resetFilter() { window.location.href = 'karyawan.php'; }
 
+        // ============================================
+        // FILTER CARD OPEN/CLOSE EVENTS
+        // ============================================
         const btnFilterToggle = document.getElementById('btnFilterToggle');
         const filterCard = document.getElementById('filterCard');
         if (btnFilterToggle && filterCard) {
@@ -2973,379 +3376,8 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             });
         }
 
-        function validateDate(input) {
-            const selected = new Date(input.value);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const valMsg = document.getElementById('val-tanggal_lahir');
-            if (!input.value) { if (valMsg) { valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-            if (selected > today) { if (valMsg) { valMsg.textContent = '⚠ Tanggal lahir tidak boleh di masa depan!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-            const age = today.getFullYear() - selected.getFullYear();
-            if (age < 17) { if (valMsg) { valMsg.textContent = '⚠ Karyawan harus berusia minimal 17 tahun!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-            if (age > 60) { if (valMsg) { valMsg.textContent = '⚠ Usia maksimal 60 tahun!'; valMsg.classList.add('show'); input.classList.add('error'); } return false; }
-            if (valMsg) { valMsg.classList.remove('show'); input.classList.remove('error'); }
-            return true;
-        }
-
         // ============================================
-        // VALIDASI FORM - REAL TIME & SUBMIT
-        // ============================================
-        function validateField(fieldId, valId, rules) {
-            const field = document.getElementById(fieldId);
-            if (!field) return true;
-            const valMsg = document.getElementById(valId);
-            const value = field.value.trim();
-
-            field.classList.remove('error');
-            if (valMsg) valMsg.classList.remove('show');
-
-            // Required check
-            if (rules.required && value === '') {
-                field.classList.add('error');
-                if (valMsg) {
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
-                    valMsg.classList.add('show');
-                }
-                return false;
-            }
-
-            // Min length check
-            if (rules.minLength && value.length < rules.minLength) {
-                field.classList.add('error');
-                if (valMsg) {
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
-                    valMsg.classList.add('show');
-                }
-                return false;
-            }
-
-            // Max length check
-            if (rules.maxLength && value.length > rules.maxLength) {
-                field.classList.add('error');
-                if (valMsg) {
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
-                    valMsg.classList.add('show');
-                }
-                return false;
-            }
-
-            // Pattern check (hanya huruf, angka, spasi, dan tanda baca umum)
-            if (rules.pattern && value !== '') {
-                const regex = /^[a-zA-Z0-9\s\-_.(),&/@]+$/;
-                if (!regex.test(value)) {
-                    field.classList.add('error');
-                    if (valMsg) {
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Hanya huruf, angka, spasi, dan tanda baca umum';
-                        valMsg.classList.add('show');
-                    }
-                    return false;
-                }
-            }
-
-            // Email validation
-            if (rules.email && value !== '') {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(value)) {
-                    field.classList.add('error');
-                    if (valMsg) {
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Format email tidak valid';
-                        valMsg.classList.add('show');
-                    }
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        function validateForm(form) {
-            let valid = true;
-
-            // Validasi ID Karyawan
-            if (!validateField('id_kry', 'val-id_kry', {
-                required: true,
-                minLength: 3,
-                maxLength: 20,
-                pattern: true,
-                label: 'ID Karyawan'
-            })) valid = false;
-
-            // Validasi Nama
-            if (!validateField('nama', 'val-nama', {
-                required: true,
-                minLength: 3,
-                maxLength: 100,
-                pattern: true,
-                label: 'Nama lengkap'
-            })) valid = false;
-
-            // Validasi Username
-            if (!validateField('username', 'val-username', {
-                required: true,
-                minLength: 3,
-                maxLength: 50,
-                pattern: true,
-                label: 'Username'
-            })) valid = false;
-
-            // Validasi Password
-            if (!validateField('password', 'val-password', {
-                required: true,
-                minLength: 6,
-                maxLength: 100,
-                label: 'Password'
-            })) valid = false;
-
-            // Validasi Email
-            if (!validateField('email', 'val-email', {
-                required: true,
-                email: true,
-                label: 'Email'
-            })) valid = false;
-
-            // Validasi No Telepon
-            if (!validateField('telp', 'val-telp', {
-                required: true,
-                minLength: 10,
-                maxLength: 15,
-                label: 'Nomor telepon'
-            })) valid = false;
-
-            // Validasi Tempat Lahir
-            if (!validateField('tempat_lahir', 'val-tempat_lahir', {
-                required: true,
-                minLength: 2,
-                maxLength: 50,
-                pattern: true,
-                label: 'Tempat lahir'
-            })) valid = false;
-
-            // Validasi Tanggal Lahir
-            const tglLahir = document.getElementById('tanggal_lahir');
-            if (tglLahir && tglLahir.value) {
-                if (!validateDate(tglLahir)) valid = false;
-            }
-
-            // Validasi Alamat
-            if (!validateField('alamat', 'val-alamat', {
-                required: true,
-                minLength: 5,
-                maxLength: 200,
-                label: 'Alamat'
-            })) valid = false;
-
-            // Jika tidak valid, tampilkan notifikasi error
-            if (!valid) {
-                showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
-            }
-
-            return valid;
-        }
-
-        // ============================================
-        // REAL-TIME VALIDATION EVENT LISTENERS
-        // ============================================
-        document.addEventListener('DOMContentLoaded', function () {
-            // Validasi real-time Nama
-            const namaField = document.getElementById('nama');
-            if (namaField) {
-                namaField.addEventListener('blur', function () {
-                    validateField('nama', 'val-nama', {
-                        required: true,
-                        minLength: 3,
-                        maxLength: 100,
-                        pattern: true,
-                        label: 'Nama lengkap'
-                    });
-                });
-                namaField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('nama', 'val-nama', {
-                            required: true,
-                            minLength: 3,
-                            maxLength: 100,
-                            pattern: true,
-                            label: 'Nama lengkap'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Username
-            const usernameField = document.getElementById('username');
-            if (usernameField) {
-                usernameField.addEventListener('blur', function () {
-                    validateField('username', 'val-username', {
-                        required: true,
-                        minLength: 3,
-                        maxLength: 50,
-                        pattern: true,
-                        label: 'Username'
-                    });
-                });
-                usernameField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('username', 'val-username', {
-                            required: true,
-                            minLength: 3,
-                            maxLength: 50,
-                            pattern: true,
-                            label: 'Username'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Password
-            const passwordField = document.getElementById('password');
-            if (passwordField) {
-                passwordField.addEventListener('blur', function () {
-                    validateField('password', 'val-password', {
-                        required: true,
-                        minLength: 6,
-                        maxLength: 100,
-                        label: 'Password'
-                    });
-                });
-                passwordField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('password', 'val-password', {
-                            required: true,
-                            minLength: 6,
-                            maxLength: 100,
-                            label: 'Password'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Email
-            const emailField = document.getElementById('email');
-            if (emailField) {
-                emailField.addEventListener('blur', function () {
-                    validateField('email', 'val-email', {
-                        required: true,
-                        email: true,
-                        label: 'Email'
-                    });
-                });
-                emailField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('email', 'val-email', {
-                            required: true,
-                            email: true,
-                            label: 'Email'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time No Telepon
-            const telpField = document.getElementById('telp');
-            if (telpField) {
-                telpField.addEventListener('blur', function () {
-                    validateField('telp', 'val-telp', {
-                        required: true,
-                        minLength: 10,
-                        maxLength: 15,
-                        label: 'Nomor telepon'
-                    });
-                });
-                telpField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('telp', 'val-telp', {
-                            required: true,
-                            minLength: 10,
-                            maxLength: 15,
-                            label: 'Nomor telepon'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Tempat Lahir
-            const tempatLahirField = document.getElementById('tempat_lahir');
-            if (tempatLahirField) {
-                tempatLahirField.addEventListener('blur', function () {
-                    validateField('tempat_lahir', 'val-tempat_lahir', {
-                        required: true,
-                        minLength: 2,
-                        maxLength: 50,
-                        pattern: true,
-                        label: 'Tempat lahir'
-                    });
-                });
-                tempatLahirField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('tempat_lahir', 'val-tempat_lahir', {
-                            required: true,
-                            minLength: 2,
-                            maxLength: 50,
-                            pattern: true,
-                            label: 'Tempat lahir'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Alamat
-            const alamatField = document.getElementById('alamat');
-            if (alamatField) {
-                alamatField.addEventListener('blur', function () {
-                    validateField('alamat', 'val-alamat', {
-                        required: true,
-                        minLength: 5,
-                        maxLength: 200,
-                        label: 'Alamat'
-                    });
-                });
-                alamatField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('alamat', 'val-alamat', {
-                            required: true,
-                            minLength: 5,
-                            maxLength: 200,
-                            label: 'Alamat'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time ID Karyawan
-            const idKryField = document.getElementById('id_kry');
-            if (idKryField) {
-                idKryField.addEventListener('blur', function () {
-                    validateField('id_kry', 'val-id_kry', {
-                        required: true,
-                        minLength: 3,
-                        maxLength: 20,
-                        pattern: true,
-                        label: 'ID Karyawan'
-                    });
-                });
-                idKryField.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('id_kry', 'val-id_kry', {
-                            required: true,
-                            minLength: 3,
-                            maxLength: 20,
-                            pattern: true,
-                            label: 'ID Karyawan'
-                        });
-                    }
-                });
-            }
-
-            // Validasi real-time Tanggal Lahir
-            const tglLahirField = document.getElementById('tanggal_lahir');
-            if (tglLahirField) {
-                tglLahirField.addEventListener('change', function () {
-                    validateDate(this);
-                });
-            }
-        });
-
-        // ============================================
-        // CLOCK / JAM
+        // REAL-TIME CLOCK / JAM AT TOPBAR
         // ============================================
         function updateClock() {
             try {
@@ -3377,29 +3409,8 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             setInterval(updateClock, 1000);
         });
 
-
         // ============================================
-        // NOTIFIKASI TOAST
-        // ============================================
-        function showToast(type, title, message) {
-            Swal.fire({
-                icon: type,
-                title: title,
-                text: message,
-                timer: 3000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                timerProgressBar: true,
-                showCloseButton: true,
-                customClass: {
-                    popup: 'colored-toast'
-                }
-            });
-        }
-
-        // ============================================
-        // NOTIFIKASI TOAST
+        // NOTIFIKASI TOAST (SWEETALERT2)
         // ============================================
         function showToast(type, title, message) {
             Swal.fire({
@@ -3416,7 +3427,7 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
         }
 
         // ============================================
-        // URL PARAMETER NOTIFICATION (Status & Msg)
+        // URL QUERY PARAMETER TOAST RESPONSES
         // ============================================
         document.addEventListener('DOMContentLoaded', function () {
             const urlParams = new URLSearchParams(window.location.search);
@@ -3440,6 +3451,7 @@ if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
             }
         });
 
+        // Close triggers
         window.onclick = function (e) { if (e.target == document.getElementById('modal')) closeModal(); };
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { closeDetail(); if (btnFilterToggle) btnFilterToggle.classList.remove('active'); if (filterCard) filterCard.classList.remove('open'); }
