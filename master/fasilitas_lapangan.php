@@ -589,6 +589,7 @@ html.swal2-shown {
 /* Memaksa elemen select dengan class modal-input agar berwarna putih */
 select.modal-input {
     background-color: #FFFFFF !important;
+    cursor: pointer !important; /* Tambahkan !important untuk mengalahkan aturan blok */
 }
 
 @media(max-width: 768px) {

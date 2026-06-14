@@ -13,9 +13,9 @@ if (isset($_POST['verify_account'])) {
     $telp = $_POST['telp_input'];
 
     // Query pencocokan silang antara tabel Akun dan Customer
-    $sql = "SELECT a.ID_Akun FROM Akun a 
-            JOIN Customer c ON a.ID_Akun = c.ID_Akun 
-            WHERE a.Username = ? AND a.Email = ? AND c.No_Telepon = ?";
+   // Query langsung ke tabel Customer
+    $sql = "SELECT ID_Customer FROM Customer 
+            WHERE Username = ? AND Email = ? AND No_Telepon = ? AND Is_Deleted = 0";
     $params = array($username, $email, $telp);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
@@ -26,7 +26,7 @@ if (isset($_POST['verify_account'])) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
             $is_verified = true;
-            $_SESSION['reset_id_akun'] = $row['ID_Akun']; // Simpan ID Akun sementara di sesi
+            $_SESSION['reset_id_customer'] = $row['ID_Customer']; // Simpan ID Customer sementara di sesi
         } else {
             $res_status = "error";
             $res_msg = "Data verifikasi salah. Username, Email, atau Telepon tidak cocok!";
@@ -553,6 +553,25 @@ if (isset($_POST['reset_password'])) {
                 grid-template-columns: 1fr;
             }
         }
+
+        html, body {
+    /* Untuk Firefox */
+    scrollbar-width: none;
+    
+    /* Untuk Internet Explorer dan Edge versi lama */
+    -ms-overflow-style: none;
+}
+
+/* Untuk Chrome, Safari, dan Opera */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none;
+}
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+}
+
     </style>
 </head>
 

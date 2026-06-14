@@ -57,30 +57,50 @@ if (isset($_POST['save_jadwal'])) {
     $jam_selesai = $_POST['jam_selesai'];
 
     // Validasi form dasar
+   // 1. Lapangan wajib dipilih
     if (empty($id_lapangan)) {
         header("Location: jadwal.php?page=1&status=error&msg=Lapangan wajib dipilih.");
         exit();
     }
+    
+    // 2. Tanggal wajib diisi
     if (empty($tanggal)) {
         header("Location: jadwal.php?page=1&status=error&msg=Tanggal wajib diisi.");
         exit();
     }
-    if (empty($jam_mulai) || empty($jam_selesai)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam mulai dan selesai wajib diisi.");
+    
+    // 3. Tanggal tidak boleh kurang dari hari ini
+    $hari_ini = date('Y-m-d');
+    if ($tanggal < $hari_ini) {
+        header("Location: jadwal.php?page=1&status=error&msg=Tanggal tidak boleh kurang dari hari ini.");
         exit();
     }
-    if ($jam_mulai >= $jam_selesai) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam mulai harus lebih awal dari jam selesai.");
+    
+    // 4. Jam mulai wajib diisi
+    if (empty($jam_mulai)) {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam mulai wajib diisi.");
+        exit();
+    }
+    
+    // 5. Jam selesai wajib diisi
+    if (empty($jam_selesai)) {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai wajib diisi.");
+        exit();
+    }
+    
+    // 6. Jam selesai harus lebih besar dari jam mulai
+    if ($jam_selesai <= $jam_mulai) {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai harus lebih besar dari jam mulai.");
         exit();
     }
 
-    // Validasi tabrakan waktu (overlap) di lapangan yang sama pada tanggal tersebut
+    // 7. Jadwal tidak boleh bentrok dengan jadwal lain pada lapangan yang sama
     $sql_check_bentrok = "SELECT ID_Jadwal FROM Jadwal 
                           WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
                           AND NOT (Jam_Selesai <= ? OR Jam_Mulai >= ?)";
     $q_check = safeQuery($conn, $sql_check_bentrok, [$id_lapangan, $tanggal, $id, $jam_mulai, $jam_selesai]);
     if ($q_check && safeFetch($q_check)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jadwal bentrok dengan jadwal lain di lapangan dan waktu yang sama.");
+        header("Location: jadwal.php?page=1&status=error&msg=Jadwal tidak boleh bentrok dengan jadwal lain pada lapangan yang sama.");
         exit();
     }
 
@@ -314,13 +334,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .jadwal-lapangan { font-weight: 700; color: var(--text); font-size: 15px; }
 .jadwal-id-tag { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 22%; text-align: left !important; }
+.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 40%; text-align: left !important; }
 .jadwal-waktu { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 16px; color: var(--orange); }
 
 .data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; text-align: center !important; }
-.data-table th:nth-child(4) { position: relative; left: -60px !important; }
+.data-table th:nth-child(4) { position: relative; left: -112px !important; }
 .data-table td:nth-child(4) { font-size: 0 !important; }
-.data-table td:nth-child(4) .status-pill { position: relative; left: -60px !important; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
+.data-table td:nth-child(4) .status-pill { position: relative; left: -110px !important; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
 
 .data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: left !important; }
 
@@ -441,6 +461,19 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 .topbar-btn:active, .topbar-user:active { background-color: #D1D5DB !important; border-color: #9CA3AF !important; color: #1F2937 !important; }
 .dropdown-wrap.active .dropdown-menu { display: block !important; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
+
+/* Memaksa elemen select dengan class modal-input agar berwarna putih */
+select.modal-input,
+input[type="date"].modal-input,
+input[type="time"].modal-input {
+    background-color: #FFFFFF !important;
+    cursor: pointer !important; /* Memaksa kursor tangan penunjuk aktif */
+}
+
+/* Menjamin kursor tetap berbentuk tangan saat berada tepat di atas ikon kalender atau jam */
+.modal-input::-webkit-calendar-picker-indicator {
+    cursor: pointer !important;
+}
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -761,7 +794,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="jadwal-lapangan"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
-                                <div class="jadwal-id-tag"><?= htmlspecialchars($row['ID_Jadwal']) ?></div>
                             </td>
                             <td>
                                 <div class="jadwal-waktu"><?= $mulai_formatted ?> - <?= $selesai_formatted ?> WIB</div>
@@ -901,21 +933,41 @@ function validateField(fieldId, valId, rules) {
 }
 
 // VALIDASI SAAT SUBMIT FORM
+// VALIDASI SAAT SUBMIT FORM
 function validateForm() {
     let valid = true;
 
+    // Bersihkan semua error state terlebih dahulu
+    document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+    document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+    // Pengecekan field wajib diisi
     if (!validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' })) valid = false;
     if (!validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' })) valid = false;
     if (!validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' })) valid = false;
     if (!validateField('jam_selesai', 'val-jam_selesai', { required: true, label: 'Jam selesai' })) valid = false;
 
     if (valid) {
+        // Validasi Tanggal tidak boleh kurang dari hari ini
+        const tanggalField = document.getElementById('tanggal');
+        const tanggalVal = tanggalField.value;
+        const hariIni = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD lokal server kien
+        
+        if (tanggalVal < hariIni) {
+            tanggalField.classList.add('error');
+            const valMsg = document.getElementById('val-tanggal');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal tidak boleh kurang dari hari ini.';
+            valMsg.classList.add('show');
+            valid = false;
+        }
+        
+        // Validasi jam selesai harus lebih besar dari jam mulai
         const mulai = document.getElementById('jam_mulai').value;
         const selesai = document.getElementById('jam_selesai').value;
-        if (mulai >= selesai) {
-            document.getElementById('jam_mulai').classList.add('error');
-            const valMsg = document.getElementById('val-jam_mulai');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih awal dari jam selesai.';
+        if (selesai <= mulai) {
+            document.getElementById('jam_selesai').classList.add('error');
+            const valMsg = document.getElementById('val-jam_selesai');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam selesai harus lebih besar dari jam mulai.';
             valMsg.classList.add('show');
             valid = false;
         }
