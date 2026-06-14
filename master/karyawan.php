@@ -1231,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function confirmDelete(id, nama) {
     Swal.fire({
         title: 'Hapus Karyawan?',
-        html: 'Anda akan menghapus karyawan <strong style="color:var(--orange);">' + nama + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara soft-delete</span>',
+        html: 'Anda akan menghapus karyawan <strong style="color:var(--orange);">' + nama + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
