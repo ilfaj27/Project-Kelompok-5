@@ -1,4 +1,60 @@
 <?php
+// ============================================================================
+// AJAX HANDLER — Cek Username Duplikat (inline, tanpa file terpisah)
+// ============================================================================
+if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    // Include config dulu untuk koneksi database
+    if (file_exists('includes/config.php')) {
+        include 'includes/config.php';
+    } elseif (file_exists('../includes/config.php')) {
+        include '../includes/config.php';
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Config file tidak ditemukan!']);
+        exit();
+    }
+
+    header('Content-Type: application/json');
+
+    $check_username = isset($_GET['username']) ? trim($_GET['username']) : '';
+    $exclude_id = isset($_GET['exclude']) ? trim($_GET['exclude']) : '';
+
+    if (empty($check_username) || strlen($check_username) < 3) {
+        echo json_encode(['exists' => false, 'valid' => false, 'message' => 'Username minimal 3 karakter']);
+        exit();
+    }
+
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $check_username)) {
+        echo json_encode(['exists' => false, 'valid' => false, 'message' => 'Username hanya boleh huruf, angka, dan underscore']);
+        exit();
+    }
+
+    $params = array($check_username);
+    $sql = "SELECT ID_Customer FROM Customer WHERE Username = ? AND Is_Deleted = 0";
+
+    if (!empty($exclude_id)) {
+        $sql .= " AND ID_Customer != ?";
+        $params[] = $exclude_id;
+    }
+
+    $cek = sqlsrv_query($conn, $sql, $params);
+
+    if ($cek === false) {
+        echo json_encode(['exists' => false, 'valid' => false, 'message' => 'Database error']);
+        exit();
+    }
+
+    $exists = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC) ? true : false;
+    sqlsrv_free_stmt($cek);
+
+    echo json_encode([
+        'exists' => $exists,
+        'valid' => !$exists,
+        'message' => $exists ? 'Username sudah digunakan oleh customer lain.' : 'Username tersedia.'
+    ]);
+    exit();
+}
+
 session_start();
 
 // DEBUG SEMENTARA: lihat isi session SEBELUM cek_akses() dipanggil
@@ -36,6 +92,10 @@ if (file_exists('includes/config.php')) {
 
 $swal_status = '';
 $swal_msg = '';
+$pass_error_field = $_SESSION['pass_error_field'] ?? ''; // Ambil flag error password
+if (!empty($pass_error_field)) {
+    unset($_SESSION['pass_error_field']); // Hapus setelah digunakan
+}
 
 // ============================================================================
 // UPDATE BIODATA — HANYA FIELD YANG DIPERBOLEHKAN UNTUK DIEDIT CUSTOMER
@@ -77,11 +137,18 @@ if (isset($_POST['update_biodata'])) {
     if (empty($tmp_lahir) || strlen($tmp_lahir) < 3 || !preg_match('/^[a-zA-Z\s]+$/', $tmp_lahir)) {
         $errors[] = 'Tempat lahir minimal 3 karakter, hanya huruf dan spasi.';
     }
-    if (empty($alamat)) {
+    $alamat_trim = trim($alamat);
+    // Normalisasi: ganti semua whitespace dengan spasi tunggal, lalu split
+    $alamat_normalized = preg_replace('/\s+/', ' ', $alamat_trim);
+    $alamat_words = array_filter(explode(' ', $alamat_normalized), function($w) { return strlen(trim($w)) > 0; });
+    $word_count = count($alamat_words);
+    if (empty($alamat_trim)) {
         $errors[] = 'Alamat tidak boleh kosong.';
+    } elseif ($word_count < 3) {
+        $errors[] = 'Alamat minimal 3 kata (saat ini: ' . $word_count . ' kata).';
     }
-    if (empty($telepon) || !preg_match('/^[0-9]{10,14}$/', $telepon)) {
-        $errors[] = 'Nomor telepon harus 10-14 digit angka.';
+    if (empty($telepon) || !preg_match('/^08[0-9]{8,12}$/', $telepon)) {
+        $errors[] = 'Nomor telepon harus berawal 08 dan 10-13 digit angka.';
     }
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Email tidak valid.';
@@ -165,12 +232,15 @@ if (isset($_POST['update_password'])) {
     if ($old_pass !== ($custData['Kata_Sandi'] ?? '')) {
         $swal_status = 'error';
         $swal_msg = 'Password lama tidak sesuai.';
+        $_SESSION['pass_error_field'] = 'old_password'; // Flag untuk border merah
     } elseif (strlen($new_pass) < 6) {
         $swal_status = 'error';
         $swal_msg = 'Password baru minimal 6 karakter.';
+        $_SESSION['pass_error_field'] = 'new_password'; // Flag untuk border merah
     } elseif ($new_pass !== $confirm_pass) {
         $swal_status = 'error';
         $swal_msg = 'Konfirmasi password tidak cocok.';
+        $_SESSION['pass_error_field'] = 'confirm_password'; // Flag untuk border merah
     } else {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
         $stmt = sqlsrv_query($conn,
@@ -182,6 +252,7 @@ if (isset($_POST['update_password'])) {
             sqlsrv_free_stmt($stmt);
             $swal_status = 'success';
             $swal_msg = 'Password berhasil diperbarui!';
+            unset($_SESSION['pass_error_field']); // Hapus flag jika sukses
         } else {
             $swal_status = 'error';
             $swal_msg = 'Gagal memperbarui password.';
@@ -919,14 +990,14 @@ function format_date_display($date) {
                     </div>
                     <div class="form-group">
                         <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
-                        <textarea name="alamat" id="alamat" class="form-input" placeholder="Masukkan alamat lengkap"><?= htmlspecialchars($alamat) ?></textarea>
+                        <textarea name="alamat" id="alamat" class="form-input" placeholder="Masukkan alamat lengkap (minimal 3 kata)"><?= htmlspecialchars($alamat) ?></textarea>
                         <div class="error-msg" id="alamatError">Alamat tidak boleh kosong.</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Nomor Telepon <span class="required">*</span></label>
                         <input type="tel" name="no_telepon" id="no_telepon" class="form-input"
                                value="<?= htmlspecialchars($telepon) ?>"
-                               maxlength="14" placeholder="Contoh: 08123456789">
+                               maxlength="14" placeholder="Contoh: 08123456789 (harus berawal 08)">
                         <div class="error-msg" id="teleponError">Nomor telepon harus 10-14 digit angka.</div>
                     </div>
 
@@ -1018,17 +1089,17 @@ function format_date_display($date) {
                     <div class="form-row-3">
                         <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Password Lama <span class="required">*</span></label>
-                            <input type="password" name="old_password" id="old_password" class="form-input" placeholder="Password saat ini">
+                            <input type="password" name="old_password" id="old_password" class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>" placeholder="Password saat ini">
                             <div class="error-msg" id="oldPassError">Password lama wajib diisi.</div>
                         </div>
                         <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Password Baru <span class="required">*</span></label>
-                            <input type="password" name="new_password" id="new_password" class="form-input" placeholder="Minimal 6 karakter">
+                            <input type="password" name="new_password" id="new_password" class="form-input <?= ($pass_error_field === 'new_password') ? 'error' : '' ?>" placeholder="Minimal 6 karakter">
                             <div class="error-msg" id="newPassError">Password baru minimal 6 karakter.</div>
                         </div>
                         <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Konfirmasi <span class="required">*</span></label>
-                            <input type="password" name="confirm_password" id="confirm_password" class="form-input" placeholder="Ulangi password">
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>" placeholder="Ulangi password">
                             <div class="error-msg" id="confirmPassError">Konfirmasi tidak cocok.</div>
                         </div>
                     </div>
@@ -1103,14 +1174,65 @@ if (namaInput) {
     namaInput.addEventListener('blur', validateNama);
 }
 
-// Username validation
-if (usernameInput) {
-    usernameInput.addEventListener('input', function() {
+
+// Username Duplikat Check — Inline AJAX (tanpa file terpisah)
+let usernameTimeout;
+const usernameInputCheck = document.getElementById('username');
+
+function checkUsernameDuplicateInline(username) {
+    if (username.length < 3) return;
+
+    const currentUsername = '<?= addslashes($username) ?>';
+    if (username === currentUsername) {
+        const error = document.getElementById('usernameError');
+        const input = document.getElementById('username');
+        if (error && input && input.classList.contains('valid')) {
+            error.classList.remove('show');
+        }
+        return;
+    }
+
+    fetch('profile_customer.php?ajax_check_username=1&username=' + encodeURIComponent(username) + '&exclude=<?= urlencode($ID_Customer) ?>')
+        .then(res => res.json())
+        .then(data => {
+            const error = document.getElementById('usernameError');
+            const input = document.getElementById('username');
+            if (data.exists) {
+                if (error) {
+                    error.textContent = 'Username sudah digunakan oleh customer lain.';
+                    error.classList.add('show');
+                }
+                if (input) {
+                    input.classList.add('error');
+                    input.classList.remove('valid');
+                }
+            } else {
+                if (error && input && input.classList.contains('valid')) {
+                    error.classList.remove('show');
+                }
+            }
+        })
+        .catch(err => console.error('Username check error:', err));
+}
+
+if (usernameInputCheck) {
+    usernameInputCheck.addEventListener('input', function() {
+        clearTimeout(usernameTimeout);
         this.value = this.value.replace(/[^a-zA-Z0-9_]/g, '');
         validateUsername();
+
+        usernameTimeout = setTimeout(() => {
+            checkUsernameDuplicateInline(this.value.trim());
+        }, 500);
     });
-    usernameInput.addEventListener('blur', validateUsername);
+    usernameInputCheck.addEventListener('blur', function() {
+        validateUsername();
+        checkUsernameDuplicateInline(this.value.trim());
+    });
 }
+
+// Username validation (event listener sudah di-handle di atas)
+// validateUsername() tetap digunakan untuk validasi format
 
 function validateUsername() {
     if (!usernameInput) return true;
@@ -1212,7 +1334,8 @@ function validateTelepon() {
     if (!teleponInput) return true;
     const val = teleponInput.value.trim();
     const error = document.getElementById('teleponError');
-    if (!/^[0-9]{10,14}$/.test(val)) {
+    if (!/^08[0-9]{8,12}$/.test(val)) {
+        error.textContent = 'Nomor telepon harus berawal 08 dan 10-13 digit.';
         teleponInput.classList.add('error'); teleponInput.classList.remove('valid'); error.classList.add('show'); return false;
     } else {
         teleponInput.classList.remove('error'); teleponInput.classList.add('valid'); error.classList.remove('show'); return true;
@@ -1227,7 +1350,15 @@ function validateAlamat() {
     if (!alamatInput) return true;
     const val = alamatInput.value.trim();
     const error = document.getElementById('alamatError');
+    // Normalisasi: ganti semua whitespace (spasi, tab, newline) dengan spasi tunggal
+    const normalized = val.replace(/\s+/g, ' ').trim();
+    // Split dan filter kata yang benar-benar tidak kosong
+    const words = normalized.split(' ').filter(function(w) { return w.length > 0; });
     if (val === '') {
+        error.textContent = 'Alamat tidak boleh kosong.';
+        alamatInput.classList.add('error'); alamatInput.classList.remove('valid'); error.classList.add('show'); return false;
+    } else if (words.length < 3) {
+        error.textContent = 'Alamat minimal 3 kata (saat ini: ' + words.length + ' kata).';
         alamatInput.classList.add('error'); alamatInput.classList.remove('valid'); error.classList.add('show'); return false;
     } else {
         alamatInput.classList.remove('error'); alamatInput.classList.add('valid'); error.classList.remove('show'); return true;

@@ -1,6 +1,33 @@
 <?php
+// ============================================================================
+// LOGIN.PHP — Halaman Login HoopBall
+// ============================================================================
+ob_start();
 session_start();
 include 'includes/config.php';
+
+// ============================================================================
+// AMBIL NOTIFIKASI DARI URL PARAMETER
+// ============================================================================
+$notif_status = $_GET['status'] ?? '';
+$notif_msg    = $_GET['msg']    ?? '';
+
+// ============================================================================
+// CEK SESSION — Jika sudah login, redirect ke dashboard
+// ============================================================================
+if (isset($_SESSION['id_customer']) && !empty($_SESSION['id_customer'])) {
+    header("Location: view_customer.php");
+    exit();
+}
+if (isset($_SESSION['id_karyawan']) && !empty($_SESSION['id_karyawan'])) {
+    $role = strtolower(trim($_SESSION['role'] ?? ''));
+    if ($role == 'pemilik') {
+        header("Location: view_pemilik.php");
+    } else {
+        header("Location: view_admin.php");
+    }
+    exit();
+}
 
 $remembered_user = isset($_COOKIE['remember_me']) ? $_COOKIE['remember_me'] : '';
 $error_msg = "";
@@ -469,6 +496,28 @@ html.swal2-shown {
             color: '#1e293b',
             confirmButtonColor: '#FF5400'
         });
+    </script>
+    <?php endif; ?>
+
+    <?php if (!empty($notif_status) && !empty($notif_msg)): ?>
+    <script>
+        Swal.fire({
+            icon: '<?= htmlspecialchars($notif_status) ?>',
+            title: '<?= $notif_status === 'success' ? 'Berhasil!' : 'Informasi' ?>',
+            text: '<?= addslashes($notif_msg) ?>',
+            timer: 5000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true,
+            background: '#ffffff',
+            color: '#1e293b',
+            iconColor: '<?= $notif_status === 'success' ? '#16A34A' : '#FF5400' ?>',
+            customClass: { popup: 'swal-toast' }
+        });
+        // Hapus parameter dari URL agar tidak muncul lagi saat refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
     </script>
     <?php endif; ?>
 

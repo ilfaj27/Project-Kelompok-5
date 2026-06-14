@@ -8,14 +8,14 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 }
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
-$map_jk = [1 => 'Laki-laki', 2 => 'Perempuan'];
+$map_jk = [0 => 'Laki-laki', 1 => 'Perempuan'];
 
 $profile_photo = '';
-$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
+$stmt_photo = sqlsrv_query($conn, "SELECT Profile_Photo FROM Karyawan WHERE Nama_Karyawan = ?", array($nama));
 if ($stmt_photo !== false) {
     $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
-    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
-        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+    if ($row_photo && !empty($row_photo['Profile_Photo'])) {
+        $profile_photo = '../uploads/profiles/' . $row_photo['Profile_Photo'];
     }
 }
 
@@ -54,25 +54,30 @@ function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
 // --- TOGGLE STATUS ---
 if (isset($_GET['toggle_id'])) {
     $toggle_id = $_GET['toggle_id'];
-    $stmt_check = safe_sqlsrv_query($conn, "SELECT Status, Nama_Customer FROM Customer WHERE ID_Customer = ?", array($toggle_id), false);
+    $stmt_check = safe_sqlsrv_query($conn, "SELECT Status, Nama_Customer FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($toggle_id), false);
     if ($stmt_check !== false) {
         $row_check = safe_sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC);
-        $current_status = $row_check['Status'] ?? 1;
-        $new_status = $current_status == 1 ? 0 : 1;
-        $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        if ($row_check) {
+            $current_status = intval($row_check['Status'] ?? 1);
+            $new_status = $current_status === 1 ? 0 : 1;
+            $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
 
-        $stmt_toggle = safe_sqlsrv_query($conn, 
-            "UPDATE Customer SET Status = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?", 
-            array($new_status, $modified_by, $toggle_id), false
-        );
+            $stmt_toggle = safe_sqlsrv_query($conn, 
+                "UPDATE Customer SET Status = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ? AND Is_Deleted = 0", 
+                array($new_status, $modified_by, $toggle_id), false
+            );
 
-        if ($stmt_toggle) {
-            $status_text = $new_status == 1 ? 'Aktif' : 'Nonaktif';
-            header("Location: customer.php?page=1&status=success&msg=Status customer berhasil diubah menjadi " . $status_text . "!");
+            if ($stmt_toggle) {
+                $status_text = $new_status === 1 ? 'Aktif' : 'Nonaktif';
+                header("Location: customer.php?page=1&status=success&msg=Status customer berhasil diubah menjadi " . $status_text . "!");
+            } else {
+                header("Location: customer.php?page=1&status=error&msg=Gagal mengubah status customer!");
+            }
+            exit();
         } else {
-            header("Location: customer.php?page=1&status=error&msg=Gagal mengubah status customer!");
+            header("Location: customer.php?page=1&status=error&msg=Customer tidak ditemukan!");
+            exit();
         }
-        exit();
     }
 }
 
@@ -80,7 +85,7 @@ if (isset($_GET['toggle_id'])) {
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
-    $r_detail = safe_sqlsrv_query($conn, "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status FROM Customer WHERE ID_Customer = ?", array($_GET['detail_id']), false);
+    $r_detail = safe_sqlsrv_query($conn, "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($_GET['detail_id']), false);
     if ($r_detail) {
         $detail_data = safe_sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
         $show_detail = true;
@@ -89,15 +94,14 @@ if (isset($_GET['detail_id'])) {
 
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
 $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
-$filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : 0;
+$filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : -1;
 $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 
 $allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort)) $sort_by = 'ID_Customer';
 
-$where_clauses = [];
+$where_clauses = ["Is_Deleted = 0"];
 $params = [];
-
 
 if ($filter_status == 'aktif') {
     $where_clauses[] = "Status = 1";
@@ -105,12 +109,12 @@ if ($filter_status == 'aktif') {
     $where_clauses[] = "Status = 0";
 }
 
-if ($filter_jk > 0) {
+if ($filter_jk >= 0) {
     $where_clauses[] = "Jenis_Kelamin = ?";
     $params[] = $filter_jk;
 }
 
-$where_sql = count($where_clauses) > 0 ? implode(" AND ", $where_clauses) : "1=1";
+$where_sql = implode(" AND ", $where_clauses);
 
 // --- STAT COUNTS ---
 $count_sql = "SELECT COUNT(*) as t FROM Customer WHERE " . $where_sql;
@@ -122,7 +126,7 @@ if ($q_total !== false) {
 }
 
 // Total Aktif
-$q_aktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 1", [], false);
+$q_aktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 1 AND Is_Deleted = 0", [], false);
 $total_aktif = 0;
 if ($q_aktif !== false) {
     $row_aktif = safe_sqlsrv_fetch_array($q_aktif, SQLSRV_FETCH_ASSOC);
@@ -130,7 +134,7 @@ if ($q_aktif !== false) {
 }
 
 // Total Nonaktif
-$q_nonaktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 0", [], false);
+$q_nonaktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 0 AND Is_Deleted = 0", [], false);
 $total_nonaktif = 0;
 if ($q_nonaktif !== false) {
     $row_nonaktif = safe_sqlsrv_fetch_array($q_nonaktif, SQLSRV_FETCH_ASSOC);
@@ -143,21 +147,21 @@ $total_pages = max(1, ceil($total_cust / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$q_laki = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=1", [], false);
+$q_laki = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin = 0 AND Is_Deleted = 0", [], false);
 $total_laki = 0;
 if ($q_laki !== false) {
     $row_laki = safe_sqlsrv_fetch_array($q_laki, SQLSRV_FETCH_ASSOC);
     $total_laki = $row_laki['t'] ?? 0;
 }
 
-$q_perempuan = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin=2", [], false);
+$q_perempuan = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin = 1 AND Is_Deleted = 0", [], false);
 $total_perempuan = 0;
 if ($q_perempuan !== false) {
     $row_perempuan = safe_sqlsrv_fetch_array($q_perempuan, SQLSRV_FETCH_ASSOC);
     $total_perempuan = $row_perempuan['t'] ?? 0;
 }
 
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
+$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status = 1");
 $total_pending = 0;
 if ($q_pending !== false) {
     $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
@@ -191,7 +195,7 @@ function format_tgl_display($date) {
 }
 
 function jk_label($jk) {
-    return $jk == 1 ? 'Laki-laki' : ($jk == 2 ? 'Perempuan' : '-');
+    return $jk == 0 ? 'Laki-laki' : ($jk == 1 ? 'Perempuan' : '-');
 }
 ?>
 <!DOCTYPE html>
@@ -249,10 +253,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-/* 1. Mengubah latar belakang awal tombol topbar & profil user menjadi putih */
-.topbar-btn, .topbar-user {
-    background-color: #FFFFFF !important;
-}
+.topbar-btn, .topbar-user { background-color: #FFFFFF !important; }
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
@@ -298,7 +299,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
-/* ═══ CARD & TABLE (SINKRON DENGAN LAPANGAN) ═══ */
 .card { 
     background: var(--card-bg); 
     border-radius: 16px; 
@@ -328,7 +328,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     vertical-align: middle; 
 }
 
-/* 1. Kolom No (Rata Tengah) */
+/* Kolom No (Rata Tengah) */
 .data-table th:nth-child(1),
 .data-table td:nth-child(1) {
     text-align: center !important;
@@ -337,7 +337,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-weight: 700;
 }
 
-/* 2. Kolom Nama Customer */
+/* Kolom Nama Customer */
 .data-table th:nth-child(2),
 .data-table td:nth-child(2) {
     width: 32%;
@@ -345,11 +345,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 }
 .cust-name { font-weight: 700; color: var(--text); font-size: 15px; }
 
-/* 3. Kolom Email */
+/* Kolom Email */
 .data-table th:nth-child(3),
 .data-table td:nth-child(3) {
     width: 30%;
-    text-align: relative !important;
+    text-align: left !important;
 }
 
 .cust-email { 
@@ -359,17 +359,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     color: var(--text);  
 }
 
-/* 4. Kolom Status (Tengah Presisi) */
+/* Kolom Status (Tengah) */
 .data-table th:nth-child(4),
 .data-table td:nth-child(4) {
     width: 18%;
     text-align: center !important;
-    padding-left: 0 !important;
-}
-
-.data-table th:nth-child(4) {
-    position: relative;
-    left: -60px !important; 
 }
 
 .data-table td:nth-child(4) {
@@ -378,20 +372,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table td:nth-child(4) .status-pill {
     position: relative;
-    left: -60px !important; 
     display: inline-flex !important;
     font-size: 12px !important; 
     margin: 0 !important; 
 }
 
-/* 5. Kolom Aksi (Rata Kiri) */
+/* Kolom Aksi (Rata Kiri) */
 .data-table th:nth-child(5),
 .data-table td:nth-child(5) {
     width: 20%;
     text-align: left !important;
 }
 
-/* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */
+/* STATUS PILL */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
@@ -399,7 +392,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-/* ═══ STATUS BADGE (LEGACY - UNTUK MODAL DETAIL) ═══ */
+/* STATUS BADGE (LEGACY - UNTUK MODAL DETAIL) */
 .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .status-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .status-active { background: var(--green-lt); color: var(--green); }
@@ -407,7 +400,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .status-inactive { background: var(--red-lt); color: var(--red); }
 .status-inactive::before { background: var(--red); }
 
-/* ═══ ACTIONS (SAMAKAN DENGAN LAPANGAN) ═══ */
+/* ACTIONS */
 .actions { 
     display: flex;
     gap: 12px; 
@@ -441,7 +434,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     box-shadow: 0 6px 20px rgba(59,130,246,.35);
 }
 
-/* ═══ TOGGLE SWITCH (SAMAKAN DENGAN LAPANGAN) ═══ */
+/* TOGGLE SWITCH - DIPERBAIKI */
 .toggle-switch { 
     position: relative; 
     display: inline-flex;
@@ -450,15 +443,48 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     height: 24px;
     cursor: pointer;
     margin: 0;
+    flex-shrink: 0;
 }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
-.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
-.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
-.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
-.toggle-switch:hover .toggle-slider { opacity: .9; }
+.toggle-switch input { 
+    opacity: 0; 
+    width: 0; 
+    height: 0; 
+    position: absolute;
+}
+.toggle-slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0; 
+    background-color: var(--red); 
+    transition: .3s; 
+    border-radius: 24px; 
+}
+.toggle-slider::before { 
+    position: absolute; 
+    content: ""; 
+    height: 18px; 
+    width: 18px; 
+    left: 3px; 
+    bottom: 3px; 
+    background-color: white; 
+    transition: .3s; 
+    border-radius: 50%; 
+    box-shadow: 0 2px 4px rgba(0,0,0,.2); 
+}
+.toggle-switch input:checked + .toggle-slider { 
+    background-color: var(--green); 
+}
+.toggle-switch input:checked + .toggle-slider::before { 
+    transform: translateX(20px); 
+}
+.toggle-switch:hover .toggle-slider { 
+    opacity: .9; 
+}
 
-/* ═══ ZEBRA STRIPING & HOVER (SAMAKAN DENGAN LAPANGAN) ═══ */
+/* ZEBRA STRIPING & HOVER */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
@@ -483,14 +509,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 85vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
-/* Menyembunyikan scrollbar pada modal box */
-.modal-box {
-    -ms-overflow-style: none;  /* Untuk Internet Explorer dan Edge */
-    scrollbar-width: none;     /* Untuk Firefox */
-}
-.modal-box::-webkit-scrollbar {
-    display: none;             /* Untuk Chrome, Safari, dan Opera */
-}
+.modal-box { -ms-overflow-style: none; scrollbar-width: none; }
+.modal-box::-webkit-scrollbar { display: none; }
 .modal-header { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
 .modal-subtitle { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 4px; letter-spacing: .8px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); }
@@ -513,30 +533,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-submit:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
 
 html, body {
-    /* Untuk Firefox */
     scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
     -ms-overflow-style: none;
 }
 
-/* Untuk Chrome, Safari, dan Opera */
 html::-webkit-scrollbar, 
 body::-webkit-scrollbar {
     display: none;
 }
 
-/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
 .topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
-    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
-    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+    background-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
+    color: #4B5563 !important;
 }
 
 .topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
-    border-color: #9CA3AF !important;    /* Batas border saat diklik */
-    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
+    background-color: #D1D5DB !important;
+    border-color: #9CA3AF !important;
+    color: #1F2937 !important;
 }
 
 @media(max-width: 640px) {
@@ -557,9 +572,7 @@ body::-webkit-scrollbar {
     .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
-/* ============================================
-   FILTER - SAMA PERSIS KAYAK FASILITAS/LAPANGAN
-   ============================================ */
+/* FILTER */
 .filter-wrap { position: relative; display: inline-block; }
 .btn-filter { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: .5px; transition: all .2s ease; font-family: 'Barlow', sans-serif; }
 .btn-filter:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,69,0,.25); }
@@ -738,7 +751,7 @@ html.swal2-shown {
             </div>
             <div class="action-right">
                 <div class="filter-wrap">
-                    <?php if ($filter_jk > 0 || $filter_status != 'all'): ?>
+                    <?php if ($filter_jk >= 0 || $filter_status != 'all'): ?>
                     <span class="filter-active-badge"><i class="fa-solid fa-filter"></i> Filter Aktif</span>
                     <?php endif; ?>
                     <button class="btn-filter" id="btnFilterToggle">
@@ -779,9 +792,9 @@ html.swal2-shown {
                             <div class="filter-group">
                                 <label class="filter-label">Jenis Kelamin</label>
                                 <select name="jk" class="filter-select">
-                                    <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Semua Jenis Kelamin</option>
-                                    <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
-                                    <option value="2" <?= $filter_jk == 2 ? 'selected' : '' ?>>Perempuan</option>
+                                    <option value="-1" <?= $filter_jk == -1 ? 'selected' : '' ?>>Semua Jenis Kelamin</option>
+                                    <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Laki-laki</option>
+                                    <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Perempuan</option>
                                 </select>
                             </div>
 
@@ -855,7 +868,7 @@ html.swal2-shown {
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
                                     <label class="toggle-switch" title="<?= $status_int === 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                        <input type="checkbox" <?= $status_int === 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>', <?= $status_int ?>)">
+                                        <input type="checkbox" <?= $status_int === 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Customer'] ?>', '<?= htmlspecialchars($row['Nama_Customer']) ?>', <?= $status_int ?>, event)">
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
@@ -889,9 +902,8 @@ html.swal2-shown {
         <?php endif; ?>
     </div>
 </main>
-<!-- ============================================
-   MODAL DETAIL CUSTOMER
-   ============================================ -->
+
+<!-- MODAL DETAIL CUSTOMER -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: hidden;">
         <button class="modal-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
@@ -902,8 +914,8 @@ html.swal2-shown {
         <div class="modal-body" style="padding-top: 8px;">
             <?php if ($detail_data): 
                 $is_active = $detail_data['Status'] == 1;
-                $jk_icon = $detail_data['Jenis_Kelamin'] == 1 ? 'fa-mars' : 'fa-venus';
-                $jk_color = $detail_data['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
+                $jk_icon = $detail_data['Jenis_Kelamin'] == 0 ? 'fa-mars' : 'fa-venus';
+                $jk_color = $detail_data['Jenis_Kelamin'] == 0 ? 'var(--blue)' : 'var(--pink)';
             ?>
                 <div class="detail-photo-card">
                     <div class="detail-icon-wrap"><i class="fa-solid fa-user"></i></div>
@@ -948,9 +960,9 @@ html.swal2-shown {
                     <span class="info-key"><i class="fa-solid fa-shield-halved"></i> Status</span>
                     <span class="info-val">
                         <?php if ($is_active): ?>
-                            <span class="status-pill sp-ready"><span class="sp-dot"></span> AKTIF</span>
+                            <span class="status-badge status-active">AKTIF</span>
                         <?php else: ?>
-                            <span class="status-pill sp-maint"><span class="sp-dot"></span> NONAKTIF</span>
+                            <span class="status-badge status-inactive">NONAKTIF</span>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -964,9 +976,7 @@ html.swal2-shown {
 </div>
 
 <script>
-// ============================================
-// CLOCK / JAM
-// ============================================
+// CLOCK
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -991,18 +1001,12 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-
-// ============================================
 // MODAL FUNCTIONS
-// ============================================
 function closeDetail() { 
     window.location.href = 'customer.php'; 
 }
 
-
-// ============================================
 // SEARCH TABLE
-// ============================================
 function searchTable() {
     var input = document.getElementById('src').value.toUpperCase();
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
@@ -1018,21 +1022,20 @@ function searchTable() {
     }
 }
 
-
-// ============================================
-// TOGGLE CONFIRMATION
-// ============================================
-function confirmToggle(id, name, currentStatus) {
+// TOGGLE CONFIRMATION - DIPERBAIKI
+function confirmToggle(id, name, currentStatus, event) {
+    const checkbox = event.target;
     const newStatus = currentStatus === 1 ? 0 : 1;
     const statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
     const icon = newStatus === 1 ? 'success' : 'warning';
+    const confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
 
     Swal.fire({
         title: 'Ubah Status?',
         html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
         icon: icon,
         showCancelButton: true,
-        confirmButtonColor: newStatus === 1 ? '#10B981' : '#EF4444',
+        confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
         confirmButtonText: 'Ya, Ubah!',
         cancelButtonText: 'Batal',
@@ -1051,14 +1054,13 @@ function confirmToggle(id, name, currentStatus) {
             setTimeout(() => {
                 window.location.href = '?toggle_id=' + id;
             }, 600);
+        } else {
+            checkbox.checked = !checkbox.checked;
         }
     });
 }
 
-
-// ============================================
 // FILTER DROPDOWN
-// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const btnFilterToggle = document.getElementById('btnFilterToggle');
     const filterCard = document.getElementById('filterCard');
@@ -1100,10 +1102,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-
-// ============================================
-// URL PARAMETER NOTIFICATION (Status & Msg)
-// ============================================
+    // URL PARAMETER NOTIFICATION
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');

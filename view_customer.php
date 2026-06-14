@@ -1,24 +1,87 @@
 <?php
+// ============================================================================
+// BUFFER OUTPUT — Agar header() bisa dipanggil kapan saja tanpa error
+// ============================================================================
+ob_start();
+
 session_start();
 include 'includes/auth_helper.php';
 include 'includes/config.php';
-cek_akses('customer');
 
-// --- HARD DELETE AKUN CUSTOMER ---
+// ============================================================================
+// HARD DELETE AKUN CUSTOMER — Soft Delete di DB, Hard Delete di Program
+// ============================================================================
 if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
-    $id_customer = $_SESSION['id_customer'] ?? '';
-    $nama = $_SESSION['nama'] ?? '';
+    $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 
     if (!empty($id_customer)) {
-        // Hapus data customer dari database
-        $stmt = sqlsrv_query($conn, "DELETE FROM Customer WHERE ID_Customer = ?", array($id_customer));
+        // SOFT DELETE: Update Is_Deleted = 1, Status = 0 (data masih ada di DB)
+        $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
+
+        $stmt = sqlsrv_query($conn, 
+            "UPDATE Customer SET 
+                Is_Deleted = 1, 
+                Status = 0, 
+                Deleted_By = ?, 
+                Deleted_Date = GETDATE() 
+             WHERE ID_Customer = ? AND Is_Deleted = 0", 
+            array($modified_by, $id_customer)
+        );
+
         if ($stmt) {
-            // Hapus session dan redirect ke login
+            // ========================================
+            // DESTROY SESSION — Logout total
+            // ========================================
+            $_SESSION = array();
+
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params['path'], $params['domain'],
+                    $params['secure'], $params['httponly']
+                );
+            }
+
             session_destroy();
-            header("Location: login.php?status=success&msg=Akun berhasil dihapus. Terima kasih telah menggunakan layanan kami!");
+            setcookie('remember_me', '', time() - 3600, "/");
+
+            ob_end_clean();
+            header("Location: login.php?status=success&msg=Akun Anda telah dihapus permanen. Anda harus mendaftar ulang untuk menggunakan layanan kami.");
             exit();
         } else {
+            ob_end_clean();
             header("Location: view_customer.php?status=error&msg=Gagal menghapus akun. Silakan coba lagi.");
+            exit();
+        }
+    } else {
+        ob_end_clean();
+        header("Location: login.php?status=error&msg=Sesi tidak valid. Silakan login kembali.");
+        exit();
+    }
+}
+
+// ============================================================================
+// CEK AKSES — Baru dicek setelah proses hapus akun selesai
+// ============================================================================
+cek_akses('customer');
+
+// ============================================================================
+// CEK: Jika customer sudah di-soft-delete, force logout
+// ============================================================================
+$id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
+if (!empty($id_customer)) {
+    $cek_deleted = sqlsrv_query($conn, 
+        "SELECT Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
+        array($id_customer)
+    );
+    if ($cek_deleted) {
+        $row_del = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
+        if ($row_del && ($row_del['Is_Deleted'] == 1 || $row_del['Status'] == 0)) {
+            $_SESSION = array();
+            session_destroy();
+            setcookie('remember_me', '', time() - 3600, "/");
+            ob_end_clean();
+            header("Location: login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
             exit();
         }
     }
@@ -88,7 +151,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
         .nav-logo:hover .nav-logo-img {
             transform: scale(1.05);
         }
-        
+
         .nav-links {
             display: flex;
             align-items: center;
@@ -130,7 +193,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
         }
         .nav-user:hover { color: var(--orange); }
         .nav-user i.arrow { font-size: 11px; color: #888; transition: 0.3s; }
-        
+
         .nav-user-container:hover i.arrow { transform: rotate(180deg); color: var(--orange); }
 
         .dropdown-menu {
@@ -585,7 +648,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
         <a href="#">Promo</a>
         <a href="#">Tentang Kami</a>
     </div>
-    
+
     <!-- Bagian User Dropdown yang Baru -->
     <div class="nav-user-container">
         <div class="nav-user">
@@ -764,13 +827,15 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 
 <script>
 // ============================================
-// HAPUS AKUN CONFIRMATION
+// HARD DELETE AKUN CONFIRMATION
 // ============================================
 function confirmHapusAkun(e) {
     e.preventDefault();
     Swal.fire({
-        title: 'Hapus Akun?',
-        html: '<strong style="color:#DC2626;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>Semua data Anda akan dihapus secara permanen dari sistem.',
+        title: 'Hapus Akun Permanen?',
+        html: '<strong style="color:#DC2626;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
+              'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
+              '<span style="color:#6B7280; font-size:12px;">Data akan dihapus secara permanen.</span>',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#DC2626',
@@ -778,20 +843,31 @@ function confirmHapusAkun(e) {
         confirmButtonText: 'Ya, Hapus Akun Saya!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
-        allowOutsideClick: false
+        allowOutsideClick: false,
+        allowEscapeKey: false
     }).then((result) => {
         if (result.isConfirmed) {
+            let timerInterval;
             Swal.fire({
-                title: 'Memproses...',
-                text: 'Menghapus akun Anda',
+                title: 'Menghapus Akun...',
+                html: 'Mohon tunggu, akun Anda sedang diproses.<br><b></b>',
+                timer: 2000,
+                timerProgressBar: true,
                 allowOutsideClick: false,
+                allowEscapeKey: false,
                 didOpen: () => {
                     Swal.showLoading();
+                    const timer = Swal.getHtmlContainer().querySelector('b');
+                    timerInterval = setInterval(() => {
+                        timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
+                    }, 100);
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
                 }
-            });
-            setTimeout(() => {
+            }).then(() => {
                 window.location.href = '?hapus_akun=1';
-            }, 1000);
+            });
         }
     });
 }
@@ -809,12 +885,16 @@ if (status && msg) {
         icon: isSuccess ? 'success' : 'error',
         title: isSuccess ? 'Berhasil!' : 'Gagal!',
         text: msg,
-        timer: 3000,
+        timer: 5000,
         showConfirmButton: false,
         toast: true,
         position: 'top-end',
         timerProgressBar: true,
-        showCloseButton: true
+        showCloseButton: true,
+        background: '#ffffff',
+        color: '#1e293b',
+        iconColor: isSuccess ? '#16A34A' : '#DC2626',
+        customClass: { popup: 'swal-toast' }
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
