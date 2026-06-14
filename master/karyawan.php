@@ -536,19 +536,20 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* DETAIL MODAL */
 .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .detail-modal-overlay.open { display: flex; }
-.detail-modal-box { background: #fff; border-radius: 20px; width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; }
+.detail-modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 95vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; -ms-overflow-style: none; scrollbar-width: none; }
+.detail-modal-box::-webkit-scrollbar { display: none; }
 .detail-modal-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 14px; }
 .detail-modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
-.detail-photo-card { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
-.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
-.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); text-transform: uppercase; }
-.info-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-lt); }
+.detail-photo-card { text-align: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1.5px dashed var(--border); }
+.detail-icon-wrap { width: 56px; height: 56px; background: var(--orange-lt); color: var(--orange); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 8px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+.info-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-lt); gap: 12px; }
 .info-row:last-child { border-bottom: none; }
-.info-key { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
-.info-val { font-size: 13px; font-weight: 700; color: var(--text); }
-.info-val-mono { font-family: 'Barlow Condensed'; font-size: 14px; font-weight: 800; color: var(--orange); }
-.btn-kembali { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #0D1117; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; font-family: 'Barlow', sans-serif; text-transform: uppercase; cursor: pointer; transition: .2s; margin-top: 20px; }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; min-width: 140px; flex-shrink: 0; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; flex: 1; word-break: break-word; }
+.info-val-mono { font-family: 'Barlow Condensed'; font-size: 16px; font-weight: 800; color: var(--orange); text-align: right; }
+.btn-kembali { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #0D1117; color: #fff; border: none; padding: 12px; border-radius: 10px; font-size: 13px; font-weight: 800; font-family: 'Barlow', sans-serif; text-transform: uppercase; letter-spacing: .5px; cursor: pointer; transition: .2s; margin-top: 16px; }
 .btn-kembali:hover { background: var(--orange); }
 
 /* FILTER DROPDOWN */
@@ -745,16 +746,16 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 <!-- DETAIL MODAL -->
 <div class="detail-modal-overlay" id="detailModal" onclick="closeDetail(event)">
     <div class="detail-modal-box" onclick="event.stopPropagation()">
-        <div style="position: sticky; top: 0; background: white; z-index: 20; padding: 24px 28px 15px; border-bottom: 1px solid rgba(0,0,0,0.03);">
+        <div class="modal-head" style="padding: 20px 24px 12px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <div class="modal-subtitle" style="letter-spacing: 1px;">Informasi Karyawan</div>
-                    <div class="modal-title" style="line-height: 1;">Profil Karyawan</div>
+                    <div class="modal-tag">Informasi Karyawan</div>
+                    <div class="modal-title">Profil Karyawan</div>
                 </div>
                 <button class="detail-modal-close" onclick="closeDetail()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-        <div style="padding: 10px 28px 28px;">
+        <div class="modal-body" style="padding: 12px 24px 20px;">
             <div class="detail-photo-card">
                 <div class="detail-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
                 <div class="detail-main-name" id="dNameHeader">-</div>
@@ -767,7 +768,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span><span class="info-val" id="dEmail">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</span><span class="info-val" id="dTempatLahir">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal Lahir</span><span class="info-val" id="dTanggalLahir">-</span></div>
-                <div class="info-row" style="align-items: flex-start;"><span class="info-key"><i class="fa-solid fa-map-location-dot"></i> Alamat</span><span class="info-val" id="dAlamat" style="text-align: right; max-width: 220px; line-height: 1.4;">-</span></div>
+                <div class="info-row"><span class="info-key"><i class="fa-solid fa-map-location-dot"></i> Alamat</span><span class="info-val" id="dAlamat">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-venus-mars"></i> Jenis Kelamin</span><span class="info-val" id="dJK">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-briefcase"></i> Jabatan</span><span class="info-val" id="dJabatan">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-phone"></i> No. Telepon</span><span class="info-val" id="dTelp">-</span></div>
@@ -1321,12 +1322,12 @@ function openDetail(id, nama, username, password, email, jk, tempatLahir, tangga
 
     const jkColor = jk == '1' ? '#3B82F6' : '#EC4899';
     const jkBg = jk == '1' ? '#EFF6FF' : '#FDF2F8';
-    document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;">${mapJK[jk] || '-'}</span>`;
+    document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-block;">${mapJK[jk] || '-'}</span>`;
     document.getElementById('dJabatan').innerHTML = `<span class="jabatan-badge">${jabatan}</span>`;
 
     const isAktif = (status === 'Aktif');
     document.getElementById('dStatus').innerHTML = `
-        <span class="status-pill ${isAktif ? 'sp-active' : 'sp-inactive'}" style="background: ${isAktif ? 'var(--green-lt)' : 'var(--red-lt)'}; color: ${isAktif ? 'var(--green)' : 'var(--red)'}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px;">
+        <span class="status-pill ${isAktif ? 'sp-active' : 'sp-inactive'}" style="background: ${isAktif ? 'var(--green-lt)' : 'var(--red-lt)'}; color: ${isAktif ? 'var(--green)' : 'var(--red)'}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-block;">
             <i class="fa-solid ${isAktif ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${status.toUpperCase()}
         </span>`;
 

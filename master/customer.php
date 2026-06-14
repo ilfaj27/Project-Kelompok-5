@@ -508,7 +508,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
-.modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 85vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 95vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; -ms-overflow-style: none; scrollbar-width: none; }
+.modal-box::-webkit-scrollbar { display: none; }
 .modal-box { -ms-overflow-style: none; scrollbar-width: none; }
 .modal-box::-webkit-scrollbar { display: none; }
 .modal-header { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
@@ -519,14 +520,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
 .detail-photo-card { text-align: center; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1.5px dashed var(--border); }
-.detail-icon-wrap { width: 60px; height: 60px; background: var(--orange-lt); color: var(--orange); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
-.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+.detail-icon-wrap { width: 64px; height: 64px; background: var(--orange-lt); color: var(--orange); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 12px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-.info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
+.info-row { display: flex; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border-lt); gap: 12px; }
 .info-row:last-child { border-bottom: none; }
-.info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
-.info-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; min-width: 140px; flex-shrink: 0; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; flex: 1; word-break: break-word; }
 .info-val.id-code { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 
 .btn-submit { width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -905,13 +906,13 @@ html.swal2-shown {
 
 <!-- MODAL DETAIL CUSTOMER -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
-    <div class="modal-box" style="width: 420px; max-height: 85vh; overflow-y: hidden;">
+    <div class="modal-box" style="width: 420px; max-height: 95vh; overflow-y: auto;">
         <button class="modal-close" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-header" style="border-bottom: none; padding-bottom: 0; padding-top: 20px;">
+        <div class="modal-header" style="padding: 20px 24px 10px; border-bottom: 1px solid var(--border);">
             <div class="modal-subtitle">Informasi Pelanggan</div>
             <div class="modal-title">Profil Customer</div>
         </div>
-        <div class="modal-body" style="padding-top: 8px;">
+        <div class="modal-body" style="padding: 12px 24px 20px;">
             <?php if ($detail_data): 
                 $is_active = $detail_data['Status'] == 1;
                 $jk_icon = $detail_data['Jenis_Kelamin'] == 0 ? 'fa-mars' : 'fa-venus';
@@ -936,7 +937,7 @@ html.swal2-shown {
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-venus-mars" style="color:<?= $jk_color ?>"></i> Jenis Kelamin</span>
-                    <span class="info-val" style="color:<?= $jk_color ?>; font-weight:800;">
+                    <span class="info-val" style="color:<?= $jk_color ?>;">
                         <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($detail_data['Jenis_Kelamin']) ?>
                     </span>
                 </div>
@@ -950,7 +951,7 @@ html.swal2-shown {
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-map-location-dot"></i> Alamat</span>
-                    <span class="info-val" style="max-width: 200px; text-align: right;"><?= htmlspecialchars($detail_data['Alamat'] ?? '-') ?></span>
+                    <span class="info-val"><?= htmlspecialchars($detail_data['Alamat'] ?? '-') ?></span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-phone"></i> No. Telepon</span>
@@ -968,7 +969,7 @@ html.swal2-shown {
                 </div>
             <?php endif; ?>
 
-            <button onclick="closeDetail()" class="btn-submit" style="margin-top: 16px; background: #0D1117;">
+            <button onclick="closeDetail()" class="btn-submit" style="margin-top: 12px; background: #0D1117;">
                 <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
             </button>
         </div>
