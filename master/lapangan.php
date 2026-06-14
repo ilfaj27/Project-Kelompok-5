@@ -67,11 +67,40 @@ function safe_sqlsrv_has_rows($stmt) {
 // --- PROSES CRUD (KODE BARU: CEK NAMA DUPLIKAT & AUTO-GENERATE ID) ---
 if (isset($_POST['save_lapangan'])) {
     $id = $_POST['id_lap'];
-    $nama_lapangan = trim($_POST['nama_arena']); 
-    $harga = floatval($_POST['harga']);
+    $nama_lapangan = isset($_POST['nama_arena']) ? trim($_POST['nama_arena']) : ''; 
+    $harga_input = isset($_POST['harga']) ? trim($_POST['harga']) : '';
 
-    // SEBAIKNYA TIDAK BOLEH DUPLIKAT: Cari apakah ada nama lapangan yang sama di database
-    // (Jika mengedit, izinkan jika nama sama dengan ID-nya sendiri)
+    // Validasi Nama Lapangan (Wajib, minimal 3 karakter, maksimal 50 karakter, hanya huruf dan spasi)
+    if ($nama_lapangan === '') {
+        header("Location: lapangan.php?page=1&status=error&msg=Nama lapangan wajib diisi!");
+        exit();
+    }
+    if (strlen($nama_lapangan) < 3 || strlen($nama_lapangan) > 50) {
+        header("Location: lapangan.php?page=1&status=error&msg=Nama lapangan harus antara 3 sampai 50 karakter!");
+        exit();
+    }
+    if (!preg_match('/^[a-zA-Z\s]+$/', $nama_lapangan)) {
+        header("Location: lapangan.php?page=1&status=error&msg=Nama lapangan hanya boleh berisi huruf dan spasi!");
+        exit();
+    }
+
+    // Validasi Harga Sewa (Wajib, hanya angka murni, minimal Rp10.000, maksimal Rp10.000.000)
+    if ($harga_input === '') {
+        header("Location: lapangan.php?page=1&status=error&msg=Harga sewa wajib diisi!");
+        exit();
+    }
+    if (!preg_match('/^\d+$/', $harga_input)) {
+        header("Location: lapangan.php?page=1&status=error&msg=Harga sewa hanya boleh berisi angka tanpa simbol!");
+        exit();
+    }
+    
+    $harga = intval($harga_input);
+    if ($harga < 10000 || $harga > 10000000) {
+        header("Location: lapangan.php?page=1&status=error&msg=Harga sewa minimal Rp10.000 dan maksimal Rp10.000.000!");
+        exit();
+    }
+
+    // Cari apakah ada nama lapangan yang sama di database
     $sql_check_name = "SELECT ID_Lapangan FROM Lapangan WHERE Nama_Lapangan = ? AND ID_Lapangan <> ?";
     $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_lapangan, $id), false);
 
@@ -1314,14 +1343,16 @@ function validateForm() {
     const valHarga = document.getElementById('val-harga');
 
     const namaVal = nama.value.trim();
-    const onlyNumbers = /^[0-9\s]+$/;
 
+    // 1. Validasi Nama Lapangan (Minimal 3, maksimal 50, hanya huruf dan spasi)
     nama.classList.remove('error');
     valNama.classList.remove('show');
 
-    if (namaVal === '') {
+    const validNameRegex = /^[a-zA-Z\s]+$/;
+
+    if (nama.value === '' || namaVal === '') {
         nama.classList.add('error');
-        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan wajib diisi';
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan tidak boleh kosong atau hanya berisi spasi';
         valNama.classList.add('show');
         valid = false;
     } else if (namaVal.length < 3) {
@@ -1334,15 +1365,17 @@ function validateForm() {
         valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan maksimal 50 karakter';
         valNama.classList.add('show');
         valid = false;
-    } else if (onlyNumbers.test(namaVal)) {
+    } else if (!validNameRegex.test(namaVal)) {
         nama.classList.add('error');
-        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan tidak valid';
+        valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama lapangan hanya boleh berisi huruf dan spasi';
         valNama.classList.add('show');
         valid = false;
     }
 
-    const hargaVal = harga.value.trim();
-    const hargaNum = Number(hargaVal);
+    // 2. Validasi Harga Sewa (Hanya angka murni, minimal 10.000, maksimal 10.000.000)
+    const hargaRaw = harga.value;
+    const hargaVal = hargaRaw.trim();
+    const onlyDigitsRegex = /^\d+$/;
 
     harga.classList.remove('error');
     valHarga.classList.remove('show');
@@ -1352,31 +1385,29 @@ function validateForm() {
         valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa wajib diisi';
         valHarga.classList.add('show');
         valid = false;
-    } else if (isNaN(hargaNum)) {
+    } else if (!onlyDigitsRegex.test(hargaVal)) {
         harga.classList.add('error');
-        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa harus berupa angka';
+        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa hanya boleh berisi angka murni (tanpa titik, koma, huruf, atau simbol)';
         valHarga.classList.add('show');
         valid = false;
-    } else if (hargaNum < 0) {
-        harga.classList.add('error');
-        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa tidak boleh negatif';
-        valHarga.classList.add('show');
-        valid = false;
-    } else if (hargaNum === 0) {
-        harga.classList.add('error');
-        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa harus lebih dari 0';
-        valHarga.classList.add('show');
-        valid = false;
-    } else if (hargaNum < 50000) {
-        harga.classList.add('error');
-        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa terlalu kecil (Minimal Rp50.000)';
-        valHarga.classList.add('show');
-        valid = false;
-    } else if (hargaNum > 1000000) {
-        harga.classList.add('error');
-        valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa terlalu besar (Maksimal Rp1.000.000)';
-        valHarga.classList.add('show');
-        valid = false;
+    } else {
+        const hargaNum = parseInt(hargaVal, 10);
+        if (hargaNum === 0) {
+            harga.classList.add('error');
+            valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa tidak boleh bernilai 0';
+            valHarga.classList.add('show');
+            valid = false;
+        } else if (hargaNum < 10000) {
+            harga.classList.add('error');
+            valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa minimal Rp 10.000';
+            valHarga.classList.add('show');
+            valid = false;
+        } else if (hargaNum > 10000000) {
+            harga.classList.add('error');
+            valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga sewa maksimal Rp 10.000.000';
+            valHarga.classList.add('show');
+            valid = false;
+        }
     }
 
     return valid;
