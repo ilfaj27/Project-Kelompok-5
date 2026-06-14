@@ -106,19 +106,19 @@ if (isset($_POST['add_karyawan'])) {
 
     $checkID = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE ID_Karyawan=?", array($id_kry), false);
     if ($checkID && safe_sqlsrv_has_rows($checkID)) {
-        header("Location: karyawan.php?status=error&msg=ID Karyawan sudah terdaftar!");
+        header("Location: karyawan.php?add=1");
         exit();
     }
 
     $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND Is_Deleted=0", array($username), false);
     if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?status=error&msg=Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.");
+        header("Location: karyawan.php?add=1");
         exit();
     }
 
     $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND Is_Deleted=0", array($telp), false);
     if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?status=error&msg=Nomor telepon sudah terdaftar! Gunakan nomor lain.");
+        header("Location: karyawan.php?add=1");
         exit();
     }
 
@@ -130,7 +130,7 @@ if (isset($_POST['add_karyawan'])) {
         false
     );
 
-    header($stmt ? "Location: karyawan.php?status=success&msg=Karyawan baru berhasil didaftarkan!" : "Location: karyawan.php?status=error&msg=Gagal menambahkan data!");
+    header("Location: karyawan.php");
     exit();
 }
 
@@ -152,13 +152,13 @@ if (isset($_POST['update_karyawan'])) {
 
     $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $_POST['id_kry']), false);
     if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?status=error&msg=Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.");
+        header("Location: karyawan.php?add=1");
         exit();
     }
 
     $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND ID_Karyawan<>? AND Is_Deleted=0", array($telp, $_POST['id_kry']), false);
     if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?status=error&msg=Nomor telepon sudah terdaftar! Gunakan nomor lain.");
+        header("Location: karyawan.php?add=1");
         exit();
     }
 
@@ -352,6 +352,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
 .sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
@@ -488,7 +489,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* MODAL */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
-.modal-box { background: #fff; border-radius: 20px; width: 680px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-box { background: #fff; border-radius: 20px; width: 680px; max-width: 95vw; max-height: 90vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-box::-webkit-scrollbar { display: none; }
 .modal-head { padding: 28px 32px 24px; border-bottom: 1px solid var(--border); }
 .modal-tag { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); }
@@ -516,10 +518,11 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 .detail-modal-overlay.open { display: flex; }
 .detail-modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 95vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; -ms-overflow-style: none; scrollbar-width: none; }
 .detail-modal-box::-webkit-scrollbar { display: none; }
+.detail-modal-box::-webkit-scrollbar { display: none; }
 .detail-modal-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 14px; }
 .detail-modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
 .detail-photo-card { text-align: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1.5px dashed var(--border); }
-.detail-icon-wrap { width: 56px; height: 56px; background: var(--orange-lt); color: var(--orange); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 8px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); }
+.detail-icon-wrap { width: 56px; height: 56px; background: var(--orange-lt); color: var(--orange); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 12px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); border-bottom: 3px solid var(--orange); padding-bottom: 4px; }
 .detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 .info-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-lt); gap: 12px; }
 .info-row:last-child { border-bottom: none; }
@@ -723,7 +726,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         </div>
         <div class="modal-body" style="padding: 12px 24px 20px;">
             <div class="detail-photo-card">
-                <div class="detail-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
+                <div class="detail-icon-wrap"><i class="fa-solid fa-eye"></i></div>
                 <div class="detail-main-name" id="dNameHeader">-</div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -1129,10 +1132,6 @@ function validateForm(form) {
     const tglLahir = document.getElementById('tanggal_lahir');
     if (tglLahir && !validateDate(tglLahir)) {
         valid = false;
-    }
-
-    if (!valid) {
-        showToast('error', 'Validasi Gagal', 'Mohon periksa kembali form yang ditandai merah');
     }
 
     return valid;

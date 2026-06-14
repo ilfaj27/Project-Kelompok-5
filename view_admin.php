@@ -34,7 +34,10 @@ if (!empty($profile_photo) && !file_exists($profile_photo)) {
 // Helper function
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
-    if ($stmt === false) return null;
+    if ($stmt === false) {
+        error_log("SQL Error: " . print_r(sqlsrv_errors(), true));
+        return null;
+    }
     return $stmt;
 }
 function safeFetch($stmt) {
@@ -42,74 +45,89 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-// ── STATISTIK KARYAWAN SESUAI PROSES BISNIS ──
+// ═══════════════════════════════════════════════════════════
+// STATISTIK KARYAWAN - TANPA FILTER TANGGAL HARI INI
+// ═══════════════════════════════════════════════════════════
+
+// 1. Total Customer
 $total_customer = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_customer = $d['total'] ?? 0;
 
+// 2. Total Booking (Semua Waktu)
+$total_booking = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking");
+$d = safeFetch($q); if ($d) $total_booking = $d['total'] ?? 0;
+
+// 3. Booking Hari Ini (tetap tampilkan 0 jika tidak ada)
 $total_booking_today = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE) AND Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)");
 $d = safeFetch($q); if ($d) $total_booking_today = $d['total'] ?? 0;
 
+// 4. Total Langganan
 $total_langganan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan");
 $d = safeFetch($q); if ($d) $total_langganan = $d['total'] ?? 0;
 
+// 5. Total Pembelian
 $total_pembelian = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat");
 $d = safeFetch($q); if ($d) $total_pembelian = $d['total'] ?? 0;
 
+// 6. Total Pembatalan
 $total_pembatalan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan_Booking WHERE Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan_Booking");
 $d = safeFetch($q); if ($d) $total_pembatalan = $d['total'] ?? 0;
 
+// 7. Total Omzet (Semua Booking Berhasil/Selesai)
 $total_omzet = 0;
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2) AND Is_Deleted = 0");
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
 $d = safeFetch($q); if ($d) $total_omzet = $d['total'] ?? 0;
 
+// 8. Total Alat
 $total_alat = 0; $total_alat_aktif = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_alat = $d['total'] ?? 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_alat_aktif = $d['total'] ?? 0;
 
-// ── DATA PROMO AKTIF ──
-$promo_aktif = [];
-$q = safeQuery($conn, "SELECT TOP 5 ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai 
-    FROM Promo 
-    WHERE Status = 1 AND Is_Deleted = 0 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)
-    ORDER BY Tanggal_Mulai DESC");
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $promo_aktif[] = $row;
-    }
-}
-
-// ── CHART DATA: Booking 7 Hari Terakhir ──
-$chart_labels = []; $chart_data = [];
-for ($i = 6; $i >= 0; $i--) {
-    $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(DATEADD(day, -?, GETDATE()) AS DATE) AND Is_Deleted = 0", array($i));
+// ═══════════════════════════════════════════════════════════
+// CHART DATA: Booking per Status (Bar Chart)
+// ═══════════════════════════════════════════════════════════
+$chart_labels = ['Menunggu', 'Berhasil', 'Selesai', 'Dibatalkan'];
+$chart_data = [];
+for ($i = 0; $i <= 3; $i++) {
+    $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = ?", array($i));
     $d = safeFetch($q);
     $chart_data[] = $d ? ($d['total'] ?? 0) : 0;
-    $chart_labels[] = date('D', strtotime("-$i days"));
 }
 
-// ── DATA BOOKING TERBARU ──
+// ═══════════════════════════════════════════════════════════
+// DATA BOOKING TERBARU (Top 5)
+// ═══════════════════════════════════════════════════════════
 $recent_booking = [];
-$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar 
-    FROM Booking b 
-    JOIN Customer c ON b.ID_Customer = c.ID_Customer 
-    WHERE b.Is_Deleted = 0 
-    ORDER BY b.ID_Booking DESC");
+$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar FROM Booking b JOIN Customer c ON b.ID_Customer = c.ID_Customer ORDER BY b.Created_Date DESC");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_booking[] = $row;
     }
 }
 
+// ═══════════════════════════════════════════════════════════
+// DATA PROMO AKTIF
+// ═══════════════════════════════════════════════════════════
+$promo_aktif = [];
+$q = safeQuery($conn, "SELECT TOP 5 ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai FROM Promo WHERE Status = 1 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE) ORDER BY Tanggal_Mulai DESC");
+if ($q !== null) {
+    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+        $promo_aktif[] = $row;
+    }
+}
+
 function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 
 function formatTanggal($tanggal) {
+    if (empty($tanggal)) return '-';
     if (is_object($tanggal) && method_exists($tanggal, 'format')) {
         return $tanggal->format('d M Y');
     }
@@ -165,7 +183,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
 .sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
-.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -180,24 +198,18 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.topbar-btn, .topbar-user {
-    background-color: #FFFFFF !important;
-}
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
-.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
-/* Mendukung pembukaan menu dropdown via klik */
-.dropdown-wrap.active .dropdown-menu { 
-    display: block; 
-}
+.dropdown-wrap.active .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -310,32 +322,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-html, body {
-    /* Untuk Firefox */
-    scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
-    -ms-overflow-style: none;
-}
-
-/* Untuk Chrome, Safari, dan Opera */
-html::-webkit-scrollbar, 
-body::-webkit-scrollbar {
-    display: none;
-}
-
-/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
-.topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
-    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
-    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
-}
-
-.topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
-    border-color: #9CA3AF !important;    /* Batas border saat diklik */
-    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
-}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -473,15 +461,17 @@ body::-webkit-scrollbar {
         <div class="wb-icon"><i class="fa-solid fa-basketball"></i></div>
     </div>
 
-    <!-- Statistik Karyawan -->
+    <!-- ═══════════════════════════════════════════════════════════
+         STATISTIK UTAMA - SELALU TAMPIL KARENA TANPA FILTER TANGGAL
+         ═══════════════════════════════════════════════════════════ -->
     <div class="stat-grid">
         <div class="stat-card sc-blue">
             <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
             <div class="stat-value"><?= $total_customer ?></div><div class="stat-label">Total Customer</div><div class="stat-sublabel">Customer terdaftar</div>
         </div>
         <div class="stat-card sc-green">
-            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Hari Ini</div></div>
-            <div class="stat-value"><?= $total_booking_today ?></div><div class="stat-label">Booking Hari Ini</div><div class="stat-sublabel">Transaksi hari ini</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
+            <div class="stat-value"><?= $total_booking ?></div><div class="stat-label">Total Booking</div><div class="stat-sublabel">Semua transaksi</div>
         </div>
         <div class="stat-card sc-orange">
             <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-crown"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
@@ -495,36 +485,34 @@ body::-webkit-scrollbar {
 
     <!-- Chart & Ringkasan -->
     <div class="chart-section">
-        <!-- Kolom Kiri: Booking Chart -->
         <div class="chart-card">
             <div class="chart-header">
-                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking 7 Hari Terakhir</div>
+                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking per Status</div>
                 <span class="chart-badge"><?= array_sum($chart_data) ?> Total</span>
             </div>
             <div class="chart-container"><canvas id="bookingChart"></canvas></div>
         </div>
 
-        <!-- Kolom Kanan: Ringkasan Operasional -->
         <div class="chart-card" style="display: flex; flex-direction: column; height: 100%;">
             <div class="chart-header">
                 <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div>
             </div>
-            <div class="mini-stat-row" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 12px; flex-grow: 1;">
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+            <div class="mini-stat-row" style="flex-grow: 1;">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
                     <div class="mini-stat-label">Booking Hari Ini</div>
-                    <div class="mini-stat-value orange"><?= $total_booking_today ?></div>
+                    <div class="mini-stat-value <?= $total_booking_today > 0 ? 'orange' : '' ?>"><?= $total_booking_today ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
                     <div class="mini-stat-label">Total Pembatalan</div>
                     <div class="mini-stat-value red"><?= $total_pembatalan ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
                     <div class="mini-stat-label">Alat Tersedia</div>
                     <div class="mini-stat-value"><?= $total_alat_aktif ?> / <?= $total_alat ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
-                    <div class="mini-stat-label">Total Omzet</div>
-                    <div class="mini-stat-value"><?= rupiahFormat($total_omzet) ?></div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="mini-stat-label">Total Pembelian</div>
+                    <div class="mini-stat-value"><?= $total_pembelian ?></div>
                 </div>
             </div>
         </div>
@@ -592,7 +580,6 @@ body::-webkit-scrollbar {
 </main>
 
 <script>
-// Mengaktifkan interaksi klik/tekan pada dropdown profil user
 document.addEventListener('DOMContentLoaded', function () {
     const userDropdown = document.querySelector('.dropdown-wrap');
     if (userDropdown) {
@@ -601,12 +588,8 @@ document.addEventListener('DOMContentLoaded', function () {
             this.classList.toggle('active');
         });
     }
-
-    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
     document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
+        if (userDropdown) userDropdown.classList.remove('active');
     });
 });
 
@@ -630,10 +613,20 @@ new Chart(ctx, {
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [{
-            label: 'Booking',
+            label: 'Jumlah Booking',
             data: <?= json_encode($chart_data) ?>,
-            backgroundColor: 'rgba(255, 69, 0, 0.8)',
-            borderColor: '#FF4500',
+            backgroundColor: [
+                'rgba(245, 158, 11, 0.8)',   // Menunggu - Kuning
+                'rgba(16, 185, 129, 0.8)',   // Berhasil - Hijau
+                'rgba(59, 130, 246, 0.8)',   // Selesai - Biru
+                'rgba(239, 68, 68, 0.8)'     // Dibatalkan - Merah
+            ],
+            borderColor: [
+                '#F59E0B',
+                '#10B981',
+                '#3B82F6',
+                '#EF4444'
+            ],
             borderWidth: 2,
             borderRadius: 8,
             borderSkipped: false,
@@ -653,7 +646,7 @@ new Chart(ctx, {
                 displayColors: false,
                 callbacks: {
                     label: function(context) {
-                        return 'Booking: ' + context.parsed.y + ' transaksi';
+                        return context.label + ': ' + context.parsed.y + ' booking';
                     }
                 }
             }

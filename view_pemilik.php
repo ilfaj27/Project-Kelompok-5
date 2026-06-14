@@ -20,6 +20,7 @@ if (!empty($profile_photo) && !file_exists($profile_photo)) {
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
+        error_log("SQL Error: " . print_r(sqlsrv_errors(), true));
         return null;
     }
     return $stmt;
@@ -30,70 +31,149 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-// ── STATISTIK MANAJEMEN ──
+// ============================================================
+// STATISTIK PEMILIK - FOKUS: KARYAWAN, CUSTOMER, ALAT, OMZET
+// ============================================================
 
 // 1. Total Karyawan Aktif
+$total_karyawan = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q);
-$total_karyawan = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_karyawan = $d['total'] ?? 0;
 
-// 4. Total Alat/Stok Rendah
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Stok < 10");
+// 2. Total Karyawan Nonaktif
+$total_karyawan_nonaktif = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Status = 0 AND Is_Deleted = 0");
 $d = safeFetch($q);
-$stok_rendah = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_karyawan_nonaktif = $d['total'] ?? 0;
 
-// 5. Total Booking Hari Ini (untuk ringkasan)
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)");
+// 3. Total Customer
+$total_customer = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
 $d = safeFetch($q);
-$total_booking_today = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_customer = $d['total'] ?? 0;
 
-// 6. Pendapatan Hari Ini
-$q = safeQuery($conn, "SELECT SUM(Total_Harga) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE) AND Status_Booking = 'confirmed'");
+// 4. Total Customer Aktif
+$total_customer_aktif = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q);
-$pendapatan_hari = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_customer_aktif = $d['total'] ?? 0;
 
-// 7. Pendapatan Bulan Ini
-$q = safeQuery($conn, "SELECT SUM(Total_Harga) as total FROM Booking WHERE MONTH(Tanggal_Booking) = MONTH(GETDATE()) AND YEAR(Tanggal_Booking) = YEAR(GETDATE()) AND Status_Booking = 'confirmed'");
+// 5. Total Alat
+$total_alat = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
 $d = safeFetch($q);
-$pendapatan_bulan = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_alat = $d['total'] ?? 0;
 
-// 8. Booking Pending
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status_Booking = 'pending'");
+// 6. Alat Aktif
+$total_alat_aktif = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q);
-$total_pending = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $total_alat_aktif = $d['total'] ?? 0;
 
-// 9. Booking Cancelled Bulan Ini
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status_Booking = 'cancelled' AND MONTH(Tanggal_Booking) = MONTH(GETDATE()) AND YEAR(Tanggal_Booking) = YEAR(GETDATE())");
+// 7. Stok Alat Rendah (< 10)
+$stok_rendah = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Stok < 10 AND Is_Deleted = 0");
 $d = safeFetch($q);
-$total_cancelled = $d ? ($d['total'] ?? 0) : 0;
+if ($d) $stok_rendah = $d['total'] ?? 0;
 
-// ── DATA KARYAWAN TERBARU ──
+// 8. Total Omzet (Semua Booking Berhasil/Selesai)
+$total_omzet = 0;
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
+$d = safeFetch($q);
+if ($d) $total_omzet = $d['total'] ?? 0;
+
+// 9. Total Booking Berhasil/Selesai (jumlah transaksi, bukan nominal)
+$total_booking_sukses = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status IN (1, 2)");
+$d = safeFetch($q);
+if ($d) $total_booking_sukses = $d['total'] ?? 0;
+
+// 10. Total Booking Dibatalkan
+$total_booking_batal = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 3");
+$d = safeFetch($q);
+if ($d) $total_booking_batal = $d['total'] ?? 0;
+
+// 11. Total Booking Menunggu
+$total_booking_pending = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 0");
+$d = safeFetch($q);
+if ($d) $total_booking_pending = $d['total'] ?? 0;
+
+// 12. Rata-rata Omzet per Booking
+$avg_omzet = 0;
+if ($total_booking_sukses > 0) {
+    $avg_omzet = $total_omzet / $total_booking_sukses;
+}
+
+// 13. Total Langganan Aktif
+$total_langganan = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 1");
+$d = safeFetch($q);
+if ($d) $total_langganan = $d['total'] ?? 0;
+
+// 14. Total Pembelian Alat (Transaksi Beli_Alat)
+$total_beli_alat = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Status = 1");
+$d = safeFetch($q);
+if ($d) $total_beli_alat = $d['total'] ?? 0;
+
+// 15. Total Pendapatan dari Beli Alat
+$total_pendapatan_alat = 0;
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Beli_Alat WHERE Status = 1");
+$d = safeFetch($q);
+if ($d) $total_pendapatan_alat = $d['total'] ?? 0;
+
+// ============================================================
+// DATA KARYAWAN TERBARU
+// ============================================================
 $recent_karyawan = [];
-$q = safeQuery($conn, "SELECT TOP 5 k.ID_Karyawan, k.Nama_Karyawan, k.Jabatan, k.No_Telepon, a.Status_Akun 
-    FROM Karyawan k 
-    JOIN Akun a ON k.ID_Akun = a.ID_Akun 
-    ORDER BY k.ID_Karyawan DESC");
+$q = safeQuery($conn, "SELECT TOP 5 ID_Karyawan, Nama_Karyawan, Jabatan, No_Telepon, Status FROM Karyawan WHERE Is_Deleted = 0 ORDER BY ID_Karyawan DESC");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_karyawan[] = $row;
     }
 }
 
-// ── CHART DATA: Omzet 7 Hari Terakhir ──
+// ============================================================
+// DATA ALAT TERBARU (Stok Rendah)
+// ============================================================
+$alat_rendah = [];
+$q = safeQuery($conn, "SELECT TOP 5 ID_Alat, Nama_Alat, Stok, Harga_Alat FROM Alat WHERE Stok < 10 AND Is_Deleted = 0 ORDER BY Stok ASC");
+if ($q !== null) {
+    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+        $alat_rendah[] = $row;
+    }
+}
+
+// ============================================================
+// CHART DATA: Omzet per Bulan (dari data yang ada di DB)
+// ============================================================
+// Ambil semua bulan unik dari data booking yang ada
 $chart_labels = [];
 $chart_data = [];
-for ($i = 6; $i >= 0; $i--) {
-    $q = safeQuery($conn, "SELECT SUM(Total_Harga) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(DATEADD(day, -?, GETDATE()) AS DATE) AND Status_Booking = 'confirmed'", array($i));
-    $d = safeFetch($q);
-    $chart_data[] = $d ? ($d['total'] ?? 0) : 0;
-    $chart_labels[] = date('D', strtotime("-$i days"));
+$chart_query = safeQuery($conn, 
+    "SELECT 
+        MONTH(Tanggal_Booking) as bulan, 
+        YEAR(Tanggal_Booking) as tahun,
+        ISNULL(SUM(Total_Bayar), 0) as total 
+     FROM Booking 
+     WHERE Status IN (1, 2) 
+     GROUP BY MONTH(Tanggal_Booking), YEAR(Tanggal_Booking)
+     ORDER BY YEAR(Tanggal_Booking), MONTH(Tanggal_Booking)"
+);
+if ($chart_query !== null) {
+    $monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    while ($row = sqlsrv_fetch_array($chart_query, SQLSRV_FETCH_ASSOC)) {
+        $chart_labels[] = $monthNames[$row['bulan']] . ' ' . $row['tahun'];
+        $chart_data[] = $row['total'] ?? 0;
+    }
 }
 
 function rupiahFormat($n) { 
     return 'Rp ' . number_format($n, 0, ',', '.'); 
 }
-
-$jabatan_map = [1 => 'Manajer', 2 => 'Supervisor', 3 => 'Kasir', 4 => 'Staf', 5 => 'Operator'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -137,7 +217,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -148,6 +229,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
+.topbar-breadcrumb { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
@@ -155,16 +237,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
-/* Mendukung pembukaan menu dropdown via klik */
-.dropdown-wrap.active .dropdown-menu { 
-    display: block; 
-}
+.dropdown-wrap.active .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -192,6 +272,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sc-orange::before { background: var(--orange); }
 .sc-purple::before { background: var(--purple); }
 .sc-red::before { background: var(--red); }
+.sc-yellow::before { background: var(--yellow); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
@@ -199,6 +280,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .si-orange { background: var(--orange-lt); color: var(--orange); }
 .si-purple { background: var(--purple-lt); color: var(--purple); }
 .si-red { background: var(--red-lt); color: var(--red); }
+.si-yellow { background: var(--yellow-lt); color: var(--yellow); }
 .stat-trend { font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 20px; }
 .trend-up { color: var(--green); background: var(--green-lt); }
 .trend-down { color: var(--red); background: var(--red-lt); }
@@ -224,6 +306,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .mini-stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
 .mini-stat-value.red { color: var(--red); }
 .mini-stat-value.orange { color: var(--orange); }
+.mini-stat-value.green { color: var(--green); }
+.mini-stat-value.purple { color: var(--purple); }
 
 /* GRID LAYOUT */
 .dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; }
@@ -277,30 +361,18 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-html, body {
-    /* Untuk Firefox */
-    scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
-    -ms-overflow-style: none;
-}
-
-/* Untuk Chrome, Safari, dan Opera */
-html::-webkit-scrollbar, 
-body::-webkit-scrollbar {
-    display: none;
-}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
 
 <aside class="sidebar">
-    <a href="dashboard.php" class="sb-brand">
+    <a href="view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
     </a>
 
-    <!-- PEMILIK: MANAJEMEN ONLY -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link active">
@@ -317,9 +389,8 @@ body::-webkit-scrollbar {
         </a>
     </nav>
 
-    <!-- PEMILIK: AKUN -->
     <div class="sb-section-label">Akun</div>
-    <a href="profile.php" class="sb-link">
+    <a href="profile_pemilik.php" class="sb-link">
         <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
         Profil Saya
     </a>
@@ -328,7 +399,7 @@ body::-webkit-scrollbar {
         <div class="sb-user">
             <div class="sb-avatar">
                 <?php if ($profile_photo): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img src="<?= $profile_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -355,7 +426,7 @@ body::-webkit-scrollbar {
             <div class="topbar-user">
                 <div class="t-avatar">
                     <?php if ($profile_photo): ?>
-                        <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        <img src="<?= $profile_photo ?>" alt="Profile">
                     <?php else: ?>
                         <i class="fa-solid fa-user"></i>
                     <?php endif; ?>
@@ -374,7 +445,7 @@ body::-webkit-scrollbar {
 
 <div class="content">
     <?php if($stok_rendah > 0): ?>
-    <div class="alert-box"><i class="fa-solid fa-triangle-exclamation"></i><span><?= $stok_rendah ?> alat memiliki stok di bawah minimum (&lt; 10 unit)</span><a href="master/supplier.php" style="color:var(--red); font-size:12px; font-weight:700; margin-left:auto; text-decoration:none;">Lihat Detail →</a></div>
+    <div class="alert-box"><i class="fa-solid fa-triangle-exclamation"></i><span><?= $stok_rendah ?> alat memiliki stok di bawah minimum (&lt; 10 unit)</span><a href="master/alat.php" style="color:var(--red); font-size:12px; font-weight:700; margin-left:auto; text-decoration:none;">Lihat Detail →</a></div>
     <?php endif; ?>
 
     <div class="welcome-banner">
@@ -383,59 +454,58 @@ body::-webkit-scrollbar {
         <div class="wb-icon"><i class="fa-solid fa-chart-pie"></i></div>
     </div>
 
-    <!-- Statistik Manajemen -->
+    <!-- ============================================================
+         STATISTIK UTAMA - PEMILIK: KARYAWAN, CUSTOMER, ALAT, OMZET
+         ============================================================ -->
     <div class="stat-grid">
         <div class="stat-card sc-blue">
-            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-            <div class="stat-value"><?= $total_karyawan ?></div><div class="stat-label">Karyawan Aktif</div><div class="stat-sublabel">Total karyawan terdaftar</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
+            <div class="stat-value"><?= $total_karyawan ?></div><div class="stat-label">Karyawan Aktif</div><div class="stat-sublabel"><?= $total_karyawan_nonaktif ?> nonaktif</div>
         </div>
         <div class="stat-card sc-green">
-            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> <?= rupiahFormat($pendapatan_hari) ?></div></div>
-            <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($pendapatan_hari) ?></div><div class="stat-label">Pendapatan Hari Ini</div><div class="stat-sublabel"><?= rupiahFormat($pendapatan_bulan) ?> bulan ini</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-user-group"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
+            <div class="stat-value"><?= $total_customer ?></div><div class="stat-label">Total Customer</div><div class="stat-sublabel"><?= $total_customer_aktif ?> aktif</div>
         </div>
         <div class="stat-card sc-orange">
-            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Hari Ini</div></div>
-            <div class="stat-value"><?= $total_booking_today ?></div><div class="stat-label">Booking Hari Ini</div><div class="stat-sublabel"><?= $total_pending ?> menunggu konfirmasi</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-boxes-stacked"></i></div><div class="stat-trend <?= $stok_rendah > 0 ? 'trend-warn' : 'trend-up' ?>"><i class="fa-solid <?= $stok_rendah > 0 ? 'fa-triangle-exclamation' : 'fa-arrow-up' ?>"></i> <?= $total_alat ?></div></div>
+            <div class="stat-value"><?= $total_alat ?></div><div class="stat-label">Total Alat</div><div class="stat-sublabel"><?= $total_alat_aktif ?> aktif | <?= $stok_rendah ?> stok rendah</div>
         </div>
         <div class="stat-card sc-purple">
-            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-user-tie"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
-            <div class="stat-value"><?= $total_karyawan ?></div><div class="stat-label">Karyawan Aktif</div><div class="stat-sublabel">Kelola di menu karyawan</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
+            <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($total_omzet) ?></div><div class="stat-label">Total Omzet</div><div class="stat-sublabel"><?= $total_booking_sukses ?> booking berhasil</div>
         </div>
     </div>
 
-    <!-- Chart Omzet -->
+    <!-- Chart & Ringkasan -->
     <div class="chart-section">
-            <!-- Kolom Kiri: Omzet (Tinggi ditentukan oleh grafik) -->
         <div class="chart-card">
             <div class="chart-header">
-                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Omzet 7 Hari Terakhir</div>
+                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Omzet per Periode</div>
                 <span class="chart-badge"><?= rupiahFormat(array_sum($chart_data)) ?> Total</span>
             </div>
             <div class="chart-container"><canvas id="omzetChart"></canvas></div>
         </div>
 
-        <!-- Kolom Kanan: Ringkasan Operasional (Tanpa div pembungkus luar agar tinggi sejajar sempurna) -->
         <div class="chart-card" style="display: flex; flex-direction: column; height: 100%;">
             <div class="chart-header">
-                <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div>
+                <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Omzet</div>
             </div>
-            <!-- Grid indikator 2x2 yang meregang vertikal secara seimbang mengisi sisa tinggi card -->
-            <div class="mini-stat-row" style="display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 12px; flex-grow: 1;">
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
-                    <div class="mini-stat-label">Booking Pending</div>
-                    <div class="mini-stat-value orange"><?= $total_pending ?></div>
+            <div class="mini-stat-row" style="flex-grow: 1;">
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="mini-stat-label">Booking Berhasil</div>
+                    <div class="mini-stat-value green"><?= $total_booking_sukses ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
-                    <div class="mini-stat-label">Dibatalkan Bulan Ini</div>
-                    <div class="mini-stat-value red"><?= $total_cancelled ?></div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="mini-stat-label">Booking Dibatalkan</div>
+                    <div class="mini-stat-value red"><?= $total_booking_batal ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
-                    <div class="mini-stat-label">Stok Alat Rendah</div>
-                    <div class="mini-stat-value <?= $stok_rendah > 0 ? 'red' : '' ?>"><?= $stok_rendah ?></div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="mini-stat-label">Booking Menunggu</div>
+                    <div class="mini-stat-value orange"><?= $total_booking_pending ?></div>
                 </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center; background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
-                    <div class="mini-stat-label">Pendapatan Bulan</div>
-                    <div class="mini-stat-value"><?= rupiahFormat($pendapatan_bulan) ?></div>
+                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div class="mini-stat-label">Rata-rata Omzet</div>
+                    <div class="mini-stat-value purple"><?= rupiahFormat($avg_omzet) ?></div>
                 </div>
             </div>
         </div>
@@ -452,12 +522,12 @@ body::-webkit-scrollbar {
                     <tbody>
                     <?php if(count($recent_karyawan) > 0): ?>
                     <?php foreach($recent_karyawan as $k): 
-                        $status_cls = $k['Status_Akun'] == 1 ? 'sp-active' : 'sp-inactive';
-                        $status_lbl = $k['Status_Akun'] == 1 ? 'Aktif' : 'Nonaktif';
+                        $status_cls = $k['Status'] == 1 ? 'sp-active' : 'sp-inactive';
+                        $status_lbl = $k['Status'] == 1 ? 'Aktif' : 'Nonaktif';
                     ?>
                         <tr>
                             <td><div class="cell-name"><?= htmlspecialchars($k['Nama_Karyawan']) ?></div><div class="cell-detail">#<?= $k['ID_Karyawan'] ?></div></td>
-                            <td><?= $jabatan_map[$k['Jabatan']] ?? 'Unknown' ?></td>
+                            <td><?= htmlspecialchars($k['Jabatan']) ?></td>
                             <td><?= htmlspecialchars($k['No_Telepon']) ?></td>
                             <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
                         </tr>
@@ -479,26 +549,36 @@ body::-webkit-scrollbar {
                     <div class="quick-grid">
                         <a href="master/karyawan.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-user-tie"></i><span>Kelola Karyawan</span></a>
                         <a href="laporan/omzet.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-chart-line"></i><span>Laporan & Omzet</span></a>
+                        <a href="profile_pemilik.php" class="quick-card" style="color:var(--blue);"><i class="fa-solid fa-id-badge"></i><span>Profil Saya</span></a>
                     </div>
                 </div>
             </div>
 
-            <!-- Info Tambahan -->
+            <!-- Alat Stok Rendah -->
             <div class="card">
-                <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
+                <div class="card-header"><div class="card-title"><i class="fa-solid fa-triangle-exclamation"></i> Alat Stok Rendah</div><span class="card-badge"><?= count($alat_rendah) ?> item</span></div>
                 <div class="card-body">
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--orange-lt); border-radius:8px;">
-                            <i class="fa-solid fa-basketball" style="color:var(--orange); font-size:18px;"></i>
+                    <?php if(count($alat_rendah) > 0): ?>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <?php foreach($alat_rendah as $a): ?>
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:var(--red-lt); border-radius:8px; border:1px solid rgba(239,68,68,.15);">
                             <div>
-                                <div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall Sistem</div>
-                                <div style="font-size:11px; color:var(--muted);">v1.0 - Sistem Managemen</div>
+                                <div style="font-size:13px; font-weight:700; color:var(--text);"><?= htmlspecialchars($a['Nama_Alat']) ?></div>
+                                <div style="font-size:11px; color:var(--muted);">#<?= $a['ID_Alat'] ?></div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:16px; font-weight:800; color:var(--red);"><?= $a['Stok'] ?> unit</div>
+                                <div style="font-size:11px; color:var(--muted);"><?= rupiahFormat($a['Harga_Alat']) ?></div>
                             </div>
                         </div>
-                        <div style="font-size:12px; color:var(--muted); line-height:1.6;">
-                            Kelola karyawan, alat, dan laporan omzet dari satu dashboard.
-                        </div>
+                        <?php endforeach; ?>
                     </div>
+                    <?php else: ?>
+                    <div style="text-align:center; padding:20px; color:var(--muted);">
+                        <i class="fa-solid fa-check-circle" style="font-size:32px; color:var(--green); margin-bottom:8px; display:block;"></i>
+                        <div style="font-size:13px; font-weight:700;">Semua stok alat aman</div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -507,22 +587,16 @@ body::-webkit-scrollbar {
 </main>
 
 <script>
-
-    // Mengaktifkan interaksi klik/tekan pada dropdown profil user
 document.addEventListener('DOMContentLoaded', function () {
     const userDropdown = document.querySelector('.dropdown-wrap');
     if (userDropdown) {
         userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            e.stopPropagation();
             this.classList.toggle('active');
         });
     }
-
-    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
     document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
+        if (userDropdown) userDropdown.classList.remove('active');
     });
 });
 
@@ -576,12 +650,11 @@ const omzetChart = new Chart(ctx, {
             }
         },
         scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', callback: function(value) { return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; } } },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }
 });
 </script>
-
 </body>
 </html>
