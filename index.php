@@ -1298,9 +1298,34 @@ if (file_exists('includes/config.php')) {
             margin-bottom: 60px;
         }
 
+        /* FOOTER LOGO - PERBESAR */
         .footer-brand .logo {
-            color: white;
-            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            margin-bottom: 24px;
+        }
+
+        .footer-brand .logo img {
+            width: auto;
+            height: 90px; /* PERBESAR SESUAI KEBUTUHAN */
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease;
+        }
+
+        .footer-brand .logo:hover img {
+            transform: scale(1.05);
+        }
+
+        /* Responsive: logo lebih kecil di mobile */
+        @media (max-width: 768px) {
+            .footer-brand .logo img {
+                height: 60px;
+            }
         }
 
         .footer-brand p {
@@ -2339,7 +2364,9 @@ html::-webkit-scrollbar {
     <footer id="tentang-kami">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="#" class="logo"><img src="logo2.png" alt="HoopBall"></a>
+                <a href="#" class="logo">
+                    <img src="logo2.png" alt="HoopBall">
+                </a>
                 <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
                 <div class="social-links">
                     <a href="#"><i class="fa-brands fa-instagram"></i></a>
