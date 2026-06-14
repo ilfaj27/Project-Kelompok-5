@@ -607,7 +607,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-head">
-            <div class="modal-tag">Master Karyawan</div>
+            <div class="modal-tag">Kelola Karyawan</div>
             <div class="modal-title"><?= $edit_data ? 'Edit Data Staf' : 'Tambah Karyawan Baru' ?></div>
             <div class="modal-sub"><?= $edit_data ? 'Perbarui informasi karyawan yang ada' : 'Daftarkan karyawan baru ke dalam sistem' ?></div>
         </div>
