@@ -2036,7 +2036,7 @@ html::-webkit-scrollbar {
         </div>
         <div class="nav-btns">
             <!-- LOGIN: Langsung ke login.php (TANPA animasi exit) -->
-            <a href="login.php" class="btn-login">Login</a>
+            <a href="login.php" class="btn-login">Masuk</a>
             <!-- DAFTAR: Langsung ke register.php (TANPA animasi exit) -->
             <a href="register.php" class="btn-join">Daftar Sekarang</a>
         </div>

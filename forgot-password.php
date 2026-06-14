@@ -29,7 +29,7 @@ if (isset($_POST['verify_account'])) {
             $_SESSION['reset_id_customer'] = $row['ID_Customer']; // Simpan ID Customer sementara di sesi
         } else {
             $res_status = "error";
-            $res_msg = "Data verifikasi salah. Username, Email, atau Telepon tidak cocok!";
+            $res_msg = "Data verifikasi salah. Nama pengguna, Email, atau Telepon tidak cocok!";
         }
     }
 }
@@ -75,7 +75,7 @@ if (isset($_POST['reset_password'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lupa Password | HoopBall BasketPro</title>
+    <title>Lupa Kata Sandi | HoopBall BasketPro</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -592,14 +592,14 @@ html.swal2-shown {
 
         <div class="auth-card-container">
             <div class="auth-card">
-                <h3>Lupa Password</h3>
+                <h3>Lupa Kata Sandi</h3>
 
                 <?php if (!$is_verified): ?>
                     <!-- TAMPILAN TAHAP 1: FORM VERIFIKASI IDENTITAS AKUN -->
                     <span class="card-subtitle">Silakan isi data keamanan akun Anda.</span>
                     <form method="POST" id="verifyForm" novalidate>
                         <div class="input-group">
-                            <label>Username Terdaftar</label>
+                            <label>Nama Pengguna Terdaftar</label>
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-signature icon-left"></i>
                                 <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops">
@@ -628,7 +628,7 @@ html.swal2-shown {
 
                         <button type="submit" name="verify_account" class="btn-submit" style="margin-top: 10px;">Verifikasi
                             Akun</button>
-                        <p class="card-footer">Kembali ke halaman <a href="login.php">Login</a></p>
+                        <p class="card-footer">Kembali ke halaman <a href="login.php">Masuk</a></p>
                     </form>
                 <?php else: ?>
                     <!-- TAMPILAN TAHAP 2: FORM RESET PASSWORD BARU (KINI DENGAN ATURAN BARU YANG KETAT) -->
@@ -810,16 +810,16 @@ html.swal2-shown {
                     const usernamePattern = /^[a-zA-Z0-9\._]+$/;
 
                     if (usernameVal === '') {
-                        setValidationError(username, usernameError, 'Username wajib diisi.');
+                        setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
                         isValid = false;
                     } else if (usernameVal.length < 3 || usernameVal.length > 30) {
-                        setValidationError(username, usernameError, 'Username minimal 3 karakter dan maksimal 30 karakter.');
+                        setValidationError(username, usernameError, 'Nama Pengguna minimal 3 karakter dan maksimal 30 karakter.');
                         isValid = false;
                     } else if (username.value.includes(' ')) {
-                        setValidationError(username, usernameError, 'Username tidak boleh menggunakan spasi.');
+                        setValidationError(username, usernameError, 'Nama Pengguna tidak boleh menggunakan spasi.');
                         isValid = false;
                     } else if (!usernamePattern.test(usernameVal)) {
-                        setValidationError(username, usernameError, 'Username hanya boleh berisi huruf, angka, titik (.), dan underscore (_).');
+                        setValidationError(username, usernameError, 'Nama Pengguna hanya boleh berisi huruf, angka, titik (.), dan underscore (_).');
                         isValid = false;
                     } else {
                         clearValidationError(username, usernameError);

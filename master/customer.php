@@ -614,7 +614,7 @@ html.swal2-shown {
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">MANAGEMENT SYSTEM</div>
+            <div class="sb-brand-sub">SISTEM MANAGEMEN</div>
         </div>
     </a>
     <div class="sb-section-label">Operasional</div>

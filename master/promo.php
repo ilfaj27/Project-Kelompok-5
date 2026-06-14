@@ -232,7 +232,7 @@ function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Master Promo | HoopBall</title>
+<title>Kelola Promo | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -748,7 +748,7 @@ body::-webkit-scrollbar {
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
-            <div class="modal-subtitle">Master Promo</div>
+            <div class="modal-subtitle">Kelola Promo</div>
             <div class="modal-title"><?= $edit_data ? 'Edit Promo' : 'Tambah Promo Baru' ?></div>
         </div>
         <div class="modal-body">
@@ -884,7 +884,7 @@ body::-webkit-scrollbar {
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Management System</div>
+            <div class="sb-brand-sub">Sistem Managemen</div>
         </div>
     </a>
 
@@ -1015,7 +1015,7 @@ body::-webkit-scrollbar {
             </div>
             <div class="stat-chips">
                 <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $active_count ?></span></div>
-                <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> EXPIRED <span class="chip-val"><?= $expired_count ?></span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> KADALUARSA <span class="chip-val"><?= $expired_count ?></span></div>
                 <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span class="chip-val"><?= $total_data ?></span></div>
             </div>
         </div>
@@ -1050,7 +1050,7 @@ body::-webkit-scrollbar {
                                 <select name="f_status" class="filter-input">
                                     <option value="">Semua Status</option>
                                     <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
-                                    <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>EXPIRED</option>
+                                    <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>KADALUARSA</option>
                                 </select>
                             </div>
                             
@@ -1115,7 +1115,7 @@ body::-webkit-scrollbar {
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
                                         <span class="sp-dot"></span>
-                                        <?= $is_active ? 'AKTIF' : 'EXPIRED' ?>
+                                        <?= $is_active ? 'AKTIF' : 'KADALUARSA' ?>
                                     </span>
                                 </td>
                                 <td>

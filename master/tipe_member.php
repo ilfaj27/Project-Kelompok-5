@@ -547,7 +547,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
-            <div class="modal-subtitle">Master Tipe Member</div>
+            <div class="modal-subtitle">Kelola Tipe Member</div>
             <div class="modal-title"><?= $edit_data ? 'Edit Tipe Member' : 'Tambah Tipe Member Baru' ?></div>
         </div>
         <div class="modal-body">
@@ -651,7 +651,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Management System</div>
+            <div class="sb-brand-sub">Sistem Managemen</div>
         </div>
     </a>
 
@@ -1258,7 +1258,7 @@ function confirmToggle(id, status) {
 function confirmDelete(id, name) {
     Swal.fire({
         title: 'Hapus Tipe Member?',
-        html: 'Anda akan menghapus tipe member <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara soft delete</span>',
+        html: 'Anda akan menghapus tipe member <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',

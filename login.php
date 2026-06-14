@@ -37,7 +37,7 @@ if (isset($_POST['login'])) {
     $pass_input = isset($_POST['password_input']) ? $_POST['password_input'] : '';
 
     if (empty($user_input) || empty($pass_input)) {
-        $error_msg = "Username/Email dan Password wajib diisi!";
+        $error_msg = "Nama Pengguna/Email dan Password wajib diisi!";
     } else {
         // CEK KE TABEL KARYAWAN DULU (Admin/Pemilik/Karyawan)
         $sql_karyawan = "SELECT * FROM Karyawan WHERE (Username = ? OR Email = ?) AND Status = 1 AND Is_Deleted = 0";
@@ -81,7 +81,7 @@ if (isset($_POST['login'])) {
                 }
                 exit();
             } else {
-                $error_msg = "Akun tidak ditemukan";
+                $error_msg = "Nama Pengguna atau Kata Sandi Tidak ditemukan";
             }
         } else {
             // CEK KE TABEL CUSTOMER
@@ -345,7 +345,7 @@ html.swal2-shown {
     <div class="auth-hero-wrapper">
         <div class="auth-info">
             <h2>Masuk ke Akun<br><span>HoopBall</span></h2>
-            <p class="intro-p">Login untuk booking lapangan, cek jadwal, dan nikmati promo member dengan lebih mudah.</p>
+            <p class="intro-p">Masuk untuk booking lapangan, cek jadwal, dan nikmati promo member dengan lebih mudah.</p>
 
             <div class="info-list">
                 <div class="info-item">
@@ -374,12 +374,12 @@ html.swal2-shown {
 
         <div class="auth-card-container">
             <div class="auth-card">
-                <h3>Login</h3>
+                <h3>Masuk</h3>
                 <span class="card-subtitle">Selamat datang kembali!</span>
 
                 <form method="POST" action="" id="loginForm" novalidate>
                     <div class="input-group">
-                        <label>Username / Email<span style="color: red;">*</span></label>
+                        <label>Nama Pengguna / Email<span style="color: red;">*</span></label>
                         <div class="input-wrapper">
                             <i class="fa-regular fa-envelope icon-left"></i>
                             <input type="text" name="user_input" placeholder="Masukkan username atau email" value="<?= htmlspecialchars($remembered_user) ?>">
@@ -388,7 +388,7 @@ html.swal2-shown {
                     </div>
 
                     <div class="input-group">
-                        <label>Password<span style="color: red;">*</span></label>
+                        <label>Kata Sandi<span style="color: red;">*</span></label>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-lock icon-left"></i>
                             <input type="password" name="password_input" id="passwordInput" placeholder="Masukkan password Anda">
@@ -402,7 +402,7 @@ html.swal2-shown {
                             <input type="checkbox" name="remember" id="rem" <?= $remembered_user ? 'checked' : '' ?>>
                             <label for="rem">Ingat saya</label>
                         </div>
-                        <a href="forgot-password.php" class="forgot-link">Lupa password?</a>
+                        <a href="forgot-password.php" class="forgot-link">Lupa Kata Sandi?</a>
                     </div>
 
                     <button type="submit" name="login" class="btn-submit">Masuk</button>
@@ -490,7 +490,7 @@ html.swal2-shown {
     <script>
         Swal.fire({
             icon: 'error',
-            title: 'Login Gagal',
+            title: 'Masuk Gagal',
             text: '<?= addslashes($error_msg) ?>',
             background: '#ffffff',
             color: '#1e293b',
@@ -548,7 +548,7 @@ html.swal2-shown {
             if (userInput.value.trim() === '') {
                 userInput.parentElement.classList.add('error');
                 userInput.parentElement.parentElement.classList.add('error-active');
-                emailError.textContent = 'Username atau Email wajib diisi.';
+                emailError.textContent = 'Nama Pengguna atau Email wajib diisi.';
                 emailError.style.display = 'block';
                 isValid = false;
             } else {
@@ -559,7 +559,7 @@ html.swal2-shown {
             if (passwordInput.value.trim() === '') {
                 passwordInput.parentElement.classList.add('error');
                 passwordInput.parentElement.parentElement.classList.add('error-active');
-                passwordError.textContent = 'Password wajib diisi.';
+                passwordError.textContent = 'Kata Sandi wajib diisi.';
                 passwordError.style.display = 'block';
                 isValid = false;
             } else {

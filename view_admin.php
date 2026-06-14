@@ -351,7 +351,7 @@ body::-webkit-scrollbar {
 <aside class="sidebar">
     <a href="view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
+        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
     </a>
 
     <div class="sb-section-label">Operasional</div>
@@ -435,7 +435,7 @@ body::-webkit-scrollbar {
 <header class="topbar">
     <div class="topbar-left">
         <div class="topbar-title">Dashboard Karyawan</div>
-        <div class="topbar-breadcrumb">Dashboard / Overview</div>
+        <div class="topbar-breadcrumb">Dashboard / Ringkasan</div>
     </div>
     <div class="topbar-right">
         <div id="clock-display">
@@ -580,7 +580,7 @@ body::-webkit-scrollbar {
                     <div style="display:flex; flex-direction:column; gap:12px;">
                         <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--orange-lt); border-radius:8px;">
                             <i class="fa-solid fa-basketball" style="color:var(--orange); font-size:18px;"></i>
-                            <div><div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall System</div><div style="font-size:11px; color:var(--muted);">v1.0 - Karyawan Dashboard</div></div>
+                            <div><div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall Sistem</div><div style="font-size:11px; color:var(--muted);">v1.0 - Karyawan Dashboard</div></div>
                         </div>
                         <div style="font-size:12px; color:var(--muted); line-height:1.6;">Kelola customer, booking, langganan, alat, dan transaksi dari satu dashboard.</div>
                     </div>

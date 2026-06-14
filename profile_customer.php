@@ -50,7 +50,7 @@ if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET')
     echo json_encode([
         'exists' => $exists,
         'valid' => !$exists,
-        'message' => $exists ? 'Username sudah digunakan oleh customer lain.' : 'Username tersedia.'
+        'message' => $exists ? 'Nama Pengguna sudah digunakan oleh customer lain.' : 'Nama Pengguna tersedia.'
     ]);
     exit();
 }
@@ -120,7 +120,7 @@ if (isset($_POST['update_biodata'])) {
         $errors[] = 'Nama minimal 3 karakter, hanya huruf dan spasi.';
     }
     if (empty($username_input) || strlen($username_input) < 3 || !preg_match('/^[a-zA-Z0-9_]+$/', $username_input)) {
-        $errors[] = 'Username minimal 3 karakter, hanya huruf, angka, dan underscore.';
+        $errors[] = 'Nama Pengguna minimal 3 karakter, hanya huruf, angka, dan _.';
     }
     if (empty($tgl_lahir)) {
         $errors[] = 'Tanggal lahir wajib diisi.';
@@ -164,7 +164,7 @@ if (isset($_POST['update_biodata'])) {
             array($username_input, $ID_Customer)
         );
         if ($cek_username && sqlsrv_fetch_array($cek_username, SQLSRV_FETCH_ASSOC)) {
-            $errors[] = 'Username sudah digunakan oleh customer lain.';
+            $errors[] = 'Nama Pengguna sudah digunakan oleh customer lain.';
         }
         $cek_email = sqlsrv_query($conn,
             "SELECT ID_Customer FROM Customer WHERE Email = ? AND ID_Customer != ? AND Is_Deleted = 0",
@@ -231,15 +231,15 @@ if (isset($_POST['update_password'])) {
 
     if ($old_pass !== ($custData['Kata_Sandi'] ?? '')) {
         $swal_status = 'error';
-        $swal_msg = 'Password lama tidak sesuai.';
+        $swal_msg = 'Kata Sandi lama tidak sesuai.';
         $_SESSION['pass_error_field'] = 'old_password'; // Flag untuk border merah
-    } elseif (strlen($new_pass) < 6) {
+    } elseif (strlen($new_pass) < 8) {
         $swal_status = 'error';
-        $swal_msg = 'Password baru minimal 6 karakter.';
+        $swal_msg = 'Kata Sandi baru minimal 8 karakter.';
         $_SESSION['pass_error_field'] = 'new_password'; // Flag untuk border merah
     } elseif ($new_pass !== $confirm_pass) {
         $swal_status = 'error';
-        $swal_msg = 'Konfirmasi password tidak cocok.';
+        $swal_msg = 'Konfirmasi kata sandi tidak cocok.';
         $_SESSION['pass_error_field'] = 'confirm_password'; // Flag untuk border merah
     } else {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
@@ -251,11 +251,11 @@ if (isset($_POST['update_password'])) {
             while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
             $swal_status = 'success';
-            $swal_msg = 'Password berhasil diperbarui!';
+            $swal_msg = 'Kata Sandi berhasil diperbarui!';
             unset($_SESSION['pass_error_field']); // Hapus flag jika sukses
         } else {
             $swal_status = 'error';
-            $swal_msg = 'Gagal memperbarui password.';
+            $swal_msg = 'Gagal memperbarui kata sandi.';
         }
     }
 }
@@ -940,13 +940,13 @@ function format_date_display($date) {
                         <div class="locked-hint">ID Customer adalah primary key dan tidak dapat diubah.</div>
                     </div>
 
-                    <!-- Username — BISA DIEDIT -->
+                    <!-- Nama Pengguna — BISA DIEDIT -->
                     <div class="form-group">
-                        <label class="form-label">Username <span class="required">*</span></label>
+                        <label class="form-label">Nama Pengguna <span class="required">*</span></label>
                         <input type="text" name="username" id="username" class="form-input"
                                value="<?= htmlspecialchars($username) ?>"
-                               placeholder="Masukkan username" autocomplete="off" maxlength="20">
-                        <div class="error-msg" id="usernameError">Username minimal 3 karakter, hanya huruf, angka, dan underscore.</div>
+                               placeholder="Masukkan nama pengguna" autocomplete="off" maxlength="20">
+                        <div class="error-msg" id="usernameError">Nama Pengguna minimal 3 karakter, hanya huruf, angka, dan underscore.</div>
                     </div>
 
                     <div class="form-row">
@@ -1034,7 +1034,7 @@ function format_date_display($date) {
                     <span class="info-val muted"><?= htmlspecialchars($ID_Customer) ?> <span class="badge-locked"><i class="fa-solid fa-lock"></i></span></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-user-tag"></i> Username</span>
+                    <span class="info-key"><i class="fa-solid fa-user-tag"></i> Nama Pengguna</span>
                     <span class="info-val"><?= htmlspecialchars($username) ?></span>
                 </div>
                 <div class="info-row">
@@ -1042,7 +1042,7 @@ function format_date_display($date) {
                     <span class="info-val"><?= htmlspecialchars($email) ?></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-key"></i> Password</span>
+                    <span class="info-key"><i class="fa-solid fa-key"></i> Kata Sandi</span>
                     <span class="info-val">
                         <span class="password-mask">
                             <span class="password-dots" id="passDots">••••••••</span>
@@ -1082,24 +1082,24 @@ function format_date_display($date) {
         <!-- PASSWORD — Terpisah, hanya update Kata_Sandi -->
         <div class="p-card p-card-wide">
             <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-lock"></i> Keamanan — Ubah Password</div>
+                <div class="card-title"><i class="fa-solid fa-lock"></i> Keamanan — Ubah Kata Sandi</div>
             </div>
             <div class="card-body">
                 <form method="POST" id="formPassword">
                     <div class="form-row-3">
                         <div class="form-group" style="margin-bottom:0;">
-                            <label class="form-label">Password Lama <span class="required">*</span></label>
-                            <input type="password" name="old_password" id="old_password" class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>" placeholder="Password saat ini">
-                            <div class="error-msg" id="oldPassError">Password lama wajib diisi.</div>
+                            <label class="form-label">Kata Sandi Lama <span class="required">*</span></label>
+                            <input type="password" name="old_password" id="old_password" class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>" placeholder="Kata Sandi saat ini">
+                            <div class="error-msg" id="oldPassError">Kata Sandi lama wajib diisi.</div>
                         </div>
                         <div class="form-group" style="margin-bottom:0;">
-                            <label class="form-label">Password Baru <span class="required">*</span></label>
-                            <input type="password" name="new_password" id="new_password" class="form-input <?= ($pass_error_field === 'new_password') ? 'error' : '' ?>" placeholder="Minimal 6 karakter">
-                            <div class="error-msg" id="newPassError">Password baru minimal 6 karakter.</div>
+                            <label class="form-label">Kata Sandi Baru <span class="required">*</span></label>
+                            <input type="password" name="new_password" id="new_password" class="form-input <?= ($pass_error_field === 'new_password') ? 'error' : '' ?>" placeholder="Minimal 8 karakter">
+                            <div class="error-msg" id="newPassError">Kata Sandi baru minimal 8 karakter.</div>
                         </div>
                         <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Konfirmasi <span class="required">*</span></label>
-                            <input type="password" name="confirm_password" id="confirm_password" class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>" placeholder="Ulangi password">
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>" placeholder="Ulangi Kata Sandi baru">
                             <div class="error-msg" id="confirmPassError">Konfirmasi tidak cocok.</div>
                         </div>
                     </div>
@@ -1199,7 +1199,7 @@ function checkUsernameDuplicateInline(username) {
             const input = document.getElementById('username');
             if (data.exists) {
                 if (error) {
-                    error.textContent = 'Username sudah digunakan oleh customer lain.';
+                    error.textContent = 'Nama Pengguna sudah digunakan oleh customer lain.';
                     error.classList.add('show');
                 }
                 if (input) {
@@ -1403,7 +1403,7 @@ function validateNewPass() {
     if (!newPass) return true;
     const val = newPass.value;
     const error = document.getElementById('newPassError');
-    if (val.length < 6) { newPass.classList.add('error'); error.classList.add('show'); return false; }
+    if (val.length < 8) { newPass.classList.add('error'); error.classList.add('show'); return false; }
     else { newPass.classList.remove('error'); error.classList.remove('show'); return true; }
 }
 function validateConfirm() {
@@ -1427,7 +1427,7 @@ if (formPassword) {
         if (!valid) {
             e.preventDefault();
             Swal.fire({
-                icon: 'error', title: 'Validasi Gagal', text: 'Mohon periksa kembali password yang diisi',
+                icon: 'error', title: 'Validasi Gagal', text: 'Mohon periksa kembali Kata Sandi yang diisi',
                 background: '#151515', color: '#fff', confirmButtonColor: '#FF6B00',
                 customClass: { popup: 'swal-dark' }
             });

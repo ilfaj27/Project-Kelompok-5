@@ -112,7 +112,7 @@ if (isset($_POST['add_karyawan'])) {
 
     $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND Is_Deleted=0", array($username), false);
     if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?status=error&msg=Username sudah terdaftar! Gunakan username lain.");
+        header("Location: karyawan.php?status=error&msg=Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.");
         exit();
     }
 
@@ -152,7 +152,7 @@ if (isset($_POST['update_karyawan'])) {
 
     $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $_POST['id_kry']), false);
     if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?status=error&msg=Username sudah terdaftar! Gunakan username lain.");
+        header("Location: karyawan.php?status=error&msg=Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.");
         exit();
     }
 
@@ -647,17 +647,17 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <div class="val-msg" id="val-nama"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
                     </div>
                     <div>
-                        <label class="field-label">Username <span class="required">*</span></label>
-                        <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3" maxlength="50" placeholder="username_karyawan" autocomplete="new-username">
-                        <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i> Username minimal 3 karakter</div>
+                        <label class="field-label">Nama Pengguna <span class="required">*</span></label>
+                        <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3" maxlength="50" placeholder="nama_pengguna" autocomplete="new-username">
+                        <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i> Nama Pengguna minimal 3 karakter</div>
                     </div>
                     <div>
-                        <label class="field-label">Password <span class="required">*</span></label>
+                        <label class="field-label">Kata Sandi <span class="required">*</span></label>
                         <div style="position: relative; width: 100%;">
                             <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="100" placeholder="••••••" style="padding-right: 42px;" autocomplete="new-password">
                             <i class="fa-solid fa-eye" id="togglePass" onclick="togglePassword()" style="position: absolute; right: 14px; top: 22px; transform: translateY(-50%); cursor: pointer; color: var(--muted); z-index: 10; font-size: 14px;"></i>
                         </div>
-                        <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i> Password minimal 6 karakter</div>
+                        <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i> Kata Sandi minimal 8 karakter</div>
                     </div>
                     <div>
                         <label class="field-label">Email <span class="required">*</span></label>
@@ -763,8 +763,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
             <div style="display: flex; flex-direction: column; gap: 2px;">
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</span><span class="info-val-mono" id="dId">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span><span class="info-val" id="dNama">-</span></div>
-                <div class="info-row"><span class="info-key"><i class="fa-solid fa-user-tag"></i> Username</span><span class="info-val-mono" id="dUsername">-</span></div>
-                <div class="info-row"><span class="info-key"><i class="fa-solid fa-lock"></i> Password</span><span class="info-val-mono" id="dPassword">-</span></div>
+                <div class="info-row"><span class="info-key"><i class="fa-solid fa-user-tag"></i> Nama Pengguna</span><span class="info-val-mono" id="dUsername">-</span></div>
+                <div class="info-row"><span class="info-key"><i class="fa-solid fa-lock"></i> Kata Sandi</span><span class="info-val-mono" id="dPassword">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span><span class="info-val" id="dEmail">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-location-dot"></i> Tempat Lahir</span><span class="info-val" id="dTempatLahir">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal Lahir</span><span class="info-val" id="dTanggalLahir">-</span></div>
@@ -783,7 +783,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 <aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
+        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
     </a>
     <div class="sb-section-label">Manajemen</div>
     <nav>
@@ -1095,7 +1095,7 @@ function validateForm(form) {
         { id: 'id_kry', err: 'val-id_kry', label: 'ID Karyawan', required: true },
         { id: 'nama', err: 'val-nama', label: 'Nama', required: true, min: 3, max: 100, pattern: /^[a-zA-Z\s]+$/ },
         { id: 'username', err: 'val-username', label: 'Username', required: true, min: 3, max: 20, pattern: /^[a-zA-Z0-9\._]+$/, noSpace: true },
-        { id: 'password', err: 'val-password', label: 'Password', required: true, min: 6 },
+        { id: 'password', err: 'val-password', label: 'Password', required: true, min: 8 },
         { id: 'email', err: 'val-email', label: 'Email', required: true, email: true },
         { id: 'telp', err: 'val-telp', label: 'Nomor Telepon', required: true, phone: true },
         { id: 'tempat_lahir', err: 'val-tempat_lahir', label: 'Tempat Lahir', required: true, min: 3, max: 50, pattern: /^[a-zA-Z\s]+$/ },

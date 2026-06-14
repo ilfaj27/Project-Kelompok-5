@@ -807,7 +807,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
-            <div class="modal-subtitle">Master Lapangan</div>
+            <div class="modal-subtitle">Kelola Lapangan</div>
             <div class="modal-title"><?= $edit_data ? 'Edit Lapangan' : 'Tambah Lapangan Baru' ?></div>
         </div>
         <div class="modal-body">
@@ -895,7 +895,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Management System</div>
+            <div class="sb-brand-sub">Sistem Managemen</div>
         </div>
     </a>
 

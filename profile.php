@@ -66,7 +66,7 @@ if (!$user_data) {
         <div class="error-title">Data Profil Tidak Ditemukan</div>
         <div class="error-desc">Sistem tidak dapat menemukan data karyawan Anda di database.<br><br>
         <strong>Coba:</strong><br>
-        1. Logout dan login ulang<br>
+        1. Keluar dan Masuk ulang<br>
         2. Periksa apakah data karyawan ada di database<br>
         3. Hubungi administrator</div>
         <div class="error-debug"><strong>Debug Info:</strong><br>' . htmlspecialchars($debug_info) . '</div>
@@ -101,11 +101,11 @@ if (isset($_POST['change_password'])) {
     $confirm = $_POST['confirm_password'];
 
     if ($old !== $user_data['Kata_Sandi']) {
-        $pass_msg = 'Password lama salah!';
+        $pass_msg = 'Kata sandi lama salah!';
     } elseif (strlen($new) < 8) {
-        $pass_msg = 'Password baru minimal 8 karakter!';
+        $pass_msg = 'Kata sandi baru minimal 8 karakter!';
     } elseif ($new !== $confirm) {
-        $pass_msg = 'Password baru dan konfirmasi tidak cocok!';
+        $pass_msg = 'Kata sandi baru dan konfirmasi tidak cocok!';
     } else {
         $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($new, $nama, $user_data['ID_Karyawan']));
         if ($upd) {
@@ -113,7 +113,7 @@ if (isset($_POST['change_password'])) {
             $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
             $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         } else {
-            $pass_msg = 'Gagal mengubah password!';
+            $pass_msg = 'Gagal mengubah kata sandi!';
         }
     }
 }
@@ -533,10 +533,10 @@ body::-webkit-scrollbar {
              
    <!-- 3. KIRI BAWAH: INFORMASI LOGIN -->
 <div class="info-card login-info-card" style="display: flex; flex-direction: column;">
-    <div class="info-card-title" style="margin-bottom: 20px;"><i class="fa-solid fa-shield-halved"></i> Informasi Login</div>
+    <div class="info-card-title" style="margin-bottom: 20px;"><i class="fa-solid fa-shield-halved"></i> Informasi Masuk</div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-grow: 1; align-content: space-between;">
         <div class="info-item" style="grid-column: span 2;">
-            <div class="info-label"><i class="fa-solid fa-user-gear"></i> Username</div>
+            <div class="info-label"><i class="fa-solid fa-user-gear"></i> Nama Pengguna</div>
             <div class="info-value"><?= htmlspecialchars($user_data['Username'] ?? '-') ?></div>
         </div>
         <div class="info-item" style="grid-column: span 2;">
@@ -544,7 +544,7 @@ body::-webkit-scrollbar {
             <div class="info-value"><?= htmlspecialchars($user_data['Email'] ?? '-') ?></div>
         </div>
         <div class="info-item" style="grid-column: span 2;">
-            <div class="info-label"><i class="fa-solid fa-key"></i> Terakhir Ganti Password</div>
+            <div class="info-label"><i class="fa-solid fa-key"></i> Terakhir Ganti Kata Sandi</div>
             <!-- Menggunakan data dinamis tanggal modifikasi password -->
             <div class="info-value"><?= $last_pwd_change_formatted ?></div>
         </div>
@@ -553,29 +553,29 @@ body::-webkit-scrollbar {
 
             <!-- 4. KANAN BAWAH: GANTI PASSWORD -->
             <div class="password-card">
-                <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Password</div>
+                <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Kata Sandi</div>
                 <?php if ($pass_msg === 'success'): ?>
-                    <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Password berhasil diubah!</div>
+                    <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Kata sandi berhasil diubah!</div>
                 <?php elseif ($pass_msg): ?>
                     <div class="msg-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $pass_msg ?></div>
                 <?php endif; ?>
                 <form method="POST">
                     <div class="info-grid">
                         <div class="form-group">
-                            <label class="form-label">Password Lama</label>
-                            <input type="password" name="old_password" class="form-input" required placeholder="Masukkan password lama">
+                            <label class="form-label">Kata Sandi Lama</label>
+                            <input type="password" name="old_password" class="form-input" required placeholder="Masukkan kata sandi lama">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Password Baru</label>
+                            <label class="form-label">Kata Sandi Baru</label>
                             <input type="password" name="new_password" class="form-input" required minlength="8" placeholder="Minimal 8 karakter">
                         </div>
                         <div class="form-group" style="grid-column: span 2;">
-                            <label class="form-label">Konfirmasi Password Baru</label>
-                            <input type="password" name="confirm_password" class="form-input" required placeholder="Ulangi password baru">
+                            <label class="form-label">Konfirmasi Kata Sandi Baru</label>
+                            <input type="password" name="confirm_password" class="form-input" required placeholder="Ulangi kata sandi baru">
                         </div>
                     </div>
                     <button type="submit" name="change_password" class="btn-save" style="margin-top: 8px;">
-                        <i class="fa-solid fa-key"></i> Ubah Password
+                        <i class="fa-solid fa-key"></i> Ubah Kata Sandi
                     </button>
                 </form>
             </div>
@@ -636,7 +636,7 @@ setInterval(updateClock, 1000);
 Swal.fire({
     icon: 'success',
     title: 'Berhasil!',
-    text: '<?= ($pass_msg === 'success') ? 'Password berhasil diubah!' : 'Foto profil berhasil diperbarui!' ?>',
+    text: '<?= ($pass_msg === 'success') ? 'Kata sandi berhasil diubah!' : 'Foto profil berhasil diperbarui!' ?>',
     timer: 2000,
     showConfirmButton: false,
     iconColor: '#FF4500'

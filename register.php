@@ -52,7 +52,7 @@ if (isset($_POST['register'])) {
         if ($exist_telp) {
             $res_msg = "Nomor telepon sudah terdaftar! Gunakan nomor lain.";
         } else if ($exist_user) {
-            $res_msg = "Username sudah terdaftar! Gunakan username lain.";
+            $res_msg = "Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.";
         } else if ($exist_email) {
             $res_msg = "Email sudah terdaftar! Gunakan email lain.";
         } else {
@@ -384,7 +384,7 @@ html.swal2-shown {
                     <div class="form-step" id="step2">
                         <div class="form-grid">
                             <div class="input-group">
-                                <label>Username<span style="color: red;">*</span></label>
+                                <label>Nama Pengguna<span style="color: red;">*</span></label>
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-signature icon-left"></i>
                                     <input type="text" name="username" id="usernameField" placeholder="budi_hoops" autocomplete="username">
@@ -686,16 +686,16 @@ html.swal2-shown {
             const usernamePattern = /^[a-zA-Z0-9\._]+$/;
 
             if (usernameVal === '') {
-                setValidationError(username, usernameError, 'Username wajib diisi.');
+                setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
                 isStep2Valid = false;
             } else if (usernameVal.length < 3 || usernameVal.length > 20) {
-                setValidationError(username, usernameError, 'Username minimal 3 karakter dan maksimal 20 karakter.');
+                setValidationError(username, usernameError, 'Nama Pengguna minimal 3 karakter dan maksimal 20 karakter.');
                 isStep2Valid = false;
             } else if (username.value.includes(' ')) {
-                setValidationError(username, usernameError, 'Username tidak boleh mengandung spasi.');
+                setValidationError(username, usernameError, 'Nama Pengguna tidak boleh mengandung spasi.');
                 isStep2Valid = false;
             } else if (!usernamePattern.test(usernameVal)) {
-                setValidationError(username, usernameError, 'Username hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).');
+                setValidationError(username, usernameError, 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).');
                 isStep2Valid = false;
             } else {
                 clearValidationError(username, usernameError);
