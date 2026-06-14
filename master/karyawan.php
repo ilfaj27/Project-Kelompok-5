@@ -313,19 +313,6 @@ if ($query === false) {
     }
 }
 
-// Get audit data for edit modal
-$edit_audit = null;
-if ($edit_data) {
-    $edit_audit = [
-        'Created_By' => $edit_data['Created_By'] ?? 'SYSTEM',
-        'Created_Date' => formatDate($edit_data['Created_Date'] ?? null),
-        'Modified_By' => $edit_data['Modified_By'] ?? '-',
-        'Modified_Date' => formatDate($edit_data['Modified_Date'] ?? null),
-        'Deleted_By' => $edit_data['Deleted_By'] ?? '-',
-        'Deleted_Date' => formatDate($edit_data['Deleted_Date'] ?? null)
-    ];
-}
-
 // --- GENERATE ID KARYAWAN OTOMATIS ---
 $next_id_kry = 'KRY00001';
 $q_max_id = safe_sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan ORDER BY ID_Karyawan DESC", [], false);
@@ -524,15 +511,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 .modal-input.error { border-color: var(--red) !important; background-color: #FEF2F2 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
 .modal-input.error:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.25) !important; }
 
-/* AUDIT BOX */
-.audit-box { grid-column: span 2; background: var(--bg); border-radius: 12px; padding: 16px; border: 1px solid var(--border); margin-top: 8px; }
-.audit-title { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-.audit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.audit-item { display: flex; flex-direction: column; gap: 4px; }
-.audit-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.audit-value { font-size: 12px; font-weight: 700; color: var(--text); }
-.audit-value-mono { font-family: 'Barlow Condensed'; font-size: 13px; font-weight: 800; color: var(--orange); }
-
 /* DETAIL MODAL */
 .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .detail-modal-overlay.open { display: flex; }
@@ -654,7 +632,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     <div>
                         <label class="field-label">Kata Sandi <span class="required">*</span></label>
                         <div style="position: relative; width: 100%;">
-                            <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="100" placeholder="••••••" style="padding-right: 42px;" autocomplete="new-password">
+                            <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="100" placeholder="••••••••" style="padding-right: 42px;" autocomplete="new-password">
                             <i class="fa-solid fa-eye" id="togglePass" onclick="togglePassword()" style="position: absolute; right: 14px; top: 22px; transform: translateY(-50%); cursor: pointer; color: var(--muted); z-index: 10; font-size: 14px;"></i>
                         </div>
                         <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i> Kata Sandi minimal 8 karakter</div>
@@ -720,19 +698,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                             </select>
                         <?php endif; ?>
                     </div>
-                    <?php if ($edit_data && $edit_audit): ?>
-                        <div class="audit-box">
-                            <div class="audit-title"><i class="fa-solid fa-clock-rotate-left"></i> Audit Trail</div>
-                            <div class="audit-grid">
-                                <div class="audit-item"><span class="audit-label">Dibuat Oleh</span><span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Created_By']) ?></span></div>
-                                <div class="audit-item"><span class="audit-label">Tanggal Dibuat</span><span class="audit-value"><?= htmlspecialchars($edit_audit['Created_Date']) ?></span></div>
-                                <div class="audit-item"><span class="audit-label">Diubah Oleh</span><span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Modified_By']) ?></span></div>
-                                <div class="audit-item"><span class="audit-label">Tanggal Diubah</span><span class="audit-value"><?= htmlspecialchars($edit_audit['Modified_Date']) ?></span></div>
-                                <div class="audit-item"><span class="audit-label">Dihapus Oleh</span><span class="audit-value-mono"><?= htmlspecialchars($edit_audit['Deleted_By']) ?></span></div>
-                                <div class="audit-item"><span class="audit-label">Tanggal Dihapus</span><span class="audit-value"><?= htmlspecialchars($edit_audit['Deleted_Date']) ?></span></div>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+
                     <button type="submit" name="<?= $edit_data ? 'update_karyawan' : 'add_karyawan' ?>" class="btn-submit">
                         <i class="fa-solid <?= $edit_data ? 'fa-floppy-disk' : 'fa-user-plus' ?>"></i>
                         <?= $edit_data ? 'Simpan Perubahan' : 'Daftarkan Karyawan' ?>
