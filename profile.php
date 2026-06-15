@@ -8,17 +8,14 @@ if (!isset($_SESSION['role'])) {
 }
 
 $role = $_SESSION['role'];
-// FIX: Gunakan nama dari session, bukan dari database query
 $nama = $_SESSION['nama'] ?? '';
-// FIX: Ambil id_karyawan dari session
 $id_karyawan = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
 $dashboard_url = ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php';
 
-// ── CARI DATA KARYAWAN ──
+// CARI DATA KARYAWAN
 $user_data = null;
 
-// FIX: Coba cari berdasarkan ID_Karyawan dulu
 if (!empty($id_karyawan)) {
     $query = "SELECT * FROM Karyawan WHERE ID_Karyawan = ?";
     $stmt = sqlsrv_query($conn, $query, array($id_karyawan));
@@ -27,7 +24,6 @@ if (!empty($id_karyawan)) {
     }
 }
 
-// Kalau tidak ketemu, coba cari berdasarkan Nama_Karyawan (bukan Nama)
 if (!$user_data && !empty($nama)) {
     $query = "SELECT TOP 1 * FROM Karyawan WHERE Nama_Karyawan = ?";
     $stmt = sqlsrv_query($conn, $query, array($nama));
@@ -36,51 +32,14 @@ if (!$user_data && !empty($nama)) {
     }
 }
 
-// Kalau masih tidak ketemu, tampilkan error yang informatif
 if (!$user_data) {
     $debug_info = "ID_Karyawan: " . htmlspecialchars($id_karyawan) . " | Nama_Karyawan: " . htmlspecialchars($nama);
     error_log("[PROFILE ERROR] Data karyawan tidak ditemukan. " . $debug_info);
-
-    echo '<!DOCTYPE html>
-<html lang="id">
-<head><meta charset="UTF-8"><title>Error Profil</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        body { font-family: "Barlow", sans-serif; background: #F3F4F6; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .error-box { background: #fff; border-radius: 20px; padding: 48px; text-align: center; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,.1); border: 1px solid #E5E7EB; }
-        .error-icon { width: 80px; height: 80px; background: #FEF2F2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 24px; }
-        .error-icon i { font-size: 36px; color: #EF4444; }
-        .error-title { font-size: 22px; font-weight: 800; color: #111827; margin-bottom: 8px; }
-        .error-desc { font-size: 14px; color: #6B7280; margin-bottom: 24px; line-height: 1.6; }
-        .error-debug { background: #F3F4F6; border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #6B7280; font-family: monospace; margin-bottom: 24px; text-align: left; }
-        .btn-back { display: inline-flex; align-items: center; gap: 8px; background: #FF4500; color: #fff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px; transition: .2s; }
-        .btn-back:hover { background: #E03E00; transform: translateY(-1px); }
-        .btn-refresh { display: inline-flex; align-items: center; gap: 8px; background: #F3F4F6; color: #374151; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px; border: 1px solid #E5E7EB; margin-left: 8px; transition: .2s; }
-        .btn-refresh:hover { background: #E5E7EB; }
-    </style>
-    </head>
-    <body>
-    <div class="error-box">
-        <div class="error-icon"><i class="fa-solid fa-user-xmark"></i></div>
-        <div class="error-title">Data Profil Tidak Ditemukan</div>
-        <div class="error-desc">Sistem tidak dapat menemukan data karyawan Anda di database.<br><br>
-        <strong>Coba:</strong><br>
-        1. Keluar dan Masuk ulang<br>
-        2. Periksa apakah data karyawan ada di database<br>
-        3. Hubungi administrator</div>
-        <div class="error-debug"><strong>Debug Info:</strong><br>' . htmlspecialchars($debug_info) . '</div>
-        <div>
-            <a href="' . $dashboard_url . '" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard</a>
-            <a href="logout.php" class="btn-refresh"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-        </div>
-    </div>
-    </body>
-    </html>';
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;"><h2>Data Profil Tidak Ditemukan</h2><p>Silakan logout dan login ulang.</p></body></html>';
     exit();
 }
 
-// Update session dengan data yang benar
+// Update session
 $_SESSION['id_karyawan'] = $user_data['ID_Karyawan'];
 $_SESSION['nama'] = $user_data['Nama_Karyawan'];
 $_SESSION['jabatan'] = $user_data['Jabatan'];
@@ -91,7 +50,9 @@ function fmtDate($date) {
     return $date;
 }
 
-$map_jk = [0 => 'Perempuan', 1 => 'Laki-laki', 'P' => 'Perempuan', 'L' => 'Laki-laki'];
+$map_jk = [0 => 'Perempuan', 1 => 'Laki-laki'];
+// FIX: Map Jabatan number to text
+$map_jabatan = [1 => 'Karyawan', 2 => 'Manajer'];
 
 // Password change
 $pass_msg = '';
@@ -118,7 +79,7 @@ if (isset($_POST['change_password'])) {
     }
 }
 
-// Photo upload
+// Photo upload - FIX: use Photo_Profile column
 $photo_msg = '';
 if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     $file = $_FILES['profile_photo'];
@@ -129,9 +90,10 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
             $filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
             if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
             if (move_uploaded_file($file['tmp_name'], $filename)) {
-                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Profile_Photo = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
+                // FIX: Photo_Profile not Profile_Photo
+                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
                 if ($upd) {
-                    $_SESSION['Profile_Photo'] = $filename;
+                    $_SESSION['Photo_Profile'] = $filename;
                     $photo_msg = 'success';
                     $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
                     $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -143,16 +105,16 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     }
 }
 
-
-$profile_photo = $user_data['Profile_Photo'] ?? '';
+// FIX: Use Photo_Profile column
+$profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
 if (!empty($profile_photo)) {
     $photo_path = $profile_photo;
     if (!file_exists($photo_path)) $photo_path = '';
 }
 
-// Ambil foto profil untuk sidebar dari session
-$sidebar_photo = $_SESSION['Profile_Photo'] ?? '';
+// FIX: Sidebar photo from session using Photo_Profile
+$sidebar_photo = $_SESSION['Photo_Profile'] ?? '';
 if (!empty($sidebar_photo) && !file_exists($sidebar_photo)) {
     $sidebar_photo = '';
 }
@@ -167,6 +129,8 @@ if ($last_pwd_change_raw) {
     }
 }
 
+// FIX: Get role text
+$jabatan_text = $map_jabatan[$user_data['Jabatan']] ?? 'Karyawan';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -184,7 +148,7 @@ if ($last_pwd_change_raw) {
     --red: #EF4444; --red-lt: rgba(239,68,68,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
-    --text: #111827; --muted: #6B7280; --bg: #F3F4F6;
+    --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
@@ -229,10 +193,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
-/* Mendukung pembukaan menu dropdown via klik */
-.dropdown-wrap.active .dropdown-menu { 
-    display: block; 
-}
+.dropdown-wrap.active .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -259,7 +220,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .profile-photo-wrap i { font-size: 48px; color: var(--orange); }
 .profile-name { font-family: 'Barlow Condensed'; font-size: 22px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 .profile-role { font-size: 12px; color: var(--orange); font-weight: 800; text-transform: uppercase; margin-top: 4px; }
-.profile-id { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 6px; font-family: 'Barlow Condensed'; }
 .profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; margin-top: 12px; margin-left: auto; margin-right: auto; }
 .status-active { background: var(--green-lt); color: var(--green); }
 .status-inactive { background: var(--red-lt); color: var(--red); }
@@ -295,22 +255,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .msg-success { background: var(--green-lt); color: var(--green); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(16,185,129,.2); }
 .msg-error { background: var(--red-lt); color: var(--red); padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; margin-bottom: 16px; border: 1px solid rgba(239,68,68,.2); }
 
-/* Menghapus scrollbar halaman */
-html, body {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
-}
-html::-webkit-scrollbar, 
-body::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-}
-
-
-@media(max-width: 991px) {
-    .bottom-row-grid {
-        grid-template-columns: 1fr;
-    }
-}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -328,88 +274,67 @@ body::-webkit-scrollbar {
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
 
-
-
 <?php if ($role === 'pemilik') { ?>
-    <!-- ====== MENU PEMILIK / MANAJER ====== -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
         </a>
         <a href="master/karyawan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
-            Kelola Karyawan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>Kelola Karyawan
         </a>
         <a href="laporan/omzet.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
-            Laporan & Omzet
+            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>Laporan & Omzet
         </a>
     </nav>
 <?php } else { ?>
-    <!-- ====== MENU KARYAWAN ====== -->
     <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
         </a>
         <a href="master/customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Kelola Customer
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Kelola Customer
         </a>
         <a href="master/lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Kelola Lapangan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Kelola Lapangan
         </a>
         <a href="master/fasilitas_lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>Kelola Fasilitas
         </a>
         <a href="master/jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-            Kelola Jadwal
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal
         </a>
         <a href="master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo
         </a>
         <a href="master/tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
         </a>
         <a href="master/alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
         </a>
     </nav>
-
     <div class="sb-section-label">Transaksi</div>
     <nav>
         <a href="master/booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Kelola Booking
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking
         </a>
         <a href="master/langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
-            Kelola Langganan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
         </a>
         <a href="master/pembelian.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
-            Kelola Pembelian Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
         </a>
         <a href="master/pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
-            Kelola Pembatalan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan
         </a>
     </nav>
 <?php } ?>
 
     <div class="sb-section-label">Akun</div>
     <a href="profile.php" class="sb-link active">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
     </a>
 
     <div class="sb-bottom">
@@ -466,7 +391,7 @@ body::-webkit-scrollbar {
         </div>
 
         <div class="profile-grid">
-            <!-- 1. KIRI ATAS: FOTO PROFIL -->
+            <!-- KIRI ATAS: FOTO PROFIL -->
             <div class="profile-card">
                 <div class="profile-photo-wrap">
                     <?php if ($photo_path): ?>
@@ -476,8 +401,9 @@ body::-webkit-scrollbar {
                     <?php endif; ?>
                 </div>
                 <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
-                <div class="profile-role"><?= strtoupper(htmlspecialchars($user_data['Jabatan'] ?? 'Karyawan')) ?></div>
-                <div class="profile-id"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                <!-- FIX: Show role text instead of number -->
+                <div class="profile-role"><?= strtoupper(htmlspecialchars($jabatan_text)) ?></div>
+                <!-- FIX: ID_Karyawan hidden, not displayed -->
                 <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
                     <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
                     <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
@@ -496,13 +422,14 @@ body::-webkit-scrollbar {
                 <?php endif; ?>
             </div>
 
-            <!-- 2. KANAN ATAS: DATA PRIBADI -->
+            <!-- KANAN ATAS: DATA PRIBADI -->
             <div class="info-card">
                 <div class="info-card-title"><i class="fa-solid fa-id-card"></i> Data Pribadi</div>
                 <div class="info-grid">
+                    <!-- FIX: ID_Karyawan hidden from view -->
                     <div class="info-item">
-                        <div class="info-label"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</div>
-                        <div class="info-value-mono"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                        <div class="info-label"><i class="fa-solid fa-id-card"></i> NIK</div>
+                        <div class="info-value-mono"><?= htmlspecialchars($user_data['NIK'] ?? '-') ?></div>
                     </div>
                     <div class="info-item">
                         <div class="info-label"><i class="fa-solid fa-user"></i> Nama Lengkap</div>
@@ -524,34 +451,38 @@ body::-webkit-scrollbar {
                         <div class="info-label"><i class="fa-solid fa-phone"></i> No. Telepon</div>
                         <div class="info-value"><?= htmlspecialchars($user_data['No_Telepon'] ?? '-') ?></div>
                     </div>
+                    <div class="info-item">
+                        <div class="info-label"><i class="fa-solid fa-briefcase"></i> Jabatan</div>
+                        <!-- FIX: Show role text -->
+                        <div class="info-value"><?= htmlspecialchars($jabatan_text) ?></div>
+                    </div>
                     <div class="info-item info-full">
                         <div class="info-label"><i class="fa-solid fa-map-location-dot"></i> Alamat Lengkap</div>
                         <div class="info-value"><?= htmlspecialchars($user_data['Alamat'] ?? '-') ?></div>
                     </div>
                 </div>
             </div>
-             
-   <!-- 3. KIRI BAWAH: INFORMASI LOGIN -->
-<div class="info-card login-info-card" style="display: flex; flex-direction: column;">
-    <div class="info-card-title" style="margin-bottom: 20px;"><i class="fa-solid fa-shield-halved"></i> Informasi Masuk</div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-grow: 1; align-content: space-between;">
-        <div class="info-item" style="grid-column: span 2;">
-            <div class="info-label"><i class="fa-solid fa-user-gear"></i> Nama Pengguna</div>
-            <div class="info-value"><?= htmlspecialchars($user_data['Username'] ?? '-') ?></div>
-        </div>
-        <div class="info-item" style="grid-column: span 2;">
-            <div class="info-label"><i class="fa-solid fa-envelope"></i> Email</div>
-            <div class="info-value"><?= htmlspecialchars($user_data['Email'] ?? '-') ?></div>
-        </div>
-        <div class="info-item" style="grid-column: span 2;">
-            <div class="info-label"><i class="fa-solid fa-key"></i> Terakhir Ganti Kata Sandi</div>
-            <!-- Menggunakan data dinamis tanggal modifikasi password -->
-            <div class="info-value"><?= $last_pwd_change_formatted ?></div>
-        </div>
-    </div>
-</div>
 
-            <!-- 4. KANAN BAWAH: GANTI PASSWORD -->
+            <!-- KIRI BAWAH: INFORMASI LOGIN -->
+            <div class="info-card login-info-card" style="display: flex; flex-direction: column;">
+                <div class="info-card-title" style="margin-bottom: 20px;"><i class="fa-solid fa-shield-halved"></i> Informasi Masuk</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex-grow: 1; align-content: space-between;">
+                    <div class="info-item" style="grid-column: span 2;">
+                        <div class="info-label"><i class="fa-solid fa-user-gear"></i> Nama Pengguna</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['Username'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item" style="grid-column: span 2;">
+                        <div class="info-label"><i class="fa-solid fa-envelope"></i> Email</div>
+                        <div class="info-value"><?= htmlspecialchars($user_data['Email'] ?? '-') ?></div>
+                    </div>
+                    <div class="info-item" style="grid-column: span 2;">
+                        <div class="info-label"><i class="fa-solid fa-key"></i> Terakhir Ganti Kata Sandi</div>
+                        <div class="info-value"><?= $last_pwd_change_formatted ?></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KANAN BAWAH: GANTI PASSWORD -->
             <div class="password-card">
                 <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Kata Sandi</div>
                 <?php if ($pass_msg === 'success'): ?>
@@ -579,27 +510,21 @@ body::-webkit-scrollbar {
                     </button>
                 </form>
             </div>
-        </div> <!-- Akhir penutup .profile-grid -->
+        </div>
     </div>
 </main>
 
 <script>
-
-    // Mengaktifkan interaksi klik/tekan pada dropdown profil user
 document.addEventListener('DOMContentLoaded', function () {
     const userDropdown = document.querySelector('.dropdown-wrap');
     if (userDropdown) {
         userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
+            e.stopPropagation();
             this.classList.toggle('active');
         });
     }
-
-    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
     document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
+        if (userDropdown) userDropdown.classList.remove('active');
     });
 });
 
@@ -620,12 +545,10 @@ function sesuaikanTinggiInformasiLogin() {
     const cardPassword = document.querySelector('.password-card');
     const cardLogin = document.querySelector('.login-info-card');
     if (cardPassword && cardLogin) {
-        // Mengatur tinggi card login agar sama persis dengan tinggi card password
         cardLogin.style.height = cardPassword.offsetHeight + 'px';
     }
 }
 
-// Jalankan fungsi saat halaman dimuat dan saat ukuran layar berubah
 window.addEventListener('load', sesuaikanTinggiInformasiLogin);
 window.addEventListener('resize', sesuaikanTinggiInformasiLogin);
 

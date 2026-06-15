@@ -12,26 +12,25 @@ $role = $_SESSION['role'];
 $jabatan = $_SESSION['jabatan'] ?? 'Karyawan';
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 
-// Ambil foto profil dari database untuk sidebar
+// FIX: Ambil foto profil dari database dengan kolom Photo_Profile
 $profile_photo = '';
 if (!empty($id_karyawan)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Profile_Photo FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
-        if ($row_photo && !empty($row_photo['Profile_Photo'])) {
-            $profile_photo = $row_photo['Profile_Photo'];
-            $_SESSION['Profile_Photo'] = $profile_photo;
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $profile_photo = $row_photo['Photo_Profile'];
+            $_SESSION['Photo_Profile'] = $profile_photo;
         }
     }
 }
 if (empty($profile_photo)) {
-    $profile_photo = $_SESSION['Profile_Photo'] ?? '';
+    $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 }
 if (!empty($profile_photo) && !file_exists($profile_photo)) {
     $profile_photo = '';
 }
 
-// Helper function
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -45,55 +44,42 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-// ═══════════════════════════════════════════════════════════
-// STATISTIK KARYAWAN - TANPA FILTER TANGGAL HARI INI
-// ═══════════════════════════════════════════════════════════
-
-// 1. Total Customer
+// STATISTIK KARYAWAN
 $total_customer = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_customer = $d['total'] ?? 0;
 
-// 2. Total Booking (Semua Waktu)
 $total_booking = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking");
 $d = safeFetch($q); if ($d) $total_booking = $d['total'] ?? 0;
 
-// 3. Booking Hari Ini (tetap tampilkan 0 jika tidak ada)
 $total_booking_today = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)");
 $d = safeFetch($q); if ($d) $total_booking_today = $d['total'] ?? 0;
 
-// 4. Total Langganan
 $total_langganan = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan");
 $d = safeFetch($q); if ($d) $total_langganan = $d['total'] ?? 0;
 
-// 5. Total Pembelian
 $total_pembelian = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat");
 $d = safeFetch($q); if ($d) $total_pembelian = $d['total'] ?? 0;
 
-// 6. Total Pembatalan
 $total_pembatalan = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan_Booking");
 $d = safeFetch($q); if ($d) $total_pembatalan = $d['total'] ?? 0;
 
-// 7. Total Omzet (Semua Booking Berhasil/Selesai)
 $total_omzet = 0;
 $q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
 $d = safeFetch($q); if ($d) $total_omzet = $d['total'] ?? 0;
 
-// 8. Total Alat
 $total_alat = 0; $total_alat_aktif = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_alat = $d['total'] ?? 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
 $d = safeFetch($q); if ($d) $total_alat_aktif = $d['total'] ?? 0;
 
-// ═══════════════════════════════════════════════════════════
-// CHART DATA: Booking per Status (Bar Chart)
-// ═══════════════════════════════════════════════════════════
+// CHART DATA
 $chart_labels = ['Menunggu', 'Berhasil', 'Selesai', 'Dibatalkan'];
 $chart_data = [];
 for ($i = 0; $i <= 3; $i++) {
@@ -102,25 +88,12 @@ for ($i = 0; $i <= 3; $i++) {
     $chart_data[] = $d ? ($d['total'] ?? 0) : 0;
 }
 
-// ═══════════════════════════════════════════════════════════
-// DATA BOOKING TERBARU (Top 5)
-// ═══════════════════════════════════════════════════════════
+// DATA BOOKING TERBARU
 $recent_booking = [];
 $q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar FROM Booking b JOIN Customer c ON b.ID_Customer = c.ID_Customer ORDER BY b.Created_Date DESC");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_booking[] = $row;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════
-// DATA PROMO AKTIF
-// ═══════════════════════════════════════════════════════════
-$promo_aktif = [];
-$q = safeQuery($conn, "SELECT TOP 5 ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai FROM Promo WHERE Status = 1 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE) ORDER BY Tanggal_Mulai DESC");
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $promo_aktif[] = $row;
     }
 }
 
@@ -165,7 +138,6 @@ $status_map = [
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
@@ -189,7 +161,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
 
-/* MAIN & TOPBAR */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -215,7 +186,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* CONTENT */
 .content { padding: 32px 40px; flex: 1; }
 .welcome-banner { background: linear-gradient(135deg, #0D1117 0%, #1a1a2e 100%); border-radius: 20px; padding: 32px 36px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; overflow: hidden; position: relative; border: 1px solid rgba(255,69,0,.15); }
 .wb-deco { position: absolute; right: -30px; top: -30px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,69,0,.18) 0%, transparent 70%); }
@@ -227,7 +197,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .wb-icon { position: relative; z-index: 1; }
 .wb-icon i { font-size: 64px; color: rgba(255,69,0,.25); }
 
-/* STAT GRID */
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
 .stat-card { background: var(--card-bg); border-radius: 16px; padding: 22px 24px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
@@ -252,7 +221,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .7; }
 
-/* CHART SECTION */
 .chart-section { display: grid; grid-template-columns: 1fr 340px; gap: 22px; margin-bottom: 28px; }
 @media(max-width:1100px){ .chart-section { grid-template-columns: 1fr; } }
 .chart-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 24px; }
@@ -262,7 +230,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .chart-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
 .chart-container { position: relative; height: 350px; }
 
-/* MINI STAT ROW */
 .mini-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mini-stat { background: var(--border-lt); border-radius: 12px; padding: 16px; border: 1px solid var(--border); }
 .mini-stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
@@ -270,11 +237,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .mini-stat-value.red { color: var(--red); }
 .mini-stat-value.orange { color: var(--orange); }
 
-/* GRID LAYOUT */
 .dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; }
 @media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
 
-/* CARD */
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
@@ -285,7 +250,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card-link:hover { gap: 8px; }
 .card-body { padding: 20px 24px; }
 
-/* TABLE */
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { padding: 10px 12px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; }
 .data-table td { padding: 14px 12px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
@@ -301,7 +265,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 
-/* QUICK LINKS */
 .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .quick-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-decoration: none; text-align: center; transition: all .2s ease; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .quick-card:hover { border-color: var(--orange); background: var(--orange-lt); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,69,0,.1); }
@@ -309,12 +272,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .quick-card:hover i { transform: scale(1.1); }
 .quick-card span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
 
-/* ALERT BOX */
-.alert-box { background: var(--red-lt); border: 1px solid rgba(239,68,68,.2); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-.alert-box i { color: var(--red); font-size: 16px; }
-.alert-box span { font-size: 13px; font-weight: 700; color: var(--red); }
-
-/* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
@@ -345,63 +302,50 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="sb-section-label">Operasional</div>
     <nav>
         <a href="view_admin.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
         </a>
         <a href="master/customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Kelola Customer
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Kelola Customer
         </a>
         <a href="master/lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Kelola Lapangan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Kelola Lapangan
         </a>
         <a href="master/fasilitas_lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>Kelola Fasilitas
         </a>
         <a href="master/jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-            Kelola Jadwal
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal
         </a>
         <a href="master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo
         </a>
         <a href="master/tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
         </a>
         <a href="master/alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
         </a>
     </nav>
 
     <div class="sb-section-label">Transaksi</div>
     <nav>
         <a href="master/booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Kelola Booking
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking
         </a>
         <a href="master/langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
-            Kelola Langganan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
         </a>
         <a href="master/pembelian.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
-            Kelola Pembelian Alat
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
         </a>
         <a href="master/pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
-            Kelola Pembatalan
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan
         </a>
     </nav>
 
     <div class="sb-section-label">Akun</div>
     <a href="profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
+        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
     </a>
 
     <div class="sb-bottom">
@@ -457,13 +401,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 <div class="content">
     <div class="welcome-banner">
         <div class="wb-deco"></div><div class="wb-deco2"></div>
-        <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> 👋</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
+        <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> &udm;</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
         <div class="wb-icon"><i class="fa-solid fa-basketball"></i></div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         STATISTIK UTAMA - SELALU TAMPIL KARENA TANPA FILTER TANGGAL
-         ═══════════════════════════════════════════════════════════ -->
     <div class="stat-grid">
         <div class="stat-card sc-blue">
             <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
@@ -483,7 +424,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         </div>
     </div>
 
-    <!-- Chart & Ringkasan -->
     <div class="chart-section">
         <div class="chart-card">
             <div class="chart-header">
@@ -518,9 +458,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         </div>
     </div>
 
-    <!-- Data Grid -->
     <div class="dashboard-grid">
-        <!-- Booking Terbaru -->
         <div class="card">
             <div class="card-header"><div class="card-title"><i class="fa-solid fa-calendar-check"></i> Booking Terbaru</div><div style="display:flex; align-items:center; gap:12px;"><span class="card-badge"><?= count($recent_booking) ?> data</span><a href="master/booking.php" class="card-link">Kelola <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a></div></div>
             <div style="overflow-x:auto;">
@@ -546,9 +484,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
             </div>
         </div>
 
-        <!-- Right Column -->
         <div style="display:flex; flex-direction:column; gap:20px;">
-            <!-- Akses Cepat -->
             <div class="card">
                 <div class="card-header"><div class="card-title"><i class="fa-solid fa-bolt"></i> Akses Cepat</div></div>
                 <div class="card-body">
@@ -561,7 +497,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 </div>
             </div>
 
-            <!-- Info Sistem -->
             <div class="card">
                 <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
                 <div class="card-body">
@@ -603,7 +538,7 @@ function updateClock() {
     document.getElementById('s').innerText = s;
     const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    document.getElementById('full-date').innerText = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
 }
 setInterval(updateClock, 1000); updateClock();
 
@@ -616,17 +551,12 @@ new Chart(ctx, {
             label: 'Jumlah Booking',
             data: <?= json_encode($chart_data) ?>,
             backgroundColor: [
-                'rgba(245, 158, 11, 0.8)',   // Menunggu - Kuning
-                'rgba(16, 185, 129, 0.8)',   // Berhasil - Hijau
-                'rgba(59, 130, 246, 0.8)',   // Selesai - Biru
-                'rgba(239, 68, 68, 0.8)'     // Dibatalkan - Merah
+                'rgba(245, 158, 11, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(59, 130, 246, 0.8)',
+                'rgba(239, 68, 68, 0.8)'
             ],
-            borderColor: [
-                '#F59E0B',
-                '#10B981',
-                '#3B82F6',
-                '#EF4444'
-            ],
+            borderColor: ['#F59E0B', '#10B981', '#3B82F6', '#EF4444'],
             borderWidth: 2,
             borderRadius: 8,
             borderSkipped: false,

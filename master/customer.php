@@ -10,12 +10,23 @@ $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 $map_jk = [0 => 'Laki-laki', 1 => 'Perempuan'];
 
+// FIX: Ambil foto profil dari database dengan kolom yang benar
 $profile_photo = '';
-$stmt_photo = sqlsrv_query($conn, "SELECT Profile_Photo FROM Karyawan WHERE Nama_Karyawan = ?", array($nama));
-if ($stmt_photo !== false) {
-    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
-    if ($row_photo && !empty($row_photo['Profile_Photo'])) {
-        $profile_photo = '../uploads/profiles/' . $row_photo['Profile_Photo'];
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+
+if (!empty($id_karyawan_session)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $photo_path = $row_photo['Photo_Profile'];
+            // Jika path sudah mengandung 'uploads/profiles/', gunakan langsung dengan ../
+            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+                $profile_photo = '../' . $photo_path;
+            } else {
+                $profile_photo = '../uploads/profiles/' . $photo_path;
+            }
+        }
     }
 }
 
@@ -923,10 +934,8 @@ html.swal2-shown {
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Customer']) ?></div>
                 </div>
 
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Customer</span>
-                    <span class="info-val id-code"><?= htmlspecialchars($detail_data['ID_Customer']) ?></span>
-                </div>
+                <!-- ID Customer hidden from view -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Customer']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
                     <span class="info-val"><?= htmlspecialchars($detail_data['Nama_Customer']) ?></span>
