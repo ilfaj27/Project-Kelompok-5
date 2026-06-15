@@ -52,19 +52,19 @@ if (isset($_POST['login'])) {
                 // FIX: Simpan id_karyawan ke session
                 $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
 
-                $jabatan = strtolower(trim($row['Jabatan']));
-                if ($jabatan == 'manajer') {
+                $jabatan = intval($row['Jabatan']);
+                if ($jabatan == 2) {
                     $_SESSION['role'] = 'pemilik';
-                } elseif ($jabatan == 'karyawan') {
+                } elseif ($jabatan == 1) {
                     $_SESSION['role'] = 'karyawan';
                 } else {
                     $_SESSION['role'] = 'karyawan';
                 }
 
                 $_SESSION['nama'] = $row['Nama_Karyawan'] ?? 'Admin';
-                $_SESSION['jabatan'] = $row['Jabatan'];
-                // FIX: Simpan Profile_Photo ke session
-                $_SESSION['Profile_Photo'] = $row['Profile_Photo'] ?? '';
+                $_SESSION['jabatan'] = $jabatan;
+                // FIX: Simpan Photo_Profile ke session
+                $_SESSION['Photo_Profile'] = $row['Photo_Profile'] ?? '';
 
                 if (isset($_POST['remember'])) {
                     setcookie('remember_me', $user_input, time() + (86400 * 30), "/");

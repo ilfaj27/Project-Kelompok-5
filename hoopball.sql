@@ -23,6 +23,7 @@ GO
 -- ============================================================
 CREATE TABLE Karyawan (
     ID_Karyawan     INT IDENTITY(1,1) PRIMARY KEY,
+    NIK             VARCHAR(16)     NOT NULL,   
     Nama_Karyawan   VARCHAR(20)     NOT NULL,
     Tanggal_Lahir   DATE            NOT NULL,
     Tempat_Lahir    VARCHAR(50)     NOT NULL,
@@ -45,6 +46,9 @@ CREATE TABLE Karyawan (
 );
 
 ALTER TABLE Karyawan
+ADD CONSTRAINT UQ_Karyawan_NIK UNIQUE (NIK);
+
+ALTER TABLE Karyawan
 ADD CONSTRAINT UQ_Karyawan_Email UNIQUE (Email);
 
 ALTER TABLE Karyawan
@@ -55,13 +59,12 @@ ADD CONSTRAINT UQ_Karyawan_NoTelepon UNIQUE (No_Telepon);
 
 -- Jabatan: 1 = Karyawan, 2 = Manajer
 INSERT INTO Karyawan
-(Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted, Created_By, Created_Date) VALUES
-('Rizky Pratama', '1995-03-12', 'Jakarta',    'Jl. Mawar No.1 Jakarta',      1, 2, '081211110001', 'rizky@hoopball.com', 'rizky_p', 'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('Sari Dewi',     '1997-07-22', 'Bandung',    'Jl. Melati No.5 Bandung',     0, 1, '081211110002', 'sari@hoopball.com',  'sari_d',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('Andi Setiawan', '1996-11-05', 'Surabaya',   'Jl. Kenanga No.10 Surabaya',  1, 1, '081211110003', 'andi@hoopball.com',  'andi_s',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('Budi Santoso',  '1994-05-18', 'Yogyakarta', 'Jl. Dahlia No.3 Yogyakarta',  1, 1, '081211110004', 'budi@hoopball.com',  'budi_s',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
-('Nina Rahayu',   '1998-09-30', 'Semarang',   'Jl. Anggrek No.7 Semarang',   0, 1, '081211110005', 'nina@hoopball.com',  'nina_r',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00');
-
+(NIK, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted, Created_By, Created_Date) VALUES
+('3173011203950001', 'Rizky Pratama', '1995-03-12', 'Jakarta',    'Jl. Mawar No.1 Jakarta',      1, 2, '081211110001', 'rizky@hoopball.com', 'rizky_p', 'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('3273012207970002', 'Sari Dewi',     '1997-07-22', 'Bandung',    'Jl. Melati No.5 Bandung',     0, 1, '081211110002', 'sari@hoopball.com',  'sari_d',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('3578010511960003', 'Andi Setiawan', '1996-11-05', 'Surabaya',   'Jl. Kenanga No.10 Surabaya',  1, 1, '081211110003', 'andi@hoopball.com',  'andi_s',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('3471011805940004', 'Budi Santoso',  '1994-05-18', 'Yogyakarta', 'Jl. Dahlia No.3 Yogyakarta',  1, 1, '081211110004', 'budi@hoopball.com',  'budi_s',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
+('3374013009980005', 'Nina Rahayu',   '1998-09-30', 'Semarang',   'Jl. Anggrek No.7 Semarang',   0, 1, '081211110005', 'nina@hoopball.com',  'nina_r',  'Pass@1234', 1, 0, 'SYSTEM', '2024-01-01 08:00:00');
 -- ============================================================
 -- 2. TABEL MASTER: Customer
 -- ============================================================
@@ -540,3 +543,6 @@ SELECT * FROM Langganan;
 SELECT * FROM Beli_Alat;
 SELECT * FROM Detail_Beli_Alat;
 SELECT * FROM Pembatalan_Booking;
+
+
+drop database Hoopball

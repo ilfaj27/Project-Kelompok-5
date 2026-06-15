@@ -9,29 +9,39 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
 $nama = $_SESSION['nama'];
 $role = $_SESSION['role'];
 
-function getProfilePhotoPath() {
-    $photo = $_SESSION['Profile_Photo'] ?? '';
-    if (empty($photo)) return '';
-    $current_dir = dirname($_SERVER['PHP_SELF']);
-    if (strpos($current_dir, '/master/') !== false || strpos($current_dir, '/laporan/') !== false) {
-        return '../' . $photo;
+
+// ============================================================================
+// FOTO PROFIL — AMBIL LANGSUNG DARI DATABASE (TIDAK PAKAI SESSION)
+// ============================================================================
+$profile_photo = '';
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+
+if (!empty($id_karyawan_session)) {
+    // Query database untuk foto profil
+    $photo_stmt = sqlsrv_query($conn, 
+        "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0", 
+        array($id_karyawan_session)
+    );
+    if ($photo_stmt && $photo_row = sqlsrv_fetch_array($photo_stmt, SQLSRV_FETCH_ASSOC)) {
+        $db_photo = $photo_row['Photo_Profile'] ?? '';
+        if (!empty($db_photo)) {
+            // Sesuaikan path untuk subdirectory (master/, laporan/, dll)
+            $folder_name = basename(dirname($_SERVER['PHP_SELF']));
+            if (in_array($folder_name, ['master', 'laporan'])) {
+                $profile_photo = '../' . $db_photo;
+            } else {
+                $profile_photo = $db_photo;
+            }
+        }
     }
-    return $photo;
 }
 
-function getProfilePhotoAbsolutePath() {
-    $photo = $_SESSION['Profile_Photo'] ?? '';
-    if (empty($photo)) return '';
-    return dirname(__DIR__) . '/' . $photo;
+// Simpan ke session untuk halaman lain
+if (!empty($profile_photo)) {
+    $_SESSION['Photo_Profile'] = $profile_photo;
 }
-
-$profile_photo = getProfilePhotoPath();
-$profile_photo_abs = getProfilePhotoAbsolutePath();
-if (!empty($profile_photo) && !file_exists($profile_photo_abs)) {
-    $profile_photo = '';
-}
-
 $map_jk = [0 => 'Perempuan', 1 => 'Laki-laki'];
+$map_jabatan = [1 => 'Karyawan', 2 => 'Manajer'];
 $map_status = [0 => 'Nonaktif', 1 => 'Aktif'];
 
 function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
@@ -90,10 +100,10 @@ function formatDateOnly($date) {
 // PROSES TAMBAH KARYAWAN
 // ============================================
 if (isset($_POST['add_karyawan'])) {
-    $id_kry = $_POST['id_kry'];
+    $nik = $_POST['nik'] ?? '';
     $nama_kry = $_POST['nama'];
     $jk = intval($_POST['jk']);
-    $jabatan = $_POST['jabatan'];
+    $jabatan = intval($_POST['jabatan']);
     $telp = $_POST['telp'];
     $status = intval($_POST['status']);
     $created_by = $_SESSION['nama'] ?? 'SYSTEM';
@@ -104,33 +114,44 @@ if (isset($_POST['add_karyawan'])) {
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    $checkID = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE ID_Karyawan=?", array($id_kry), false);
-    if ($checkID && safe_sqlsrv_has_rows($checkID)) {
-        header("Location: karyawan.php?add=1");
+    // Check NIK uniqueness
+    $checkNIK = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND Is_Deleted=0", array($nik), false);
+    if ($checkNIK && safe_sqlsrv_has_rows($checkNIK)) {
+        header("Location: karyawan.php?add=1&error=nik_exists");
         exit();
     }
 
     $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND Is_Deleted=0", array($username), false);
     if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?add=1");
+        header("Location: karyawan.php?add=1&error=username_exists");
         exit();
     }
 
     $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND Is_Deleted=0", array($telp), false);
     if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?add=1");
+        header("Location: karyawan.php?add=1&error=telp_exists");
+        exit();
+    }
+
+    $checkEmail = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Email=? AND Is_Deleted=0", array($email), false);
+    if ($checkEmail && safe_sqlsrv_has_rows($checkEmail)) {
+        header("Location: karyawan.php?add=1&error=email_exists");
         exit();
     }
 
     $stmt = safe_sqlsrv_query(
         $conn,
-        "INSERT INTO Karyawan (ID_Karyawan, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Is_Deleted, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Is_Deleted2, Created_By, Created_Date) 
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
-        array($id_kry, $nama_kry, $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $created_by),
+        "INSERT INTO Karyawan (NIK, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Created_By, Created_Date) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())",
+        array($nik, $nama_kry, $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $created_by),
         false
     );
 
-    header("Location: karyawan.php");
+    if ($stmt) {
+        header("Location: karyawan.php?status=success&msg=Karyawan berhasil ditambahkan!");
+    } else {
+        header("Location: karyawan.php?status=error&msg=Gagal menambahkan karyawan!");
+    }
     exit();
 }
 
@@ -138,33 +159,49 @@ if (isset($_POST['add_karyawan'])) {
 // PROSES UPDATE KARYAWAN
 // ============================================
 if (isset($_POST['update_karyawan'])) {
+    $id_kry = intval($_POST['id_kry']);
+    $nik = $_POST['nik'] ?? '';
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
     $tempat_lahir = $_POST['tempat_lahir'];
     $tanggal_lahir = $_POST['tanggal_lahir'];
     $alamat = $_POST['alamat'];
     $jk = intval($_POST['jk']);
-    $jabatan = $_POST['jabatan'];
+    $jabatan = intval($_POST['jabatan']);
     $telp = $_POST['telp'];
     $status = intval($_POST['status']);
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $_POST['id_kry']), false);
-    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?add=1");
+    // Check NIK uniqueness (exclude current record)
+    $checkNIK = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND ID_Karyawan<>? AND Is_Deleted=0", array($nik, $id_kry), false);
+    if ($checkNIK && safe_sqlsrv_has_rows($checkNIK)) {
+        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=nik_exists");
         exit();
     }
 
-    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND ID_Karyawan<>? AND Is_Deleted=0", array($telp, $_POST['id_kry']), false);
+    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $id_kry), false);
+    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
+        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=username_exists");
+        exit();
+    }
+
+    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND ID_Karyawan<>? AND Is_Deleted=0", array($telp, $id_kry), false);
     if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?add=1");
+        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=telp_exists");
+        exit();
+    }
+
+    $checkEmail = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Email=? AND ID_Karyawan<>? AND Is_Deleted=0", array($email, $id_kry), false);
+    if ($checkEmail && safe_sqlsrv_has_rows($checkEmail)) {
+        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=email_exists");
         exit();
     }
 
     $stmt = safe_sqlsrv_query(
         $conn,
         "UPDATE Karyawan SET 
+            NIK = ?,
             Nama_Karyawan=?, 
             Tanggal_Lahir=?, 
             Tempat_Lahir=?, 
@@ -179,7 +216,7 @@ if (isset($_POST['update_karyawan'])) {
             Modified_By=?, 
             Modified_Date=GETDATE() 
         WHERE ID_Karyawan=?",
-        array($_POST['nama'], $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $modified_by, $_POST['id_kry']),
+        array($nik, $_POST['nama'], $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $modified_by, $id_kry),
         false
     );
 
@@ -191,16 +228,17 @@ if (isset($_POST['update_karyawan'])) {
 // PROSES TOGGLE STATUS (AJAX) -> UBAH JADI REDIRECT
 // ============================================
 if (isset($_GET['toggle_id'])) {
+    $toggle_id = intval($_GET['toggle_id']);
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
-    
+
     safe_sqlsrv_query(
         $conn,
         "UPDATE Karyawan SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?",
-        array($s_baru, $modified_by, $_GET['toggle_id']),
+        array($s_baru, $modified_by, $toggle_id),
         false
     );
-    
+
     $status_label = $s_baru == 1 ? 'Aktif' : 'Nonaktif';
     header("Location: karyawan.php?page=1&status=success&msg=Status karyawan berhasil diubah menjadi " . $status_label . "!");
     exit();
@@ -210,6 +248,7 @@ if (isset($_GET['toggle_id'])) {
 // PROSES DELETE (SOFT DELETE)
 // ============================================
 if (isset($_GET['delete_id'])) {
+    $delete_id = intval($_GET['delete_id']);
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
     $stmt = safe_sqlsrv_query(
         $conn,
@@ -219,7 +258,7 @@ if (isset($_GET['delete_id'])) {
             Deleted_By=?, 
             Deleted_Date=GETDATE() 
         WHERE ID_Karyawan=?",
-        array($deleted_by, $_GET['delete_id']),
+        array($deleted_by, $delete_id),
         false
     );
 
@@ -232,7 +271,8 @@ if (isset($_GET['delete_id'])) {
 // ============================================
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = safe_sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan=? AND Is_Deleted=0", array($_GET['edit_id']), false);
+    $edit_id = intval($_GET['edit_id']);
+    $r = safe_sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan=? AND Is_Deleted=0", array($edit_id), false);
     if ($r) {
         $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
     }
@@ -242,7 +282,7 @@ $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 // ============================================
 // FILTER & SORTING
 // ============================================
-$filter_jabatan = isset($_GET['filter_jabatan']) ? $_GET['filter_jabatan'] : '';
+$filter_jabatan = isset($_GET['filter_jabatan']) ? intval($_GET['filter_jabatan']) : 0;
 $filter_jk = isset($_GET['filter_jk']) ? intval($_GET['filter_jk']) : -1;
 $filter_status = isset($_GET['filter_status']) ? intval($_GET['filter_status']) : -1;
 $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'ID_Karyawan';
@@ -257,7 +297,7 @@ $sort_order = ($sort_order === 'DESC') ? 'DESC' : 'ASC';
 $where_conditions = ["Is_Deleted = 0"];
 $params = [];
 
-if (!empty($filter_jabatan)) {
+if ($filter_jabatan > 0) {
     $where_conditions[] = "Jabatan = ?";
     $params[] = $filter_jabatan;
 }
@@ -313,17 +353,6 @@ if ($query === false) {
     }
 }
 
-// --- GENERATE ID KARYAWAN OTOMATIS ---
-$next_id_kry = 'KRY00001';
-$q_max_id = safe_sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan ORDER BY ID_Karyawan DESC", [], false);
-if ($q_max_id && safe_sqlsrv_has_rows($q_max_id)) {
-    $row_max = safe_sqlsrv_fetch_array($q_max_id, SQLSRV_FETCH_ASSOC);
-    $last_id = $row_max['ID_Karyawan'];
-    $num_part = intval(substr($last_id, 3));
-    $next_num = $num_part + 1;
-    $next_id_kry = 'KRY' . str_pad($next_num, 5, '0', STR_PAD_LEFT);
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -351,7 +380,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 
 /* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.sidebar::-webkit-scrollbar { display: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
 .sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
@@ -445,19 +473,17 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 
-/* Kolom specific */
-.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 25%; text-align: left; }
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 15%; text-align: left; }
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; text-align: left; }
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 15%; text-align: center !important; }
-.data-table th:nth-child(5) { position: relative; left: -60px !important; }
-.data-table td:nth-child(5) { font-size: 0 !important; }
-.data-table td:nth-child(5) .status-pill { position: relative; left: -60px !important; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
-.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 20%; text-align: left !important; }
+/* Kolom specific - FIXED LAYOUT */
+.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center; width: 60px; }
+.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 18%; text-align: left; }
+.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 14%; text-align: left; }
+.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 16%; text-align: left; }
+.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 14%; text-align: center; }
+.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 18%; text-align: left; }
 
 .emp-name { font-weight: 700; color: var(--text); font-size: 15px; }
 .jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
+.jabatan-manajer { background: var(--orange-lt); color: var(--orange); }
 
 /* STATUS */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
@@ -477,8 +503,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
 /* ACTIONS */
-.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
-.btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
+.actions { display: flex; gap: 10px; justify-content: flex-start; align-items: center; }
+.btn-action { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
 .btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
 .btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
 .btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
@@ -489,7 +515,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* MODAL */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
-.modal-box { background: #fff; border-radius: 20px; width: 680px; max-width: 95vw; max-height: 90vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-box { background: #fff; border-radius: 20px; width: 720px; max-width: 95vw; max-height: 90vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
 .modal-box::-webkit-scrollbar { display: none; }
 .modal-head { padding: 28px 32px 24px; border-bottom: 1px solid var(--border); }
 .modal-tag { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
@@ -516,15 +542,14 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* DETAIL MODAL */
 .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .detail-modal-overlay.open { display: flex; }
-.detail-modal-box { background: #fff; border-radius: 20px; width: 420px; max-height: 95vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; -ms-overflow-style: none; scrollbar-width: none; }
-.detail-modal-box::-webkit-scrollbar { display: none; }
+.detail-modal-box { background: #fff; border-radius: 20px; width: 460px; max-height: 95vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); position: relative; -ms-overflow-style: none; scrollbar-width: none; }
 .detail-modal-box::-webkit-scrollbar { display: none; }
 .detail-modal-close { width: 36px; height: 36px; border-radius: 10px; background: var(--bg); border: 1.5px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 14px; }
 .detail-modal-close:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
 .detail-photo-card { text-align: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1.5px dashed var(--border); }
 .detail-icon-wrap { width: 56px; height: 56px; background: var(--orange-lt); color: var(--orange); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 12px; box-shadow: 0 6px 16px rgba(255,69,0,0.15); border-bottom: 3px solid var(--orange); padding-bottom: 4px; }
 .detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); text-transform: uppercase; }
-.info-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-lt); gap: 12px; }
+.info-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-lt); gap: 12px; }
 .info-row:last-child { border-bottom: none; }
 .info-key { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; min-width: 140px; flex-shrink: 0; }
 .info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
@@ -597,7 +622,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
     .btn-action { padding: 6px 10px; font-size: 11px; }
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .modal-box { width: 90%; margin: 20px; }
-    .audit-grid { grid-template-columns: 1fr; }
     .form-grid { grid-template-columns: 1fr; }
     .full-width { grid-column: span 1; }
 }
@@ -617,32 +641,35 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         <div class="modal-body">
             <form method="POST" id="formKaryawan" onsubmit="return validateForm(this)" novalidate>
                 <div class="form-grid">
+                    <?php if ($edit_data): ?>
+                    <input type="hidden" name="id_kry" value="<?= htmlspecialchars($edit_data['ID_Karyawan']) ?>">
+                    <?php endif; ?>
                     <div>
-                        <label class="field-label">ID Karyawan <span class="required">*</span></label>
-                        <input type="text" name="id_kry" id="id_kry" class="modal-input" value="<?= $edit_data['ID_Karyawan'] ?? $next_id_kry ?>" readonly placeholder="KRY00001">
-                        <div class="val-msg" id="val-id_kry"><i class="fa-solid fa-circle-exclamation"></i> ID Karyawan wajib diisi</div>
+                        <label class="field-label">NIK <span class="required">*</span></label>
+                        <input type="text" name="nik" id="nik" class="modal-input" value="<?= htmlspecialchars($edit_data['NIK'] ?? '') ?>" required minlength="16" maxlength="16" placeholder="3173011203950001">
+                        <div class="val-msg" id="val-nik"><i class="fa-solid fa-circle-exclamation"></i> NIK harus 16 digit angka</div>
                     </div>
                     <div>
                         <label class="field-label">Nama Lengkap <span class="required">*</span></label>
-                        <input type="text" name="nama" id="nama" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Karyawan'] ?? '') ?>" required minlength="3" maxlength="100" placeholder="Nama lengkap">
+                        <input type="text" name="nama" id="nama" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Karyawan'] ?? '') ?>" required minlength="3" maxlength="20" placeholder="Nama lengkap">
                         <div class="val-msg" id="val-nama"><i class="fa-solid fa-circle-exclamation"></i> Nama minimal 3 karakter</div>
                     </div>
                     <div>
                         <label class="field-label">Nama Pengguna <span class="required">*</span></label>
-                        <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3" maxlength="50" placeholder="nama_pengguna" autocomplete="new-username">
+                        <input type="text" name="username" id="username" class="modal-input" value="<?= htmlspecialchars($edit_data['Username'] ?? '') ?>" required minlength="3" maxlength="20" placeholder="nama_pengguna" autocomplete="new-username">
                         <div class="val-msg" id="val-username"><i class="fa-solid fa-circle-exclamation"></i> Nama Pengguna minimal 3 karakter</div>
                     </div>
                     <div>
                         <label class="field-label">Kata Sandi <span class="required">*</span></label>
                         <div style="position: relative; width: 100%;">
-                            <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="100" placeholder="••••••••" style="padding-right: 42px;" autocomplete="new-password">
+                            <input type="password" name="password" id="password" class="modal-input" value="<?= htmlspecialchars($edit_data['Kata_Sandi'] ?? '') ?>" required minlength="6" maxlength="20" placeholder="••••••••" style="padding-right: 42px;" autocomplete="new-password">
                             <i class="fa-solid fa-eye" id="togglePass" onclick="togglePassword()" style="position: absolute; right: 14px; top: 22px; transform: translateY(-50%); cursor: pointer; color: var(--muted); z-index: 10; font-size: 14px;"></i>
                         </div>
-                        <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i> Kata Sandi minimal 8 karakter</div>
+                        <div class="val-msg" id="val-password" style="margin-top: 4px;"><i class="fa-solid fa-circle-exclamation"></i> Kata Sandi minimal 6 karakter</div>
                     </div>
                     <div>
                         <label class="field-label">Email <span class="required">*</span></label>
-                        <input type="email" name="email" id="email" class="modal-input" value="<?= htmlspecialchars($edit_data['Email'] ?? '') ?>" required placeholder="email@example.com">
+                        <input type="email" name="email" id="email" class="modal-input" value="<?= htmlspecialchars($edit_data['Email'] ?? '') ?>" required maxlength="50" placeholder="email@example.com">
                         <div class="val-msg" id="val-email"><i class="fa-solid fa-circle-exclamation"></i> Email wajib diisi dengan format yang valid</div>
                     </div>
                     <div>
@@ -662,7 +689,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     </div>
                     <div class="full-width">
                         <label class="field-label">Alamat Lengkap <span class="required">*</span></label>
-                        <textarea name="alamat" id="alamat" class="modal-input" required rows="3" placeholder="Jl. Merdeka No. 10, Jakarta Pusat" style="resize: none;"><?= htmlspecialchars($edit_data['Alamat'] ?? '') ?></textarea>
+                        <textarea name="alamat" id="alamat" class="modal-input" required rows="3" maxlength="100" placeholder="Jl. Merdeka No. 10, Jakarta Pusat" style="resize: none;"><?= htmlspecialchars($edit_data['Alamat'] ?? '') ?></textarea>
                         <div class="val-msg" id="val-alamat"><i class="fa-solid fa-circle-exclamation"></i> Alamat wajib diisi</div>
                     </div>
                     <div>
@@ -681,12 +708,11 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     <div>
                         <label class="field-label">Jabatan <span class="required">*</span></label>
                         <select name="jabatan" id="jabatan" class="modal-input" required>
-                            <option value="Manajer" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Manajer') ? 'selected' : '' ?>>Manajer</option>
-                            <option value="Karyawan" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Karyawan') ? 'selected' : '' ?>>Karyawan</option>
-                            <option value="Kasir" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Kasir') ? 'selected' : '' ?>>Kasir</option>
-                            <option value="Staf" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Staf') ? 'selected' : '' ?>>Staf</option>
-                            <option value="Keamanan" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 'Keamanan') ? 'selected' : '' ?>>Keamanan</option>
+                            <option value="">Pilih Jabatan</option>
+                            <option value="1" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 1) ? 'selected' : '' ?>>Karyawan</option>
+                            <option value="2" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 2) ? 'selected' : '' ?>>Manajer</option>
                         </select>
+                        <div class="val-msg" id="val-jabatan"><i class="fa-solid fa-circle-exclamation"></i> Jabatan wajib dipilih</div>
                     </div>
                     <div class="full-width">
                         <label class="field-label">Status <span class="required">*</span></label>
@@ -726,11 +752,11 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         </div>
         <div class="modal-body" style="padding: 12px 24px 20px;">
             <div class="detail-photo-card">
-                <div class="detail-icon-wrap"><i class="fa-solid fa-eye"></i></div>
+                <div class="detail-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
                 <div class="detail-main-name" id="dNameHeader">-</div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                <div class="info-row"><span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</span><span class="info-val-mono" id="dId">-</span></div>
+                <div class="info-row"><span class="info-key"><i class="fa-solid fa-id-card"></i> NIK</span><span class="info-val-mono" id="dNIK">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span><span class="info-val" id="dNama">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-user-tag"></i> Nama Pengguna</span><span class="info-val-mono" id="dUsername">-</span></div>
                 <div class="info-row"><span class="info-key"><i class="fa-solid fa-lock"></i> Kata Sandi</span><span class="info-val-mono" id="dPassword">-</span></div>
@@ -791,7 +817,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="../profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
@@ -806,7 +832,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
             <div class="stat-chips">
                 <div class="stat-chip chip-blue"><i class="fa-solid fa-user-tie"></i> TOTAL <span class="chip-val"><?= $total_kry ?></span></div>
                 <div class="stat-chip chip-green"><i class="fa-solid fa-users"></i> AKTIF <span class="chip-val"><?= $total_aktif ?></span></div>
-                <div class="stat-chip chip-red"><i class="fa-solid fa-briefcase"></i> JABATAN <span class="chip-val">5</span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-briefcase"></i> JABATAN <span class="chip-val">2</span></div>
             </div>
         </div>
 
@@ -834,12 +860,9 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <div class="filter-group">
                             <label>Jabatan</label>
                             <select id="filterJabatan" class="filter-input">
-                                <option value="" <?= empty($filter_jabatan) ? 'selected' : '' ?>>Semua Jabatan</option>
-                                <option value="Manajer" <?= $filter_jabatan == 'Manajer' ? 'selected' : '' ?>>Manajer</option>
-                                <option value="Karyawan" <?= $filter_jabatan == 'Karyawan' ? 'selected' : '' ?>>Karyawan</option>
-                                <option value="Kasir" <?= $filter_jabatan == 'Kasir' ? 'selected' : '' ?>>Kasir</option>
-                                <option value="Staf" <?= $filter_jabatan == 'Staf' ? 'selected' : '' ?>>Staf</option>
-                                <option value="Keamanan" <?= $filter_jabatan == 'Keamanan' ? 'selected' : '' ?>>Keamanan</option>
+                                <option value="0" <?= $filter_jabatan == 0 ? 'selected' : '' ?>>Semua Jabatan</option>
+                                <option value="2" <?= $filter_jabatan == 2 ? 'selected' : '' ?>>Manajer</option>
+                                <option value="1" <?= $filter_jabatan == 1 ? 'selected' : '' ?>>Karyawan</option>
                             </select>
                         </div>
                         <div class="filter-group">
@@ -884,12 +907,12 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     <table class="data-table" id="tbl">
                         <thead>
                             <tr>
-                                <th style="width:80px;text-align:center;">No</th>
+                                <th>No</th>
                                 <th>Nama Lengkap</th>
+                                <th>NIK</th>
                                 <th>Jabatan</th>
-                                <th>No. Telepon</th>
-                                <th style="width:150px;text-align:center;">Status</th>
-                                <th style="text-align:left; width:180px;">Aksi</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -902,12 +925,14 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                                     $has_data = true;
                                     $status_label = $map_status[$row['Status']] ?? 'Tidak diketahui';
                                     $is_active = $row['Status'] == 1;
+                                    $jabatan_label = $map_jabatan[$row['Jabatan']] ?? 'Tidak diketahui';
+                                    $jabatan_class = ($row['Jabatan'] == 2) ? 'jabatan-manajer' : '';
                             ?>
                             <tr id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
                                 <td class="row-num"><?= $row_num ?></td>
                                 <td><div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div></td>
-                                <td><span class="jabatan-badge"><?= htmlspecialchars($row['Jabatan']) ?></span></td>
-                                <td style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($row['No_Telepon']) ?></td>
+                                <td><span class="info-val-mono" style="font-size:13px;"><?= htmlspecialchars($row['NIK']) ?></span></td>
+                                <td><span class="jabatan-badge <?= $jabatan_class ?>"><?= htmlspecialchars($jabatan_label) ?></span></td>
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
                                         <span class="sp-dot"></span>
@@ -917,7 +942,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                                 <td>
                                     <div class="actions">
                                         <button onclick="openDetail(
-                                            '<?= htmlspecialchars($row['ID_Karyawan']) ?>',
+                                            '<?= htmlspecialchars($row['NIK']) ?>',
                                             '<?= htmlspecialchars($row['Nama_Karyawan']) ?>',
                                             '<?= htmlspecialchars($row['Username'] ?? '') ?>',
                                             '<?= htmlspecialchars($row['Kata_Sandi'] ?? '') ?>',
@@ -925,7 +950,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                                             '<?= $row['Jenis_Kelamin'] ?>',
                                             '<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
                                             '<?php $tgl = $row['Tanggal_Lahir'] ?? ''; if ($tgl && is_object($tgl)) echo $tgl->format('Y-m-d'); elseif ($tgl) echo htmlspecialchars($tgl); ?>',
-                                            '<?= htmlspecialchars($row['Jabatan']) ?>',
+                                            '<?= $row['Jabatan'] ?>',
                                             '<?= htmlspecialchars($row['No_Telepon']) ?>',
                                             '<?= $status_label ?>',
                                             '<?= addslashes($row['Alamat'] ?? '') ?>'
@@ -1061,10 +1086,10 @@ function validateForm(form) {
     let valid = true;
 
     const fields = [
-        { id: 'id_kry', err: 'val-id_kry', label: 'ID Karyawan', required: true },
-        { id: 'nama', err: 'val-nama', label: 'Nama', required: true, min: 3, max: 100, pattern: /^[a-zA-Z\s]+$/ },
+        { id: 'nik', err: 'val-nik', label: 'NIK', required: true, min: 16, max: 16, pattern: /^[0-9]{16}$/ },
+        { id: 'nama', err: 'val-nama', label: 'Nama', required: true, min: 3, max: 20, pattern: /^[a-zA-Z\s]+$/ },
         { id: 'username', err: 'val-username', label: 'Username', required: true, min: 3, max: 20, pattern: /^[a-zA-Z0-9\._]+$/, noSpace: true },
-        { id: 'password', err: 'val-password', label: 'Password', required: true, min: 8 },
+        { id: 'password', err: 'val-password', label: 'Password', required: true, min: 6, max: 20 },
         { id: 'email', err: 'val-email', label: 'Email', required: true, email: true },
         { id: 'telp', err: 'val-telp', label: 'Nomor Telepon', required: true, phone: true },
         { id: 'tempat_lahir', err: 'val-tempat_lahir', label: 'Tempat Lahir', required: true, min: 3, max: 50, pattern: /^[a-zA-Z\s]+$/ },
@@ -1103,7 +1128,7 @@ function validateForm(form) {
         }
 
         if (f.pattern && !f.pattern.test(val)) {
-            setValidationError(el, err, f.label + ' hanya boleh huruf dan spasi.');
+            setValidationError(el, err, f.label + ' format tidak valid.');
             valid = false;
             return;
         }
@@ -1118,9 +1143,9 @@ function validateForm(form) {
         }
 
         if (f.phone) {
-            const phonePattern = /^08[0-9]{8,11}$/;
+            const phonePattern = /^08[0-9]{8,13}$/;
             if (!phonePattern.test(val)) {
-                setValidationError(el, err, 'Nomor telepon harus diawali 08 dan 10-13 digit.');
+                setValidationError(el, err, 'Nomor telepon harus diawali 08 dan 10-15 digit.');
                 valid = false;
                 return;
             }
@@ -1128,6 +1153,18 @@ function validateForm(form) {
 
         clearValidationError(el, err);
     });
+
+    // Validate Jabatan
+    const jabatanEl = document.getElementById('jabatan');
+    const jabatanErr = document.getElementById('val-jabatan');
+    if (jabatanEl && jabatanErr) {
+        if (!jabatanEl.value) {
+            setValidationError(jabatanEl, jabatanErr, 'Jabatan wajib dipilih.');
+            valid = false;
+        } else {
+            clearValidationError(jabatanEl, jabatanErr);
+        }
+    }
 
     const tglLahir = document.getElementById('tanggal_lahir');
     if (tglLahir && !validateDate(tglLahir)) {
@@ -1144,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const namaInput = document.getElementById('nama');
     const tmpLahirInput = document.getElementById('tempat_lahir');
     const telpInput = document.getElementById('telp');
+    const nikInput = document.getElementById('nik');
 
     if (namaInput) {
         namaInput.addEventListener('input', () => {
@@ -1163,6 +1201,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (nikInput) {
+        nikInput.addEventListener('input', () => {
+            nikInput.value = nikInput.value.replace(/[^0-9]/g, '').substring(0, 16);
+        });
+    }
+
     // Real-time clearance
     const fields = [
         { el: document.getElementById('nama'), err: document.getElementById('val-nama') },
@@ -1170,9 +1214,9 @@ document.addEventListener('DOMContentLoaded', () => {
         { el: document.getElementById('password'), err: document.getElementById('val-password') },
         { el: document.getElementById('email'), err: document.getElementById('val-email') },
         { el: document.getElementById('telp'), err: document.getElementById('val-telp') },
+        { el: document.getElementById('nik'), err: document.getElementById('val-nik') },
         { el: document.getElementById('tempat_lahir'), err: document.getElementById('val-tempat_lahir') },
-        { el: document.getElementById('alamat'), err: document.getElementById('val-alamat') },
-        { el: document.getElementById('id_kry'), err: document.getElementById('val-id_kry') }
+        { el: document.getElementById('alamat'), err: document.getElementById('val-alamat') }
     ];
 
     fields.forEach(field => {
@@ -1222,7 +1266,7 @@ function confirmDelete(id, nama) {
 }
 
 // ============================================
-// TOGGLE STATUS - SAMA PERSIS DENGAN TIPE_MEMBER.PHP
+// TOGGLE STATUS
 // ============================================
 function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
     const action = isCurrentlyActive ? 'nonaktifkan' : 'aktifkan';
@@ -1265,11 +1309,12 @@ function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
 // ============================================
 // DETAIL MODAL
 // ============================================
-function openDetail(id, nama, username, password, email, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
+function openDetail(nik, nama, username, password, email, jk, tempatLahir, tanggalLahir, jabatan, telp, status, alamat) {
     const mapJK = { '1': 'LAKI-LAKI', '0': 'PEREMPUAN' };
+    const mapJabatan = { '1': 'KARYAWAN', '2': 'MANAJER' };
     const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-    document.getElementById('dId').textContent = id;
+    document.getElementById('dNIK').textContent = nik;
     document.getElementById('dNameHeader').textContent = nama;
     document.getElementById('dNama').textContent = nama;
     document.getElementById('dUsername').textContent = username || '-';
@@ -1288,7 +1333,10 @@ function openDetail(id, nama, username, password, email, jk, tempatLahir, tangga
     const jkColor = jk == '1' ? '#3B82F6' : '#EC4899';
     const jkBg = jk == '1' ? '#EFF6FF' : '#FDF2F8';
     document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-block;">${mapJK[jk] || '-'}</span>`;
-    document.getElementById('dJabatan').innerHTML = `<span class="jabatan-badge">${jabatan}</span>`;
+
+    const jabColor = jabatan == '2' ? '#FF4500' : '#4338CA';
+    const jabBg = jabatan == '2' ? 'rgba(255,69,0,0.1)' : '#EEF2FF';
+    document.getElementById('dJabatan').innerHTML = `<span class="jabatan-badge" style="background: ${jabBg}; color: ${jabColor};">${mapJabatan[jabatan] || 'TIDAK DIKETAHUI'}</span>`;
 
     const isAktif = (status === 'Aktif');
     document.getElementById('dStatus').innerHTML = `
@@ -1316,7 +1364,7 @@ function searchTable() {
         var tds = rows[i].getElementsByTagName('td');
         if (tds.length < 5) continue;
         var match = false;
-        for (var j = 1; j <= 3; j++) {
+        for (var j = 1; j <= 4; j++) {
             if (tds[j] && tds[j].textContent.toUpperCase().indexOf(input) > -1) { match = true; break; }
         }
         rows[i].style.display = match ? '' : 'none';
@@ -1393,7 +1441,7 @@ if (btnFilterToggle && filterCard) {
 })();
 
 // ============================================
-// NOTIFICATIONS (SAME AS TIPE_MEMBER)
+// NOTIFICATIONS
 // ============================================
 function showToast(type, title, message) {
     Swal.fire({
@@ -1409,18 +1457,14 @@ function showToast(type, title, message) {
     });
 }
 
-function showSuccess(title, message) { showToast('success', title, message); }
-function showError(title, message) { showToast('error', title, message); }
-function showWarning(title, message) { showToast('warning', title, message); }
-function showInfo(title, message) { showToast('info', title, message); }
-
 // ============================================
-// URL PARAMETER NOTIFICATIONS (SAME AS TIPE_MEMBER)
+// URL PARAMETER NOTIFICATIONS
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');
+    const error = urlParams.get('error');
 
     if (status && msg) {
         const isSuccess = status === 'success';
@@ -1428,6 +1472,28 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: isSuccess ? 'success' : 'error',
             title: isSuccess ? 'Berhasil!' : 'Gagal!',
             text: msg,
+            timer: 3000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (error) {
+        let errorMsg = 'Terjadi kesalahan.';
+        switch(error) {
+            case 'nik_exists': errorMsg = 'NIK sudah terdaftar!'; break;
+            case 'username_exists': errorMsg = 'Username sudah terdaftar!'; break;
+            case 'telp_exists': errorMsg = 'Nomor telepon sudah terdaftar!'; break;
+            case 'email_exists': errorMsg = 'Email sudah terdaftar!'; break;
+        }
+        Swal.fire({
+            icon: 'error',
+            title: 'Validasi Gagal!',
+            text: errorMsg,
             timer: 3000,
             showConfirmButton: false,
             toast: true,

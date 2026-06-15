@@ -66,7 +66,7 @@ if (!$user_data) {
         <div class="error-title">Data Profil Tidak Ditemukan</div>
         <div class="error-desc">Sistem tidak dapat menemukan data karyawan Anda di database.<br><br>
         <strong>Coba:</strong><br>
-        1. Logout dan login ulang<br>
+        1. Keluar dan Masuk ulang<br>
         2. Periksa apakah data karyawan ada di database<br>
         3. Hubungi administrator</div>
         <div class="error-debug"><strong>Debug Info:</strong><br>' . htmlspecialchars($debug_info) . '</div>
@@ -92,6 +92,7 @@ function fmtDate($date) {
 }
 
 $map_jk = [0 => 'Perempuan', 1 => 'Laki-laki', 'P' => 'Perempuan', 'L' => 'Laki-laki'];
+$map_jabatan = [1 => 'Karyawan', 2 => 'Manajer'];
 
 // Password change
 $pass_msg = '';
@@ -103,9 +104,9 @@ if (isset($_POST['change_password'])) {
     if ($old !== $user_data['Kata_Sandi']) {
         $pass_msg = 'Kata sandi lama salah!';
     } elseif (strlen($new) < 8) {
-        $pass_msg = 'Kata Sandi baru minimal 8 karakter!';
+        $pass_msg = 'Kata sandi baru minimal 8 karakter!';
     } elseif ($new !== $confirm) {
-        $pass_msg = 'Kata Sandi baru dan konfirmasi tidak cocok!';
+        $pass_msg = 'Kata sandi baru dan konfirmasi tidak cocok!';
     } else {
         $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($new, $nama, $user_data['ID_Karyawan']));
         if ($upd) {
@@ -129,9 +130,9 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
             $filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
             if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
             if (move_uploaded_file($file['tmp_name'], $filename)) {
-                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Profile_Photo = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
+                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
                 if ($upd) {
-                    $_SESSION['Profile_Photo'] = $filename;
+                    $_SESSION['Photo_Profile'] = $filename;
                     $photo_msg = 'success';
                     $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
                     $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -144,7 +145,7 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
 }
 
 
-$profile_photo = $user_data['Profile_Photo'] ?? '';
+$profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
 if (!empty($profile_photo)) {
     $photo_path = $profile_photo;
@@ -152,10 +153,9 @@ if (!empty($profile_photo)) {
 }
 
 // Ambil foto profil untuk sidebar dari session
-$sidebar_photo = $_SESSION['Profile_Photo'] ?? '';
-if (!empty($sidebar_photo) && !file_exists($sidebar_photo)) {
-    $sidebar_photo = '';
-}
+// Sidebar pakai foto yang sama dengan hasil query DB (sudah dicek file_exists)
+$sidebar_photo = $photo_path;
+$_SESSION['Photo_Profile'] = $photo_path;
 
 $last_pwd_change_raw = $user_data['Modified_Date'] ?? null;
 $last_pwd_change_formatted = '-';
@@ -323,11 +323,15 @@ body::-webkit-scrollbar {
 <body>
 
 <aside class="sidebar">
-    <a href="view_pemilik.php" class="sb-brand">
+    <a href="<?= ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php' ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
+        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
 
+
+
+<?php if ($role === 'pemilik') { ?>
+    <!-- ====== MENU PEMILIK / MANAJER ====== -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
         <a href="view_pemilik.php" class="sb-link">
@@ -343,9 +347,67 @@ body::-webkit-scrollbar {
             Laporan & Omzet
         </a>
     </nav>
+<?php } else { ?>
+    <!-- ====== MENU KARYAWAN ====== -->
+    <div class="sb-section-label">Operasional</div>
+    <nav>
+        <a href="view_admin.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
+            Dashboard
+        </a>
+        <a href="master/customer.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+            Kelola Customer
+        </a>
+        <a href="master/lapangan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+            Kelola Lapangan
+        </a>
+        <a href="master/fasilitas_lapangan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
+        </a>
+        <a href="master/jadwal.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+            Kelola Jadwal
+        </a>
+        <a href="master/promo.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
+        <a href="master/tipe_member.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="master/alat.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
+    </nav>
+
+    <div class="sb-section-label">Transaksi</div>
+    <nav>
+        <a href="master/booking.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+            Kelola Booking
+        </a>
+        <a href="master/langganan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+            Kelola Langganan
+        </a>
+        <a href="master/pembelian.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+            Kelola Pembelian Alat
+        </a>
+        <a href="master/pembatalan.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+            Kelola Pembatalan
+        </a>
+    </nav>
+<?php } ?>
 
     <div class="sb-section-label">Akun</div>
-    <a href="profile_pemilik.php" class="sb-link active">
+    <a href="profile.php" class="sb-link active">
         <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
         Profil Saya
     </a>
@@ -353,13 +415,16 @@ body::-webkit-scrollbar {
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($sidebar_photo): ?>
+                <?php if ($sidebar_photo) { ?>
                     <img src="<?= $sidebar_photo ?>" alt="Profile">
-                <?php else: ?>
+                <?php } else { ?>
                     <i class="fa-solid fa-user"></i>
-                <?php endif; ?>
+                <?php } ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
+            <div>
+                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
+                <div class="sb-user-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div>
+            </div>
             <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -382,11 +447,11 @@ body::-webkit-scrollbar {
                     <div class="t-avatar">
                         <?php if ($photo_path): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
                     </div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
+                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
                     <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
@@ -411,8 +476,8 @@ body::-webkit-scrollbar {
                     <?php endif; ?>
                 </div>
                 <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
-                <div class="profile-role"><?= strtoupper(htmlspecialchars($user_data['Jabatan'] ?? 'Karyawan')) ?></div>
-                <div class="profile-id"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                <div class="profile-role"><?= strtoupper(htmlspecialchars($map_jabatan[$user_data['Jabatan']] ?? 'Karyawan')) ?></div>
+                <div class="profile-id" style="font-size:10px; color: var(--muted); opacity: 0.7;">NIK: <?= htmlspecialchars($user_data['NIK'] ?? '-') ?></div>
                 <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
                     <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
                     <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
@@ -436,8 +501,8 @@ body::-webkit-scrollbar {
                 <div class="info-card-title"><i class="fa-solid fa-id-card"></i> Data Pribadi</div>
                 <div class="info-grid">
                     <div class="info-item">
-                        <div class="info-label"><i class="fa-solid fa-fingerprint"></i> ID Karyawan</div>
-                        <div class="info-value-mono"><?= htmlspecialchars($user_data['ID_Karyawan'] ?? '-') ?></div>
+                        <div class="info-label"><i class="fa-solid fa-id-card"></i> NIK</div>
+                        <div class="info-value-mono"><?= htmlspecialchars($user_data['NIK'] ?? '-') ?></div>
                     </div>
                     <div class="info-item">
                         <div class="info-label"><i class="fa-solid fa-user"></i> Nama Lengkap</div>
@@ -490,7 +555,7 @@ body::-webkit-scrollbar {
             <div class="password-card">
                 <div class="password-title"><i class="fa-solid fa-lock"></i> Ganti Kata Sandi</div>
                 <?php if ($pass_msg === 'success'): ?>
-                    <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Kata Sandi berhasil diubah!</div>
+                    <div class="msg-success"><i class="fa-solid fa-check-circle"></i> Kata sandi berhasil diubah!</div>
                 <?php elseif ($pass_msg): ?>
                     <div class="msg-error"><i class="fa-solid fa-circle-exclamation"></i> <?= $pass_msg ?></div>
                 <?php endif; ?>
@@ -571,7 +636,7 @@ setInterval(updateClock, 1000);
 Swal.fire({
     icon: 'success',
     title: 'Berhasil!',
-    text: '<?= ($pass_msg === 'success') ? 'Kata Sandi berhasil diubah!' : 'Foto profil berhasil diperbarui!' ?>',
+    text: '<?= ($pass_msg === 'success') ? 'Kata sandi berhasil diubah!' : 'Foto profil berhasil diperbarui!' ?>',
     timer: 2000,
     showConfirmButton: false,
     iconColor: '#FF4500'
