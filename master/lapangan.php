@@ -227,7 +227,6 @@ $where_sql = implode(" AND ", $where_clauses);
 $sort_by = "ID_Lapangan ASC";
 if (isset($_GET['f_sort'])) {
     switch ($_GET['f_sort']) {
-        case 'id_desc': $sort_by = "ID_Lapangan DESC"; break;
         case 'nama_asc': $sort_by = "Nama_Lapangan ASC"; break;
         case 'harga_desc': $sort_by = "Harga_Sewa DESC"; break;
         case 'harga_asc': $sort_by = "Harga_Sewa ASC"; break;
@@ -428,21 +427,30 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-.detail-modal-box { width: 440px; }
-.detail-photo-wrap { width: 100%; aspect-ratio: 16 / 10; background: var(--border-lt); border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; }
-.detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* ========== DETAIL MODAL STYLE SAMA DENGAN ALAT.PHP ========== */
+.detail-modal-box { width: 460px; border-radius: 24px; border: 1px solid var(--border); overflow-y: auto; }
+.detail-photo-wrap { width: 100%; aspect-ratio: 1.5 / 1; background: #ffffff; border-radius: 16px; overflow: hidden; margin-bottom: 16px; position: relative; border: 1.5px solid var(--border); box-shadow: inset 0 0 20px rgba(0,0,0,.02); }
+.detail-photo-wrap img { width: 100%; height: 100%; object-fit: contain; background: #ffffff; display: block; }
 .detail-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); }
-.detail-photo-placeholder i { font-size: 64px; color: var(--orange); opacity: .5; }
-.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); margin-bottom: 4px; }
-.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 16px; }
-.detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-.detail-info-item { background: var(--border-lt); border-radius: 10px; padding: 12px 16px; }
-.detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-.detail-info-value { font-size: 16px; font-weight: 800; color: var(--text); }
+.detail-photo-placeholder i { font-size: 56px; color: var(--orange); opacity: .6; }
+.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; }
+.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; }
+.detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
+.detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.detail-info-value { font-size: 18px; font-weight: 800; color: var(--text); }
 .detail-status-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
 .detail-status-aktif { background: var(--green-lt); color: var(--green); }
 .detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
 .detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
+
+.detail-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-bottom: 14px; text-transform: uppercase; }
+.badge-status-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
+.badge-status-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
+.detail-status-badge i { font-size: 8px; }
+
+.detail-info-item:hover { background: #ffffff; border-color: var(--orange); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.02); }
+.detail-info-label i { color: var(--orange); font-size: 12px; }
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -481,6 +489,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
+
+.modal-box {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.modal-box::-webkit-scrollbar {
+    display: none;
+}
 
 @media(max-width:768px){
     .sidebar{width:0;overflow:hidden;padding:0;}
@@ -562,11 +578,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- MODAL DETAIL LAPANGAN -->
+<!-- MODAL DETAIL LAPANGAN - DISAMAKAN DENGAN ALAT.PHP -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-body" style="padding-top:24px;">
+        <div class="modal-header">
+            <div class="modal-subtitle">Detail Informasi</div>
+            <div class="modal-title">Spesifikasi Lapangan</div>
+        </div>
+        <div class="modal-body" style="padding-top:20px;">
             <?php if ($detail_data): ?>
                 <div class="detail-photo-wrap">
                     <?php
@@ -581,30 +601,29 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <div class="detail-photo-placeholder"><i class="fa-solid fa-layer-group"></i></div>
                     <?php endif; ?>
                 </div>
+                
+                <!-- STATUS BADGE SAMA DENGAN ALAT.PHP -->
+                <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
+                    <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Lapangan Aktif' : 'Lapangan Maintenance' ?>
+                </div>
+
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
                 <div class="detail-price"><?= rupiah($detail_data['Harga_Sewa']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ jam</span></div>
+                
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-money-bill-wave" style="margin-right:4px;"></i>Harga Sewa</div>
-                        <div class="detail-info-value"><?= rupiah($detail_data['Harga_Sewa']) ?></div>
+                        <div class="detail-info-label"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa</div>
+                        <div class="detail-info-value" style="color:var(--shopee-orange);"><?= rupiah($detail_data['Harga_Sewa']) ?></div>
                     </div>
                     <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-hashtag" style="margin-right:4px;"></i>ID Lapangan</div>
-                        <div class="detail-info-value">#<?= intval($detail_data['ID_Lapangan']) ?></div>
+                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Tarif per Jam</div>
+                        <div class="detail-info-value"><?= rupiah($detail_data['Harga_Sewa']) ?> <span style="font-size:11px; font-weight:500; color:var(--muted);">/jam</span></div>
                     </div>
                 </div>
-                <div class="detail-status-wrap <?= $detail_data['Status'] == 1 ? 'detail-status-aktif' : 'detail-status-nonaktif' ?>">
-                    <i class="fa-solid fa-circle" style="font-size:10px;"></i>
-                    <span class="detail-status-text"><?= $detail_data['Status'] == 1 ? 'Lapangan Aktif' : 'Lapangan Maintenance' ?></span>
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <a href="?edit_id=<?= intval($detail_data['ID_Lapangan']) ?>" class="btn-submit" style="flex:1;background:var(--blue);text-decoration:none;">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Lapangan
-                    </a>
-                    <button type="button" onclick="closeModal()" class="btn-submit" style="flex:1;background:#0D1117;">
-                        <i class="fa-solid fa-arrow-left"></i> Kembali
-                    </button>
-                </div>
+
+                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117;">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali
+                </button>
             <?php endif; ?>
         </div>
     </div>
@@ -734,8 +753,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <div class="filter-group">
                                 <label>Urutkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc"    <?= ($_GET['f_sort'] ?? '') === 'id_asc'    ? 'selected' : '' ?>>ID &uarr;</option>
-                                    <option value="id_desc"   <?= ($_GET['f_sort'] ?? '') === 'id_desc'   ? 'selected' : '' ?>>ID &darr;</option>
                                     <option value="nama_asc"  <?= ($_GET['f_sort'] ?? '') === 'nama_asc'  ? 'selected' : '' ?>>Nama A-Z</option>
                                     <option value="harga_desc"<?= ($_GET['f_sort'] ?? '') === 'harga_desc'? 'selected' : '' ?>>Harga Termahal</option>
                                     <option value="harga_asc" <?= ($_GET['f_sort'] ?? '') === 'harga_asc' ? 'selected' : '' ?>>Harga Termurah</option>

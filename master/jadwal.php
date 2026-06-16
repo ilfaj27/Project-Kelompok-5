@@ -343,7 +343,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table td:nth-child(4) { font-size: 0 !important; }
 .data-table td:nth-child(4) .status-pill { position: relative; left: -110px !important; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
 
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: left !important; }
+.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: center !important; }
 
 /* Status Pill */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }

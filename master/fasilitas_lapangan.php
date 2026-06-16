@@ -325,7 +325,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(2),
 .data-table td:nth-child(2) {
     width: 32%;
-    text-align: left;
+    text-align: center !important;
 }
 .fas-name { font-weight: 700; color: var(--text); font-size: 15px; }
 .fas-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -334,7 +334,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(3),
 .data-table td:nth-child(3) {
     width: 22%;
-    text-align: left !important;
+    text-align: center !important;
 }
 
 .lap-name { 
@@ -355,7 +355,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table th:nth-child(4) {
     position: relative;
-    left: -60px !important; 
 }
 
 .data-table td:nth-child(4) {
@@ -364,7 +363,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table td:nth-child(4) .status-pill {
     position: relative;
-    left: -60px !important; 
     display: inline-flex !important;
     font-size: 12px !important; 
     margin: 0 !important; 
@@ -374,7 +372,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(5),
 .data-table td:nth-child(5) {
     width: 20%;
-    text-align: left !important;
+    text-align: Center !important;
 }
 
 /* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */

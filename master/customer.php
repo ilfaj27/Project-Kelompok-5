@@ -352,7 +352,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(2),
 .data-table td:nth-child(2) {
     width: 32%;
-    text-align: left;
+    text-align: center !important;
 }
 .cust-name { font-weight: 700; color: var(--text); font-size: 15px; }
 
@@ -360,7 +360,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(3),
 .data-table td:nth-child(3) {
     width: 30%;
-    text-align: left !important;
+    text-align: center !important;
 }
 
 .cust-email { 
@@ -392,7 +392,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(5),
 .data-table td:nth-child(5) {
     width: 20%;
-    text-align: left !important;
+    text-align: center !important;
 }
 
 /* STATUS PILL */

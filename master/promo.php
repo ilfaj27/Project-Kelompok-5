@@ -386,7 +386,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(2),
 .data-table td:nth-child(2) {
     width: 32%;
-    text-align: left;
+    text-align: center !important;
 }
 .promo-name { font-weight: 700; color: var(--text); font-size: 15px; }
 
@@ -394,10 +394,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(3),
 .data-table td:nth-child(3) {
     width: 22%;
-    text-align: left !important;
+    text-align: center !important;
     padding-left: 0 !important; 
     position: relative;
-    left: -0px !important; 
 }
 .promo-disc { 
     font-family: 'Barlow', sans-serif; 
@@ -416,7 +415,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table th:nth-child(4) {
     position: relative;
-    left: -60px !important; 
 }
 
 .data-table td:nth-child(4) {
@@ -425,7 +423,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table td:nth-child(4) .status-pill {
     position: relative;
-    left: -60px !important; 
     display: inline-flex !important;
     font-size: 12px !important; 
     margin: 0 !important; 
@@ -435,7 +432,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(5),
 .data-table td:nth-child(5) {
     width: 20%;
-    text-align: left !important;
+    text-align: center !important;
 }
 
 .promo-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }

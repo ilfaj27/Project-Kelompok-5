@@ -476,10 +476,10 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 /* Kolom specific - FIXED LAYOUT */
 .data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center; width: 60px; }
 .data-table th:nth-child(2), .data-table td:nth-child(2) { width: 18%; text-align: left; }
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 14%; text-align: left; }
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 16%; text-align: left; }
+.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 14%; text-align: center; }
+.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 16%; text-align: center; }
 .data-table th:nth-child(5), .data-table td:nth-child(5) { width: 14%; text-align: center; }
-.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 18%; text-align: left; }
+.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 18%; text-align: center; }
 
 .emp-name { font-weight: 700; color: var(--text); font-size: 15px; }
 .jabatan-badge { background: #EEF2FF; color: #4338CA; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-block; }
