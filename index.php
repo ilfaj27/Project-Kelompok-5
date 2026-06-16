@@ -1,4 +1,10 @@
 <?php
+
+if (!isset($_GET['load']) || $_GET['load'] !== 'done') {
+    header("Location: intro.php");
+    exit();
+}
+
 // Mengamankan koneksi database jika file konfigurasi disertakan
 $total_lapangan = 15; // default fallback
 $total_promo = 3;     // default fallback
@@ -180,12 +186,12 @@ if (file_exists('includes/config.php')) {
         }
 
         .btn-login {
-            color: var(--text-dark);
+             color: var(--text-dark);
             font-weight: 700;
             font-size: 14px;
             padding: 10px 24px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid #475569; /* Garis tepi dipertegas agar kontras */
             background: transparent;
             text-decoration: none;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -195,7 +201,7 @@ if (file_exists('includes/config.php')) {
         .btn-login:hover {
             border-color: var(--orange);
             color: var(--orange);
-            background-color: rgba(255, 69, 0, 0.02);
+            background-color: rgba(255, 69, 0, 0.05); /* Efek sentuhan oranye saat di-hover */
             transform: translateY(-1px);
         }
 
@@ -301,8 +307,8 @@ if (file_exists('includes/config.php')) {
         }
 
         .btn-hero-secondary {
-            background-color: #ffffff;
-            color: #111111;
+            background-color: #F1F5F9; /* Menggunakan warna abu-abu terang, bukan putih polos */
+            color: #334155; /* Warna teks abu-abu gelap agar mudah dibaca */
             padding: 14px 28px;
             font-weight: 700;
             font-size: 14px;
@@ -310,25 +316,28 @@ if (file_exists('includes/config.php')) {
             display: flex;
             align-items: center;
             gap: 10px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid #CBD5E1; /* Garis tepi yang lebih tegas */
             cursor: pointer;
             text-decoration: none;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .btn-hero-secondary i {
-            transition: transform 0.4s ease;
+            color: #475569; /* Warna ikon disesuaikan */
+            transition: transform 0.4s ease, color 0.3s ease;
         }
 
         .btn-hero-secondary:hover {
-            background-color: var(--bg-light);
-            border-color: #CBD5E1;
+            background-color: #E2E8F0; /* Latar belakang sedikit menggelap saat di-hover */
+            border-color: #94A3B8;
+            color: #0F172A;
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
         }
 
         .btn-hero-secondary:hover i {
             transform: rotate(30deg);
+            color: var(--orange); /* Ikon berubah oranye saat di-hover */
         }
 
         .hero-visual {
@@ -1912,79 +1921,6 @@ if (file_exists('includes/config.php')) {
             50% { transform: translateY(-20px) scale(1.5); opacity: 0.6; }
         }
 
-        /* ═══════════════════════════════════════════════════════════════
-           TOMBOL KELUAR — Floating Action Button
-           ═══════════════════════════════════════════════════════════════ */
-        .exit-fab {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
-            border: none;
-            border-radius: 50%;
-            color: #fff;
-            font-size: 22px;
-            cursor: pointer;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 20px rgba(255, 69, 0, 0.4), 0 0 0 4px rgba(255, 69, 0, 0.1);
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow: hidden;
-        }
-        .exit-fab::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3) 0%, transparent 60%);
-            opacity: 0.6;
-        }
-        .exit-fab:hover {
-            transform: translateY(-5px) scale(1.15);
-            box-shadow: 0 8px 35px rgba(255, 69, 0, 0.5), 0 0 0 6px rgba(255, 69, 0, 0.15);
-        }
-        .exit-fab:hover i {
-            transform: rotate(180deg) scale(1.1);
-        }
-        .exit-fab i {
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            position: relative;
-            z-index: 2;
-        }
-
-        .exit-fab-tooltip {
-            position: absolute;
-            right: 75px;
-            top: 50%;
-            transform: translateY(-50%) translateX(15px);
-            background: var(--dark);
-            color: #fff;
-            padding: 10px 18px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        .exit-fab:hover .exit-fab-tooltip {
-            opacity: 1;
-            transform: translateY(-50%) translateX(0);
-        }
-        .exit-fab-tooltip::after {
-            content: '';
-            position: absolute;
-            right: -6px;
-            top: 50%;
-            transform: translateY(-50%);
-            border: 8px solid transparent;
-            border-left-color: var(--dark);
-        }
 
         /* ═══════════════════════════════════════════════════════════════
            RESPONSIVE
@@ -2549,17 +2485,16 @@ html::-webkit-scrollbar {
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════
-         TOMBOL KELUAR — Floating Action Button
-         ═══════════════════════════════════════════════════════════════ -->
-    <button class="exit-fab" onclick="window.location.href='exit_intro.php'" title="Keluar">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span class="exit-fab-tooltip">Keluar dari HoopBall</span>
-    </button>
-
-    <!-- ═══════════════════════════════════════════════════════════════
          SCRIPTS
          ═══════════════════════════════════════════════════════════════ -->
     <script>
+     // HAPUS PARAMETER '?load=done' DARI URL BAR SETELAH HALAMAN DIMUAT
+        // Agar saat di-refresh, halaman kembali mengarah ke intro.php
+        if (window.history.replaceState) {
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+        }
+
         // SCROLLSPY
         document.addEventListener('DOMContentLoaded', () => {
             const sections = document.querySelectorAll('section[id], footer[id]');
@@ -2597,11 +2532,6 @@ html::-webkit-scrollbar {
         function triggerExitAnimation() {
             const body = document.body;
             const overlay = document.getElementById('exitOverlay');
-            const fab = document.getElementById('exitFab');
-
-            // Sembunyikan FAB
-            fab.style.transform = 'scale(0) rotate(180deg)';
-            fab.style.opacity = '0';
 
             // Fade konten halaman
             body.classList.add('exit-initiated');
@@ -2620,7 +2550,6 @@ html::-webkit-scrollbar {
 
             // Navigasi ke intro.php setelah animasi selesai
             setTimeout(() => {
-               // Redirect ke exit animation dulu, baru ke tujuan akhir
                 window.location.href = 'exit_intro.php?to=intro.php';
             }, 4500);
         }
