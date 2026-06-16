@@ -2283,9 +2283,9 @@ html::-webkit-scrollbar {
                     <span>Harga Terbaik</span>
                 </div>
                 <div class="shelf-item">
-                    <i class="fa-solid fa-truck-fast"></i>
-                    <span>Pengiriman Cepat</span>
-                </div>
+    <i class="fa-solid fa-bolt"></i>
+    <span>Pelayanan Cepat</span>
+</div>
                 <div class="shelf-item">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>Aman & Terpercaya</span>

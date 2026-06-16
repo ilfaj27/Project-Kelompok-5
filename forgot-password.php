@@ -7,12 +7,15 @@ $res_msg = "";
 $is_verified = false;
 
 // TAHAP 1: VERIFIKASI KEAMANAN DATA AKUN
+// TAHAP 1: VERIFIKASI KEAMANAN DATA AKUN & RIWAYAT TRANSAKSI
 if (isset($_POST['verify_account'])) {
     $username = $_POST['username_input'];
     $email = $_POST['email_input'];
     $telp = $_POST['telp_input'];
+    $nominal_input = $_POST['nominal_input'];
+    $tanggal_input = $_POST['tanggal_input']; // format: YYYY-MM-DD
 
-    // Query langsung ke tabel Customer
+    // Query ke tabel Customer
     $sql = "SELECT ID_Customer FROM Customer 
             WHERE Username = ? AND Email = ? AND No_Telepon = ? AND Is_Deleted = 0";
     $params = array($username, $email, $telp);
@@ -24,8 +27,56 @@ if (isset($_POST['verify_account'])) {
     } else {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
-            $is_verified = true;
-            $_SESSION['reset_id_customer'] = $row['ID_Customer']; // Tetap menggunakan reset_id_customer
+            $id_customer = $row['ID_Customer'];
+
+            // Query mengambil 1 transaksi terbaru milik customer
+            // Sila sesuaikan nama tabel 'Booking' dan nama kolomnya jika berbeda
+            $sql_booking = "SELECT TOP 1 Tanggal_Booking, Total_Bayar 
+                            FROM Booking 
+                            WHERE ID_Customer = ? 
+                            ORDER BY Tanggal_Booking DESC";
+            $stmt_booking = sqlsrv_query($conn, $sql_booking, array($id_customer));
+
+            if ($stmt_booking === false) {
+                $res_status = "error";
+                $res_msg = "Terjadi kesalahan saat memverifikasi riwayat transaksi.";
+            } else {
+                $row_booking = sqlsrv_fetch_array($stmt_booking, SQLSRV_FETCH_ASSOC);
+
+                if ($row_booking) {
+                    // Konversi format tanggal dari DB
+                    $db_tanggal = $row_booking['Tanggal_Booking'];
+                    if ($db_tanggal instanceof DateTime) {
+                        $db_tanggal_str = $db_tanggal->format('Y-m-d');
+                    } else {
+                        $db_tanggal_str = date('Y-m-d', strtotime($db_tanggal));
+                    }
+
+                    $db_nominal = (int)$row_booking['Total_Bayar'];
+
+                    // Bersihkan input nominal dari karakter non-angka
+                    $clean_nominal_input = (int)preg_replace('/[^0-9]/', '', $nominal_input);
+
+                    // Membandingkan input user dengan database
+                    if ($db_tanggal_str === $tanggal_input && $db_nominal === $clean_nominal_input) {
+                        $is_verified = true;
+                        $_SESSION['reset_id_customer'] = $id_customer;
+                    } else {
+                        $res_status = "error";
+                        $res_msg = "Data verifikasi salah. Detail riwayat transaksi terakhir tidak cocok!";
+                    }
+                } else {
+                    // Penanganan jika customer belum pernah melakukan pemesanan
+                    $clean_nominal_input = (int)preg_replace('/[^0-9]/', '', $nominal_input);
+                    if (empty($tanggal_input) && $clean_nominal_input === 0) {
+                        $is_verified = true;
+                        $_SESSION['reset_id_customer'] = $id_customer;
+                    } else {
+                        $res_status = "error";
+                        $res_msg = "Data verifikasi salah. Akun Anda belum memiliki riwayat transaksi.";
+                    }
+                }
+            }
         } else {
             $res_status = "error";
             $res_msg = "Data verifikasi salah. Nama pengguna, Email, atau Telepon tidak cocok!";
@@ -597,40 +648,41 @@ html.swal2-shown {
 
                 <?php if (!$is_verified): ?>
                     <!-- TAMPILAN TAHAP 1: FORM VERIFIKASI IDENTITAS AKUN -->
-                    <span class="card-subtitle">Silakan isi data keamanan akun Anda.</span>
-                    <form method="POST" id="verifyForm" novalidate>
-                        <div class="input-group">
-                            <label>Nama Pengguna Terdaftar</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-signature icon-left"></i>
-                                <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops">
-                            </div>
-                            <span class="error-text" id="usernameError"></span>
-                        </div>
+      <span class="card-subtitle">Silakan isi data keamanan akun Anda.</span>
+<form method="POST" id="verifyForm" novalidate>
+    <!-- USERNAME -->
+    <div class="input-group">
+        <label>Nama Pengguna Terdaftar</label>
+        <div class="input-wrapper">
+            <i class="fa-solid fa-signature icon-left"></i>
+            <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops">
+        </div>
+        <span class="error-text" id="usernameError"></span>
+    </div>
 
-                        <div class="input-group">
-                            <label>Email Terdaftar</label>
-                            <div class="input-wrapper">
-                                <i class="fa-regular fa-envelope icon-left"></i>
-                                <input type="email" name="email_input" id="emailField" placeholder="budi@gmail.com">
-                            </div>
-                            <span class="error-text" id="emailError"></span>
-                        </div>
+    <!-- TANGGAL BOOKING TERAKHIR -->
+    <div class="input-group">
+        <label>Tanggal Booking Terakhir</label>
+        <div class="input-wrapper">
+            <i class="fa-regular fa-calendar-days icon-left"></i>
+            <input type="date" name="tanggal_input" id="tanggalField">
+        </div>
+        <span class="error-text" id="tanggalError"></span>
+    </div>
 
-                        <div class="input-group">
-                            <label>Nomor Telepon Terdaftar</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-phone icon-left"></i>
-                                <input type="text" name="telp_input" id="telpField" placeholder="0812xxxxxxxx"
-                                    autocomplete="tel" maxlength="13">
-                            </div>
-                            <span class="error-text" id="telpError"></span>
-                        </div>
+    <!-- NOMINAL PEMBAYARAN TERAKHIR -->
+    <div class="input-group">
+        <label>Nominal Pembayaran Terakhir (Rupiah)</label>
+        <div class="input-wrapper">
+            <i class="fa-solid fa-money-bill-wave icon-left"></i>
+            <input type="text" name="nominal_input" id="nominalField" placeholder="Contoh: 150000" maxlength="10">
+        </div>
+        <span class="error-text" id="nominalError"></span>
+    </div>
 
-                        <button type="submit" name="verify_account" class="btn-submit" style="margin-top: 10px;">Verifikasi
-                            Akun</button>
-                        <p class="card-footer">Kembali ke halaman <a href="login.php">Masuk</a></p>
-                    </form>
+    <button type="submit" name="verify_account" class="btn-submit" style="margin-top: 10px;">Verifikasi Akun</button>
+    <p class="card-footer">Kembali ke halaman <a href="login.php">Masuk</a></p>
+</form>
                 <?php else: ?>
                     <!-- TAMPILAN TAHAP 2: FORM RESET PASSWORD BARU (KINI DENGAN ATURAN BARU YANG KETAT) -->
                     <span class="card-subtitle" style="color:var(--orange);"><b>Akun Terverifikasi!</b> Tulis Kata Sandi
@@ -771,6 +823,35 @@ html.swal2-shown {
 
     <!-- VALIDASI JAVASCRIPT & EVENT HANDLERS -->
     <script>
+
+        // Deklarasikan variabel elemen baru
+const tanggal = document.getElementById('tanggalField');
+const nominal = document.getElementById('nominalField');
+
+const tanggalError = document.getElementById('tanggalError');
+const nominalError = document.getElementById('nominalError');
+
+// Batasi input nominal agar hanya bisa angka
+nominal.addEventListener('input', () => {
+    nominal.value = nominal.value.replace(/[^0-9]/g, '');
+});
+
+// Tambahkan aturan validasi berikut di dalam event listener submit verifyForm:
+if (tanggal.value === '') {
+    setValidationError(tanggal, tanggalError, 'Tanggal booking terakhir wajib diisi.');
+    isValid = false;
+} else {
+    clearValidationError(tanggal, tanggalError);
+}
+
+if (nominal.value.trim() === '') {
+    setValidationError(nominal, nominalError, 'Nominal pembayaran terakhir wajib diisi.');
+    isValid = false;
+} else {
+    clearValidationError(nominal, nominalError);
+}
+
+
         document.addEventListener('DOMContentLoaded', () => {
 
             // FUNGSI PEMBANTU VALIDASI
@@ -788,87 +869,77 @@ html.swal2-shown {
             }
 
             // TAHAP 1: VALIDASI FORM VERIFIKASI AKUN
-            const verifyForm = document.getElementById('verifyForm');
-            if (verifyForm) {
-                const username = document.getElementById('usernameField');
-                const email = document.getElementById('emailField');
-                const telp = document.getElementById('telpField');
+  // TAHAP 1: VALIDASI FORM VERIFIKASI AKUN
+const verifyForm = document.getElementById('verifyForm');
+if (verifyForm) {
+    const username = document.getElementById('usernameField');
+    const tanggal = document.getElementById('tanggalField');
+    const nominal = document.getElementById('nominalField');
 
-                const usernameError = document.getElementById('usernameError');
-                const emailError = document.getElementById('emailError');
-                const telpError = document.getElementById('telpError');
+    const usernameError = document.getElementById('usernameError');
+    const tanggalError = document.getElementById('tanggalError');
+    const nominalError = document.getElementById('nominalError');
 
-                // FILTER REAL-TIME: Memaksa kolom telepon HANYA bisa diketik angka saja
-                telp.addEventListener('input', () => {
-                    telp.value = telp.value.replace(/[^0-9]/g, '');
-                });
+    // Hanya izinkan angka untuk input nominal
+    nominal.addEventListener('input', () => {
+        nominal.value = nominal.value.replace(/[^0-9]/g, '');
+    });
 
-                verifyForm.addEventListener('submit', function (e) {
-                    let isValid = true;
+    verifyForm.addEventListener('submit', function (e) {
+        let isValid = true;
 
-                    // 1. VALIDASI USERNAME (3-30 Karakter, No Spasi, Huruf/Angka/Titik/Underscore)
-                    const usernameVal = username.value.trim();
-                    const usernamePattern = /^[a-zA-Z0-9\._]+$/;
+        // 1. Validasi Username
+        const usernameVal = username.value.trim();
+        const usernamePattern = /^[a-zA-Z0-9\._]+$/;
 
-                    if (usernameVal === '') {
-                        setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
-                        isValid = false;
-                    } else if (usernameVal.length < 3 || usernameVal.length > 30) {
-                        setValidationError(username, usernameError, 'Nama Pengguna minimal 3 karakter dan maksimal 30 karakter.');
-                        isValid = false;
-                    } else if (username.value.includes(' ')) {
-                        setValidationError(username, usernameError, 'Nama Pengguna tidak boleh menggunakan spasi.');
-                        isValid = false;
-                    } else if (!usernamePattern.test(usernameVal)) {
-                        setValidationError(username, usernameError, 'Nama Pengguna hanya boleh berisi huruf, angka, titik (.), dan underscore (_).');
-                        isValid = false;
-                    } else {
-                        clearValidationError(username, usernameError);
-                    }
+        if (usernameVal === '') {
+            setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
+            isValid = false;
+        } else if (usernameVal.length < 3 || usernameVal.length > 30) {
+            setValidationError(username, usernameError, 'Nama Pengguna minimal 3 karakter dan maksimal 30 karakter.');
+            isValid = false;
+        } else if (username.value.includes(' ')) {
+            setValidationError(username, usernameError, 'Nama Pengguna tidak boleh menggunakan spasi.');
+            isValid = false;
+        } else if (!usernamePattern.test(usernameVal)) {
+            setValidationError(username, usernameError, 'Nama Pengguna hanya boleh berisi huruf, angka, titik (.), dan underscore (_).');
+            isValid = false;
+        } else {
+            clearValidationError(username, usernameError);
+        }
 
-                    // 2. VALIDASI EMAIL (Format Email Benar)
-                    const emailVal = email.value.trim();
-                    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        // 2. Validasi Tanggal Booking Terakhir
+        if (tanggal.value === '') {
+            setValidationError(tanggal, tanggalError, 'Tanggal booking terakhir wajib diisi.');
+            isValid = false;
+        } else {
+            clearValidationError(tanggal, tanggalError);
+        }
 
-                    if (emailVal === '') {
-                        setValidationError(email, emailError, 'Email wajib diisi.');
-                        isValid = false;
-                    } else if (!emailPattern.test(emailVal)) {
-                        setValidationError(email, emailError, 'Format email yang dimasukkan tidak benar.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(email, emailError);
-                    }
+        // 3. Validasi Nominal Pembayaran Terakhir
+        const nominalVal = nominal.value.trim();
+        if (nominalVal === '') {
+            setValidationError(nominal, nominalError, 'Nominal pembayaran terakhir wajib diisi.');
+            isValid = false;
+        } else {
+            clearValidationError(nominal, nominalError);
+        }
 
-                    // 3. VALIDASI TELEPON (Hanya angka murni, 10-13 digit)
-                    const telpVal = telp.value.trim();
-                    const phonePattern = /^[0-9]{10,13}$/;
+        if (!isValid) e.preventDefault();
+    });
 
-                    if (telpVal === '') {
-                        setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
-                        isValid = false;
-                    } else if (!phonePattern.test(telpVal)) {
-                        setValidationError(telp, telpError, 'Nomor telepon hanya boleh angka, minimal 10 digit, dan maksimal 13 digit.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(telp, telpError);
-                    }
-
-                    if (!isValid) e.preventDefault();
-                });
-
-                // Pembersih Error saat Mengetik (Verify Form)
-                const fieldsVerify = [
-                    { el: username, err: usernameError },
-                    { el: email, err: emailError },
-                    { el: telp, err: telpError }
-                ];
-                fieldsVerify.forEach(field => {
-                    field.el.addEventListener('input', () => {
-                        clearValidationError(field.el, field.err);
-                    });
-                });
-            }
+    // Pembersih Error saat Mengetik (Verify Form)
+    const fieldsVerify = [
+        { el: username, err: usernameError },
+        { el: tanggal, err: tanggalError },
+        { el: nominal, err: nominalError }
+    ];
+    fieldsVerify.forEach(field => {
+        field.el.addEventListener('input', () => {
+            clearValidationError(field.el, field.err);
+        });
+    });
+}
 
             // TAHAP 2: VALIDASI FORM RESET PASSWORD BARU (ATURAN KETAT TERBARU)
             const resetForm = document.getElementById('resetForm');

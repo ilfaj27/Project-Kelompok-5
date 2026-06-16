@@ -791,7 +791,7 @@ if (isset($_POST['register'])) {
                 margin-bottom: 40px;
             }
 
-            .auth-card-container {
+            .auth-card-contai   ner {
                 justify-content: center;
             }
 
