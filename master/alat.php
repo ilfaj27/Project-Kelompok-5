@@ -9,7 +9,7 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     exit();
 }
 $role = $_SESSION['role'];
-$nama = $_SESSION['nama'] ?? 'USER';
+$nama = substr($_SESSION['nama'] ?? 'USER', 0, 50);
 
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
@@ -94,8 +94,9 @@ function processPhotoUpload($file, $edit_data = null) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
     $nama_alat = trim($_POST['nama_alat'] ?? '');
-    $stok_raw = trim($_POST['stok'] ?? '');
-    $harga_raw = trim($_POST['harga_alat'] ?? '');
+    // Menghapus semua karakter non-angka (seperti titik pemisah ribuan)
+$stok_raw = preg_replace('/[^0-9]/', '', trim($_POST['stok'] ?? ''));
+$harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_alat'] ?? ''));
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
     $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
 
@@ -120,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     }
     if (empty($errors)) {
         $stok = intval($stok_raw);
-        $harga_alat = floatval($harga_raw);
+        $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
         if ($edit_mode && $id > 0) {
@@ -495,6 +496,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         </div>
         <div class="modal-body">
             <form method="POST" id="formAlat" enctype="multipart/form-data" action="alat.php" onsubmit="return validateForm()">
+                <input type="hidden" name="save_alat" value="1">
                 <?php if ($edit_data): ?>
                     <input type="hidden" name="edit_mode" value="1">
                     <input type="hidden" name="id_alat" value="<?= intval($edit_data['ID_Alat']) ?>">
@@ -547,10 +549,10 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                        placeholder="Contoh: 150000" min="20000" autocomplete="off">
                 <div class="val-msg" id="val-harga_alat"></div>
 
-                <button type="submit" name="save_alat" class="btn-submit" id="btnSubmit">
-                    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Alat' ?>
-                </button>
+                <button type="submit" class="btn-submit" id="btnSubmit">
+    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
+    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Alat' ?>
+</button>
                 <button type="button" class="btn-cancel" onclick="closeModal()">Batal</button>
             </form>
         </div>
