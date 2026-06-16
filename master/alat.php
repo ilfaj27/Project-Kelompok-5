@@ -398,7 +398,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .modal-input::placeholder { color: #9CA3AF; }
 .modal-input.error { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-lt); }
-.btn-submit { width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-submit { width: 100%; background: var(--orange); color: #fff; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; }
 .btn-submit:hover { background: var(--orange-dk); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
 .btn-cancel { display: block; text-align: center; margin-top: 16px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 700; transition: .2s; cursor: pointer; background: none; border: none; width: 100%; }
 .btn-cancel:hover { color: var(--orange); }
@@ -419,21 +419,37 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-.detail-modal-box { width: 440px; }
-.detail-photo-wrap { width: 100%; aspect-ratio: 1 / 1; background: var(--border-lt); border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; }
-.detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-modal-box { width: 460px; border-radius: 24px; border: 1px solid var(--border); overflow-y: auto; }
+.detail-photo-wrap { width: 100%; aspect-ratio: 1.5 / 1; background: #ffffff; border-radius: 16px; overflow: hidden; margin-bottom: 16px; position: relative; border: 1.5px solid var(--border); box-shadow: inset 0 0 20px rgba(0,0,0,.02); }
+.detail-photo-wrap img { width: 100%; height: 100%; object-fit: contain; background: #ffffff; display: block; }
 .detail-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); }
-.detail-photo-placeholder i { font-size: 64px; color: var(--orange); opacity: .5; }
-.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); margin-bottom: 4px; }
-.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 16px; }
-.detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-.detail-info-item { background: var(--border-lt); border-radius: 10px; padding: 12px 16px; }
-.detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-.detail-info-value { font-size: 16px; font-weight: 800; color: var(--text); }
+.detail-photo-placeholder i { font-size: 56px; color: var(--orange); opacity: .6; }
+.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; }
+.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; }
+.detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
+.detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.detail-info-value { font-size: 18px; font-weight: 800; color: var(--text); }
 .detail-status-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
 .detail-status-aktif { background: var(--green-lt); color: var(--green); }
 .detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
 .detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
+
+.detail-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-bottom: 14px; text-transform: uppercase; }
+.badge-status-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
+.badge-status-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
+.detail-status-badge i { font-size: 8px; }
+
+.detail-info-item:hover { background: #ffffff; border-color: var(--orange); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.02); }
+.detail-info-label i { color: var(--orange); font-size: 12px; }
+
+.detail-audit-box { background: var(--border-lt); border-radius: 14px; padding: 14px; font-size: 11px; border: 1.5px solid var(--border); margin-bottom: 8px; }
+
+.audit-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: var(--text-md); }
+.audit-row:last-child { margin-bottom: 0; }
+.audit-row span { color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.audit-row span i { font-size: 11px; width: 14px; text-align: center; }
+.audit-row strong { font-weight: 700; color: var(--text); }
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -473,6 +489,15 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
+.modal-box {
+    -ms-overflow-style: none;  /* Untuk Internet Explorer dan Edge */
+    scrollbar-width: none;     /* Untuk Firefox */
+}
+
+.modal-box::-webkit-scrollbar {
+    display: none;             /* Untuk Chrome, Safari, dan Opera */
+}
+
 @media(max-width:768px){
     .sidebar{width:0;overflow:hidden;padding:0;}
     .main{margin-left:0;}
@@ -487,6 +512,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </head>
 <body>
 <!-- MODAL FORM TAMBAH/EDIT ALAT -->
+ <!-- MODAL FORM TAMBAH/EDIT ALAT -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalAlat">
     <div class="modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
@@ -550,20 +576,23 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="val-msg" id="val-harga_alat"></div>
 
                 <button type="submit" class="btn-submit" id="btnSubmit">
-    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Alat' ?>
-</button>
+                    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
+                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Alat' ?>
+                </button>
                 <button type="button" class="btn-cancel" onclick="closeModal()">Batal</button>
             </form>
         </div>
     </div>
 </div>
-
 <!-- MODAL DETAIL ALAT -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-body" style="padding-top:24px;">
+        <div class="modal-header">
+            <div class="modal-subtitle">Detail Informasi</div>
+            <div class="modal-title">Spesifikasi Alat</div>
+        </div>
+        <div class="modal-body" style="padding-top:20px;">
             <?php if ($detail_data): ?>
                 <div class="detail-photo-wrap">
                     <?php
@@ -578,30 +607,32 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <div class="detail-photo-placeholder"><i class="fa-solid fa-toolbox"></i></div>
                     <?php endif; ?>
                 </div>
+                
+                <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
+                    <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
+                </div>
+
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
                 <div class="detail-price"><?= rupiah($detail_data['Harga_Alat']) ?></div>
+                
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-boxes-stacked" style="margin-right:4px;"></i>Stok Tersedia</div>
-                        <div class="detail-info-value"><?= intval($detail_data['Stok']) ?> PCS</div>
+                        <div class="detail-info-label"><i class="fa-solid fa-boxes-stacked"></i> Stok Tersedia</div>
+                        <div class="detail-info-value"><?= intval($detail_data['Stok']) ?> <span style="font-size:11px; font-weight:500; color:var(--muted);">PCS</span></div>
                     </div>
                     <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-tag" style="margin-right:4px;"></i>Harga Satuan</div>
-                        <div class="detail-info-value"><?= rupiah($detail_data['Harga_Alat']) ?></div>
+                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Harga Satuan</div>
+                        <div class="detail-info-value" style="color:var(--shopee-orange);"><?= rupiah($detail_data['Harga_Alat']) ?></div>
                     </div>
                 </div>
-                <div class="detail-status-wrap <?= $detail_data['Status'] == 1 ? 'detail-status-aktif' : 'detail-status-nonaktif' ?>">
-                    <i class="fa-solid fa-circle" style="font-size:10px;"></i>
-                    <span class="detail-status-text"><?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?></span>
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <a href="?edit_id=<?= intval($detail_data['ID_Alat']) ?>" class="btn-submit" style="flex:1;background:var(--blue);text-decoration:none;">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Alat
-                    </a>
-                    <button type="button" onclick="closeModal()" class="btn-submit" style="flex:1;background:#0D1117;">
-                        <i class="fa-solid fa-arrow-left"></i> Kembali
-                    </button>
-                </div>
+
+                <!-- HISTORI INPUT / AUDIT LOG DATA -->
+
+                <div style="margin-top:24px;">
+    <button type="button" onclick="closeModal()" class="btn-submit" style="width:100%;background:var(--sidebar);">
+        <i class="fa-solid fa-arrow-left"></i> Kembali
+    </button>
+</div>
             <?php endif; ?>
         </div>
     </div>
