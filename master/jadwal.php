@@ -10,6 +10,7 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
+// ===== PHOTO PROFILE =====
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 if (!empty($id_karyawan_session)) {
@@ -18,7 +19,9 @@ if (!empty($id_karyawan_session)) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
             $photo_path = $row_photo['Photo_Profile'];
-            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+            if (strpos($photo_path, '../') === 0) {
+                $profile_photo = $photo_path;
+            } elseif (strpos($photo_path, 'uploads/') === 0) {
                 $profile_photo = '../' . $photo_path;
             } else {
                 $profile_photo = '../uploads/profiles/' . $photo_path;
@@ -37,7 +40,6 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-// FORMAT FUNGSI BANTU UNTUK DATETIME SQLSRV
 function formatInputDate($d) {
     if ($d instanceof DateTime) {
         return $d->format('Y-m-d');
@@ -51,7 +53,6 @@ function formatInputTime($t) {
     return !empty($t) ? date('H:i', strtotime($t)) : '';
 }
 
-// AMBIL DAFTAR LAPANGAN UNTUK DROPDOWN
 $lapangan_list = [];
 $q_lap = safeQuery($conn, "SELECT ID_Lapangan, Nama_Lapangan, Harga_Sewa FROM Lapangan WHERE Is_Deleted=0 AND Status=1 ORDER BY Nama_Lapangan", []);
 if ($q_lap) {
@@ -60,7 +61,6 @@ if ($q_lap) {
     }
 }
 
-// PROSES CRUD JADWAL
 if (isset($_POST['save_jadwal'])) {
     $id = trim($_POST['id_jadwal']);
     $id_lapangan = $_POST['id_lapangan'];
@@ -68,45 +68,32 @@ if (isset($_POST['save_jadwal'])) {
     $jam_mulai = $_POST['jam_mulai'];
     $jam_selesai = $_POST['jam_selesai'];
 
-    // Validasi form dasar
-   // 1. Lapangan wajib dipilih
     if (empty($id_lapangan)) {
         header("Location: jadwal.php?page=1&status=error&msg=Lapangan wajib dipilih.");
         exit();
     }
-    
-    // 2. Tanggal wajib diisi
     if (empty($tanggal)) {
         header("Location: jadwal.php?page=1&status=error&msg=Tanggal wajib diisi.");
         exit();
     }
-    
-    // 3. Tanggal tidak boleh kurang dari hari ini
     $hari_ini = date('Y-m-d');
     if ($tanggal < $hari_ini) {
         header("Location: jadwal.php?page=1&status=error&msg=Tanggal tidak boleh kurang dari hari ini.");
         exit();
     }
-    
-    // 4. Jam mulai wajib diisi
     if (empty($jam_mulai)) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam mulai wajib diisi.");
         exit();
     }
-    
-    // 5. Jam selesai wajib diisi
     if (empty($jam_selesai)) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam selesai wajib diisi.");
         exit();
     }
-    
-    // 6. Jam selesai harus lebih besar dari jam mulai
     if ($jam_selesai <= $jam_mulai) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam selesai harus lebih besar dari jam mulai.");
         exit();
     }
 
-    // 7. Jadwal tidak boleh bentrok dengan jadwal lain pada lapangan yang sama
     $sql_check_bentrok = "SELECT ID_Jadwal FROM Jadwal 
                           WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
                           AND NOT (Jam_Selesai <= ? OR Jam_Mulai >= ?)";
@@ -120,7 +107,6 @@ if (isset($_POST['save_jadwal'])) {
         safeQuery($conn, "UPDATE Jadwal SET ID_Lapangan=?, Tanggal=?, Jam_Mulai=?, Jam_Selesai=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Jadwal=?", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama, $id]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil diperbarui!");
     } else {
-        // ADD MODE - ID_Jadwal auto-increment, tidak perlu diisi
         safeQuery($conn, "INSERT INTO Jadwal (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal baru berhasil ditambahkan!");
     }
@@ -157,8 +143,6 @@ if (isset($_GET['detail_id'])) {
 }
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
-
-// ID_Jadwal auto-increment INT, tidak perlu generate manual
 
 $where_clauses = ["j.Is_Deleted = 0"];
 $params = [];
@@ -270,7 +254,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -289,12 +274,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
-.dropdown-wrap:hover .dropdown-menu { display: block; }
+.dropdown-wrap.active .dropdown-menu { display: block !important; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -329,7 +315,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th { font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: var(--muted) !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; padding: 14px 20px; border-bottom: 2px solid var(--border-lt); }
 .data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
 
-/* Kolom Alignment */
 .data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
 .data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: center !important; }
 .jadwal-lapangan { font-weight: 700; color: var(--text); font-size: 15px; }
@@ -345,7 +330,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: center !important; }
 
-/* Status Pill */
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
@@ -353,7 +337,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-/* Actions */
 .actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
 .btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
 .btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
@@ -363,7 +346,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
 .btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
 
-/* Toggle Switch */
 .toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
@@ -372,12 +354,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
-/* Zebra Table & Hover Effect */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 
-/* Modals */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 480px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
@@ -463,15 +443,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 .dropdown-wrap.active .dropdown-menu { display: block !important; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
-/* Memaksa elemen select dengan class modal-input agar berwarna putih */
 select.modal-input,
 input[type="date"].modal-input,
 input[type="time"].modal-input {
     background-color: #FFFFFF !important;
-    cursor: pointer !important; /* Memaksa kursor tangan penunjuk aktif */
+    cursor: pointer !important;
 }
-
-/* Menjamin kursor tetap berbentuk tangan saat berada tepat di atas ikon kalender atau jam */
 .modal-input::-webkit-calendar-picker-indicator {
     cursor: pointer !important;
 }
@@ -552,7 +529,6 @@ input[type="time"].modal-input {
                     <div class="detail-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
                 </div>
-                <!-- ID_Jadwal hidden -->
                 <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Jadwal']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal</span>
@@ -655,12 +631,12 @@ input[type="time"].modal-input {
         <div class="sb-user">
             <div class="sb-avatar">
                 <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img src="<?= $profile_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -686,9 +662,15 @@ input[type="time"].modal-input {
                 <i class="fa-solid fa-bell"></i>
                 <?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="dropdown-wrap" id="userDropdown">
+                <div class="topbar-user" onclick="toggleUserDropdown()">
+                    <div class="t-avatar">
+                        <?php if (!empty($profile_photo)): ?>
+                            <img src="<?= $profile_photo ?>" alt="Profile">
+                        <?php else: ?>
+                            <i class="fa-solid fa-user"></i>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
@@ -852,54 +834,39 @@ input[type="time"].modal-input {
         <?php endif; ?>
     </div>
 </main>
-
 <script>
-// Dropdown profil user
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
-    }
-    document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
-    });
+function toggleUserDropdown() {
+    var dd = document.getElementById('userDropdown');
+    if (dd) dd.classList.toggle('active');
+}
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('userDropdown');
+    if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-// CLOCK / JAM
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
-
     document.getElementById('h').innerText = h;
     document.getElementById('m').innerText = m;
     document.getElementById('s').innerText = s;
-
     const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-
     const dayName = days[now.getDay()];
     const date = now.getDate();
     const monthName = months[now.getMonth()];
     const year = now.getFullYear();
-
     document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
 }
 updateClock();
 setInterval(updateClock, 1000);
 
-// MODAL CONTROL
 function closeModal() { 
     window.location.href = 'jadwal.php'; 
 }
 
-// SEARCH TABLE
 function searchTable() {
     var input = document.getElementById('src').value.toUpperCase();
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
@@ -913,15 +880,12 @@ function searchTable() {
     }
 }
 
-// VALIDASI FIELD INDIVIDUAL
 function validateField(fieldId, valId, rules) {
     const field = document.getElementById(fieldId);
     const valMsg = document.getElementById(valId);
     const value = field.value.trim();
-
     field.classList.remove('error');
     valMsg.classList.remove('show');
-
     if (rules.required && value === '') {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi.';
@@ -931,27 +895,18 @@ function validateField(fieldId, valId, rules) {
     return true;
 }
 
-// VALIDASI SAAT SUBMIT FORM
-// VALIDASI SAAT SUBMIT FORM
 function validateForm() {
     let valid = true;
-
-    // Bersihkan semua error state terlebih dahulu
     document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
     document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
-
-    // Pengecekan field wajib diisi
     if (!validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' })) valid = false;
     if (!validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' })) valid = false;
     if (!validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' })) valid = false;
     if (!validateField('jam_selesai', 'val-jam_selesai', { required: true, label: 'Jam selesai' })) valid = false;
-
     if (valid) {
-        // Validasi Tanggal tidak boleh kurang dari hari ini
         const tanggalField = document.getElementById('tanggal');
         const tanggalVal = tanggalField.value;
-        const hariIni = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD lokal server kien
-        
+        const hariIni = new Date().toISOString().split('T')[0];
         if (tanggalVal < hariIni) {
             tanggalField.classList.add('error');
             const valMsg = document.getElementById('val-tanggal');
@@ -959,8 +914,6 @@ function validateForm() {
             valMsg.classList.add('show');
             valid = false;
         }
-        
-        // Validasi jam selesai harus lebih besar dari jam mulai
         const mulai = document.getElementById('jam_mulai').value;
         const selesai = document.getElementById('jam_selesai').value;
         if (selesai <= mulai) {
@@ -971,15 +924,12 @@ function validateForm() {
             valid = false;
         }
     }
-
     return valid;
 }
 
-// TOGGLE STATUS
 function confirmToggle(id, status) {
     const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
     const iconType = status == 1 ? 'warning' : 'question';
-
     Swal.fire({
         title: 'Konfirmasi Perubahan Status',
         text: 'Apakah Anda yakin ingin ' + action + ' jadwal ini?',
@@ -1009,7 +959,6 @@ function confirmToggle(id, status) {
     });
 }
 
-// DELETE CONFIRMATION
 function confirmDelete(id, name) {
     Swal.fire({
         title: 'Hapus Jadwal?',
@@ -1037,7 +986,6 @@ function confirmDelete(id, name) {
     });
 }
 
-// FILTER DROPDOWN
 const btnFilterToggle = document.getElementById('btnFilterToggle');
 const filterCard = document.getElementById('filterCard');
 if (btnFilterToggle && filterCard) {
@@ -1057,12 +1005,10 @@ function resetFilter() {
     window.location.href = 'jadwal.php';
 }
 
-// URL PARAMETER NOTIFICATION
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');
-
     if (status && msg) {
         const isSuccess = status === 'success';
         Swal.fire({
@@ -1078,29 +1024,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         window.history.replaceState({}, document.title, window.location.pathname);
     }
-
-    // REAL-TIME VALIDATION LISTENERS
     const idLapangan = document.getElementById('id_lapangan');
     if (idLapangan) {
         idLapangan.addEventListener('change', function() {
             validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' });
         });
     }
-
     const tanggal = document.getElementById('tanggal');
     if (tanggal) {
         tanggal.addEventListener('change', function() {
             validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' });
         });
     }
-
     const jamMulai = document.getElementById('jam_mulai');
     if (jamMulai) {
         jamMulai.addEventListener('change', function() {
             validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' });
         });
     }
-
     const jamSelesai = document.getElementById('jam_selesai');
     if (jamSelesai) {
         jamSelesai.addEventListener('change', function() {

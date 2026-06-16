@@ -19,14 +19,30 @@ if (!empty($id_karyawan_session)) {
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
-            $photo_path = $row_photo['Photo_Profile'];
-            // Jika path sudah mengandung 'uploads/profiles/', gunakan langsung dengan ../
-            if (strpos($photo_path, 'uploads/profiles/') !== false) {
-                $profile_photo = '../' . $photo_path;
-            } else {
-                $profile_photo = '../uploads/profiles/' . $photo_path;
-            }
+            $profile_photo = $row_photo['Photo_Profile'];
+            $_SESSION['Photo_Profile'] = $profile_photo;
         }
+    }
+}
+
+// Fallback ke session jika query gagal
+if (empty($profile_photo)) {
+    $profile_photo = $_SESSION['Photo_Profile'] ?? '';
+}
+
+// Cek file exists dan sesuaikan path (customer.php ada di folder master/)
+$sidebar_photo = '';
+if (!empty($profile_photo)) {
+    if (strpos($profile_photo, '../') === 0) {
+        $sidebar_photo = $profile_photo;
+    } elseif (strpos($profile_photo, 'uploads/') === 0) {
+        $sidebar_photo = '../' . $profile_photo;
+    } else {
+        $sidebar_photo = '../uploads/profiles/' . $profile_photo;
+    }
+    // Cek file exists, jika tidak ada kosongkan
+    if (!file_exists($sidebar_photo)) {
+        $sidebar_photo = '';
     }
 }
 
@@ -693,8 +709,8 @@ html.swal2-shown {
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile">
+                <?php if (!empty($sidebar_photo)): ?>
+                    <img src="<?= $sidebar_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -727,7 +743,13 @@ html.swal2-shown {
             </a>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="t-avatar">
+                    <?php if (!empty($sidebar_photo)): ?>
+                        <img src="<?= $sidebar_photo ?>" alt="Profile">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>

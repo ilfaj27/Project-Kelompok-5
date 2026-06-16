@@ -18,13 +18,27 @@ if (!empty($id_karyawan_session)) {
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
-            $photo_path = $row_photo['Photo_Profile'];
-            if (strpos($photo_path, 'uploads/profiles/') !== false) {
-                $profile_photo = '../' . $photo_path;
-            } else {
-                $profile_photo = '../uploads/profiles/' . $photo_path;
-            }
+            $profile_photo = $row_photo['Photo_Profile'];
+            $_SESSION['Photo_Profile'] = $profile_photo;
         }
+    }
+}
+
+if (empty($profile_photo)) {
+    $profile_photo = $_SESSION['Photo_Profile'] ?? '';
+}
+
+$sidebar_photo = '';
+if (!empty($profile_photo)) {
+    if (strpos($profile_photo, '../') === 0) {
+        $sidebar_photo = $profile_photo;
+    } elseif (strpos($profile_photo, 'uploads/') === 0) {
+        $sidebar_photo = '../' . $profile_photo;
+    } else {
+        $sidebar_photo = '../uploads/profiles/' . $profile_photo;
+    }
+    if (!file_exists($sidebar_photo)) {
+        $sidebar_photo = '';
     }
 }
 
@@ -323,7 +337,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -354,14 +369,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
+/* ===== PERBAIKAN UKURAN FOTO CARD - LEBIH PROPORSIONAL ===== */
 .lapangan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .lapangan-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; transition: all .25s ease; cursor: pointer; position: relative; }
 .lapangan-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.12); border-color: var(--orange); }
-.lapangan-card-photo-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; background: var(--border-lt); overflow: hidden; }
+.lapangan-card-photo-wrap { position: relative; width: 100%; height: 160px; background: var(--border-lt); overflow: hidden; }
 .lapangan-card-photo-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; display: block; }
 .lapangan-card:hover .lapangan-card-photo-wrap img { transform: scale(1.05); }
 .lapangan-card-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); position: absolute; top: 0; left: 0; }
-.lapangan-card-photo-placeholder i { font-size: 48px; color: var(--orange); opacity: .5; }
+.lapangan-card-photo-placeholder i { font-size: 40px; color: var(--orange); opacity: .5; }
 .lapangan-card-badge { position: absolute; top: 8px; left: 8px; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; z-index: 2; }
 .badge-aktif { background: var(--green); color: #fff; }
 .badge-nonaktif { background: var(--red); color: #fff; }
@@ -413,10 +429,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; z-index: 10; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-.photo-upload-area { width: 100%; height: 180px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
+/* ===== PERBAIKAN UKURAN UPLOAD AREA - LEBIH KECIL ===== */
+.photo-upload-area { width: 100%; height: 140px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
 .photo-upload-area:hover { border-color: var(--orange); background: var(--orange-lt); }
 .photo-upload-area.has-image { border-style: solid; border-color: var(--orange); }
-.photo-upload-area i.upload-icon { font-size: 32px; color: var(--orange); margin-bottom: 8px; }
+.photo-upload-area i.upload-icon { font-size: 28px; color: var(--orange); margin-bottom: 8px; }
 .photo-upload-area p { font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; }
 .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 5; }
 .photo-upload-preview { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
@@ -427,14 +444,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-/* ========== DETAIL MODAL STYLE SAMA DENGAN ALAT.PHP ========== */
+/* ===== PERBAIKAN DETAIL MODAL - FOTO LEBIH KECIL PROPORSIONAL ===== */
 .detail-modal-box { width: 460px; border-radius: 24px; border: 1px solid var(--border); overflow-y: auto; }
-.detail-photo-wrap { width: 100%; aspect-ratio: 1.5 / 1; background: #ffffff; border-radius: 16px; overflow: hidden; margin-bottom: 16px; position: relative; border: 1.5px solid var(--border); box-shadow: inset 0 0 20px rgba(0,0,0,.02); }
-.detail-photo-wrap img { width: 100%; height: 100%; object-fit: contain; background: #ffffff; display: block; }
+.detail-photo-wrap { width: 120px; height: 120px; margin: 0 auto 16px auto; background: #ffffff; border-radius: 50%; overflow: hidden; position: relative; border: 3px solid var(--orange); box-shadow: 0 4px 16px rgba(255,69,0,.2); }
+.detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .detail-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); }
-.detail-photo-placeholder i { font-size: 56px; color: var(--orange); opacity: .6; }
-.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; }
-.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; }
+.detail-photo-placeholder i { font-size: 40px; color: var(--orange); opacity: .6; }
+.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; text-align: center; }
+.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; text-align: center; }
 .detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
 .detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
 .detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
@@ -506,6 +523,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     .modal-box{width:90%;margin:20px;}
     .search-box{width:100%;}
     .action-bar{flex-direction:column;align-items:stretch;}
+    .detail-photo-wrap { width: 100px; height: 100px; }
 }
 @media(max-width:480px){.lapangan-grid{grid-template-columns:1fr;}}
 </style>
@@ -578,15 +596,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- MODAL DETAIL LAPANGAN - DISAMAKAN DENGAN ALAT.PHP -->
+<!-- MODAL DETAIL LAPANGAN - FOTO BULAT SEPERTI PROFILE -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-header">
+        <div class="modal-header" style="text-align: center; padding-bottom: 10px;">
             <div class="modal-subtitle">Detail Informasi</div>
             <div class="modal-title">Spesifikasi Lapangan</div>
         </div>
-        <div class="modal-body" style="padding-top:20px;">
+        <div class="modal-body" style="padding-top:10px;">
             <?php if ($detail_data): ?>
                 <div class="detail-photo-wrap">
                     <?php
@@ -602,9 +620,10 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     <?php endif; ?>
                 </div>
                 
-                <!-- STATUS BADGE SAMA DENGAN ALAT.PHP -->
-                <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
-                    <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Lapangan Aktif' : 'Lapangan Maintenance' ?>
+                <div style="text-align: center;">
+                    <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
+                        <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Lapangan Aktif' : 'Lapangan Maintenance' ?>
+                    </div>
                 </div>
 
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
@@ -630,7 +649,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </div>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -661,8 +680,8 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile">
+                <?php if (!empty($sidebar_photo)): ?>
+                    <img src="<?= $sidebar_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -677,7 +696,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </aside>
 
 <!-- MAIN CONTENT -->
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Lapangan</div>
@@ -700,7 +719,13 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
             </a>
             <div class="dropdown-wrap" id="userDropdown">
                 <div class="topbar-user" onclick="toggleUserDropdown()">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="t-avatar">
+                    <?php if (!empty($sidebar_photo)): ?>
+                        <img src="<?= $sidebar_photo ?>" alt="Profile">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
@@ -1032,7 +1057,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // NOTIFIKASI TOAST (sama seperti tipe_member.php)
     var urlParams = new URLSearchParams(window.location.search);
     var status = urlParams.get('status');
     var msg = urlParams.get('msg');
@@ -1079,7 +1103,6 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-// TOGGLE DENGAN NOTIFIKASI DETAIL
 function doToggle(id, currentStatus, namaLapangan) {
     var action = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
     var iconType = currentStatus == 1 ? 'warning' : 'question';
@@ -1120,7 +1143,6 @@ function doToggle(id, currentStatus, namaLapangan) {
     });
 }
 
-// DELETE DENGAN NOTIFIKASI DETAIL
 function doDelete(id, name) {
     Swal.fire({
         title: 'Hapus Lapangan?',

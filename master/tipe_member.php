@@ -286,7 +286,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -305,12 +306,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap:hover .dropdown-menu { display: block; }
+.dropdown-wrap.active .dropdown-menu { display: block !important; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
 .dd-item:hover { background: #FFF7ED; color: var(--orange); }
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
@@ -713,7 +716,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         <div class="sb-user">
             <div class="sb-avatar">
                 <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img src="<?= $profile_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -747,9 +750,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
 
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="dropdown-wrap" id="userDropdown">
+                <div class="topbar-user" onclick="toggleUserDropdown()">
+                    <div class="t-avatar">
+                        <?php if (!empty($profile_photo)): ?>
+                            <img src="<?= $profile_photo ?>" alt="Profile">
+                        <?php else: ?>
+                            <i class="fa-solid fa-user"></i>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
@@ -972,22 +981,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 <script>
 
-// Mengaktifkan interaksi klik/tekan pada dropdown profil user
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
-            this.classList.toggle('active');
-        });
-    }
-
-    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
-    document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
-    });
+// Toggle dropdown profil user
+function toggleUserDropdown() {
+    var dd = document.getElementById('userDropdown');
+    if (dd) dd.classList.toggle('active');
+}
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('userDropdown');
+    if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
 // ============================================

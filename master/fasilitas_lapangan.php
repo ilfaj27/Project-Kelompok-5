@@ -10,6 +10,7 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
+// ===== PHOTO PROFILE =====
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 if (!empty($id_karyawan_session)) {
@@ -18,7 +19,10 @@ if (!empty($id_karyawan_session)) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
             $photo_path = $row_photo['Photo_Profile'];
-            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+            // Normalisasi path
+            if (strpos($photo_path, '../') === 0) {
+                $profile_photo = $photo_path;
+            } elseif (strpos($photo_path, 'uploads/') === 0) {
                 $profile_photo = '../' . $photo_path;
             } else {
                 $profile_photo = '../uploads/profiles/' . $photo_path;
@@ -26,6 +30,7 @@ if (!empty($id_karyawan_session)) {
         }
     }
 }
+
 function safeQuery($conn, $sql, $params = []) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) return null;
@@ -230,7 +235,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
 .sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -251,7 +257,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+/* ===== PERBAIKAN T-AVATAR - TAMBAH OVERFLOW HIDDEN ===== */
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -548,33 +556,26 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
 html, body {
-    /* Untuk Firefox */
     scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
     -ms-overflow-style: none;
 }
-
-/* Untuk Chrome, Safari, dan Opera */
 html::-webkit-scrollbar, 
 body::-webkit-scrollbar {
     display: none;
 }
 
-/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
 .topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
-    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
-    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
+    background-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
+    color: #4B5563 !important;
 }
 
 .topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
-    border-color: #9CA3AF !important;    /* Batas border saat diklik */
-    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
+    background-color: #D1D5DB !important;
+    border-color: #9CA3AF !important;
+    color: #1F2937 !important;
 }
 
-/* Menampilkan menu dropdown saat class 'active' aktif akibat diklik */
 .dropdown-wrap.active .dropdown-menu {
     display: block !important;
 }
@@ -584,10 +585,9 @@ html.swal2-shown {
     padding-right: 0px !important;
 }
 
-/* Memaksa elemen select dengan class modal-input agar berwarna putih */
 select.modal-input {
     background-color: #FFFFFF !important;
-    cursor: pointer !important; /* Tambahkan !important untuk mengalahkan aturan blok */
+    cursor: pointer !important;
 }
 
 @media(max-width: 768px) {
@@ -657,7 +657,6 @@ select.modal-input {
                     <div class="detail-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Fasilitas']) ?></div>
                 </div>
-                <!-- ID_Fasilitas hidden -->
                 <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Fasilitas']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-layer-group"></i> Lapangan</span>
@@ -764,12 +763,12 @@ select.modal-input {
         <div class="sb-user">
             <div class="sb-avatar">
                 <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img src="<?= $profile_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
             </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
+            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
             <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
@@ -795,9 +794,16 @@ select.modal-input {
                 <i class="fa-solid fa-bell"></i>
                 <?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+            <!-- ===== PERBAIKAN DROPDOWN - TAMBAH ID & PHOTO PROFILE ===== -->
+            <div class="dropdown-wrap" id="userDropdown">
+                <div class="topbar-user" onclick="toggleUserDropdown()">
+                    <div class="t-avatar">
+                        <?php if (!empty($profile_photo)): ?>
+                            <img src="<?= $profile_photo ?>" alt="Profile">
+                        <?php else: ?>
+                            <i class="fa-solid fa-user"></i>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
@@ -899,8 +905,8 @@ select.modal-input {
                         <tr>
                             <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                             <td>
-    <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
-</td>
+                                <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
+                            </td>
                             <td>
                                 <div class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
                             </td>
@@ -961,23 +967,14 @@ select.modal-input {
 </main>
 
 <script>
-
-// Mengaktifkan interaksi klik/tekan pada dropdown profil user
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation(); // Mencegah event menutup sendiri saat diklik
-            this.classList.toggle('active');
-        });
-    }
-
-    // Otomatis menutup menu dropdown jika mengklik area lain di luar menu
-    document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
-    });
+// ===== PERBAIKAN DROPDOWN - TAMBAH TOGGLE FUNCTION =====
+function toggleUserDropdown() {
+    var dd = document.getElementById('userDropdown');
+    if (dd) dd.classList.toggle('active');
+}
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('userDropdown');
+    if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
 // ============================================
@@ -1004,10 +1001,8 @@ function updateClock() {
     document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
 }
 
-// Jalankan clock segera dan set interval
 updateClock();
 setInterval(updateClock, 1000);
-
 
 // ============================================
 // MODAL FUNCTIONS
@@ -1015,7 +1010,6 @@ setInterval(updateClock, 1000);
 function closeModal() { 
     window.location.href = 'fasilitas_lapangan.php'; 
 }
-
 
 // ============================================
 // SEARCH TABLE
@@ -1035,12 +1029,9 @@ function searchTable() {
     }
 }
 
-
 // ============================================
 // VALIDASI FORM - REAL TIME & SUBMIT
 // ============================================
-
-// Validasi individual field
 function validateField(fieldId, valId, rules) {
     const field = document.getElementById(fieldId);
     const valMsg = document.getElementById(valId);
@@ -1049,7 +1040,6 @@ function validateField(fieldId, valId, rules) {
     field.classList.remove('error');
     valMsg.classList.remove('show');
 
-    // Required check
     if (rules.required && value === '') {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
@@ -1057,7 +1047,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Min length check
     if (rules.minLength && value.length < rules.minLength) {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
@@ -1065,7 +1054,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Max length check
     if (rules.maxLength && value.length > rules.maxLength) {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
@@ -1073,7 +1061,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Pattern check (hanya huruf, angka, spasi, dan tanda baca umum)
     if (rules.pattern && value !== '') {
         const regex = /^[a-zA-Z0-9\s\-_.(),&/]+$/;
         if (!regex.test(value)) {
@@ -1087,17 +1074,14 @@ function validateField(fieldId, valId, rules) {
     return true;
 }
 
-// Validasi saat submit
 function validateForm() {
     let valid = true;
 
-    // Validasi Lapangan
     if (!validateField('id_lapangan', 'val-id_lapangan', {
         required: true,
         label: 'Lapangan'
     })) valid = false;
 
-    // Validasi Nama Fasilitas
     if (!validateField('nama_fasilitas', 'val-nama_fasilitas', {
         required: true,
         minLength: 3,
@@ -1106,7 +1090,6 @@ function validateForm() {
         label: 'Nama fasilitas'
     })) valid = false;
 
-    // Validasi Detail Fasilitas
     if (!validateField('detail_fasilitas', 'val-detail_fasilitas', {
         required: true,
         maxLength: 50,
@@ -1114,10 +1097,8 @@ function validateForm() {
         label: 'Detail fasilitas'
     })) valid = false;
 
-
     return valid;
 }
-
 
 // ============================================
 // NOTIFIKASI TOAST
@@ -1138,7 +1119,6 @@ function showToast(type, title, message) {
         }
     });
 }
-
 
 // ============================================
 // TOGGLE STATUS
@@ -1161,7 +1141,6 @@ function confirmToggle(id, status) {
         allowOutsideClick: false
     }).then((result) => {
         if (result.isConfirmed) {
-            // Tampilkan loading
             Swal.fire({
                 title: 'Memproses...',
                 text: 'Mengubah status fasilitas',
@@ -1170,19 +1149,15 @@ function confirmToggle(id, status) {
                     Swal.showLoading();
                 }
             });
-
-            // Redirect setelah delay singkat untuk efek loading
             setTimeout(() => {
                 window.location.href = '?toggle_id=' + id + '&s=' + status;
             }, 600);
         } else {
-            // Kembalikan checkbox ke posisi semula
             var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
             if (checkbox) checkbox.checked = !checkbox.checked;
         }
     });
 }
-
 
 // ============================================
 // DELETE CONFIRMATION
@@ -1201,7 +1176,6 @@ function confirmDelete(id, name) {
         allowOutsideClick: false
     }).then((result) => {
         if (result.isConfirmed) {
-            // Tampilkan loading
             Swal.fire({
                 title: 'Memproses...',
                 text: 'Menghapus fasilitas',
@@ -1210,15 +1184,12 @@ function confirmDelete(id, name) {
                     Swal.showLoading();
                 }
             });
-
-            // Redirect setelah delay singkat
             setTimeout(() => {
                 window.location.href = '?delete_id=' + id;
             }, 600);
         }
     });
 }
-
 
 // ============================================
 // FILTER DROPDOWN
@@ -1244,7 +1215,6 @@ function resetFilter() {
     window.location.href = 'fasilitas_lapangan.php';
 }
 
-
 // ============================================
 // URL PARAMETER NOTIFICATION (Status & Msg)
 // ============================================
@@ -1268,14 +1238,12 @@ document.addEventListener('DOMContentLoaded', function() {
             showCloseButton: true
         });
 
-        // Hapus parameter dari URL tanpa reload
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // ============================================
     // REAL-TIME VALIDATION EVENT LISTENERS
     // ============================================
-    // Validasi real-time Nama Fasilitas
     const namaFas = document.getElementById('nama_fasilitas');
     if (namaFas) {
         namaFas.addEventListener('blur', function() {
@@ -1300,7 +1268,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Validasi real-time Detail Fasilitas
     const detailFas = document.getElementById('detail_fasilitas');
     if (detailFas) {
         detailFas.addEventListener('blur', function() {
@@ -1323,7 +1290,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Validasi real-time Lapangan
     const lapangan = document.getElementById('id_lapangan');
     if (lapangan) {
         lapangan.addEventListener('change', function() {

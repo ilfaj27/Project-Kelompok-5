@@ -94,9 +94,8 @@ function processPhotoUpload($file, $edit_data = null) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
     $nama_alat = trim($_POST['nama_alat'] ?? '');
-    // Menghapus semua karakter non-angka (seperti titik pemisah ribuan)
-$stok_raw = preg_replace('/[^0-9]/', '', trim($_POST['stok'] ?? ''));
-$harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_alat'] ?? ''));
+    $stok_raw = preg_replace('/[^0-9]/', '', trim($_POST['stok'] ?? ''));
+    $harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_alat'] ?? ''));
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
     $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
 
@@ -315,7 +314,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
+.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -430,11 +430,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
 .detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .detail-info-value { font-size: 18px; font-weight: 800; color: var(--text); }
-.detail-status-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
-.detail-status-aktif { background: var(--green-lt); color: var(--green); }
-.detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
-.detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
-
 .detail-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-bottom: 14px; text-transform: uppercase; }
 .badge-status-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
 .badge-status-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
@@ -442,14 +437,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .detail-info-item:hover { background: #ffffff; border-color: var(--orange); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.02); }
 .detail-info-label i { color: var(--orange); font-size: 12px; }
-
-.detail-audit-box { background: var(--border-lt); border-radius: 14px; padding: 14px; font-size: 11px; border: 1.5px solid var(--border); margin-bottom: 8px; }
-
-.audit-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: var(--text-md); }
-.audit-row:last-child { margin-bottom: 0; }
-.audit-row span { color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 6px; }
-.audit-row span i { font-size: 11px; width: 14px; text-align: center; }
-.audit-row strong { font-weight: 700; color: var(--text); }
 
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -490,12 +477,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
 .modal-box {
-    -ms-overflow-style: none;  /* Untuk Internet Explorer dan Edge */
-    scrollbar-width: none;     /* Untuk Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 .modal-box::-webkit-scrollbar {
-    display: none;             /* Untuk Chrome, Safari, dan Opera */
+    display: none;
 }
 
 @media(max-width:768px){
@@ -512,7 +499,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </head>
 <body>
 <!-- MODAL FORM TAMBAH/EDIT ALAT -->
- <!-- MODAL FORM TAMBAH/EDIT ALAT -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalAlat">
     <div class="modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
@@ -626,20 +612,18 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     </div>
                 </div>
 
-                <!-- HISTORI INPUT / AUDIT LOG DATA -->
-
                 <div style="margin-top:24px;">
-    <button type="button" onclick="closeModal()" class="btn-submit" style="width:100%;background:var(--sidebar);">
-        <i class="fa-solid fa-arrow-left"></i> Kembali
-    </button>
-</div>
+                    <button type="button" onclick="closeModal()" class="btn-submit" style="width:100%;background:var(--sidebar);">
+                        <i class="fa-solid fa-arrow-left"></i> Kembali
+                    </button>
+                </div>
             <?php endif; ?>
         </div>
     </div>
 </div>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<<aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -686,7 +670,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </aside>
 
 <!-- MAIN CONTENT -->
-<main class="main">
+<<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Alat</div>
@@ -709,7 +693,13 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
             </a>
             <div class="dropdown-wrap" id="userDropdown">
                 <div class="topbar-user" onclick="toggleUserDropdown()">
-                    <div class="t-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="t-avatar">
+                        <?php if (!empty($profile_photo)): ?>
+                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile">
+                        <?php else: ?>
+                            <i class="fa-solid fa-user"></i>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
@@ -1078,7 +1068,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ========== NOTIFIKASI TOAST (sama seperti tipe_member.php) ==========
     var urlParams = new URLSearchParams(window.location.search);
     var status = urlParams.get('status');
     var msg = urlParams.get('msg');
@@ -1125,7 +1114,6 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-// ========== TOGGLE DENGAN NOTIFIKASI DETAIL ==========
 function doToggle(id, currentStatus, namaAlat) {
     var action = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
     var iconType = currentStatus == 1 ? 'warning' : 'question';
@@ -1166,7 +1154,6 @@ function doToggle(id, currentStatus, namaAlat) {
     });
 }
 
-// ========== DELETE DENGAN NOTIFIKASI DETAIL ==========
 function doDelete(id, name) {
     Swal.fire({
         title: 'Hapus Alat?',
