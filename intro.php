@@ -39,6 +39,7 @@ html, body {
     justify-content: center;
     background: radial-gradient(ellipse at 50% 50%, #1a1f2e 0%, var(--darker) 70%);
     z-index: 1000;
+    transition: opacity 0.4s ease-in, transform 0.4s ease-in, filter 0.4s ease-in; /* Transisi keluar dipercepat menjadi 0.4s */
 }
 
 /* Spotlight effect */
@@ -50,12 +51,12 @@ html, body {
     width: 800px; height: 800px;
     background: radial-gradient(circle, rgba(255,69,0,0.08) 0%, transparent 70%);
     pointer-events: none;
-    animation: spotlightPulse 4s ease-in-out infinite;
+    animation: spotlightPulse 3s ease-in-out infinite; /* Dipercepat sedikit agar lebih dinamis */
 }
 
 @keyframes spotlightPulse {
     0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
 }
 
 /* ════════════════════════════════════════
@@ -99,12 +100,12 @@ html, body {
 
 .ball {
     width: 100%; height: 100%;
-    animation: ballBounce 2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    animation: ballBounce 1.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; /* Pantulan dipercepat sedikit */
 }
 
 @keyframes ballBounce {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-80px) rotate(180deg); }
+    50% { transform: translateY(-70px) rotate(180deg); }
 }
 
 /* Shadow di bawah bola */
@@ -115,12 +116,12 @@ html, body {
     width: 80px; height: 20px;
     background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
     border-radius: 50%;
-    animation: shadowScale 2s ease-in-out infinite;
+    animation: shadowScale 1.6s ease-in-out infinite;
 }
 
 @keyframes shadowScale {
     0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.5; }
-    50% { transform: translateX(-50%) scale(0.5); opacity: 0.2; }
+    50% { transform: translateX(-50%) scale(0.6); opacity: 0.2; }
 }
 
 /* ════════════════════════════════════════
@@ -132,11 +133,11 @@ html, body {
     transform: translateX(-50%);
     width: 180px; height: 120px;
     opacity: 0;
-    animation: hoopAppear 1s ease-out 0.5s forwards;
+    animation: hoopAppear 0.6s ease-out 0.1s forwards; /* Dipercepat */
 }
 
 @keyframes hoopAppear {
-    from { opacity: 0; transform: translateX(-50%) translateY(-30px); }
+    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
@@ -166,7 +167,7 @@ html, body {
         linear-gradient(60deg, transparent 48%, rgba(255,255,255,0.1) 49%, rgba(255,255,255,0.1) 51%, transparent 52%),
         linear-gradient(-60deg, transparent 48%, rgba(255,255,255,0.1) 49%, rgba(255,255,255,0.1) 51%, transparent 52%);
     clip-path: polygon(10% 0%, 90% 0%, 70% 100%, 30% 100%);
-    animation: netSway 2s ease-in-out infinite;
+    animation: netSway 1.6s ease-in-out infinite;
 }
 
 @keyframes netSway {
@@ -183,11 +184,11 @@ html, body {
     border: 2px solid rgba(255,255,255,0.1);
     border-radius: 4px;
     opacity: 0;
-    animation: boardAppear 1s ease-out 0.3s forwards;
+    animation: boardAppear 0.6s ease-out 0s forwards; /* Dipercepat */
 }
 
 @keyframes boardAppear {
-    from { opacity: 0; transform: translateX(-50%) scale(0.9); }
+    from { opacity: 0; transform: translateX(-50%) scale(0.95); }
     to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
@@ -217,23 +218,21 @@ html, body {
     background: var(--orange);
     border-radius: 50%;
     opacity: 0;
-    animation: particleFloat 3s ease-in-out infinite;
+    animation: particleFloat 2s ease-in-out infinite; /* Dipercepat sedikit */
 }
 
 .particle:nth-child(1) { left: 20%; top: 80%; animation-delay: 0s; }
-.particle:nth-child(2) { left: 80%; top: 60%; animation-delay: 0.5s; width: 6px; height: 6px; }
-.particle:nth-child(3) { left: 50%; top: 20%; animation-delay: 1s; }
-.particle:nth-child(4) { left: 30%; top: 40%; animation-delay: 1.5s; width: 3px; height: 3px; }
-.particle:nth-child(5) { left: 70%; top: 30%; animation-delay: 2s; }
-.particle:nth-child(6) { left: 10%; top: 50%; animation-delay: 2.5s; width: 5px; height: 5px; }
-.particle:nth-child(7) { left: 90%; top: 80%; animation-delay: 0.8s; }
-.particle:nth-child(8) { left: 45%; top: 70%; animation-delay: 1.8s; width: 2px; height: 2px; }
+.particle:nth-child(2) { left: 80%; top: 60%; animation-delay: 0.3s; width: 6px; height: 6px; }
+.particle:nth-child(3) { left: 50%; top: 20%; animation-delay: 0.6s; }
+.particle:nth-child(4) { left: 30%; top: 40%; animation-delay: 0.9s; width: 3px; height: 3px; }
+.particle:nth-child(5) { left: 70%; top: 30%; animation-delay: 1.2s; }
+.particle:nth-child(6) { left: 10%; top: 50%; animation-delay: 1.5s; width: 5px; height: 5px; }
 
 @keyframes particleFloat {
     0% { transform: translateY(0) scale(0); opacity: 0; }
     20% { opacity: 1; transform: translateY(-20px) scale(1); }
-    80% { opacity: 0.5; transform: translateY(-100px) scale(0.5); }
-    100% { transform: translateY(-150px) scale(0); opacity: 0; }
+    80% { opacity: 0.5; transform: translateY(-80px) scale(0.5); }
+    100% { transform: translateY(-120px) scale(0); opacity: 0; }
 }
 
 /* ════════════════════════════════════════
@@ -253,7 +252,7 @@ html, body {
     color: var(--orange);
     margin-bottom: 16px;
     opacity: 0;
-    animation: fadeSlideUp 0.8s ease-out 1.5s forwards;
+    animation: fadeSlideUp 0.5s ease-out 0.15s forwards; /* Dipercepat */
 }
 
 .brand-title {
@@ -265,7 +264,7 @@ html, body {
     line-height: 1;
     position: relative;
     opacity: 0;
-    animation: fadeSlideUp 0.8s ease-out 1.8s forwards;
+    animation: fadeSlideUp 0.5s ease-out 0.25s forwards; /* Dipercepat */
 }
 
 .brand-title span {
@@ -282,7 +281,7 @@ html, body {
     background: var(--orange);
     opacity: 0.3;
     border-radius: 2px;
-    animation: underlineGrow 1s ease-out 2.5s forwards;
+    animation: underlineGrow 0.6s ease-out 0.5s forwards; /* Dipercepat */
     transform: scaleX(0);
     transform-origin: left;
 }
@@ -298,11 +297,11 @@ html, body {
     margin-top: 20px;
     letter-spacing: 2px;
     opacity: 0;
-    animation: fadeSlideUp 0.8s ease-out 2.2s forwards;
+    animation: fadeSlideUp 0.5s ease-out 0.35s forwards; /* Dipercepat */
 }
 
 @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(30px); }
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
@@ -313,7 +312,7 @@ html, body {
     margin-top: 50px;
     width: 280px;
     opacity: 0;
-    animation: fadeSlideUp 0.8s ease-out 2.6s forwards;
+    animation: fadeSlideUp 0.5s ease-out 0.4s forwards; /* Dipercepat agar tampil hampir bersamaan dengan judul */
 }
 
 .progress-track {
@@ -329,8 +328,8 @@ html, body {
     width: 0%;
     background: linear-gradient(90deg, var(--orange), #FF6B35, var(--orange));
     border-radius: 3px;
-    animation: progressLoad 3s ease-out 3s forwards;
     position: relative;
+    transition: width 0.08s ease-out; /* Transisi dipercepat untuk mengikuti kalkulasi pemuatan baru */
 }
 
 .progress-fill::after {
@@ -342,12 +341,6 @@ html, body {
     background: var(--orange);
     border-radius: 50%;
     box-shadow: 0 0 20px var(--orange-glow);
-}
-
-@keyframes progressLoad {
-    0% { width: 0%; }
-    50% { width: 70%; }
-    100% { width: 100%; }
 }
 
 .progress-text {
@@ -363,100 +356,16 @@ html, body {
 .progress-percent {
     color: var(--orange);
     font-weight: 800;
-    animation: percentCount 3s ease-out 3s forwards;
-}
-
-@keyframes percentCount {
-    0% { content: '0%'; }
-    50% { content: '70%'; }
-    100% { content: '100%'; }
-}
-
-/* ════════════════════════════════════════
-   ENTER BUTTON — CTA
-   ════════════════════════════════════════ */
-.enter-btn {
-    margin-top: 40px;
-    padding: 16px 48px;
-    background: transparent;
-    border: 2px solid var(--orange);
-    color: var(--orange);
-    font-family: 'Barlow', sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 50px;
-    position: relative;
-    overflow: hidden;
-    opacity: 0;
-    animation: fadeSlideUp 0.8s ease-out 5s forwards, btnPulse 2s ease-in-out 6s infinite;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.enter-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--orange);
-    transform: scaleX(0);
-    transform-origin: right;
-    transition: transform 0.4s ease;
-    z-index: -1;
-}
-
-.enter-btn:hover::before {
-    transform: scaleX(1);
-    transform-origin: left;
-}
-
-.enter-btn:hover {
-    color: #fff;
-    border-color: var(--orange);
-    box-shadow: 0 0 40px var(--orange-glow);
-}
-
-@keyframes btnPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 69, 0, 0.4); }
-    50% { box-shadow: 0 0 0 15px rgba(255, 69, 0, 0); }
-}
-
-/* ════════════════════════════════════════
-   SKIP LINK
-   ════════════════════════════════════════ */
-.skip-link {
-    position: absolute;
-    bottom: 30px;
-    font-size: 11px;
-    color: rgba(255,255,255,0.2);
-    text-decoration: none;
-    letter-spacing: 1px;
-    transition: color 0.3s;
-    opacity: 0;
-    animation: fadeIn 0.5s ease-out 6s forwards;
-}
-
-.skip-link:hover {
-    color: var(--orange);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
 
 /* ════════════════════════════════════════
    EXIT ANIMATION — Fade Out
    ════════════════════════════════════════ */
 .stage.fade-out {
-    animation: stageExit 0.8s ease-in forwards;
-}
-
-@keyframes stageExit {
-    to { opacity: 0; transform: scale(1.1); filter: blur(10px); }
+    opacity: 0;
+    transform: scale(1.03);
+    filter: blur(8px);
+    pointer-events: none;
 }
 
 /* ════════════════════════════════════════
@@ -480,8 +389,6 @@ html, body {
 
     <!-- Floating Particles -->
     <div class="particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
         <div class="particle"></div>
         <div class="particle"></div>
         <div class="particle"></div>
@@ -519,13 +426,9 @@ html, body {
 
             <!-- Ball Lines -->
             <g stroke="rgba(0,0,0,0.25)" stroke-width="3" fill="none">
-                <!-- Horizontal line -->
                 <path d="M 10 100 Q 100 115 190 100" stroke-width="4"/>
-                <!-- Vertical curve left -->
                 <path d="M 100 5 Q 70 100 100 195"/>
-                <!-- Vertical curve right -->
                 <path d="M 100 5 Q 130 100 100 195"/>
-                <!-- Side curves -->
                 <path d="M 30 30 Q 100 60 170 30"/>
                 <path d="M 30 170 Q 100 140 170 170"/>
             </g>
@@ -555,14 +458,6 @@ html, body {
             <span class="progress-percent" id="progressPercent">0%</span>
         </div>
     </div>
-
-    <!-- Enter Button -->
-    <a href="index.php" class="enter-btn" id="enterBtn" onclick="return handleEnter(event)">
-        Masuk Sistem
-    </a>
-
-    <!-- Skip Link -->
-    <a href="index.php" class="skip-link">Lewati Animasi →</a>
 </div>
 
 <script>
@@ -570,47 +465,39 @@ html, body {
 let progress = 0;
 const progressPercent = document.getElementById('progressPercent');
 const progressFill = document.getElementById('progressFill');
-const enterBtn = document.getElementById('enterBtn');
 
 function updateProgress() {
     if (progress < 100) {
-        progress += Math.random() * 3 + 0.5;
+        // Rentang nilai penambahan diperbesar agar pemuatan berjalan jauh lebih cepat
+        progress += Math.random() * 4 + 4.5; 
         if (progress > 100) progress = 100;
 
         progressPercent.textContent = Math.floor(progress) + '%';
         progressFill.style.width = progress + '%';
 
-        // Enable button at 100%
         if (progress >= 100) {
-            enterBtn.style.pointerEvents = 'auto';
-            enterBtn.style.opacity = '1';
+            // Jeda dipersingkat menjadi 300ms saat loading selesai untuk transisi yang instan
+            setTimeout(triggerExit, 300);
+        } else {
+            // Interval dipersingkat menjadi 20ms - 40ms untuk transisi yang sangat responsif
+            setTimeout(updateProgress, 20 + Math.random() * 20);
         }
-
-        setTimeout(updateProgress, 50 + Math.random() * 100);
     }
 }
 
-// Start progress after delay
-setTimeout(updateProgress, 3000);
+// Proses pemuatan dimulai lebih awal (setelah 400ms saat halaman terbuka)
+setTimeout(updateProgress, 400);
 
-// Enter Button Handler
-function handleEnter(e) {
-    e.preventDefault();
+// Fungsi transisi keluar otomatis ke halaman index.php
+function triggerExit() {
     const stage = document.getElementById('stage');
     stage.classList.add('fade-out');
 
+    // Pengalihan halaman dipercepat menjadi 400ms (menyesuaikan transisi CSS baru)
     setTimeout(() => {
-        window.location.href = 'index.php';
-    }, 800);
-    return false;
+        window.location.href = 'index.php?load=done';
+    }, 400);
 }
-
-// Auto redirect after animation (optional - 8 seconds)
-// setTimeout(() => {
-//     if (!document.querySelector('.stage.fade-out')) {
-//         handleEnter({ preventDefault: () => {} });
-//     }
-// }, 8000);
 </script>
 
 </body>

@@ -12,8 +12,7 @@ if (isset($_POST['verify_account'])) {
     $email = $_POST['email_input'];
     $telp = $_POST['telp_input'];
 
-    // Query pencocokan silang antara tabel Akun dan Customer
-   // Query langsung ke tabel Customer
+    // Query langsung ke tabel Customer
     $sql = "SELECT ID_Customer FROM Customer 
             WHERE Username = ? AND Email = ? AND No_Telepon = ? AND Is_Deleted = 0";
     $params = array($username, $email, $telp);
@@ -26,7 +25,7 @@ if (isset($_POST['verify_account'])) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
             $is_verified = true;
-            $_SESSION['reset_id_customer'] = $row['ID_Customer']; // Simpan ID Customer sementara di sesi
+            $_SESSION['reset_id_customer'] = $row['ID_Customer']; // Tetap menggunakan reset_id_customer
         } else {
             $res_status = "error";
             $res_msg = "Data verifikasi salah. Nama pengguna, Email, atau Telepon tidak cocok!";
@@ -36,25 +35,27 @@ if (isset($_POST['verify_account'])) {
 
 // TAHAP 2: RESET/UPDATE KATA SANDI BARU
 if (isset($_POST['reset_password'])) {
-    if (isset($_SESSION['reset_id_akun'])) {
-        $id_akun = $_SESSION['reset_id_akun'];
+    // DISESUAIKAN: Menggunakan 'reset_id_customer' sesuai Tahap 1
+    if (isset($_SESSION['reset_id_customer'])) {
+        $id_customer = $_SESSION['reset_id_customer'];
         $new_pass = $_POST['new_password'];
 
-        // AMBIL KATA SANDI LAMA DARI DATABASE UNTUK PENGECEKAN KEAMANAN (ATURAN BARU)
-        $q_old = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Akun WHERE ID_Akun = ?", array($id_akun));
+        // DISESUAIKAN: Query ke tabel 'Customer' bukan 'Akun'
+        $sql_old = "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?";
+        $q_old = sqlsrv_query($conn, $sql_old, array($id_customer));
         $d_old = sqlsrv_fetch_array($q_old, SQLSRV_FETCH_ASSOC);
         $old_pass = $d_old['Kata_Sandi'] ?? '';
 
         if ($new_pass === $old_pass) {
-            // ATURAN BARU: Menolak jika kata sandi baru sama dengan yang lama
             $res_status = "error";
             $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
         } else {
-            $sql = "UPDATE Akun SET Kata_Sandi = ? WHERE ID_Akun = ?";
-            $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_akun));
+            // DISESUAIKAN: Update ke tabel 'Customer' bukan 'Akun'
+            $sql = "UPDATE Customer SET Kata_Sandi = ? WHERE ID_Customer = ?";
+            $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_customer));
 
             if ($stmt !== false) {
-                unset($_SESSION['reset_id_akun']); // Hapus sesi pengenal sementara
+                unset($_SESSION['reset_id_customer']); // Hapus sesi pengenal setelah berhasil
                 $res_status = "success";
                 $res_msg = "Kata Sandi Berhasil Diperbarui! Silakan Login Kembali.";
             } else {
