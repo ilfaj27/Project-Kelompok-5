@@ -11,11 +11,19 @@ $nama = $_SESSION['nama'] ?? 'USER';
 
 // ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
 $profile_photo = '';
-$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
-if ($stmt_photo !== false) {
-    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
-    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
-        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+if (!empty($id_karyawan_session)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $photo_path = $row_photo['Photo_Profile'];
+            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+                $profile_photo = '../' . $photo_path;
+            } else {
+                $profile_photo = '../uploads/profiles/' . $photo_path;
+            }
+        }
     }
 }
 
@@ -66,11 +74,28 @@ function safe_sqlsrv_has_rows($stmt) {
 
 // --- PROSES CRUD ---
 if (isset($_POST['save_promo'])) {
-    $id = trim($_POST['id_prm']);
+    $id = isset($_POST['id_prm']) ? intval($_POST['id_prm']) : 0;
     $nama_promo = trim($_POST['nama_promo']); 
     $diskon = floatval($_POST['diskon']);
     $tgl_m = $_POST['tgl_m'];
     $tgl_s = $_POST['tgl_s'];
+
+    // Validasi Diskon: 1-100%
+    if ($diskon <= 0) {
+        header("Location: promo.php?page=1&status=error&msg=Diskon harus lebih besar dari 0%!");
+        exit();
+    }
+    if ($diskon > 100) {
+        header("Location: promo.php?page=1&status=error&msg=Diskon maksimal 100%!");
+        exit();
+    }
+
+    // Validasi Tanggal Mulai: tidak boleh kurang dari hari ini
+    $hari_ini = date('Y-m-d');
+    if ($tgl_m < $hari_ini) {
+        header("Location: promo.php?page=1&status=error&msg=Tanggal mulai tidak boleh kurang dari hari ini!");
+        exit();
+    }
 
     if (strtotime($tgl_s) < strtotime($tgl_m)) {
         header("Location: promo.php?page=1&status=error&msg=Tanggal selesai tidak boleh mendahului tanggal mulai!");
@@ -86,18 +111,12 @@ if (isset($_POST['save_promo'])) {
         exit();
     }
 
-    if (isset($_POST['edit_mode'])) {
+    if (isset($_POST['edit_mode']) && $id > 0) {
         safe_sqlsrv_query($conn, "UPDATE Promo SET Nama_Promo=?, Diskon=?, Tanggal_Mulai=?, Tanggal_Selesai=? WHERE ID_Promo=?", array($nama_promo, $diskon, $tgl_m, $tgl_s, $id), false);
         header("Location: promo.php?page=1&status=success&msg=Data promo berhasil diperbarui!");
     } else {
-        if (empty($id)) {
-            $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Promo) as max_id FROM Promo", [], false);
-            $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
-            $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-            $id = "PRM" . sprintf("%03d", $num);
-        }
-
-        safe_sqlsrv_query($conn, "INSERT INTO Promo (ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,?,1,0,?,GETDATE())", array($id, $nama_promo, $diskon, $tgl_m, $tgl_s, $nama), false);
+        // ADD MODE - ID_Promo auto-increment, tidak perlu diisi
+        safe_sqlsrv_query($conn, "INSERT INTO Promo (Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", array($nama_promo, $diskon, $tgl_m, $tgl_s, $nama), false);
         header("Location: promo.php?page=1&status=success&msg=Promo baru berhasil ditambahkan!");
     }
     exit();
@@ -137,14 +156,7 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-// --- GENERATOR CALON ID PROMO BARU OTOMATIS ---
-$next_id_add = "";
-if (!$edit_data) {
-    $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Promo) as max_id FROM Promo", [], false);
-    $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
-    $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-    $next_id_add = "PRM" . sprintf("%03d", $num); 
-}
+// ID_Promo auto-increment INT, tidak perlu generate manual
 
 // --- FILTER DAN SORTING DINAMIS ---
 $where_clauses = array("Is_Deleted = 0"); 
@@ -755,12 +767,10 @@ body::-webkit-scrollbar {
             <form method="POST" id="formPromo" onsubmit="return validateForm()" novalidate>
                 <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
                 
-                <label class="modal-label">ID Promo</label>
-                <input type="text" name="id_prm" id="id_prm" class="modal-input" 
-                    value="<?= htmlspecialchars($edit_data['ID_Promo'] ?? $next_id_add) ?>" 
-                    readonly placeholder="Contoh: PRM001">
-                <div class="val-msg" id="val-id_prm"><i class="fa-solid fa-circle-exclamation"></i> ID Promo wajib diisi</div>
-                
+                <?php if ($edit_data): ?>
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_prm" id="id_prm" value="<?= htmlspecialchars($edit_data['ID_Promo'] ?? '') ?>">
+                <?php endif; ?>
                 <label class="modal-label">Nama Promo <span class="required">*</span></label>
                 <input type="text" name="nama_promo" id="nama_promo" class="modal-input" 
                     placeholder="Masukkan nama promo (misal: Promo Akhir Tahun)" autocomplete="off" 
@@ -768,10 +778,10 @@ body::-webkit-scrollbar {
                     required minlength="3" maxlength="100">
                 <div class="val-msg" id="val-nama_promo"></div>
                 
-                <label class="modal-label">Diskon (Rp) <span class="required">*</span></label>
-                <input type="number" name="diskon" id="diskon" class="modal-input" 
-                    placeholder="10000" min="0" autocomplete="off"
-                    value="<?= (int)($edit_data['Diskon'] ?? 0) ?>" required>
+                <label class="modal-label">Diskon (%) <span class="required">*</span></label>
+                <input type="number" name="diskon" id="diskon" class="modal-input"
+                    placeholder="10" min="1" max="100" autocomplete="off"
+                    value="<?= (int)($edit_data['Diskon'] ?? '') ?>" required>
                 <div class="val-msg" id="val-diskon"></div>
                 
                 <div class="modal-grid-2">
@@ -840,10 +850,8 @@ body::-webkit-scrollbar {
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Promo']) ?></div>
                 </div>
 
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Promo</span>
-                    <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Promo']) ?></span>
-                </div>
+                <!-- ID_Promo hidden -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Promo']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-tag"></i> Nama Promo</span>
                     <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Promo']) ?></span>
@@ -1364,12 +1372,6 @@ function validateField(fieldId, valId, rules) {
 function validateForm() {
     let valid = true;
 
-    // Validasi ID Promo
-    if (!validateField('id_prm', 'val-id_prm', {
-        required: true,
-        label: 'ID Promo'
-    })) valid = false;
-
     // Validasi Nama Promo
     if (!validateField('nama_promo', 'val-nama_promo', {
         required: true,
@@ -1389,10 +1391,25 @@ if (!validateField('diskon', 'val-diskon', {
 })) valid = false;
 
     // Validasi Tanggal Mulai
+    const tgl_m = document.getElementById('tgl_m');
+    const tgl_s = document.getElementById('tgl_s');
+    const valTanggal = document.getElementById('val-tanggal');
+
     if (!validateField('tgl_m', 'val-tgl_m', {
         required: true,
         label: 'Tanggal mulai'
     })) valid = false;
+
+    // Validasi: tanggal mulai tidak boleh kurang dari hari ini
+    if (tgl_m.value) {
+        const hariIni = new Date().toISOString().split('T')[0];
+        if (tgl_m.value < hariIni) {
+            tgl_m.classList.add('error');
+            document.getElementById('val-tgl_m').innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal mulai tidak boleh kurang dari hari ini';
+            document.getElementById('val-tgl_m').classList.add('show');
+            valid = false;
+        }
+    }
 
     // Validasi Tanggal Selesai
     if (!validateField('tgl_s', 'val-tgl_s', {
@@ -1401,9 +1418,6 @@ if (!validateField('diskon', 'val-diskon', {
     })) valid = false;
 
     // Validasi tanggal selesai >= tanggal mulai
-    const tgl_m = document.getElementById('tgl_m');
-    const tgl_s = document.getElementById('tgl_s');
-    const valTanggal = document.getElementById('val-tanggal');
     if (tgl_m.value && tgl_s.value && new Date(tgl_s.value) < new Date(tgl_m.value)) {
         tgl_m.classList.add('error');
         tgl_s.classList.add('error');
@@ -1602,7 +1616,7 @@ if (diskon) {
     diskon.addEventListener('blur', function() {
         validateField('diskon', 'val-diskon', {
             required: true,
-            minNum: 0,
+            minNum: 1,
             maxNum: 100,
             label: 'Diskon'
         });
@@ -1611,7 +1625,7 @@ if (diskon) {
         if (this.classList.contains('error')) {
             validateField('diskon', 'val-diskon', {
                 required: true,
-                minNum: 0,
+                minNum: 1,
                 maxNum: 100,
                 label: 'Diskon'
             });

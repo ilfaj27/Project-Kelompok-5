@@ -10,11 +10,22 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
-$profile_photo = $_SESSION['Profile_Photo'] ?? '';
-if (!empty($profile_photo) && !file_exists($profile_photo)) {
-    $profile_photo = '';
+$profile_photo = '';
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+if (!empty($id_karyawan_session)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $photo_path = $row_photo['Photo_Profile'];
+            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+                $profile_photo = '../' . $photo_path;
+            } else {
+                $profile_photo = '../uploads/profiles/' . $photo_path;
+            }
+        }
+    }
 }
-
 function safeQuery($conn, $sql, $params = []) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) return null;
@@ -27,8 +38,8 @@ function safeFetch($stmt) {
 
 // PROSES CRUD
 if (isset($_POST['save_fasilitas'])) {
-    $id = trim($_POST['id_fas']);
-    $id_lapangan = $_POST['id_lapangan'];
+    $id = isset($_POST['id_fas']) ? intval($_POST['id_fas']) : 0;
+    $id_lapangan = intval($_POST['id_lapangan']);
     $nama_fasilitas = trim($_POST['nama_fasilitas']);
     $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
 
@@ -56,17 +67,12 @@ if (isset($_POST['save_fasilitas'])) {
         exit();
     }
 
-    if (isset($_POST['edit_mode'])) {
+    if (isset($_POST['edit_mode']) && $id > 0) {
         safeQuery($conn, "UPDATE Fasilitas_Lapangan SET ID_Lapangan=?, Nama_Fasilitas=?, Detail_Fasilitas=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Fasilitas=?", [$id_lapangan, $nama_fasilitas, $detail_fasilitas, $nama, $id]);
         header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil diperbarui!");
     } else {
-        if (empty($id)) {
-            $q_max = safeQuery($conn, "SELECT MAX(ID_Fasilitas) as max_id FROM Fasilitas_Lapangan", []);
-            $d_max = safeFetch($q_max);
-            $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-            $id = "FAS" . sprintf("%05d", $num);
-        }
-        safeQuery($conn, "INSERT INTO Fasilitas_Lapangan (ID_Fasilitas, ID_Lapangan, Nama_Fasilitas, Detail_Fasilitas, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,1,0,?,GETDATE())", [$id, $id_lapangan, $nama_fasilitas, $detail_fasilitas, $nama]);
+        // ADD MODE - ID_Fasilitas auto-increment, tidak perlu diisi
+        safeQuery($conn, "INSERT INTO Fasilitas_Lapangan (ID_Lapangan, Nama_Fasilitas, Detail_Fasilitas, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, 1, 0, ?, GETDATE())", [$id_lapangan, $nama_fasilitas, $detail_fasilitas, $nama]);
         header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
     }
     exit();
@@ -103,13 +109,7 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$next_id_add = "";
-if (!$edit_data) {
-    $q_max = safeQuery($conn, "SELECT MAX(ID_Fasilitas) as max_id FROM Fasilitas_Lapangan", []);
-    $d_max = safeFetch($q_max);
-    $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-    $next_id_add = "FAS" . sprintf("%05d", $num);
-}
+// ID_Fasilitas auto-increment INT, tidak perlu generate manual
 
 $where_clauses = ["f.Is_Deleted = 0"];
 $params = [];
@@ -611,10 +611,10 @@ select.modal-input {
         </div>
         <div class="modal-body">
             <form method="POST" id="formFasilitas" onsubmit="return validateForm()" novalidate>
-                <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
-
-                <label class="modal-label">ID Fasilitas</label>
-                <input type="text" name="id_fas" id="id_fas" class="modal-input" value="<?= htmlspecialchars($edit_data['ID_Fasilitas'] ?? $next_id_add) ?>" readonly>
+                <?php if ($edit_data): ?>
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_fas" id="id_fas" value="<?= htmlspecialchars($edit_data['ID_Fasilitas']) ?>">
+                <?php endif; ?>
 
                 <label class="modal-label">Lapangan <span class="required">*</span></label>
                 <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
@@ -659,10 +659,8 @@ select.modal-input {
                     <div class="detail-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Fasilitas']) ?></div>
                 </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Fasilitas</span>
-                    <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Fasilitas']) ?></span>
-                </div>
+                <!-- ID_Fasilitas hidden -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Fasilitas']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-layer-group"></i> Lapangan</span>
                     <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></span>
