@@ -10,11 +10,19 @@ $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
 $profile_photo = '';
-$stmt_photo = sqlsrv_query($conn, "SELECT Foto_Profil FROM Karyawan WHERE Nama = ?", array($nama));
-if ($stmt_photo !== false) {
-    $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
-    if ($row_photo && !empty($row_photo['Foto_Profil'])) {
-        $profile_photo = '../uploads/profiles/' . $row_photo['Foto_Profil'];
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+if (!empty($id_karyawan_session)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $photo_path = $row_photo['Photo_Profile'];
+            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+                $profile_photo = '../' . $photo_path;
+            } else {
+                $profile_photo = '../uploads/profiles/' . $photo_path;
+            }
+        }
     }
 }
 
@@ -58,7 +66,7 @@ function safe_sqlsrv_has_rows($stmt) {
 // CRUD
 // CRUD
 if (isset($_POST['save_tipe'])) {
-    $id = trim($_POST['id_tipe']);
+    $id = isset($_POST['id_tipe']) ? intval($_POST['id_tipe']) : 0;
     $nama_tipe = trim($_POST['nama_tipe']);
     $harga_member_raw = $_POST['harga_member'];
     $potongan_harga_raw = $_POST['potongan_harga'];
@@ -133,21 +141,16 @@ if (isset($_POST['save_tipe'])) {
         exit();
     }
 
-    if (isset($_POST['edit_mode'])) {
+    if (isset($_POST['edit_mode']) && $id > 0) {
         safe_sqlsrv_query($conn, 
             "UPDATE Tipe_Member SET Nama_Tipe=?, Harga_Member=?, Potongan_Harga=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Tipe=?", 
             array($nama_tipe, $harga_member, $potongan_harga, $nama, $id), false);
         header("Location: tipe_member.php?page=1&status=success&msg=Data tipe member berhasil diperbarui!");
     } else {
-        if (empty($id)) {
-            $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Tipe) as max_id FROM Tipe_Member", [], false);
-            $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
-            $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 2) + 1 : 1;
-            $id = "TM" . sprintf("%06d", $num);
-        }
+        // ADD MODE - ID_Tipe auto-increment, tidak perlu diisi
         safe_sqlsrv_query($conn, 
-            "INSERT INTO Tipe_Member (ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,1,0,?,GETDATE())", 
-            array($id, $nama_tipe, $harga_member, $potongan_harga, $nama), false);
+            "INSERT INTO Tipe_Member (Nama_Tipe, Harga_Member, Potongan_Harga, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, 1, 0, ?, GETDATE())", 
+            array($nama_tipe, $harga_member, $potongan_harga, $nama), false);
         header("Location: tipe_member.php?page=1&status=success&msg=Tipe member baru berhasil ditambahkan!");
     }
     exit();
@@ -186,13 +189,7 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$next_id_add = "";
-if (!$edit_data) {
-    $q_max = safe_sqlsrv_query($conn, "SELECT MAX(ID_Tipe) as max_id FROM Tipe_Member", [], false);
-    $d_max = safe_sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
-    $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 2) + 1 : 1;
-    $next_id_add = "TM" . sprintf("%06d", $num);
-}
+// ID_Tipe auto-increment INT, tidak perlu generate manual
 
 // Filter & Sorting
 $where_clauses = array("Is_Deleted = 0");
@@ -552,13 +549,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
         </div>
         <div class="modal-body">
             <form method="POST" id="formTipe" onsubmit="return validateForm()" novalidate>
-                <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
-
-                <label class="modal-label">ID Tipe Member</label>
-                <input type="text" name="id_tipe" id="id_tipe" class="modal-input" 
-                    value="<?= htmlspecialchars($edit_data['ID_Tipe'] ?? $next_id_add) ?>" 
-                    readonly placeholder="Contoh: TM000001">
-                <div class="val-msg" id="val-id_tipe"><i class="fa-solid fa-circle-exclamation"></i> ID Tipe wajib diisi</div>
+                <?php if ($edit_data): ?>
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_tipe" id="id_tipe" value="<?= htmlspecialchars($edit_data['ID_Tipe'] ?? '') ?>">
+                <?php endif; ?>
 
                 <label class="modal-label">Nama Tipe <span class="required">*</span></label>
                 <input type="text" name="nama_tipe" id="nama_tipe" class="modal-input" 
@@ -611,10 +605,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></div>
                 </div>
 
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Tipe</span>
-                    <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Tipe']) ?></span>
-                </div>
+                <!-- ID_Tipe hidden -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Tipe'] ?? '') ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-star"></i> Nama Tipe</span>
                     <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></span>

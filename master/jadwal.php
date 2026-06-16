@@ -10,9 +10,21 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
-$profile_photo = $_SESSION['Profile_Photo'] ?? '';
-if (!empty($profile_photo) && !file_exists($profile_photo)) {
-    $profile_photo = '';
+$profile_photo = '';
+$id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+if (!empty($id_karyawan_session)) {
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    if ($stmt_photo !== false) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        if ($row_photo && !empty($row_photo['Photo_Profile'])) {
+            $photo_path = $row_photo['Photo_Profile'];
+            if (strpos($photo_path, 'uploads/profiles/') !== false) {
+                $profile_photo = '../' . $photo_path;
+            } else {
+                $profile_photo = '../uploads/profiles/' . $photo_path;
+            }
+        }
+    }
 }
 
 function safeQuery($conn, $sql, $params = []) {
@@ -108,13 +120,8 @@ if (isset($_POST['save_jadwal'])) {
         safeQuery($conn, "UPDATE Jadwal SET ID_Lapangan=?, Tanggal=?, Jam_Mulai=?, Jam_Selesai=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Jadwal=?", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama, $id]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil diperbarui!");
     } else {
-        if (empty($id)) {
-            $q_max = safeQuery($conn, "SELECT MAX(ID_Jadwal) as max_id FROM Jadwal", []);
-            $d_max = safeFetch($q_max);
-            $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-            $id = "JDW" . sprintf("%05d", $num);
-        }
-        safeQuery($conn, "INSERT INTO Jadwal (ID_Jadwal, ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?,?,?,?,?,1,0,?,GETDATE())", [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        // ADD MODE - ID_Jadwal auto-increment, tidak perlu diisi
+        safeQuery($conn, "INSERT INTO Jadwal (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal baru berhasil ditambahkan!");
     }
     exit();
@@ -151,13 +158,7 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$next_id_add = "";
-if (!$edit_data) {
-    $q_max = safeQuery($conn, "SELECT MAX(ID_Jadwal) as max_id FROM Jadwal", []);
-    $d_max = safeFetch($q_max);
-    $num = ($d_max['max_id']) ? (int) substr($d_max['max_id'], 3) + 1 : 1;
-    $next_id_add = "JDW" . sprintf("%05d", $num);
-}
+// ID_Jadwal auto-increment INT, tidak perlu generate manual
 
 $where_clauses = ["j.Is_Deleted = 0"];
 $params = [];
@@ -494,10 +495,10 @@ input[type="time"].modal-input {
         </div>
         <div class="modal-body">
             <form method="POST" id="formJadwal" onsubmit="return validateForm()" novalidate>
-                <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
-
-                <label class="modal-label">ID Jadwal</label>
-                <input type="text" name="id_jadwal" id="id_jadwal" class="modal-input" value="<?= htmlspecialchars($edit_data['ID_Jadwal'] ?? $next_id_add) ?>" readonly>
+                <?php if ($edit_data): ?>
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_jadwal" id="id_jadwal" value="<?= htmlspecialchars($edit_data['ID_Jadwal']) ?>">
+                <?php endif; ?>
 
                 <label class="modal-label">Lapangan <span class="required">*</span></label>
                 <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
@@ -551,10 +552,8 @@ input[type="time"].modal-input {
                     <div class="detail-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
                 </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-fingerprint"></i> ID Jadwal</span>
-                    <span class="info-val" style="color:var(--orange); font-weight:800; font-family:'Barlow Condensed'; font-size:16px;"><?= htmlspecialchars($detail_data['ID_Jadwal']) ?></span>
-                </div>
+                <!-- ID_Jadwal hidden -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Jadwal']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal</span>
                     <span class="info-val" style="font-weight:700;"><?= formatInputDate($detail_data['Tanggal']) ?></span>
