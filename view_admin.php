@@ -401,7 +401,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 <div class="content">
     <div class="welcome-banner">
         <div class="wb-deco"></div><div class="wb-deco2"></div>
-        <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> &udm;</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
+        <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> 👋</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
         <div class="wb-icon"><i class="fa-solid fa-basketball"></i></div>
     </div>
 
