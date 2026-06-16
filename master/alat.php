@@ -28,24 +28,13 @@ if (!empty($id_karyawan_session)) {
     }
 }
 
-// ==================== FUNGSI HELPER SQL ====================
 function safeQuery($conn, $sql, $params = []) {
-    // Konversi params ke reference array untuk kompatibilitas sqlsrv
-    $refs = array();
-    foreach ($params as $key => $value) {
-        $refs[$key] = &$params[$key];
-    }
-    
-    $stmt = empty($params) 
-        ? sqlsrv_query($conn, $sql) 
-        : sqlsrv_query($conn, $sql, $params);
-        
+    $stmt = empty($params) ? sqlsrv_query($conn, $sql) : sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
         $errors = sqlsrv_errors(SQLSRV_ERR_ALL);
         error_log("[ALAT-ERROR] SQL Error: " . print_r($errors, true));
         error_log("[ALAT-ERROR] Query: " . $sql);
-        error_log("[ALAT-ERROR] Params: " . print_r($params, true));
-        return false;  // Return false bukan null agar konsisten
+        return false;
     }
     return $stmt;
 }
@@ -63,296 +52,110 @@ function getLastSqlError($conn) {
     return 'Unknown database error';
 }
 
-// ==================== FUNGSI GET PHOTO URL ====================
 function getPhotoUrl($photo_path) {
     if (empty($photo_path)) return '';
-    
-    $photo_path = ltrim($photo_path, '/');
-    $photo_path = str_replace('../', '', $photo_path);
-    
-    // Normalisasi path - selalu arahkan ke uploads/alat/
-    if (strpos($photo_path, 'uploads/alat/') === 0) {
-        return '../' . $photo_path;
-    }
-    
-    // Jika path tidak mengandung prefix, tambahkan
-    $file_name = basename($photo_path);
-    return '../uploads/alat/' . $file_name;
+    $path = str_replace('../', '', $photo_path);
+    $path = ltrim($path, '/');
+    return '../' . $path;
 }
 
-// ==================== FUNGSI GET UPLOAD DIRECTORY ====================
 function getUploadDirectory() {
-    $doc_root = $_SERVER['DOCUMENT_ROOT'];
-    $possible_paths = [
-        $doc_root . '/Project-Kelompok-5/uploads/alat/',
-        $doc_root . '/uploads/alat/',
-        dirname(dirname(__DIR__)) . '/uploads/alat/',
-        realpath(dirname(__DIR__) . '/..') . '/uploads/alat/',
-        __DIR__ . '/../uploads/alat/',
-    ];
-    
-    foreach ($possible_paths as $path) {
-        $parent = dirname($path);
-        if (is_dir($parent)) {
-            // Pastikan folder uploads/alat/ ada
-            if (!is_dir($path)) {
-                @mkdir($path, 0755, true);
-            }
-            if (is_dir($path) && is_writable($path)) {
-                return $path;
-            }
-        }
+    $upload_dir = '../asset/image/';
+    if (!is_dir($upload_dir)) {
+        @mkdir($upload_dir, 0755, true);
     }
-    
-    // Fallback ke relative path
-    $fallback = '../uploads/alat/';
-    if (!is_dir($fallback)) {
-        @mkdir($fallback, 0755, true);
-    }
-    return $fallback;
+    return $upload_dir;
 }
 
-// ==================== PROSES UPLOAD FOTO ====================
 function processPhotoUpload($file, $edit_data = null) {
-    // Cek apakah file ada
-    if (!isset($file) || !is_array($file) || empty($file['name'])) {
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;  // Return null untuk membedakan dengan empty string
-    }
-
-    // Cek error upload
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        $error_messages = [
-            UPLOAD_ERR_INI_SIZE   => 'File melebihi upload_max_filesize di php.ini',
-            UPLOAD_ERR_FORM_SIZE  => 'File melebihi MAX_FILE_SIZE di form HTML',
-            UPLOAD_ERR_PARTIAL    => 'File hanya ter-upload sebagian',
-            UPLOAD_ERR_NO_FILE    => 'Tidak ada file yang di-upload',
-            UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary tidak ditemukan',
-            UPLOAD_ERR_CANT_WRITE => 'Gagal menulis file ke disk',
-            UPLOAD_ERR_EXTENSION  => 'Upload dihentikan oleh ekstensi PHP',
-        ];
-        $err_msg = isset($error_messages[$file['error']]) ? $error_messages[$file['error']] : 'Error upload tidak diketahui (kode: ' . $file['error'] . ')';
-        error_log("[ALAT-ERROR] Upload error: " . $err_msg);
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;
-    }
-
     $upload_dir = getUploadDirectory();
-    
-    if (!is_dir($upload_dir) || !is_writable($upload_dir)) {
-        error_log("[ALAT-ERROR] Folder upload tidak dapat ditulis: " . $upload_dir);
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;
+    if (!isset($file) || empty($file['name'])) {
+        return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
     }
-
-    $file_tmp  = $file['tmp_name'];
-    $file_name = basename($file['name']);
-    $file_ext  = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-
-    // Validasi ukuran file (max 5MB)
-    if ($file['size'] > 5 * 1024 * 1024) {
-        error_log("[ALAT-ERROR] File terlalu besar: " . $file['size']);
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;
+    if (!is_dir($upload_dir)) {
+        @mkdir($upload_dir, 0755, true);
     }
-
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
     if (!in_array($file_ext, $allowed_ext)) {
-        error_log("[ALAT-ERROR] Ekstensi tidak diizinkan: " . $file_ext);
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;
+        return ($edit_data ? $edit_data['Photo_Alat'] : '');
     }
-
-    // Generate unique filename
+    if ($file['size'] > 5 * 1024 * 1024) {
+        return ($edit_data ? $edit_data['Photo_Alat'] : '');
+    }
     $new_file_name = 'alat_' . time() . '_' . uniqid() . '.' . $file_ext;
-    $upload_path   = rtrim($upload_dir, '/') . '/' . $new_file_name;
-
-    if (move_uploaded_file($file_tmp, $upload_path)) {
-        // Simpan path relatif untuk database - PERBAIKAN: gunakan uploads/alat/ bukan uploads/profile/
-        $relative_path = 'uploads/alat/' . $new_file_name;
-        error_log("[ALAT-INFO] Upload berhasil: " . $relative_path);
-        return $relative_path;
-    } else {
-        error_log("[ALAT-ERROR] move_uploaded_file gagal. Source: " . $file_tmp . " Target: " . $upload_path);
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return null;
+    $target_path = $upload_dir . $new_file_name;
+    if (move_uploaded_file($file['tmp_name'], $target_path)) {
+        return 'asset/image/' . $new_file_name;
     }
+    return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
 }
 
-// ==================== PROSES CRUD ALAT ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
-    $id        = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
+    $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
     $nama_alat = trim($_POST['nama_alat'] ?? '');
-    $stok_raw  = trim($_POST['stok'] ?? '');
+    $stok_raw = trim($_POST['stok'] ?? '');
     $harga_raw = trim($_POST['harga_alat'] ?? '');
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
     $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
 
     $errors = [];
-
-    // Validasi Nama Alat
     if ($nama_alat === '') {
         $errors[] = 'Nama alat wajib diisi.';
-    } elseif (strlen($nama_alat) < 3) {
-        $errors[] = 'Nama alat minimal 3 karakter.';
     } elseif (strlen($nama_alat) > 25) {
         $errors[] = 'Nama alat maksimal 25 karakter.';
-    } elseif (is_numeric($nama_alat)) {
-        $errors[] = 'Nama alat tidak boleh hanya angka.';
-    } elseif (!preg_match('/^[a-zA-Z0-9\s\-\_]+$/', $nama_alat)) {
-        $errors[] = 'Nama alat hanya boleh huruf, angka, spasi, strip, dan underscore.';
     }
-
-    // Validasi Stok - PERBAIKAN: gunakan regex untuk cek bilangan bulat positif
-    if ($stok_raw === '') {
-        $errors[] = 'Stok wajib diisi.';
-    } elseif (!preg_match('/^[0-9]+$/', $stok_raw)) {
-        $errors[] = 'Stok harus berupa angka bulat positif.';
-    } else {
-        $stok_int = intval($stok_raw);
-        if ($stok_int < 0) {
-            $errors[] = 'Stok tidak boleh negatif.';
-        } elseif ($stok_int > 9999) {
-            $errors[] = 'Stok maksimal 9999.';
-        }
+    if ($stok_raw === '' || !is_numeric($stok_raw)) {
+        $errors[] = 'Stok harus berupa angka.';
     }
-
-    // Validasi Harga
-    if ($harga_raw === '') {
-        $errors[] = 'Harga jual wajib diisi.';
-    } elseif (!is_numeric($harga_raw)) {
-        $errors[] = 'Harga jual harus berupa angka.';
-    } else {
-        $harga_float = floatval($harga_raw);
-        if ($harga_float < 20000) {
-            $errors[] = 'Harga jual minimal Rp 20.000.';
-        } elseif ($harga_float > 999999999) {
-            $errors[] = 'Harga jual terlalu besar.';
-        }
+    if ($harga_raw === '' || !is_numeric($harga_raw)) {
+        $errors[] = 'Harga harus berupa angka.';
     }
-
-    // Cek duplikat nama alat (case-insensitive)
     if (empty($errors)) {
         $sql_check = "SELECT ID_Alat FROM Alat WHERE LOWER(Nama_Alat) = LOWER(?) AND ID_Alat <> ? AND Is_Deleted = 0";
-        $q_check   = safeQuery($conn, $sql_check, [$nama_alat, $id]);
+        $q_check = safeQuery($conn, $sql_check, [$nama_alat, $id]);
         if ($q_check && safeFetch($q_check)) {
             $errors[] = 'Nama alat sudah terdaftar.';
         }
     }
-
     if (empty($errors)) {
-        $stok       = intval($stok_raw);
-        // PERBAIKAN: Gunakan number_format untuk menghasilkan format DECIMAL yang benar
-        $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
-
-        // Siapkan data foto untuk edit mode
-        $edit_data_for_photo = null;
+        $stok = intval($stok_raw);
+        $harga_alat = floatval($harga_raw);
+        $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
+        $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
         if ($edit_mode && $id > 0) {
-            if (!empty($edit_photo_path)) {
-                $edit_data_for_photo = ['Photo_Alat' => $edit_photo_path];
-            } else {
-                $r = safeQuery($conn, "SELECT Photo_Alat FROM Alat WHERE ID_Alat = ?", [$id]);
-                if ($r) $edit_data_for_photo = safeFetch($r);
-            }
-        }
-
-        // Proses upload foto
-        $photo_alat = processPhotoUpload(
-            isset($_FILES['photo_alat']) ? $_FILES['photo_alat'] : null,
-            $edit_data_for_photo
-        );
-
-        // Konversi null ke empty string untuk database
-        if ($photo_alat === null) {
-            $photo_alat = '';
-        }
-
-        $success = false;
-        $errMsg  = '';
-
-        if ($edit_mode && $id > 0) {
-            // UPDATE
-            if (!empty($photo_alat)) {
-                $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Photo_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
-                $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $id];
-            } else {
-                $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
-                $params = [$nama_alat, $stok, $harga_alat, $nama, $id];
-            }
-            
-            error_log("[ALAT-DEBUG] UPDATE Query: " . $sql);
-            error_log("[ALAT-DEBUG] UPDATE Params: " . print_r($params, true));
-            
-            $result = safeQuery($conn, $sql, $params);
-            
-            if ($result !== false) {
-                $success = true;
-                error_log("[ALAT-DEBUG] UPDATE berhasil untuk ID: " . $id);
-            } else {
-                $errMsg = getLastSqlError($conn);
-                error_log("[ALAT-DEBUG] UPDATE gagal: " . $errMsg);
-            }
+            $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Photo_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
+            $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $id];
         } else {
-            // INSERT
             $sql = "INSERT INTO Alat (Nama_Alat, Stok, Harga_Alat, Photo_Alat, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())";
             $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama];
-            
-            error_log("[ALAT-DEBUG] INSERT Query: " . $sql);
-            error_log("[ALAT-DEBUG] INSERT Params: " . print_r($params, true));
-            
-            $result = safeQuery($conn, $sql, $params);
-            
-            if ($result !== false) {
-                $success = true;
-                error_log("[ALAT-DEBUG] INSERT berhasil");
-            } else {
-                $errMsg = getLastSqlError($conn);
-                error_log("[ALAT-DEBUG] INSERT gagal: " . $errMsg);
-            }
         }
-
-        if ($success) {
+        $result = safeQuery($conn, $sql, $params);
+        if ($result !== false) {
             ob_end_clean();
-            $msg = $edit_mode ? 'Data alat berhasil diperbarui!' : 'Alat baru berhasil ditambahkan!' . ($photo_alat ? ' (dengan foto)' : ' (tanpa foto)');
+            $msg = $edit_mode ? 'Data alat berhasil diperbarui!' : 'Alat baru berhasil ditambahkan!';
             header("Location: alat.php?status=success&msg=" . urlencode($msg));
+            exit();
         } else {
-            ob_end_clean();
-            $displayErr = empty($errMsg) ? 'Gagal menyimpan data alat.' : $errMsg;
-            header("Location: alat.php?status=error&msg=" . urlencode($displayErr));
+            $db_error = getLastSqlError($conn);
+            header("Location: alat.php?status=error&msg=" . urlencode("Gagal menyimpan data: " . $db_error));
+            exit();
         }
     } else {
-        ob_end_clean();
         header("Location: alat.php?status=error&msg=" . urlencode(implode(' | ', $errors)));
+        exit();
     }
-    exit();
 }
 
-// ==================== TOGGLE STATUS ====================
 if (isset($_GET['toggle_id'])) {
-    $toggle_id      = intval($_GET['toggle_id']);
+    $toggle_id = intval($_GET['toggle_id']);
     $current_status = intval($_GET['s']);
-    $s_baru         = ($current_status == 1) ? 0 : 1;
-
-    $result = safeQuery($conn,
-        "UPDATE Alat SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?",
-        [$s_baru, $nama, $toggle_id]
-    );
-
+    $s_baru = ($current_status == 1) ? 0 : 1;
+    $result = safeQuery($conn, "UPDATE Alat SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?", [$s_baru, $nama, $toggle_id]);
     if ($result !== false) {
         ob_end_clean();
-        header("Location: alat.php?status=success&msg=" . urlencode('Status alat berhasil diubah!'));
+        $msg = ($s_baru == 1) ? 'Alat berhasil diaktifkan!' : 'Alat berhasil dinonaktifkan!';
+        header("Location: alat.php?status=success&msg=" . urlencode($msg));
     } else {
         ob_end_clean();
         header("Location: alat.php?status=error&msg=" . urlencode('Gagal mengubah status alat: ' . getLastSqlError($conn)));
@@ -360,17 +163,19 @@ if (isset($_GET['toggle_id'])) {
     exit();
 }
 
-// ==================== HAPUS (SOFT DELETE) ====================
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
-    $result    = safeQuery($conn,
-        "UPDATE Alat SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Alat=?",
-        [$nama, $delete_id]
-    );
-
+    $stmt_nama = safeQuery($conn, "SELECT Nama_Alat FROM Alat WHERE ID_Alat = ?", [$delete_id]);
+    $nama_alat_deleted = '';
+    if ($stmt_nama) {
+        $row_nama = safeFetch($stmt_nama);
+        if ($row_nama) $nama_alat_deleted = $row_nama['Nama_Alat'];
+    }
+    $result = safeQuery($conn, "UPDATE Alat SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Alat=?", [$nama, $delete_id]);
     if ($result !== false) {
         ob_end_clean();
-        header("Location: alat.php?status=success&msg=" . urlencode('Alat berhasil dihapus!'));
+        $msg = !empty($nama_alat_deleted) ? 'Alat "' . $nama_alat_deleted . '" berhasil dihapus!' : 'Alat berhasil dihapus!';
+        header("Location: alat.php?status=success&msg=" . urlencode($msg));
     } else {
         ob_end_clean();
         header("Location: alat.php?status=error&msg=" . urlencode('Gagal menghapus alat: ' . getLastSqlError($conn)));
@@ -378,14 +183,12 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// ==================== AMBIL DATA EDIT ====================
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
     $r = safeQuery($conn, "SELECT * FROM Alat WHERE ID_Alat=? AND Is_Deleted=0", [intval($_GET['edit_id'])]);
     if ($r) $edit_data = safeFetch($r);
 }
 
-// ==================== AMBIL DATA DETAIL ====================
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
@@ -398,64 +201,58 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-// ==================== FILTER & PAGINATION ====================
 $where_clauses = ["Is_Deleted = 0"];
-$params        = [];
-
+$params = [];
 if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
     $where_clauses[] = "Status = ?";
-    $params[]        = intval($_GET['f_status']);
+    $params[] = intval($_GET['f_status']);
 }
-
 $where_sql = implode(" AND ", $where_clauses);
 
 $sort_by = "ID_Alat ASC";
 if (isset($_GET['f_sort'])) {
     switch ($_GET['f_sort']) {
-        case 'id_desc':    $sort_by = "ID_Alat DESC";    break;
-        case 'nama_asc':   $sort_by = "Nama_Alat ASC";   break;
-        case 'stok_desc':  $sort_by = "Stok DESC";       break;
+        case 'id_desc': $sort_by = "ID_Alat DESC"; break;
+        case 'nama_asc': $sort_by = "Nama_Alat ASC"; break;
+        case 'stok_desc': $sort_by = "Stok DESC"; break;
         case 'harga_desc': $sort_by = "Harga_Alat DESC"; break;
-        case 'harga_asc':  $sort_by = "Harga_Alat ASC";  break;
+        case 'harga_asc': $sort_by = "Harga_Alat ASC"; break;
     }
 }
 
-// Hitung statistik
-$q_total   = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0");
+$q_total = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0");
 $total_alat = 0;
 if ($q_total) { $row = safeFetch($q_total); $total_alat = $row['t'] ?? 0; }
 
-$q_aktif   = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=1");
+$q_aktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=1");
 $aktif_count = 0;
 if ($q_aktif) { $row = safeFetch($q_aktif); $aktif_count = $row['t'] ?? 0; }
 
-$q_nonaktif   = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=0");
+$q_nonaktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=0");
 $nonaktif_count = 0;
 if ($q_nonaktif) { $row = safeFetch($q_nonaktif); $nonaktif_count = $row['t'] ?? 0; }
 
-// Pagination
-$limit      = 12;
-$page       = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 12;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-$count_sql  = "SELECT COUNT(*) as t FROM Alat WHERE $where_sql";
-$count_res  = safeQuery($conn, $count_sql, $params);
+$count_sql = "SELECT COUNT(*) as t FROM Alat WHERE $where_sql";
+$count_res = safeQuery($conn, $count_sql, $params);
 $total_data = 0;
 if ($count_res) { $row = safeFetch($count_res); $total_data = $row['t'] ?? 0; }
 
 $total_pages = max(1, ceil($total_data / $limit));
-$page        = min($page, $total_pages);
-$offset      = ($page - 1) * $limit;
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $limit;
 
 $query_sql = "SELECT * FROM Alat WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query     = safeQuery($conn, $query_sql, $params);
+$query = safeQuery($conn, $query_sql, $params);
 
-// Notifikasi pending booking
-$q_pending   = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0");
+$q_pending = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0");
 $total_pending = 0;
 if ($q_pending) { $row = safeFetch($q_pending); $total_pending = $row['t'] ?? 0; }
 
 $filter_url = "";
-if (isset($_GET['f_sort']))   $filter_url .= "&f_sort="   . urlencode($_GET['f_sort']);
+if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 
 function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
@@ -548,7 +345,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
-/* GRID KARTU */
 .alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .alat-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; transition: all .25s ease; cursor: pointer; position: relative; }
 .alat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.12); border-color: var(--orange); }
@@ -588,7 +384,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .empty-grid div { font-size: 16px; font-weight: 700; }
 .empty-grid p { font-size: 13px; font-weight: 500; margin-top: 8px; opacity: .7; }
 
-/* MODAL */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
@@ -609,7 +404,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; z-index: 10; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* Photo Upload */
 .photo-upload-area { width: 100%; height: 180px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
 .photo-upload-area:hover { border-color: var(--orange); background: var(--orange-lt); }
 .photo-upload-area.has-image { border-style: solid; border-color: var(--orange); }
@@ -624,7 +418,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-/* DETAIL MODAL */
 .detail-modal-box { width: 440px; }
 .detail-photo-wrap { width: 100%; aspect-ratio: 1 / 1; background: var(--border-lt); border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; }
 .detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -641,7 +434,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
 .detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
 
-/* PAGINATION */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
 .pagination-info strong { color: var(--text); font-weight: 800; }
@@ -651,7 +443,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
 .page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
-/* FILTER */
 .filter-dropdown-wrap { position: relative; display: inline-block; }
 .btn-filter { display: inline-flex; align-items: center; gap: 8px; background-color: var(--orange); color: #ffffff; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.2s; }
 .btn-filter:hover { background-color: var(--orange-dk); transform: translateY(-2px); }
@@ -681,8 +472,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
-.debug-info { background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 12px; color: #92400E; font-family: monospace; }
-
 @media(max-width:768px){
     .sidebar{width:0;overflow:hidden;padding:0;}
     .main{margin-left:0;}
@@ -696,8 +485,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </style>
 </head>
 <body>
-
-<!-- ==================== MODAL FORM TAMBAH/EDIT ALAT ==================== -->
+<!-- MODAL FORM TAMBAH/EDIT ALAT -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalAlat">
     <div class="modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
@@ -710,7 +498,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <?php if ($edit_data): ?>
                     <input type="hidden" name="edit_mode" value="1">
                     <input type="hidden" name="id_alat" value="<?= intval($edit_data['ID_Alat']) ?>">
-                    <!-- PERBAIKAN: Simpan path foto lama untuk digunakan saat tidak upload foto baru -->
                     <input type="hidden" name="edit_photo_path" value="<?= htmlspecialchars($edit_data['Photo_Alat'] ?? '') ?>">
                 <?php endif; ?>
 
@@ -770,7 +557,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- ==================== MODAL DETAIL ALAT ==================== -->
+<!-- MODAL DETAIL ALAT -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
@@ -818,7 +605,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- ==================== SIDEBAR ==================== -->
+<!-- SIDEBAR -->
 <aside class="sidebar">
     <a href="../view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
@@ -865,7 +652,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </aside>
 
-<!-- ==================== MAIN CONTENT ==================== -->
+<!-- MAIN CONTENT -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -967,16 +754,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         $has_data = false;
         if ($query):
             while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                $has_data    = true;
-                $photo_url   = getPhotoUrl($row['Photo_Alat'] ?? '');
-                $is_aktif    = intval($row['Status']) === 1;
+                $has_data = true;
+                $photo_url = getPhotoUrl($row['Photo_Alat'] ?? '');
+                $is_aktif = intval($row['Status']) === 1;
         ?>
             <div class="alat-card" data-name="<?= strtolower(htmlspecialchars($row['Nama_Alat'])) ?>">
                 <div class="alat-card-photo-wrap" onclick="window.location.href='?detail_id=<?= intval($row['ID_Alat']) ?>'">
                     <div class="alat-card-photo-placeholder">
                         <i class="fa-solid fa-toolbox"></i>
                     </div>
-
                     <?php if (!empty($photo_url)): ?>
                         <img src="<?= htmlspecialchars($photo_url) ?>"
                              alt="<?= htmlspecialchars($row['Nama_Alat']) ?>"
@@ -984,11 +770,9 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                              style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"
                              onerror="this.style.display='none';">
                     <?php endif; ?>
-
                     <span class="alat-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>" style="z-index:2;">
                         <?= $is_aktif ? 'AKTIF' : 'NONAKTIF' ?>
                     </span>
-
                     <div class="alat-card-actions" style="z-index:3;">
                         <a href="?detail_id=<?= intval($row['ID_Alat']) ?>"
                            class="alat-card-action-btn ac-btn-view" title="Lihat Detail"
@@ -1014,7 +798,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <span class="alat-card-toggle-label"><?= $is_aktif ? 'ON' : 'OFF' ?></span>
                             <label class="toggle-switch-mini" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                 <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?>
-                                       onchange="event.stopPropagation(); doToggle(<?= intval($row['ID_Alat']) ?>, <?= intval($row['Status']) ?>)">
+                                       onchange="event.stopPropagation(); doToggle(<?= intval($row['ID_Alat']) ?>, <?= intval($row['Status']) ?>, '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>')">
                                 <span class="toggle-slider-mini"></span>
                             </label>
                         </div>
@@ -1060,21 +844,20 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         <?php endif; ?>
     </div>
 </main>
-
 <script>
 function updateClock() {
-    var now  = new Date();
-    var h    = String(now.getHours()).padStart(2,'0');
-    var m    = String(now.getMinutes()).padStart(2,'0');
-    var s    = String(now.getSeconds()).padStart(2,'0');
-    var hEl  = document.getElementById('clock-h');
-    var mEl  = document.getElementById('clock-m');
-    var sEl  = document.getElementById('clock-s');
-    var dEl  = document.getElementById('full-date');
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2,'0');
+    var m = String(now.getMinutes()).padStart(2,'0');
+    var s = String(now.getSeconds()).padStart(2,'0');
+    var hEl = document.getElementById('clock-h');
+    var mEl = document.getElementById('clock-m');
+    var sEl = document.getElementById('clock-s');
+    var dEl = document.getElementById('full-date');
     if(hEl) hEl.textContent = h;
     if(mEl) mEl.textContent = m;
     if(sEl) sEl.textContent = s;
-    var days   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    var days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     var months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     if(dEl) dEl.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
 }
@@ -1087,9 +870,7 @@ function closeModal() {
 
 function handlePhotoUpload(input) {
     if (!input.files || !input.files[0]) return;
-
     var file = input.files[0];
-    
     if (file.size > 5 * 1024 * 1024) {
         Swal.fire({
             icon: 'error',
@@ -1100,45 +881,42 @@ function handlePhotoUpload(input) {
         input.value = '';
         return;
     }
-
     var reader = new FileReader();
     reader.onload = function(e) {
-        var previewImg       = document.getElementById('previewImg');
+        var previewImg = document.getElementById('previewImg');
         var uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        var uploadArea       = document.getElementById('uploadArea');
-        var removeBtn        = document.getElementById('removeBtn');
-
+        var uploadArea = document.getElementById('uploadArea');
+        var removeBtn = document.getElementById('removeBtn');
         if (previewImg) {
-            previewImg.src           = e.target.result;
+            previewImg.src = e.target.result;
             previewImg.style.display = 'block';
         }
-        if (uploadArea)        uploadArea.classList.add('has-image');
+        if (uploadArea) uploadArea.classList.add('has-image');
         if (uploadPlaceholder) uploadPlaceholder.style.display = 'none';
-        if (removeBtn)         removeBtn.style.display = 'flex';
+        if (removeBtn) removeBtn.style.display = 'flex';
     };
     reader.readAsDataURL(file);
 }
 
 function removePhoto() {
-    var previewImg        = document.getElementById('previewImg');
+    var previewImg = document.getElementById('previewImg');
     var uploadPlaceholder = document.getElementById('uploadPlaceholder');
-    var fileInput         = document.getElementById('photo_alat');
-    var uploadArea        = document.getElementById('uploadArea');
-    var removeBtn         = document.getElementById('removeBtn');
-
-    if (fileInput)         fileInput.value = '';
+    var fileInput = document.getElementById('photo_alat');
+    var uploadArea = document.getElementById('uploadArea');
+    var removeBtn = document.getElementById('removeBtn');
+    if (fileInput) fileInput.value = '';
     if (previewImg) {
-        previewImg.src           = '';
+        previewImg.src = '';
         previewImg.style.display = 'none';
     }
-    if (uploadArea)        uploadArea.classList.remove('has-image');
+    if (uploadArea) uploadArea.classList.remove('has-image');
     if (uploadPlaceholder) uploadPlaceholder.style.display = 'flex';
-    if (removeBtn)         removeBtn.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'none';
 }
 
 function searchGrid() {
     var filter = document.getElementById('src').value.toLowerCase();
-    var cards  = document.querySelectorAll('.alat-card');
+    var cards = document.querySelectorAll('.alat-card');
     cards.forEach(function(card) {
         var name = card.getAttribute('data-name') || '';
         card.style.display = name.indexOf(filter) > -1 ? '' : 'none';
@@ -1150,15 +928,15 @@ function validateForm() {
     document.querySelectorAll('.modal-input').forEach(function(el) { el.classList.remove('error'); });
     document.querySelectorAll('.val-msg').forEach(function(el) { el.classList.remove('show'); el.innerHTML = ''; });
 
-    var nama    = document.getElementById('nama_alat');
+    var nama = document.getElementById('nama_alat');
     var valNama = document.getElementById('val-nama_alat');
     if (nama && valNama) {
         var v = nama.value.trim();
         var errNama = '';
-        if (v === '')                          errNama = 'Nama alat wajib diisi.';
-        else if (v.length < 3)                 errNama = 'Nama alat minimal 3 karakter.';
-        else if (v.length > 25)                errNama = 'Nama alat maksimal 25 karakter.';
-        else if (/^\d+$/.test(v))              errNama = 'Nama alat tidak boleh hanya angka.';
+        if (v === '') errNama = 'Nama alat wajib diisi.';
+        else if (v.length < 3) errNama = 'Nama alat minimal 3 karakter.';
+        else if (v.length > 25) errNama = 'Nama alat maksimal 25 karakter.';
+        else if (/^\d+$/.test(v)) errNama = 'Nama alat tidak boleh hanya angka.';
         else if (!/^[a-zA-Z0-9\s\-\_]+$/.test(v)) errNama = 'Nama alat hanya boleh huruf, angka, spasi, strip, dan underscore.';
         if (errNama) {
             nama.classList.add('error');
@@ -1168,15 +946,15 @@ function validateForm() {
         }
     }
 
-    var stok    = document.getElementById('stok');
+    var stok = document.getElementById('stok');
     var valStok = document.getElementById('val-stok');
     if (stok && valStok) {
         var vs = stok.value.trim();
         var errStok = '';
-        if (vs === '')                   errStok = 'Stok wajib diisi.';
-        else if (!/^[0-9]+$/.test(vs))   errStok = 'Stok harus berupa angka bulat positif.';
-        else if (parseInt(vs) < 0)       errStok = 'Stok tidak boleh negatif.';
-        else if (parseInt(vs) > 9999)    errStok = 'Stok maksimal 9999.';
+        if (vs === '') errStok = 'Stok wajib diisi.';
+        else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus berupa angka bulat positif.';
+        else if (parseInt(vs) < 0) errStok = 'Stok tidak boleh negatif.';
+        else if (parseInt(vs) > 9999) errStok = 'Stok maksimal 9999.';
         if (errStok) {
             stok.classList.add('error');
             valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errStok;
@@ -1185,14 +963,14 @@ function validateForm() {
         }
     }
 
-    var harga    = document.getElementById('harga_alat');
+    var harga = document.getElementById('harga_alat');
     var valHarga = document.getElementById('val-harga_alat');
     if (harga && valHarga) {
         var vh = harga.value.trim();
         var errHarga = '';
-        if (vh === '')                    errHarga = 'Harga jual wajib diisi.';
-        else if (isNaN(vh))               errHarga = 'Harga jual harus berupa angka.';
-        else if (parseFloat(vh) < 20000)  errHarga = 'Harga jual minimal Rp 20.000.';
+        if (vh === '') errHarga = 'Harga jual wajib diisi.';
+        else if (isNaN(vh)) errHarga = 'Harga jual harus berupa angka.';
+        else if (parseFloat(vh) < 20000) errHarga = 'Harga jual minimal Rp 20.000.';
         else if (parseFloat(vh) > 999999999) errHarga = 'Harga jual terlalu besar.';
         if (errHarga) {
             harga.classList.add('error');
@@ -1206,8 +984,8 @@ function validateForm() {
 
     var btn = document.getElementById('btnSubmit');
     if (btn) {
-        btn.disabled   = true;
-        btn.innerHTML  = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
     }
     return true;
 }
@@ -1267,22 +1045,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ========== NOTIFIKASI TOAST (sama seperti tipe_member.php) ==========
     var urlParams = new URLSearchParams(window.location.search);
-    var status    = urlParams.get('status');
-    var msg       = urlParams.get('msg');
+    var status = urlParams.get('status');
+    var msg = urlParams.get('msg');
 
     if (status && msg) {
         var isSuccess = status === 'success';
         Swal.fire({
-            icon:             isSuccess ? 'success' : 'error',
-            title:            isSuccess ? 'Berhasil!' : 'Gagal!',
-            text:             msg,
-            timer:            3500,
+            icon: isSuccess ? 'success' : 'error',
+            title: isSuccess ? 'Berhasil!' : 'Gagal!',
+            text: msg,
+            timer: 3000,
             showConfirmButton: false,
-            toast:            true,
-            position:         'top-end',
+            toast: true,
+            position: 'top-end',
             timerProgressBar: true,
-            showCloseButton:  true,
+            showCloseButton: true,
             didOpen: function(toast) {
                 toast.addEventListener('mouseenter', Swal.stopTimer);
                 toast.addEventListener('mouseleave', Swal.resumeTimer);
@@ -1293,7 +1072,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var btnFilterToggle = document.getElementById('btnFilterToggle');
-    var filterCard      = document.getElementById('filterCard');
+    var filterCard = document.getElementById('filterCard');
     if (btnFilterToggle && filterCard) {
         btnFilterToggle.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -1313,23 +1092,32 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-function doToggle(id, currentStatus) {
-    var action   = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
+// ========== TOGGLE DENGAN NOTIFIKASI DETAIL ==========
+function doToggle(id, currentStatus, namaAlat) {
+    var action = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
     var iconType = currentStatus == 1 ? 'warning' : 'question';
+    var titleText = currentStatus == 1 ? 'Nonaktifkan Alat?' : 'Aktifkan Alat?';
+    var bodyText = currentStatus == 1 
+        ? 'Apakah Anda yakin ingin menonaktifkan alat "' + namaAlat + '"?' 
+        : 'Apakah Anda yakin ingin mengaktifkan alat "' + namaAlat + '"?';
 
     Swal.fire({
-        title:              'Ubah Status Alat?',
-        text:               'Apakah Anda yakin ingin ' + action + ' alat ini?',
-        icon:               iconType,
-        showCancelButton:   true,
+        title: titleText,
+        html: bodyText + '<br><span style="font-size:12px;color:var(--muted);">Status alat akan diubah secara permanen.</span>',
+        icon: iconType,
+        showCancelButton: true,
         confirmButtonColor: '#FF4500',
-        cancelButtonColor:  '#6B7280',
-        confirmButtonText:  'Ya, ' + action + '!',
-        cancelButtonText:   'Batal',
-        reverseButtons:     true
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, ' + action + '!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
     }).then(function(result) {
         if (result.isConfirmed) {
-            Swal.fire({ title:'Memproses...', allowOutsideClick:false, didOpen: function(){ Swal.showLoading(); } });
+            Swal.fire({ 
+                title: 'Memproses...', 
+                allowOutsideClick: false, 
+                didOpen: function() { Swal.showLoading(); } 
+            });
             setTimeout(function() {
                 window.location.href = 'alat.php?toggle_id=' + id + '&s=' + currentStatus;
             }, 500);
@@ -1337,7 +1125,7 @@ function doToggle(id, currentStatus) {
             var allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
             allCheckboxes.forEach(function(cb) {
                 var oc = cb.getAttribute('onchange') || '';
-                if (oc.indexOf('doToggle(' + id + ',' + currentStatus + ')') > -1) {
+                if (oc.indexOf('doToggle(' + id + ',' + currentStatus) > -1) {
                     cb.checked = (currentStatus == 1);
                 }
             });
@@ -1345,20 +1133,25 @@ function doToggle(id, currentStatus) {
     });
 }
 
+// ========== DELETE DENGAN NOTIFIKASI DETAIL ==========
 function doDelete(id, name) {
     Swal.fire({
-        title:              'Hapus Alat?',
-        html:               'Anda akan menghapus alat <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara permanen.</span>',
-        icon:               'warning',
-        showCancelButton:   true,
+        title: 'Hapus Alat?',
+        html: 'Anda akan menghapus alat <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara permanen.</span>',
+        icon: 'warning',
+        showCancelButton: true,
         confirmButtonColor: '#EF4444',
-        cancelButtonColor:  '#6B7280',
-        confirmButtonText:  'Ya, Hapus!',
-        cancelButtonText:   'Batal',
-        reverseButtons:     true
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
     }).then(function(result) {
         if (result.isConfirmed) {
-            Swal.fire({ title:'Menghapus...', allowOutsideClick:false, didOpen: function(){ Swal.showLoading(); } });
+            Swal.fire({ 
+                title: 'Menghapus...', 
+                allowOutsideClick: false, 
+                didOpen: function() { Swal.showLoading(); } 
+            });
             setTimeout(function() {
                 window.location.href = 'alat.php?delete_id=' + id;
             }, 500);
