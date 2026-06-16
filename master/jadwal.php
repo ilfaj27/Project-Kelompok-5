@@ -331,17 +331,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 /* Kolom Alignment */
 .data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: left; }
+.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: center !important; }
 .jadwal-lapangan { font-weight: 700; color: var(--text); font-size: 15px; }
 .jadwal-id-tag { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 40%; text-align: left !important; }
+.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 40%; text-align: center !important; }
 .jadwal-waktu { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 16px; color: var(--orange); }
 
 .data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; text-align: center !important; }
-.data-table th:nth-child(4) { position: relative; left: -112px !important; }
+.data-table th:nth-child(4) { position: relative;}
 .data-table td:nth-child(4) { font-size: 0 !important; }
-.data-table td:nth-child(4) .status-pill { position: relative; left: -110px !important; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
+.data-table td:nth-child(4) .status-pill { position: relative; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
 
 .data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: center !important; }
 
