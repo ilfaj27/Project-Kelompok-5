@@ -374,12 +374,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .alat-card-stok i { color: var(--orange); margin-right: 4px; }
 .alat-card-toggle { display: flex; align-items: center; gap: 6px; }
 .alat-card-toggle-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.toggle-switch-mini { position: relative; display: inline-flex; align-items: center; width: 36px; height: 20px; cursor: pointer; }
-.toggle-switch-mini input { opacity: 0; width: 0; height: 0; }
-.toggle-slider-mini { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 20px; }
-.toggle-slider-mini::before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.toggle-switch-mini input:checked + .toggle-slider-mini { background-color: var(--green); }
-.toggle-switch-mini input:checked + .toggle-slider-mini::before { transform: translateX(16px); }
+/* TOGGLE SWITCH - SAMA PERSIS LAPANGAN.PHP */
+.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
+.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); will-change: transform; }
+.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.toggle-switch:hover .toggle-slider { opacity: .9; }
 .empty-grid { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
 .empty-grid i { font-size: 64px; margin-bottom: 20px; opacity: .3; display: block; }
 .empty-grid div { font-size: 16px; font-weight: 700; }
@@ -819,10 +821,10 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         </span>
                         <div class="alat-card-toggle">
                             <span class="alat-card-toggle-label"><?= $is_aktif ? 'ON' : 'OFF' ?></span>
-                            <label class="toggle-switch-mini" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                            <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                 <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?>
-                                       onchange="event.stopPropagation(); doToggle(<?= intval($row['ID_Alat']) ?>, <?= intval($row['Status']) ?>, '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>')">
-                                <span class="toggle-slider-mini"></span>
+                                       onchange="confirmToggle('<?= intval($row['ID_Alat']) ?>', '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>', <?= intval($row['Status']) ?>, event)">
+                                <span class="toggle-slider"></span>
                             </label>
                         </div>
                     </div>
@@ -1114,42 +1116,39 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-function doToggle(id, currentStatus, namaAlat) {
-    var action = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
-    var iconType = currentStatus == 1 ? 'warning' : 'question';
-    var titleText = currentStatus == 1 ? 'Nonaktifkan Alat?' : 'Aktifkan Alat?';
-    var bodyText = currentStatus == 1 
-        ? 'Apakah Anda yakin ingin menonaktifkan alat "' + namaAlat + '"?' 
-        : 'Apakah Anda yakin ingin mengaktifkan alat "' + namaAlat + '"?';
+function confirmToggle(id, name, currentStatus, event) {
+    var checkbox = event.target;
+    var newStatus = currentStatus === 1 ? 0 : 1;
+    var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
+    var icon = newStatus === 1 ? 'success' : 'warning';
+    var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
 
     Swal.fire({
-        title: titleText,
-        html: bodyText + '<br><span style="font-size:12px;color:var(--muted);">Status alat akan diubah secara permanen.</span>',
-        icon: iconType,
+        title: 'Ubah Status?',
+        html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
+        icon: icon,
         showCancelButton: true,
-        confirmButtonColor: '#FF4500',
+        confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, ' + action + '!',
+        confirmButtonText: 'Ya, Ubah!',
         cancelButtonText: 'Batal',
-        reverseButtons: true
+        reverseButtons: true,
+        allowOutsideClick: false
     }).then(function(result) {
         if (result.isConfirmed) {
-            Swal.fire({ 
-                title: 'Memproses...', 
-                allowOutsideClick: false, 
-                didOpen: function() { Swal.showLoading(); } 
-            });
-            setTimeout(function() {
-                window.location.href = 'alat.php?toggle_id=' + id + '&s=' + currentStatus;
-            }, 500);
-        } else {
-            var allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
-            allCheckboxes.forEach(function(cb) {
-                var oc = cb.getAttribute('onchange') || '';
-                if (oc.indexOf('doToggle(' + id + ',' + currentStatus) > -1) {
-                    cb.checked = (currentStatus == 1);
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Mengubah status alat',
+                allowOutsideClick: false,
+                didOpen: function() {
+                    Swal.showLoading();
                 }
             });
+            setTimeout(function() {
+                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
+            }, 600);
+        } else {
+            checkbox.checked = !checkbox.checked;
         }
     });
 }
