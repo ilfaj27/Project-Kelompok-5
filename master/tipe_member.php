@@ -199,10 +199,9 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 }
 $where_sql = implode(" AND ", $where_clauses);
 
-$sort_by = "ID_Tipe ASC";
+$sort_by = "Nama_Tipe ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') $sort_by = "ID_Tipe DESC";
-    elseif ($_GET['f_sort'] === 'nama_asc') $sort_by = "Nama_Tipe ASC";
+    if ($_GET['f_sort'] === 'nama_asc') $sort_by = "Nama_Tipe ASC";
     elseif ($_GET['f_sort'] === 'harga_desc') $sort_by = "Harga_Member DESC";
 }
 
@@ -807,8 +806,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <div class="filter-group">
                                 <label>Urut Berdasarkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Tipe &uarr;</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Tipe &darr;</option>
                                     <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
                                     <option value="harga_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_desc' ? 'selected' : '' ?>>Harga Tertinggi</option>
                                 </select>

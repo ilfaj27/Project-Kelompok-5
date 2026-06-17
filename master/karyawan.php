@@ -285,12 +285,12 @@ $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 $filter_jabatan = isset($_GET['filter_jabatan']) ? intval($_GET['filter_jabatan']) : 0;
 $filter_jk = isset($_GET['filter_jk']) ? intval($_GET['filter_jk']) : -1;
 $filter_status = isset($_GET['filter_status']) ? intval($_GET['filter_status']) : -1;
-$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'ID_Karyawan';
+$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'Nama_Karyawan';
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 
-$allowed_sort = ['ID_Karyawan', 'Nama_Karyawan', 'Jabatan', 'Jenis_Kelamin', 'No_Telepon', 'Status', 'Created_Date', 'Modified_Date'];
+$allowed_sort = ['Nama_Karyawan', 'Jabatan', 'Jenis_Kelamin', 'No_Telepon', 'Status', 'Created_Date', 'Modified_Date'];
 if (!in_array($sort_by, $allowed_sort)) {
-    $sort_by = 'ID_Karyawan';
+    $sort_by = 'Nama_Karyawan';
 }
 $sort_order = ($sort_order === 'DESC') ? 'DESC' : 'ASC';
 
@@ -847,7 +847,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <div class="filter-group">
                             <label>Urut Berdasarkan</label>
                             <select id="filterSortBy" class="filter-input">
-                                <option value="ID_Karyawan" <?= $sort_by == 'ID_Karyawan' ? 'selected' : '' ?>>ID Karyawan</option>
                                 <option value="Nama_Karyawan" <?= $sort_by == 'Nama_Karyawan' ? 'selected' : '' ?>>Nama Lengkap</option>
                                 <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan</option>
                                 <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>

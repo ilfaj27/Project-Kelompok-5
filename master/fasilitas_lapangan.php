@@ -130,9 +130,13 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 
 $where_sql = implode(" AND ", $where_clauses);
 
+// ===== PERUBAHAN SORTING =====
+// Nomor dari atas = ID ASC (default)
+// Nomor dari bawah = ID DESC
 $sort_by = "f.ID_Fasilitas ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') $sort_by = "f.ID_Fasilitas DESC";
+    if ($_GET['f_sort'] === 'nomor_asc') $sort_by = "f.ID_Fasilitas ASC";      // Nomor 1,2,3...
+    elseif ($_GET['f_sort'] === 'nomor_desc') $sort_by = "f.ID_Fasilitas DESC"; // Nomor ...,3,2,1
     elseif ($_GET['f_sort'] === 'nama_asc') $sort_by = "f.Nama_Fasilitas ASC";
     elseif ($_GET['f_sort'] === 'lapangan_asc') $sort_by = "l.Nama_Lapangan ASC";
 }
@@ -864,9 +868,10 @@ select.modal-input {
                             </div>
                             <div class="filter-group">
                                 <label>Urutkan</label>
+                                <!-- ID dihapus, diganti Nomor (atas ke bawah / bawah ke atas) -->
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID &uarr;</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID &darr;</option>
+                                    <option value="nomor_asc" <?= ($_GET['f_sort'] ?? '') === 'nomor_asc' ? 'selected' : '' ?>>Nomor (1, 2, 3...)</option>
+                                    <option value="nomor_desc" <?= ($_GET['f_sort'] ?? '') === 'nomor_desc' ? 'selected' : '' ?>>Nomor (...3, 2, 1)</option>
                                     <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A-Z</option>
                                     <option value="lapangan_asc" <?= ($_GET['f_sort'] ?? '') === 'lapangan_asc' ? 'selected' : '' ?>>Lapangan A-Z</option>
                                 </select>

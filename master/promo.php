@@ -172,12 +172,12 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 
 $where_sql = implode(" AND ", $where_clauses);
 
-$sort_by = "ID_Promo ASC";
+$sort_by = "Nama_Promo ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') {
-        $sort_by = "ID_Promo DESC";
-    } elseif ($_GET['f_sort'] === 'nama_asc') {
+    if ($_GET['f_sort'] === 'nama_asc') {
         $sort_by = "Nama_Promo ASC";
+    } elseif ($_GET['f_sort'] === 'nama_desc') {
+        $sort_by = "Nama_Promo DESC";
     }
 }
 
@@ -1073,9 +1073,8 @@ html.swal2-height-auto {
                             <div class="filter-group">
                                 <label>Urut Berdasarkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Promo ↑</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Promo ↓</option>
                                     <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
+                                    <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Z - A</option>
                                 </select>
                             </div>
                             

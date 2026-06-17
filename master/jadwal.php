@@ -160,8 +160,7 @@ $where_sql = implode(" AND ", $where_clauses);
 
 $sort_by = "j.Tanggal DESC, j.Jam_Mulai ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') $sort_by = "j.ID_Jadwal DESC";
-    elseif ($_GET['f_sort'] === 'tanggal_asc') $sort_by = "j.Tanggal ASC, j.Jam_Mulai ASC";
+    if ($_GET['f_sort'] === 'tanggal_asc') $sort_by = "j.Tanggal ASC, j.Jam_Mulai ASC";
     elseif ($_GET['f_sort'] === 'lapangan_asc') $sort_by = "l.Nama_Lapangan ASC";
 }
 
@@ -732,8 +731,6 @@ input[type="time"].modal-input {
                             <div class="filter-group">
                                 <label>Urutkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID &uarr;</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID &darr;</option>
                                     <option value="tanggal_asc" <?= ($_GET['f_sort'] ?? '') === 'tanggal_asc' ? 'selected' : '' ?>>Tanggal Terdekat</option>
                                     <option value="lapangan_asc" <?= ($_GET['f_sort'] ?? '') === 'lapangan_asc' ? 'selected' : '' ?>>Lapangan A-Z</option>
                                 </select>
