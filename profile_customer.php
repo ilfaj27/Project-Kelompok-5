@@ -233,6 +233,45 @@ if (isset($_POST['update_password'])) {
 }
 
 // ============================================================================
+// DELETE AKUN (SOFT DELETE)
+// ============================================================================
+if (isset($_POST['delete_account'])) {
+    $confirm_password = trim($_POST['confirm_delete_password'] ?? '');
+
+    // Ambil kata sandi aktif untuk verifikasi keamanan
+    $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($ID_Customer));
+    $custData = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+
+    if (empty($confirm_password)) {
+        $swal_status = 'error';
+        $swal_msg = 'Kata sandi konfirmasi tidak boleh kosong.';
+    } elseif ($confirm_password !== ($custData['Kata_Sandi'] ?? '')) {
+        $swal_status = 'error';
+        $swal_msg = 'Kata sandi konfirmasi yang Anda masukkan salah.';
+    } else {
+        $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        $stmt = sqlsrv_query($conn,
+            "UPDATE Customer SET Is_Deleted = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
+            array($modified_by, $ID_Customer)
+        );
+
+        if ($stmt) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+            
+            // Hancurkan session dan arahkan kembali ke login
+            session_unset();
+            session_destroy();
+            header("Location: login.php?status=deleted");
+            exit();
+        } else {
+            $swal_status = 'error';
+            $swal_msg = 'Gagal menghapus akun. Silakan coba beberapa saat lagi.';
+        }
+    }
+}
+
+// ============================================================================
 // UPLOAD FOTO
 // ============================================================================
 if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
@@ -1691,6 +1730,9 @@ function format_date_display($date) {
                     <button class="menu-btn" id="menu-password" onclick="switchTab('password')">
                         <i class="fa-solid fa-lock"></i> Ganti Password
                     </button>
+                    <button class="menu-btn" id="menu-delete" onclick="switchTab('delete')" style="color: var(--red);">
+    <i class="fa-solid fa-user-minus"></i> Hapus Akun
+</button>
                     <div class="menu-btn-divider"></div>
                     <a href="logout.php" class="menu-btn" style="color: var(--primary);">
                         <i class="fa-solid fa-right-from-bracket"></i> Keluar
@@ -1817,6 +1859,7 @@ function format_date_display($date) {
                             <input type="password" name="confirm_password" id="confirm_password" class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>" placeholder="Ulangi sandi baru">
                             <div class="error-msg" id="confirmPassError">Konfirmasi tidak cocok.</div>
                         </div>
+
                     </div>
                 </div> <!-- <-- TAG PENUTUP pembungkus input yang sebelumnya hilang -->
                 <div class="form-buttons" style="margin-top: auto;">
@@ -1824,6 +1867,40 @@ function format_date_display($date) {
                 </div>
             </form>
         </div>
+
+        <!-- TAB HAPUS AKUN -->
+<div class="form-card" id="delete-form-card" style="display: none; align-self: start;">
+    <div class="form-card-title" style="color: var(--red);">Hapus Akun Permanen</div>
+    <form method="POST" id="formDeleteAccount" style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
+        
+        <!-- TAMBAHKAN BARIS INI -->
+        <input type="hidden" name="delete_account" value="1">
+        
+        <div>
+            <div style="background-color: #FFEBEA; border: 1px solid rgba(255, 59, 48, 0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="color: var(--red); font-size: 14px; font-weight: 800; margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Peringatan Penting</h4>
+                <p style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px;">
+                    Menghapus akun akan mengakibatkan hal-hal berikut:
+                </p>
+                <ul style="font-size: 12px; color: #555; margin-left: 20px; line-height: 1.6;">
+                    <li>Anda tidak akan dapat login kembali menggunakan akun ini.</li>
+                    <li>Semua riwayat transaksi dan data keanggotaan aktif Anda akan ditangguhkan.</li>
+                    <li>Semua jadwal booking aktif/mendatang akan otomatis dibatalkan.</li>
+                </ul>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Masukkan Kata Sandi Anda <span class="required">*</span></label>
+                <input type="password" name="confirm_delete_password" id="confirm_delete_password" class="form-input" placeholder="Ketik kata sandi saat ini untuk konfirmasi" required>
+                <div class="error-msg" id="deletePassError">Wajib memasukkan kata sandi konfirmasi.</div>
+            </div>
+        </div> 
+        <div class="form-buttons" style="margin-top: auto;">
+            <!-- Hapus atribut name="delete_account" pada button agar tidak membingungkan -->
+            <button type="submit" class="btn-submit" style="background: var(--red);">Konfirmasi Hapus Akun</button>
+        </div>
+    </form>
+</div>
+
         <!-- TAB 1: KARTU RIWAYAT BOOKING -->
         <div class="form-card" id="booking-list-card" style="display: none; align-self: start;">
             <div class="form-card-title">Riwayat Booking Lapangan</div>
@@ -2151,19 +2228,20 @@ function format_date_display($date) {
 <script>
 // Tab Switcher Controller
 function switchTab(tab) {
-    document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
+     document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
     
     const profileForm = document.getElementById('profile-form-card');
     const passwordForm = document.getElementById('password-form-card');
+    const deleteForm = document.getElementById('delete-form-card'); // Ditambahkan
     const bookingList = document.getElementById('booking-list-card');
     const memberList = document.getElementById('member-list-card');
     const purchaseList = document.getElementById('purchase-list-card');
     const lowerSection = document.getElementById('lower-dashboard-section');
     const activitySection = document.getElementById('activity-section');
 
-    // Sembunyikan semua kartu terlebih dahulu
     profileForm.style.display = 'none';
     passwordForm.style.display = 'none';
+    if (deleteForm) deleteForm.style.display = 'none'; // Ditambahkan
     if (bookingList) bookingList.style.display = 'none';
     if (memberList) memberList.style.display = 'none';
     if (purchaseList) purchaseList.style.display = 'none';
@@ -2176,6 +2254,11 @@ function switchTab(tab) {
     } else if (tab === 'password') {
         document.getElementById('menu-password').classList.add('active');
         passwordForm.style.display = 'flex';
+        lowerSection.style.display = 'none';
+        activitySection.style.display = 'none';
+    } else if (tab === 'delete') { // Ditambahkan
+        document.getElementById('menu-delete').classList.add('active');
+        if (deleteForm) deleteForm.style.display = 'flex';
         lowerSection.style.display = 'none';
         activitySection.style.display = 'none';
     } else if (tab === 'booking') {
@@ -2418,6 +2501,54 @@ if (formPassword) {
         }
     });
 }
+
+const formDeleteAccount = document.getElementById('formDeleteAccount');
+const deletePass = document.getElementById('confirm_delete_password');
+
+function validateDeletePass() {
+    if (!deletePass) return true;
+    const error = document.getElementById('deletePassError');
+    if (!deletePass.value) { 
+        deletePass.classList.add('error'); 
+        error.classList.add('show'); 
+        return false; 
+    } else { 
+        deletePass.classList.remove('error'); 
+        error.classList.remove('show'); 
+        return true; 
+    }
+}
+
+if (deletePass) deletePass.addEventListener('blur', validateDeletePass);
+
+if (formDeleteAccount) {
+    formDeleteAccount.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!validateDeletePass()) {
+            return;
+        }
+
+        Swal.fire({
+            title: 'Apakah Anda Yakin?',
+            text: "Akun Anda akan dinonaktifkan secara permanen. Tindakan ini tidak dapat dibatalkan!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#FF3B30',
+            cancelButtonColor: '#8E8E93',
+            confirmButtonText: 'Ya, Hapus Akun!',
+            cancelButtonText: 'Batal',
+            customClass: {
+                popup: 'swal-light'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                formDeleteAccount.submit();
+            }
+        });
+    });
+}
+
 </script>
 </body>
 </html>
