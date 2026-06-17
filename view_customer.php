@@ -6,7 +6,7 @@ ob_start();
 
 session_start();
 include 'includes/auth_helper.php';
-include 'includes/config.php';
+include 'includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
 
 // ============================================================================
 // HARD DELETE AKUN CUSTOMER — Soft Delete di DB, Hard Delete di Program
@@ -15,7 +15,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
     $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 
     if (!empty($id_customer)) {
-        // SOFT DELETE: Update Is_Deleted = 1, Status = 0 (data masih ada di DB)
+        // SOFT DELETE: Update Is_Deleted = 1, Status = 0 (data tetap ada di DB sesuai skema)
         $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
 
         $stmt = sqlsrv_query($conn, 
@@ -61,29 +61,74 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 }
 
 // ============================================================================
-// CEK AKSES — Baru dicek setelah proses hapus akun selesai
+// CEK AKSES
 // ============================================================================
 cek_akses('customer');
 
 // ============================================================================
-// CEK: Jika customer sudah di-soft-delete, force logout
+// AMBIL DATA CUSTOMER DARI DATABASE SECARA DINAMIS
 // ============================================================================
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
+$nama_customer = 'Pelanggan';
+$photo_profile = '';
+
 if (!empty($id_customer)) {
     $cek_deleted = sqlsrv_query($conn, 
-        "SELECT Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
+        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
         array($id_customer)
     );
     if ($cek_deleted) {
-        $row_del = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
-        if ($row_del && ($row_del['Is_Deleted'] == 1 || $row_del['Status'] == 0)) {
-            $_SESSION = array();
-            session_destroy();
-            setcookie('remember_me', '', time() - 3600, "/");
-            ob_end_clean();
-            header("Location: login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
-            exit();
+        $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
+        if ($row_cust) {
+            // Force logout jika dinonaktifkan atau dihapus
+            if ($row_cust['Is_Deleted'] == 1 || $row_cust['Status'] == 0) {
+                $_SESSION = array();
+                session_destroy();
+                setcookie('remember_me', '', time() - 3600, "/");
+                ob_end_clean();
+                header("Location: login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
+                exit();
+            }
+            $nama_customer = $row_cust['Nama_Customer'];
+            $photo_profile = $row_cust['Photo_Profile'];
         }
+    }
+}
+
+// ============================================================================
+// LOAD DATA MASTER DINAMIS UNTUK LANDING PAGE
+// ============================================================================
+
+// 1. Data Lapangan (Maksimal 3 untuk Grid Lapangan Populer)
+$lapangan_list = [];
+$query_lapangan = sqlsrv_query($conn, "SELECT TOP 3 ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY ID_Lapangan ASC");
+if ($query_lapangan) {
+    while ($row = sqlsrv_fetch_array($query_lapangan, SQLSRV_FETCH_ASSOC)) {
+        $lapangan_list[] = $row;
+    }
+}
+
+// 2. Data Jadwal Tersedia Hari Ini
+$jadwal_list = [];
+$query_jadwal = sqlsrv_query($conn, "
+    SELECT TOP 5 J.ID_Jadwal, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, J.Status, L.Nama_Lapangan, L.Harga_Sewa 
+    FROM Jadwal J 
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan 
+    WHERE J.Is_Deleted = 0 
+    ORDER BY J.Tanggal ASC, J.Jam_Mulai ASC
+");
+if ($query_jadwal) {
+    while ($row = sqlsrv_fetch_array($query_jadwal, SQLSRV_FETCH_ASSOC)) {
+        $jadwal_list[] = $row;
+    }
+}
+
+// 3. Data Tipe Member untuk Banner Promosi
+$tipe_member_list = [];
+$query_tipe = sqlsrv_query($conn, "SELECT TOP 3 ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga FROM Tipe_Member WHERE Status = 1 AND Is_Deleted = 0 ORDER BY Harga_Member ASC");
+if ($query_tipe) {
+    while ($row = sqlsrv_fetch_array($query_tipe, SQLSRV_FETCH_ASSOC)) {
+        $tipe_member_list[] = $row;
     }
 }
 ?>
@@ -92,545 +137,957 @@ if (!empty($id_customer)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hoop Arena | Booking Lapangan Basket</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>HoopBall | Sewa Lapangan Basket Online</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
-            --orange: #FF6B00;
-            --orange-light: #FF8C2A;
-            --blue: #0061FF;
-            --blue-dark: #0047CC;
-            --purple: #6B21FF;
-            --purple-dark: #5010CC;
-            --black: #0A0A0A;
-            --dark: #111118;
+            --primary: #FF5200;
+            --primary-hover: #E04800;
+            --dark-bg: #0B0B0C;
+            --card-dark: #121214;
+            --text-gray: #8E8E93;
+            --border-color: #222225;
             --white: #FFFFFF;
-            --gray-100: #F8F9FA;
-            --gray-200: #E9ECEF;
-            --gray-500: #888;
-            --green: #16A34A;
-            --green-bg: #F0FDF4;
-            --green-border: #DCFCE7;
-            --red: #DC2626;
-            --red-bg: #FEF2F2;
-            --red-border: #FEE2E2;
+            --light-bg: #F8F9FA;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Barlow', sans-serif; background: #fff; color: var(--black); overflow-x: hidden; }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--white); 
+            color: #111; 
+            overflow-x: hidden; 
+        }
 
         /* ---- NAVBAR ---- */
+        /* ---- NAVBAR (DIUBAH MENJADI PUTIH) ---- */
         nav {
-            background: var(--black);
-            padding: 0 60px;
+            background: var(--white);
+            padding: 0 80px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 68px;
+            height: 76px;
             position: sticky;
             top: 0;
             z-index: 1000;
-            border-bottom: 2px solid #1a1a1a;
+            border-bottom: 1px solid #E5E5EA; /* Garis pembatas abu-abu terang */
         }
         .nav-logo {
             display: flex;
             align-items: center;
             text-decoration: none;
-            height: 68px;
-            padding: 8px 0;
+            gap: 10px;
         }
-        .nav-logo-img {
-            height: 100%;
+        .nav-logo img {
+            height: 36px;
             width: auto;
-            max-width: 180px;
-            object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            transition: transform 0.3s ease;
         }
-        .nav-logo:hover .nav-logo-img {
-            transform: scale(1.05);
+        .nav-logo span {
+            color: #1C1C1E; /* Teks logo gelap agar terbaca di latar putih */
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
-
         .nav-links {
             display: flex;
             align-items: center;
-            gap: 0;
+            gap: 8px;
         }
         .nav-links a {
-            color: #888;
+            color: #636366; /* Warna menu abu-abu gelap */
             text-decoration: none;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 0 18px;
-            height: 68px;
-            display: flex;
-            align-items: center;
-            border-bottom: 2px solid transparent;
-            transition: 0.2s;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
         }
-        .nav-links a:hover { color: #fff; }
-        .nav-links a.active { color: #fff; border-bottom-color: var(--orange); }
+        .nav-links a:hover { 
+            color: #1C1C1E; /* Warna menu saat diarahkan kursor */
+        }
+        .nav-links a.active { 
+            color: var(--primary); 
+            font-weight: 600;
+        }
 
-        /* ---- USER DROPDOWN ---- */
+        /* ---- USER DROPDOWN (DIUBAH MENJADI TERANG) ---- */
         .nav-user-container {
             position: relative;
-            height: 68px;
+            height: 76px;
             display: flex;
             align-items: center;
         }
         .nav-user {
-            color: #fff;
-            font-size: 24px;
+            background: #F2F2F7; /* Latar belakang tombol profil abu-abu terang */
+            border: 1px solid #E5E5EA;
+            padding: 8px 16px;
+            border-radius: 50px;
+            color: #1C1C1E; /* Teks profil gelap */
+            font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 5px 10px;
+            gap: 10px;
             transition: 0.2s;
         }
-        .nav-user:hover { color: var(--orange); }
-        .nav-user i.arrow { font-size: 11px; color: #888; transition: 0.3s; }
-
-        .nav-user-container:hover i.arrow { transform: rotate(180deg); color: var(--orange); }
-
+        .nav-user:hover { 
+            background: #E5E5EA; 
+            border-color: var(--primary);
+        }
+        .nav-user img.user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .nav-user i.user-icon {
+            font-size: 16px;
+            color: var(--primary);
+        }
+        .nav-user i.arrow { 
+            font-size: 11px; 
+            color: #8E8E93; 
+            transition: 0.3s; 
+        }
+        .nav-user-container:hover i.arrow { 
+            transform: rotate(180deg); 
+            color: var(--primary); 
+        }
         .dropdown-menu {
             position: absolute;
-            top: 100%;
+            top: 85%;
             right: 0;
-            background: #151515;
-            min-width: 200px;
+            background: #16161a;
+            min-width: 220px;
             border-radius: 12px;
-            border: 1px solid #333;
+            border: 1px solid #2d2d33;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            padding: 10px 0;
+            padding: 8px 0;
             display: none; 
             z-index: 1001;
-            transform: translateY(10px);
-            transition: 0.3s;
+            animation: fadeIn 0.2s ease-out;
         }
         .nav-user-container:hover .dropdown-menu {
             display: block;
-            transform: translateY(0);
+        }
+        .dropdown-menu .user-info-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #2d2d33;
+            margin-bottom: 6px;
+        }
+        .dropdown-menu .user-info-header span {
+            display: block;
+        }
+        .dropdown-menu .user-info-header .u-name {
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .dropdown-menu .user-info-header .u-role {
+            color: var(--text-gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
         }
         .dropdown-menu a {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 20px;
-            color: #bbb;
+            padding: 10px 20px;
+            color: #c5c5ca;
             text-decoration: none;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 500;
             transition: 0.2s;
         }
-        .dropdown-menu a i { font-size: 14px; width: 16px; text-align: center; }
+        .dropdown-menu a i { 
+            font-size: 14px; 
+            width: 16px; 
+            text-align: center; 
+        }
         .dropdown-menu a:hover {
-            background: #222;
-            color: var(--orange);
+            background: #222227;
+            color: var(--primary);
         }
         .dropdown-divider {
             height: 1px;
-            background: #333;
-            margin: 8px 0;
+            background: #2d2d33;
+            margin: 6px 0;
         }
-        .dropdown-menu a.logout:hover { color: var(--red); }
+        .dropdown-menu a.logout:hover { 
+            color: #ff3b30; 
+        }
 
-        /* ---- HERO ---- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---- HERO SECTION ---- */
         .hero {
-            height: 580px;
-            position: relative;
+            background-color: var(--dark-bg);
+            background-image: linear-gradient(180deg, rgba(11,11,12,0.6) 0%, rgba(11,11,12,0.9) 100%), url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2000');
+            background-size: cover;
+            background-position: center;
+            min-height: 600px;
+            padding: 60px 80px;
             display: flex;
             align-items: center;
-            overflow: hidden;
-            background: var(--black);
+            justify-content: space-between;
+            gap: 40px;
         }
-        .hero-bg {
-            position: absolute;
-            inset: 0;
-            background-image: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2000');
-            background-size: cover;
-            background-position: center 30%;
-            opacity: 0.5;
-        }
-        .hero-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to right, rgba(0,0,0,0.95) 40%, rgba(0,0,0,0.3) 70%, transparent 100%);
-        }
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            padding: 0 60px;
-            max-width: 600px;
-        }
-        .hero-label {
-            color: var(--orange);
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 12px;
-            display: block;
+        .hero-left {
+            max-width: 620px;
         }
         .hero-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 70px;
-            font-weight: 900;
+            font-size: 54px;
+            font-weight: 800;
             color: var(--white);
-            line-height: 0.95;
-            text-transform: uppercase;
-            letter-spacing: -1px;
-            margin-bottom: 16px;
+            line-height: 1.15;
+            margin-bottom: 20px;
+        }
+        .hero-title span {
+            color: var(--primary);
         }
         .hero-desc {
-            color: #aaa;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-            max-width: 380px;
-        }
-        .btn-hero {
-            background: var(--orange);
-            color: #fff;
-            border: none;
-            padding: 16px 40px;
-            border-radius: 6px;
-            font-family: 'Barlow Condensed', sans-serif;
-            font-weight: 800;
+            color: #A0A0A5;
             font-size: 16px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            line-height: 1.6;
+            margin-bottom: 36px;
+        }
+        .hero-btns {
+            display: flex;
+            gap: 16px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            transition: 0.25s;
+            gap: 8px;
+            transition: 0.2s;
         }
-        .btn-hero:hover { background: var(--orange-light); transform: translateY(-2px); }
+        .btn-primary:hover { 
+            background: var(--primary-hover); 
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-outline:hover { 
+            background: rgba(255, 255, 255, 0.05); 
+            border-color: var(--white);
+        }
 
-        /* ---- STATS BAR ---- */
-        .stats-bar {
-            background: var(--black);
-            border-bottom: 3px solid var(--orange);
-            padding: 32px 60px;
+        /* WIDGET CARI LAPANGAN */
+        .search-widget {
+            background: rgba(18, 18, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            width: 440px;
+            padding: 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .widget-title {
+            color: var(--white);
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+            position: relative;
+        }
+        .form-label {
+            display: block;
+            color: #A0A0A5;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #636366;
+            font-size: 14px;
+        }
+        .form-select, .form-input {
+            width: 100%;
+            background: #1C1C1E;
+            border: 1px solid #2C2C2E;
+            border-radius: 8px;
+            padding: 12px 14px 12px 40px;
+            color: var(--white);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            appearance: none;
+            transition: 0.2s;
+        }
+        .form-select:focus, .form-input:focus {
+            border-color: var(--primary);
+        }
+        .form-select {
+            background-image: url("data:image/svg+xml;utf8,<svg fill='none' height='24' stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><polyline points='6 9 12 15 18 9'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+        }
+        .form-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .btn-widget {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.2s;
+        }
+        .btn-widget:hover { 
+            background: var(--primary-hover); 
+        }
+
+        /* ---- ROW FITUR ---- */
+        .features-row {
+            padding: 40px 80px;
             display: grid;
             grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            background: var(--white);
+            border-bottom: 1px solid #F2F2F7;
         }
-        .stat-item {
-            text-align: center;
-            border-right: 1px solid #222;
+        .feature-card {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
         }
-        .stat-item:last-child { border-right: none; }
-        .stat-num {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 36px;
-            font-weight: 900;
-            color: var(--white);
-            display: block;
-            margin-bottom: 4px;
+        .feature-icon-circle {
+            background: #FFF0E6;
+            width: 48px;
+            height: 48px;
+            min-width: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .stat-label {
-            color: var(--orange);
-            font-size: 10px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
+        .feature-icon-circle i {
+            color: var(--primary);
+            font-size: 20px;
+        }
+        .feature-text h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #1C1C1E;
+        }
+        .feature-text p {
+            font-size: 13px;
+            color: #636366;
+            line-height: 1.5;
         }
 
-        /* ---- MAIN CONTENT ---- */
-        .main { padding: 70px 60px; }
+        /* ---- MAIN CONTAINER ---- */
+        .main-container {
+            padding: 60px 80px;
+            max-width: 1440px;
+            margin: 0 auto;
+        }
 
-        /* Section Title */
-        .section-head {
+        /* ---- LAPANGAN POPULER ---- */
+        .section-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
+            align-items: flex-end;
+            margin-bottom: 24px;
         }
         .section-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 26px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            font-size: 24px;
+            font-weight: 800;
+            color: #111;
         }
-        .section-title::after {
-            content: '';
-            display: block;
-            width: 40px;
-            height: 3px;
-            background: var(--orange);
-            border-radius: 2px;
+        .section-subtitle {
+            font-size: 14px;
+            color: #636366;
+            margin-top: 4px;
         }
-        .section-link {
-            color: var(--blue);
+        .section-action {
+            color: var(--primary);
             text-decoration: none;
-            font-size: 13px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: 0.2s;
-        }
-        .section-link:hover { color: var(--blue-dark); }
-
-        /* ---- COURT CARDS ---- */
-        .court-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 80px;
-        }
-        .court-card {
-            background: #fff;
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid #eee;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-            transition: 0.3s;
-            position: relative;
-        }
-        .court-card:hover { transform: translateY(-8px); box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
-        .court-img {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-        }
-        .court-badge {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: var(--orange);
-            color: #fff;
-            font-size: 10px;
-            font-weight: 900;
-            padding: 4px 10px;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
-        }
-        .court-info {
-            padding: 18px;
-        }
-        .court-name {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 18px;
-            font-weight: 800;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .court-price {
-            color: var(--gray-500);
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 14px;
-        }
-        .court-price span { color: var(--orange); font-weight: 800; }
-        .btn-book {
-            background: var(--blue);
-            color: #fff;
-            border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 15px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-book:hover { background: var(--blue-dark); }
-
-        /* ---- SCHEDULE ---- */
-        .schedule-section {
-            background: var(--dark);
-            border-radius: 24px;
-            padding: 50px;
-            margin-bottom: 80px;
-        }
-        .schedule-section .section-title { color: #fff; }
-        .date-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            padding: 11px 20px;
-            border-radius: 8px;
             font-size: 14px;
             font-weight: 700;
-            color: #333;
-            cursor: pointer;
-            margin-top: 8px;
-            transition: 0.2s;
-        }
-        .date-btn:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .date-btn i.cal { color: #555; font-size: 15px; }
-        .date-btn i.chevron { color: #aaa; font-size: 11px; margin-left: 30px; }
-        .slot-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 12px;
-            margin-top: 28px;
-        }
-        .slot {
-            border-radius: 12px;
-            padding: 18px 8px;
-            text-align: center;
-            transition: 0.2s;
-        }
-        .slot.available {
-            background: var(--green-bg);
-            border: 1px solid var(--green-border);
-        }
-        .slot.booked {
-            background: var(--red-bg);
-            border: 1px solid var(--red-border);
-        }
-        .slot-time {
-            display: block;
-            font-size: 13px;
-            font-weight: 800;
-            margin-bottom: 6px;
-        }
-        .slot.available .slot-time { color: #14532D; }
-        .slot.booked .slot-time { color: #7F1D1D; }
-        .slot-status {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-        }
-        .slot.available .slot-status { color: var(--green); }
-        .slot.booked .slot-status { color: var(--red); }
-
-        /* ---- MEMBER BANNER ---- */
-        .member-banner {
-            background: linear-gradient(135deg, #0f0720 0%, #3b0a7d 50%, #2d0a6e 100%);
-            border-radius: 24px;
-            padding: 60px 60px;
-            margin-bottom: 80px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            position: relative;
-            overflow: hidden;
+            gap: 6px;
         }
-        .member-banner::before {
-            content: '';
-            position: absolute;
-            top: -50px; right: 200px;
-            width: 300px; height: 300px;
-            border-radius: 50%;
-            background: rgba(107,33,255,0.3);
-            filter: blur(80px);
-        }
-        .member-label {
-            color: var(--orange);
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-            display: block;
-        }
-        .member-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 38px;
-            font-weight: 900;
-            color: #fff;
-            text-transform: uppercase;
-            line-height: 1.05;
-        }
-        .btn-member {
-            background: var(--purple);
-            color: #fff;
-            border: none;
-            padding: 16px 40px;
-            border-radius: 10px;
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 16px;
-            font-weight: 800;
-            text-transform: uppercase;
-            cursor: pointer;
-            margin-top: 30px;
-            transition: 0.2s;
-            display: block;
-        }
-        .btn-member:hover { background: var(--purple-dark); transform: translateY(-2px); }
-        .member-player {
-            position: absolute;
-            right: 0;
-            bottom: -20px;
-            height: 340px;
-            opacity: 0.9;
-            z-index: 1;
+        .section-action:hover {
+            color: var(--primary-hover);
         }
 
-        /* ---- PROMO ---- */
-        .promo-grid {
+        .court-grid-3 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 24px;
-            margin-bottom: 40px;
+            margin-bottom: 60px;
         }
-        .promo-card {
-            height: 200px;
-            border-radius: 18px;
-            background-size: cover;
-            background-position: center;
-            position: relative;
+        .court-card-new {
+            background: var(--white);
+            border: 1px solid #E5E5EA;
+            border-radius: 12px;
             overflow: hidden;
-            transition: 0.4s;
+            position: relative;
+            transition: all 0.25s ease;
+        }
+        .court-card-new:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+        }
+        .court-img-container {
+            height: 220px;
+            position: relative;
+            background: #f0f0f0;
+        }
+        .court-img-new {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .heart-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            color: #636366;
+            font-size: 16px;
+            transition: 0.2s;
         }
-        .promo-card:hover { transform: scale(1.02); }
-        .promo-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%, transparent 100%);
+        .heart-btn:hover {
+            color: #FF2D55;
+            background: var(--white);
         }
-        .promo-body {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 24px;
-            z-index: 2;
+        .court-body-new {
+            padding: 20px;
         }
-        .promo-tag {
-            display: block;
-            color: var(--orange);
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+        .court-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 6px;
         }
-        .promo-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 26px;
-            font-weight: 900;
-            color: #fff;
-            text-transform: uppercase;
-            line-height: 1;
+        .court-name-new {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1C1C1E;
+        }
+        .court-rating {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1C1C1E;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .court-rating i {
+            color: #FFCC00;
+        }
+        .court-rating span {
+            color: #8E8E93;
+            font-weight: 400;
+        }
+        .court-location {
+            font-size: 13px;
+            color: #636366;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+        .court-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #E5E5EA;
+            padding-top: 16px;
+        }
+        .court-price-box {
+            font-size: 13px;
+            color: #8E8E93;
+        }
+        .court-price-box strong {
+            font-size: 18px;
+            color: var(--primary);
+            font-weight: 800;
+        }
+        .btn-detail {
+            background: var(--white);
+            color: #1C1C1E;
+            border: 1px solid #D1D1D6;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-detail:hover {
+            background: #F2F2F7;
+            border-color: #AEAEB2;
+        }
+
+        /* ---- JADWAL TERSEDIA (LAYOUT SPLIT) ---- */
+        .schedule-box {
+            border: 1px solid #E5E5EA;
+            border-radius: 16px;
+            padding: 28px;
+            background: var(--white);
+            margin-bottom: 60px;
+        }
+        .schedule-layout {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        .schedule-left {
+            border-right: 1px solid #E5E5EA;
+            padding-right: 40px;
+        }
+        .time-slot-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .time-slot {
+            border: 1px solid #E5E5EA;
+            border-radius: 8px;
+            padding: 14px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .time-slot.available {
+            background: #F2FDF5;
+            border-color: #D1F2D9;
+        }
+        .time-slot.available .status-lbl {
+            color: #34C759;
+        }
+        .time-slot.selected {
+            background: #FFF2EB;
+            border-color: #FFD2BC;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        .time-slot.selected .status-lbl {
+            color: var(--primary);
+        }
+        .time-slot.booked {
+            background: #FFF5F5;
+            border-color: #FFD1D1;
+            cursor: not-allowed;
+        }
+        .time-slot.booked .status-lbl {
+            color: #FF3B30;
+        }
+        .time-slot .time-lbl {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1C1C1E;
+            margin-bottom: 4px;
+        }
+        .time-slot .status-lbl {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .schedule-info-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #636366;
+            margin-top: 20px;
+        }
+        .schedule-info-row i {
+            color: #8E8E93;
+        }
+
+        /* JADWAL TERPILIH BOX */
+        .selected-summary-card {
+            background: #F8F9FA;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .summary-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1C1C1E;
+            margin-bottom: 16px;
+        }
+        .summary-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #1C1C1E;
+        }
+        .summary-item i {
+            color: #636366;
+            margin-top: 3px;
+            font-size: 14px;
+            width: 16px;
+        }
+        .summary-item span {
+            color: #8E8E93;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .btn-booking-submit {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            transition: 0.2s;
+        }
+        .btn-booking-submit:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ---- BANNER MEMBER ---- */
+        .member-promo-banner {
+            background: #0B0B0C;
+            border-radius: 16px;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 40px;
+            margin-bottom: 60px;
+            color: var(--white);
+            overflow: hidden;
+            position: relative;
+        }
+        .member-banner-left {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            max-width: 55%;
+            position: relative;
+            z-index: 2;
+        }
+        .member-img-card {
+            background: #1C1C1E;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #2C2C2E;
+            width: 140px;
+            text-align: center;
+        }
+        .member-img-card img {
+            width: 100%;
+            height: auto;
+        }
+        .member-banner-desc h3 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        .member-banner-desc h3 span {
+            color: var(--primary);
+        }
+        .member-banner-desc p {
+            color: #A0A0A5;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        .btn-join-member {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-join-member:hover {
+            background: var(--primary-hover);
+        }
+
+        .member-banner-right {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .member-benefit-item {
+            background: #121214;
+            border: 1px solid #1C1C1E;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            width: 150px;
+        }
+        .benefit-icon-circle {
+            background: #FFF0E6;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+        }
+        .benefit-icon-circle i {
+            color: var(--primary);
+            font-size: 18px;
+        }
+        .member-benefit-item h5 {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .member-benefit-item p {
+            font-size: 10px;
+            color: #8E8E93;
+            line-height: 1.4;
+        }
+
+        /* ---- FASILITAS UNGGULAN ---- */
+        .facilities-section {
+            margin-bottom: 60px;
+        }
+        .fac-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .fac-card {
+            border: 1px solid #E5E5EA;
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .fac-icon {
+            color: var(--primary);
+            font-size: 24px;
+            margin-top: 2px;
+        }
+        .fac-info h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1C1C1E;
+            margin-bottom: 6px;
+        }
+        .fac-info p {
+            font-size: 13px;
+            color: #636366;
+            line-height: 1.5;
+        }
+
+        /* ---- CALL TO ACTION BANNER ---- */
+        .cta-banner {
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1544919982-b61976f0ba43?q=80&w=1500');
+            background-size: cover;
+            background-position: center;
+            border-radius: 16px;
+            padding: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--white);
+            margin-bottom: 60px;
+        }
+        .cta-left {
+            max-width: 60%;
+        }
+        .cta-title {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .cta-desc {
+            font-size: 15px;
+            color: #D1D1D6;
+            line-height: 1.6;
+        }
+        .btn-cta {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+        .btn-cta:hover {
+            background: var(--primary-hover);
         }
 
         /* ---- FOOTER ---- */
         footer {
-            background: var(--black);
-            padding: 40px 60px;
-            text-align: center;
-            border-top: 1px solid #1a1a1a;
+            background: var(--dark-bg);
+            color: #8E8E93;
+            padding: 80px 80px 40px;
+            border-top: 1px solid #1C1C1E;
         }
-        footer p { color: #444; font-size: 13px; font-weight: 500; }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .footer-logo img {
+            height: 36px;
+        }
+        .footer-logo span {
+            color: var(--white);
+            font-size: 20px;
+            font-weight: 800;
+        }
+        .footer-desc {
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .social-links {
+            display: flex;
+            gap: 12px;
+        }
+        .social-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1C1C1E;
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        .social-btn:hover {
+            background: var(--primary);
+        }
+        .footer-col h4 {
+            color: var(--white);
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .footer-col ul {
+            list-style: none;
+        }
+        .footer-col ul li {
+            margin-bottom: 12px;
+        }
+        .footer-col ul li a {
+            color: #8E8E93;
+            text-decoration: none;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        .footer-col ul li a:hover {
+            color: var(--white);
+        }
+        .contact-item {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        .contact-item i {
+            color: var(--primary);
+            font-size: 14px;
+            margin-top: 3px;
+        }
+        .footer-bottom {
+            border-top: 1px solid #1C1C1E;
+            padding-top: 30px;
+            text-align: center;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -638,194 +1095,539 @@ if (!empty($id_customer)) {
 <!-- NAVBAR -->
 <nav>
     <a href="view_customer.php" class="nav-logo">
-        <img src="logo.png" alt="HoopBall" class="nav-logo-img">
+        <img src="logo.png" alt="HoopBall">
+        <span>HoopBall</span>
     </a>
     <div class="nav-links">
         <a href="#" class="active">Beranda</a>
         <a href="#">Lapangan</a>
         <a href="#">Jadwal</a>
         <a href="#">Member</a>
-        <a href="#">Promo</a>
-        <a href="#">Tentang Kami</a>
+        <a href="#">Pembelian</a>
+        <a href="#">Tentang</a>
+        <a href="#">Kontak</a>
     </div>
 
-    <!-- Bagian User Dropdown yang Baru -->
+    <!-- User Dropdown (Sesi & Profil Terintegrasi) -->
     <div class="nav-user-container">
         <div class="nav-user">
-            <i class="fa-regular fa-circle-user"></i>
+            <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
+                <img src="<?php echo htmlspecialchars($photo_profile); ?>" alt="Avatar" class="user-avatar">
+            <?php else: ?>
+                <i class="fa-solid fa-circle-user user-icon"></i>
+            <?php endif; ?>
+            <span><?php echo htmlspecialchars($nama_customer); ?></span>
             <i class="fa-solid fa-chevron-down arrow"></i>
         </div>
         <div class="dropdown-menu">
+            <div class="user-info-header">
+                <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
+                <span class="u-role">Customer</span>
+            </div>
             <a href="profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
-            <a href="#" onclick="confirmHapusAkun(event)" style="color: var(--red);"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
+            <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
 </nav>
 
-<!-- HERO -->
+<!-- HERO SECTION -->
 <header class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-overlay"></div>
-    <div class="hero-content">
-        <span class="hero-label">Booking Lapangan</span>
-        <h1 class="hero-title">LEBIH MUDAH,<br>LEBIH SERU!</h1>
-        <p class="hero-desc">Temukan pengalaman bermain basket terbaik bersama kami.</p>
-        <button class="btn-hero">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></button>
+    <div class="hero-left">
+        <h1 class="hero-title">Sewa Lapangan<br>Basket Jadi<br><span>Lebih Mudah</span></h1>
+        <p class="hero-desc">Booking lapangan favoritmu secara online dengan cepat, cek jadwal real-time, dan nikmati promo khusus member.</p>
+        <div class="hero-btns">
+            <button class="btn-primary">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></button>
+            <button class="btn-outline"><i class="fa-solid fa-calendar-days"></i> Lihat Jadwal</button>
+        </div>
+    </div>
+
+    <!-- WIDGET CARI LAPANGAN (DATA DARI DATABASE) -->
+    <div class="search-widget">
+        <h3 class="widget-title">Cari & Booking Lapangan</h3>
+        
+        <div class="form-group">
+            <label class="form-label">Pilih Lapangan</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-basketball"></i>
+                <select class="form-select">
+                    <option value="">Pilih lapangan</option>
+                    <?php
+                    // Mengambil semua data lapangan aktif untuk dropdown
+                    $q_all_lap = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY Nama_Lapangan ASC");
+                    if ($q_all_lap) {
+                        while ($lap = sqlsrv_fetch_array($q_all_lap, SQLSRV_FETCH_ASSOC)) {
+                            echo '<option value="'.htmlspecialchars($lap['ID_Lapangan']).'">'.htmlspecialchars($lap['Nama_Lapangan']).'</option>';
+                        }
+                    }
+                    ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Lokasi</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-location-dot"></i>
+                <select class="form-select">
+                    <option value="">Pilih lokasi</option>
+                    <option value="Jakarta Selatan">Jakarta Selatan</option>
+                    <option value="Jakarta Barat">Jakarta Barat</option>
+                    <option value="Tangerang">Tangerang</option>
+                    <option value="Yogyakarta">Yogyakarta</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row-2">
+            <div class="form-group">
+                <label class="form-label">Tanggal</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <input type="text" class="form-input" placeholder="YYYY-MM-DD" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Jam</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-clock"></i>
+                    <input type="text" class="form-input" placeholder="HH:MM" value="18:00">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-widget">Cek Ketersediaan</button>
     </div>
 </header>
 
-<!-- STATS BAR -->
-<div class="stats-bar">
-    <div class="stat-item">
-        <span class="stat-num">14</span>
-        <span class="stat-label">Arena Tersedia</span>
+<!-- FITUR ROW -->
+<section class="features-row">
+    <div class="feature-card">
+        <div class="feature-icon-circle"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="feature-text">
+            <h4>Booking Online</h4>
+            <p>Pesan lapangan kapan saja di mana saja dengan mudah dan cepat.</p>
+        </div>
     </div>
-    <div class="stat-item">
-        <span class="stat-num">5000+</span>
-        <span class="stat-label">Pemain Aktif</span>
+    <div class="feature-card">
+        <div class="feature-icon-circle"><i class="fa-solid fa-clock"></i></div>
+        <div class="feature-text">
+            <h4>Jadwal Real-Time</h4>
+            <p>Cek ketersediaan lapangan secara real-time dan akurat setiap saat.</p>
+        </div>
     </div>
-    <div class="stat-item">
-        <span class="stat-num">24/7</span>
-        <span class="stat-label">Akses Booking</span>
+    <div class="feature-card">
+        <div class="feature-icon-circle"><i class="fa-solid fa-tags"></i></div>
+        <div class="feature-text">
+            <h4>Promo Member</h4>
+            <p>Dapatkan promo menarik dan diskon eksklusif untuk member setia.</p>
+        </div>
     </div>
-    <div class="stat-item">
-        <span class="stat-num">4.9</span>
-        <span class="stat-label">Rating Fasilitas</span>
+    <div class="feature-card">
+        <div class="feature-icon-circle"><i class="fa-solid fa-award"></i></div>
+        <div class="feature-text">
+            <h4>Lapangan Berkualitas</h4>
+            <p>Lapangan terawat, nyaman, dan standar profesional untuk pengalaman terbaik.</p>
+        </div>
     </div>
-</div>
+</section>
 
-<main class="main">
+<!-- MAIN CONTENT -->
+<main class="main-container">
 
-    <!-- PILIH LAPANGAN -->
-    <div class="section-head">
-        <h2 class="section-title">Pilih Lapangan</h2>
-    </div>
-    <div class="court-grid">
-        <div class="court-card">
-            <span class="court-badge">Tersedia</span>
-            <img class="court-img" src="https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800" alt="Lapangan A">
-            <div class="court-info">
-                <div class="court-name">Lapangan A</div>
-                <div class="court-price"><span>Rp 200.000</span> / jam</div>
-                <button class="btn-book">BOOKING</button>
+    <!-- LAPANGAN POPULER (DIAMBIL DARI DATABASE) -->
+    <section>
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Lapangan Populer</h2>
+                <p class="section-subtitle">Temukan pilihan lapangan basket terbaik yang sering disewa.</p>
             </div>
+            <a href="#" class="section-action">Lihat Semua Lapangan <i class="fa-solid fa-chevron-right"></i></a>
         </div>
-        <div class="court-card">
-            <span class="court-badge">Tersedia</span>
-            <img class="court-img" src="https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=800" alt="Lapangan B">
-            <div class="court-info">
-                <div class="court-name">Lapangan B</div>
-                <div class="court-price"><span>Rp 180.000</span> / jam</div>
-                <button class="btn-book">BOOKING</button>
-            </div>
-        </div>
-        <div class="court-card">
-            <span class="court-badge">Tersedia</span>
-            <img class="court-img" src="https://images.unsplash.com/photo-1505666287802-931dc83948e9?q=80&w=800" alt="Lapangan C">
-            <div class="court-info">
-                <div class="court-name">Lapangan C</div>
-                <div class="court-price"><span>Rp 150.000</span> / jam</div>
-                <button class="btn-book">BOOKING</button>
-            </div>
-        </div>
-        <div class="court-card">
-            <span class="court-badge">Tersedia</span>
-            <img class="court-img" src="https://images.unsplash.com/photo-1544919982-b61976f0ba43?q=80&w=800" alt="Lapangan D">
-            <div class="court-info">
-                <div class="court-name">Lapangan D</div>
-                <div class="court-price"><span>Rp 150.000</span> / jam</div>
-                <button class="btn-book">BOOKING</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- JADWAL TERSEDIA -->
-    <div class="schedule-section">
-        <h2 class="section-title" style="color:#fff; margin-bottom: 20px;">Jadwal Tersedia</h2>
-        <button class="date-btn">
-            <i class="fa-solid fa-calendar-days cal"></i>
-            24 Mei 2024
-            <i class="fa-solid fa-chevron-down chevron"></i>
-        </button>
-        <div class="slot-grid">
-            <div class="slot available">
-                <span class="slot-time">07:00 - 08:00</span>
-                <span class="slot-status">Tersedia</span>
-            </div>
-            <div class="slot available">
-                <span class="slot-time">08:00 - 09:00</span>
-                <span class="slot-status">Tersedia</span>
-            </div>
-            <div class="slot available">
-                <span class="slot-time">09:00 - 10:00</span>
-                <span class="slot-status">Tersedia</span>
-            </div>
-            <div class="slot booked">
-                <span class="slot-time">10:00 - 11:00</span>
-                <span class="slot-status">Terbooking</span>
-            </div>
-            <div class="slot available">
-                <span class="slot-time">11:00 - 12:00</span>
-                <span class="slot-status">Tersedia</span>
-            </div>
-            <div class="slot available">
-                <span class="slot-time">12:00 - 13:00</span>
-                <span class="slot-status">Tersedia</span>
-            </div>
-            <div class="slot booked">
-                <span class="slot-time">13:00 - 14:00</span>
-                <span class="slot-status">Terbooking</span>
-            </div>
+        <div class="court-grid-3">
+            <?php 
+            if (!empty($lapangan_list)):
+                // Array gambar fallback jika photo_lapangan NULL
+                $fallback_images = [
+                    "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800",
+                    "https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=800",
+                    "https://images.unsplash.com/photo-1505666287802-931dc83948e9?q=80&w=800"
+                ];
+                $idx = 0;
+                foreach ($lapangan_list as $lapangan): 
+                    $img = (!empty($lapangan['Photo_Lapangan']) && file_exists($lapangan['Photo_Lapangan'])) 
+                           ? htmlspecialchars($lapangan['Photo_Lapangan']) 
+                           : $fallback_images[$idx % 3];
+                    $rating = 4.5 + (($lapangan['ID_Lapangan'] * 3) % 5) / 10; // Dummy rating proporsional
+                    $review_count = 50 + ($lapangan['ID_Lapangan'] * 12) % 100;
+                    $idx++;
+            ?>
+                <!-- Card Item -->
+                <div class="court-card-new">
+                    <div class="court-img-container">
+                        <img class="court-img-new" src="<?php echo $img; ?>" alt="<?php echo htmlspecialchars($lapangan['Nama_Lapangan']); ?>">
+                        <button class="heart-btn"><i class="fa-regular fa-heart"></i></button>
+                    </div>
+                    <div class="court-body-new">
+                        <div class="court-meta">
+                            <h3 class="court-name-new"><?php echo htmlspecialchars($lapangan['Nama_Lapangan']); ?></h3>
+                            <div class="court-rating"><i class="fa-solid fa-star"></i> <?php echo number_format($rating, 1); ?> <span>(<?php echo $review_count; ?>)</span></div>
+                        </div>
+                        <div class="court-location"><i class="fa-solid fa-location-dot"></i> Jakarta Pusat</div>
+                        <div class="court-footer">
+                            <div class="court-price-box"><strong>Rp <?php echo number_format($lapangan['Harga_Sewa'], 0, ',', '.'); ?></strong> / jam</div>
+                            <button class="btn-detail">Lihat Detail</button>
+                        </div>
+                    </div>
+                </div>
+            <?php 
+                endforeach; 
+            else:
+            ?>
+                <!-- Placeholder jika database kosong -->
+                <div style="grid-column: span 3; text-align: center; padding: 40px; color: #8E8E93;">
+                    <i class="fa-solid fa-circle-info" style="font-size: 32px; margin-bottom: 12px; color: var(--primary);"></i>
+                    <p>Tidak ada data lapangan yang aktif saat ini.</p>
+                </div>
+            <?php endif; ?>
         </div>
-    </div>
+    </section>
 
-    <!-- MEMBER BANNER -->
-    <div class="member-banner">
-        <div style="position:relative; z-index:2; max-width:55%;">
-            <span class="member-label">Jadi Member</span>
-            <h2 class="member-title">DAPATKAN HARGA SPESIAL<br>DAN BERBAGAI KEUNTUNGAN MENARIK!</h2>
-            <button class="btn-member">DAFTAR MEMBER</button>
+    <!-- JADWAL TERSEDIA HARI INI (DIAMBIL DARI DATABASE) -->
+    <section class="schedule-box">
+        <div class="section-header" style="margin-bottom: 0;">
+            <div>
+                <h2 class="section-title">Jadwal Tersedia Hari Ini</h2>
+                <p class="section-subtitle">Sistem pemesanan real-time. Pilih salah satu jam untuk melihat ringkasan.</p>
+            </div>
         </div>
-        <img class="member-player" src="https://www.pngall.com/wp-content/uploads/2/Basketball-Player-PNG-Transparent-HD-Photo.png" alt="Player">
-    </div>
 
-    <!-- PROMO TERBARU -->
-    <div class="section-head" style="margin-bottom:24px;">
-        <h2 class="section-title">Promo Terbaru</h2>
-        <a href="#" class="section-link">Lihat Semua <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></a>
-    </div>
-    <div class="promo-grid">
-        <div class="promo-card" style="background-image:url('https://images.unsplash.com/photo-1515444744559-7be63e1600de?q=80&w=800');">
-            <div class="promo-body">
-                <span class="promo-tag">Weekday</span>
-                <div class="promo-title">DISKON 20%</div>
+        <div class="schedule-layout">
+            <div class="schedule-left">
+                <div class="time-slot-grid">
+                    <?php 
+                    if (!empty($jadwal_list)):
+                        $first_selected = null;
+                        foreach ($jadwal_list as $index => $jadwal):
+                            // Format Waktu SQL Server (TIME) menjadi HH:MM
+                            $jam_mulai = $jadwal['Jam_Mulai'] instanceof DateTime ? $jadwal['Jam_Mulai']->format('H:i') : substr($jadwal['Jam_Mulai'], 0, 5);
+                            $jam_selesai = $jadwal['Jam_Selesai'] instanceof DateTime ? $jadwal['Jam_Selesai']->format('H:i') : substr($jadwal['Jam_Selesai'], 0, 5);
+                            $tanggal_str = $jadwal['Tanggal'] instanceof DateTime ? $jadwal['Tanggal']->format('Y-m-d') : $jadwal['Tanggal'];
+                            
+                            $status_class = 'available';
+                            $status_text = 'Tersedia';
+
+                            if ($jadwal['Status'] == 0) {
+                                $status_class = 'booked';
+                                $status_text = 'Penuh';
+                            } else if ($index === 0) {
+                                $status_class = 'selected';
+                                $status_text = 'Terpilih';
+                                $first_selected = $jadwal;
+                            }
+                    ?>
+                        <div class="time-slot <?php echo $status_class; ?>" 
+                             data-id="<?php echo $jadwal['ID_Jadwal']; ?>"
+                             data-status="<?php echo $jadwal['Status']; ?>"
+                             data-tanggal="<?php echo $tanggal_str; ?>"
+                             data-jam="<?php echo $jam_mulai . ' - ' . $jam_selesai; ?>"
+                             data-lapangan="<?php echo htmlspecialchars($jadwal['Nama_Lapangan']); ?>"
+                             onclick="selectTimeSlot(this)">
+                            <span class="time-lbl"><?php echo $jam_mulai; ?></span>
+                            <span class="status-lbl"><?php echo $status_text; ?></span>
+                        </div>
+                    <?php 
+                        endforeach;
+                    else:
+                    ?>
+                        <div style="grid-column: span 5; text-align: center; padding: 20px; color: #8E8E93;">
+                            Tidak ada jadwal aktif tersedia hari ini.
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="schedule-info-row">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Pemesanan dapat dibatalkan hingga H-1 sebelum jadwal.</span>
+                </div>
+            </div>
+
+            <!-- RINGKASAN JADWAL TERPILIH (INTERAKTIF) -->
+            <div class="schedule-right">
+                <div class="selected-summary-card">
+                    <h4 class="summary-title">Jadwal Terpilih</h4>
+                    
+                    <div class="summary-item">
+                        <i class="fa-solid fa-calendar"></i>
+                        <div>
+                            <span>Tanggal</span>
+                            <strong id="summary-tanggal">
+                                <?php 
+                                    if (isset($first_selected)) {
+                                        echo $first_selected['Tanggal'] instanceof DateTime ? $first_selected['Tanggal']->format('l, d M Y') : date('l, d M Y', strtotime($first_selected['Tanggal']));
+                                    } else {
+                                        echo '-';
+                                    }
+                                ?>
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="summary-item">
+                        <i class="fa-solid fa-clock"></i>
+                        <div>
+                            <span>Durasi</span>
+                            <strong id="summary-durasi">
+                                <?php 
+                                    if (isset($first_selected)) {
+                                        $j_mulai = $first_selected['Jam_Mulai'] instanceof DateTime ? $first_selected['Jam_Mulai']->format('H:i') : substr($first_selected['Jam_Mulai'], 0, 5);
+                                        $j_selesai = $first_selected['Jam_Selesai'] instanceof DateTime ? $first_selected['Jam_Selesai']->format('H:i') : substr($first_selected['Jam_Selesai'], 0, 5);
+                                        echo $j_mulai . ' - ' . $j_selesai . ' (2 Jam)';
+                                    } else {
+                                        echo '-';
+                                    }
+                                ?>
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="summary-item">
+                        <i class="fa-solid fa-location-dot"></i>
+                        <div>
+                            <span>Lapangan</span>
+                            <strong id="summary-lapangan">
+                                <?php echo isset($first_selected) ? htmlspecialchars($first_selected['Nama_Lapangan']) : '-'; ?>
+                            </strong>
+                        </div>
+                    </div>
+
+                    <button class="btn-booking-submit" id="btn-submit-booking">Lanjut Booking <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
             </div>
         </div>
-        <div class="promo-card" style="background-image:url('https://images.unsplash.com/photo-1574623452334-1e0ac2b3ccb4?q=80&w=800');">
-            <div class="promo-body">
-                <span class="promo-tag">Paket Member</span>
-                <div class="promo-title">HEMAT 30%</div>
+    </section>
+
+    <!-- BANNER PROMO MEMBER (SINKRON DENGAN TIPE_MEMBER DB) -->
+    <section class="member-promo-banner">
+        <div class="member-banner-left">
+            <div class="member-img-card">
+                <img src="https://www.pngall.com/wp-content/uploads/2/Basketball-Player-PNG-Transparent-HD-Photo.png" alt="Card Graphic" style="max-height: 100px; object-fit: contain;">
+                <div style="color: #fff; font-size: 10px; font-weight: 700; margin-top: 8px; letter-spacing: 1px;">HOOPBALL MEMBER</div>
+            </div>
+            <div class="member-banner-desc">
+                <h3>Jadi Member,<br><span>Main Makin Hemat!</span></h3>
+                <p>
+                    Daftar tipe member yang tersedia saat ini:
+                    <strong>
+                    <?php 
+                        $types = [];
+                        foreach ($tipe_member_list as $tm) {
+                            $types[] = htmlspecialchars($tm['Nama_Tipe']);
+                        }
+                        echo implode(', ', $types);
+                    ?>
+                    </strong>.
+                    Nikmati berbagai keuntungan eksklusif dengan menjadi member HoopBall.
+                </p>
+                <button class="btn-join-member">Gabung Member</button>
             </div>
         </div>
-        <div class="promo-card" style="background-image:url('https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=800');">
-            <div class="promo-body">
-                <span class="promo-tag">Untuk Member Baru</span>
-                <div class="promo-title">GRATIS 1 JAM</div>
+
+        <div class="member-banner-right">
+            <div class="member-benefit-item">
+                <div class="benefit-icon-circle"><i class="fa-solid fa-percent"></i></div>
+                <h5>Potongan Harga</h5>
+                <p>Hingga Rp <?php echo !empty($tipe_member_list) ? number_format($tipe_member_list[count($tipe_member_list)-1]['Potongan_Harga'], 0, ',', '.') : '35.000'; ?> per booking.</p>
+            </div>
+            <div class="member-benefit-item">
+                <div class="benefit-icon-circle"><i class="fa-solid fa-calendar-check"></i></div>
+                <h5>Prioritas Jadwal</h5>
+                <p>Akses lebih awal untuk jadwal prime time.</p>
+            </div>
+            <div class="member-benefit-item">
+                <div class="benefit-icon-circle"><i class="fa-solid fa-gift"></i></div>
+                <h5>Promo Eksklusif</h5>
+                <p>Dapatkan promo dan penawaran spesial khusus member.</p>
             </div>
         </div>
-    </div>
+    </section>
+
+    <!-- FASILITAS UNGGULAN -->
+    <section class="facilities-section">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Fasilitas Unggulan</h2>
+                <p class="section-subtitle">Nikmati fasilitas pendukung terbaik untuk pengalaman bermain yang lebih nyaman.</p>
+            </div>
+        </div>
+
+        <div class="fac-grid">
+            <div class="fac-card">
+                <i class="fa-solid fa-door-open fac-icon"></i>
+                <div class="fac-info">
+                    <h4>Ruang Ganti</h4>
+                    <p>Area ganti yang bersih, steril, dan nyaman.</p>
+                </div>
+            </div>
+            <div class="fac-card">
+                <i class="fa-solid fa-shower fac-icon"></i>
+                <div class="fac-info">
+                    <h4>Shower Mandi</h4>
+                    <p>Fasilitas mandi air hangat setelah selesai bermain.</p>
+                </div>
+            </div>
+            <div class="fac-card">
+                <i class="fa-solid fa-square-parking fac-icon"></i>
+                <div class="fac-info">
+                    <h4>Parkir Luas</h4>
+                    <p>Area parkir terpadu yang aman untuk motor dan mobil.</p>
+                </div>
+            </div>
+            <div class="fac-card">
+                <i class="fa-solid fa-wifi fac-icon"></i>
+                <div class="fac-info">
+                    <h4>WiFi & Lounge</h4>
+                    <p>Tunggu giliran bermain dengan nyaman di ruang tunggu.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SIAP MAIN CTA -->
+    <section class="cta-banner">
+        <div class="cta-left">
+            <h2 class="cta-title">Siap Main Bareng?</h2>
+            <p class="cta-desc">Booking lapangan favoritmu sekarang dan rasakan pengalaman bermain terbaik bersama teman-temanmu di HoopBall!</p>
+        </div>
+        <button class="btn-cta">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></button>
+    </section>
 
 </main>
 
+<!-- FOOTER -->
 <footer>
-    <p>© 2024 Hoop Arena Kelompok 05. All rights reserved.</p>
+    <div class="footer-grid">
+        <div>
+            <div class="footer-logo">
+                <img src="logo.png" alt="HoopBall">
+                <span>HoopBall</span>
+            </div>
+            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <div class="social-links">
+                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+            </div>
+        </div>
+
+        <div class="footer-col">
+            <h4>Navigasi</h4>
+            <ul>
+                <li><a href="#">Beranda</a></li>
+                <li><a href="#">Lapangan</a></li>
+                <li><a href="#">Jadwal</a></li>
+                <li><a href="#">Member</a></li>
+                <li><a href="#">Pembelian</a></li>
+                <li><a href="#">Tentang</a></li>
+                <li><a href="#">Kontak</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Informasi</h4>
+            <ul>
+                <li><a href="#">Cara Booking</a></li>
+                <li><a href="#">Syarat & Ketentuan</a></li>
+                <li><a href="#">Kebijakan Privasi</a></li>
+                <li><a href="#">FAQ</a></li>
+                <li><a href="#">Blog</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Hubungi Kami</h4>
+            <div class="contact-item">
+                <i class="fa-solid fa-location-dot"></i>
+                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-phone"></i>
+                +62 812-3456-7890
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-envelope"></i>
+                info@hoopball.id
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-clock"></i>
+                Setiap hari 07:00 - 23:00 WIB
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>© 2025 HoopBall. All rights reserved.</p>
+    </div>
 </footer>
 
 <script>
+// ============================================
+// INTERACTIVE TIME SLOT SELECTION
+// ============================================
+let selectedJadwalId = "<?php echo isset($first_selected) ? $first_selected['ID_Jadwal'] : ''; ?>";
+
+function selectTimeSlot(element) {
+    const status = element.getAttribute('data-status');
+    if (status == "0") return; // Jika penuh, abaikan klik
+
+    // Reset status slot terpilih sebelumnya
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        if (slot.classList.contains('selected')) {
+            slot.classList.remove('selected');
+            slot.classList.add('available');
+            slot.querySelector('.status-lbl').textContent = 'Tersedia';
+        }
+    });
+
+    // Set slot yang baru diklik menjadi terpilih
+    element.classList.remove('available');
+    element.classList.add('selected');
+    element.querySelector('.status-lbl').textContent = 'Terpilih';
+
+    // Ambil data atribut
+    selectedJadwalId = element.getAttribute('data-id');
+    const tanggal = element.getAttribute('data-tanggal');
+    const jam = element.getAttribute('data-jam');
+    const lapangan = element.getAttribute('data-lapangan');
+
+    // Parsing tanggal ke format lokal yang representatif
+    const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
+    const dateFormatted = new Date(tanggal).toLocaleDateString('id-ID', options);
+
+    // Update elemen ringkasan di sebelah kanan secara real-time
+    document.getElementById('summary-tanggal').textContent = dateFormatted;
+    document.getElementById('summary-durasi').textContent = jam + ' (2 Jam)';
+    document.getElementById('summary-lapangan').textContent = lapangan;
+}
+
+// Handler Submit Booking ke Database
+document.getElementById('btn-submit-booking').addEventListener('click', function() {
+    if (!selectedJadwalId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Jadwal belum terpilih',
+            text: 'Silakan pilih jam bermain yang tersedia terlebih dahulu.',
+            confirmButtonColor: '#FF5200'
+        });
+        return;
+    }
+    // Redirect ke halaman pemrosesan transaksi sewa lapangan Anda dengan membawa parameter id_jadwal
+    window.location.href = 'transaksi_booking.php?id_jadwal=' + selectedJadwalId;
+});
+
 // ============================================
 // HARD DELETE AKUN CONFIRMATION
 // ============================================
@@ -833,13 +1635,13 @@ function confirmHapusAkun(e) {
     e.preventDefault();
     Swal.fire({
         title: 'Hapus Akun Permanen?',
-        html: '<strong style="color:#DC2626;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
+        html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
               'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
-              '<span style="color:#6B7280; font-size:12px;">Data akan dihapus secara permanen.</span>',
+              '<span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#DC2626',
-        cancelButtonColor: '#6B7280',
+        confirmButtonColor: '#FF3B30',
+        cancelButtonColor: '#8E8E93',
         confirmButtonText: 'Ya, Hapus Akun Saya!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
@@ -892,8 +1694,8 @@ if (status && msg) {
         timerProgressBar: true,
         showCloseButton: true,
         background: '#ffffff',
-        color: '#1e293b',
-        iconColor: isSuccess ? '#16A34A' : '#DC2626',
+        color: '#1c1c1e',
+        iconColor: isSuccess ? '#34C759' : '#FF3B30',
         customClass: { popup: 'swal-toast' }
     });
     window.history.replaceState({}, document.title, window.location.pathname);
