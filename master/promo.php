@@ -172,12 +172,12 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 
 $where_sql = implode(" AND ", $where_clauses);
 
-$sort_by = "ID_Promo ASC";
+$sort_by = "Nama_Promo ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') {
-        $sort_by = "ID_Promo DESC";
-    } elseif ($_GET['f_sort'] === 'nama_asc') {
+    if ($_GET['f_sort'] === 'nama_asc') {
         $sort_by = "Nama_Promo ASC";
+    } elseif ($_GET['f_sort'] === 'nama_desc') {
+        $sort_by = "Nama_Promo DESC";
     }
 }
 
@@ -412,6 +412,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(4),
 .data-table td:nth-child(4) {
     width: 18%;
+    min-width: 140px;
     text-align: center !important;
     padding-left: 0 !important; 
 }
@@ -435,29 +436,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table th:nth-child(5),
 .data-table td:nth-child(5) {
     width: 20%;
+    min-width: 220px;
     text-align: center !important;
 }
 
 .promo-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 
 /* ═══ STATUS TOGGLE SWITCH ═══ */
-.toggle-switch { 
-    position: relative; 
-    display: inline-flex;
-    align-items: center;
-    width: 44px;
-    height: 24px;
-    cursor: pointer;
-    margin: 0;
-}
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
-.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
+.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); will-change: transform; }
 .toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
-.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.status-pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; min-width: 100px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
@@ -468,8 +462,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .actions { 
     display: flex;
     gap: 12px; 
-    justify-content: flex-start; 
-    align-items: center;  
+    justify-content: center; 
+    align-items: center;
+    min-width: 180px;
 }
 .btn-action {
     width: 38px;
@@ -750,6 +745,31 @@ body::-webkit-scrollbar {
     .btn-action { padding: 6px 10px; font-size: 11px; }
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .modal-box { width: 90%; margin: 20px; }
+}
+
+/* FIX SCROLLBAR SAAT SWAL DIALOG MUNCUL */
+body.swal2-shown, 
+html.swal2-shown {
+    padding-right: 0px !important;
+    overflow-y: auto !important;
+}
+
+.swal2-container {
+    padding-right: 0px !important;
+}
+
+.swal2-shown .swal2-container {
+    overflow-y: auto !important;
+}
+
+/* Pastikan body tidak bergeser saat modal muncul */
+body.swal2-height-auto {
+    height: auto !important;
+    padding-right: 0px !important;
+}
+
+html.swal2-height-auto {
+    padding-right: 0px !important;
 }
 </style>
 </head>
@@ -1053,9 +1073,8 @@ body::-webkit-scrollbar {
                             <div class="filter-group">
                                 <label>Urut Berdasarkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Promo ↑</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Promo ↓</option>
                                     <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
+                                    <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Z - A</option>
                                 </select>
                             </div>
                             
@@ -1141,7 +1160,7 @@ body::-webkit-scrollbar {
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </a>
                                         <label class="toggle-switch" title="<?= $is_ready ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
-                                            <input type="checkbox" <?= $is_ready ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', <?= $row['Status'] ?>)">
+                                            <input type="checkbox" <?= $is_ready ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
                                             <span class="toggle-slider"></span>
                                         </label>
                                         <button onclick="confirmDelete('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo']) ?>')" class="btn-action btn-delete" title="Hapus Promo">
@@ -1452,45 +1471,42 @@ function showToast(type, title, message) {
 // ============================================
 // TOGGLE STATUS
 // ============================================
-function confirmToggle(id, status) {
-    const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
-    const iconType = status == 1 ? 'warning' : 'question';
+function confirmToggle(id, name, currentStatus, event) {
+    var checkbox = event.target;
+    var newStatus = currentStatus === 1 ? 0 : 1;
+    var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
+    var icon = newStatus === 1 ? 'success' : 'warning';
+    var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
 
     Swal.fire({
-        title: 'Konfirmasi Perubahan Status',
-        text: 'Apakah Anda yakin ingin ' + action + ' promo ini?',
-        icon: iconType,
+        title: 'Ubah Status?',
+        html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
+        icon: icon,
         showCancelButton: true,
-        confirmButtonColor: '#FF4500',
+        confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, ' + action + '!',
+        confirmButtonText: 'Ya, Ubah!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
         allowOutsideClick: false
-    }).then((result) => {
+    }).then(function(result) {
         if (result.isConfirmed) {
-            // Tampilkan loading
             Swal.fire({
                 title: 'Memproses...',
                 text: 'Mengubah status promo',
                 allowOutsideClick: false,
-                didOpen: () => {
+                didOpen: function() {
                     Swal.showLoading();
                 }
             });
-
-            // Redirect setelah delay singkat untuk efek loading
-            setTimeout(() => {
-                window.location.href = '?toggle_id=' + id + '&s=' + status;
+            setTimeout(function() {
+                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
             }, 600);
         } else {
-            // Kembalikan checkbox ke posisi semula
-            var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
-            if (checkbox) checkbox.checked = !checkbox.checked;
+            checkbox.checked = !checkbox.checked;
         }
     });
 }
-
 
 // ============================================
 // DELETE CONFIRMATION

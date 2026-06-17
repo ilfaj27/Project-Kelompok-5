@@ -199,10 +199,9 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 }
 $where_sql = implode(" AND ", $where_clauses);
 
-$sort_by = "ID_Tipe ASC";
+$sort_by = "Nama_Tipe ASC";
 if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'id_desc') $sort_by = "ID_Tipe DESC";
-    elseif ($_GET['f_sort'] === 'nama_asc') $sort_by = "Nama_Tipe ASC";
+    if ($_GET['f_sort'] === 'nama_asc') $sort_by = "Nama_Tipe ASC";
     elseif ($_GET['f_sort'] === 'harga_desc') $sort_by = "Harga_Member DESC";
 }
 
@@ -377,11 +376,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .tipe-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 
-/* STATUS TOGGLE SWITCH */
-.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 24px; }
-.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+/* STATUS TOGGLE SWITCH - SAMA PERSIS LAPANGAN.PHP */
+.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
+.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); will-change: transform; }
 .toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
@@ -807,8 +806,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                             <div class="filter-group">
                                 <label>Urut Berdasarkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc" <?= ($_GET['f_sort'] ?? '') === 'id_asc' ? 'selected' : '' ?>>ID Tipe &uarr;</option>
-                                    <option value="id_desc" <?= ($_GET['f_sort'] ?? '') === 'id_desc' ? 'selected' : '' ?>>ID Tipe &darr;</option>
                                     <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
                                     <option value="harga_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_desc' ? 'selected' : '' ?>>Harga Tertinggi</option>
                                 </select>
@@ -892,7 +889,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </a>
                                         <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> tipe member">
-                                            <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Tipe'] ?>', <?= $row['Status'] ?>)">
+                                            <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
                                             <span class="toggle-slider"></span>
                                         </label>
                                         <button onclick="confirmDelete('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe']) ?>')" class="btn-action btn-delete" title="Hapus Tipe Member">
@@ -1206,40 +1203,39 @@ function showLoading(title, message) {
 // ============================================
 // TOGGLE STATUS
 // ============================================
-function confirmToggle(id, status) {
-    const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
-    const iconType = status == 1 ? 'warning' : 'question';
+function confirmToggle(id, name, currentStatus, event) {
+    var checkbox = event.target;
+    var newStatus = currentStatus === 1 ? 0 : 1;
+    var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
+    var icon = newStatus === 1 ? 'success' : 'warning';
+    var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
 
     Swal.fire({
-        title: 'Konfirmasi Perubahan Status',
-        text: 'Apakah Anda yakin ingin ' + action + ' tipe member ini?',
-        icon: iconType,
+        title: 'Ubah Status?',
+        html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
+        icon: icon,
         showCancelButton: true,
-        confirmButtonColor: '#FF4500',
+        confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, ' + action + '!',
+        confirmButtonText: 'Ya, Ubah!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
         allowOutsideClick: false
-    }).then((result) => {
+    }).then(function(result) {
         if (result.isConfirmed) {
             Swal.fire({
                 title: 'Memproses...',
                 text: 'Mengubah status tipe member',
                 allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            setTimeout(() => {
-                window.location.href = '?toggle_id=' + id + '&s=' + status;
-            }, 600);
-        } else {
-            // Kembalikan checkbox ke posisi semula jika user batal
-            var checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(function(cb) {
-                if (cb.getAttribute('onchange') && cb.getAttribute('onchange').indexOf(id) !== -1) {
-                    cb.checked = !cb.checked;
+                didOpen: function() {
+                    Swal.showLoading();
                 }
             });
+            setTimeout(function() {
+                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
+            }, 600);
+        } else {
+            checkbox.checked = !checkbox.checked;
         }
     });
 }

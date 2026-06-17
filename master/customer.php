@@ -804,8 +804,8 @@ html.swal2-shown {
 
                             <div class="filter-group">
                                 <label class="filter-label">Urut Berdasarkan</label>
+                                <!-- ID Customer DIHAPUS, hanya nomor urut yang tersisa -->
                                 <select name="sort" class="filter-select">
-                                    <option value="ID_Customer" <?= $sort_by == 'ID_Customer' ? 'selected' : '' ?>>ID Customer</option>
                                     <option value="Nama_Customer" <?= $sort_by == 'Nama_Customer' ? 'selected' : '' ?>>Nama Lengkap</option>
                                     <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
                                     <option value="Alamat" <?= $sort_by == 'Alamat' ? 'selected' : '' ?>>Alamat</option>

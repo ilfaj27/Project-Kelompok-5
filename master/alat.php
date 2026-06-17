@@ -70,7 +70,12 @@ function getUploadDirectory() {
 function processPhotoUpload($file, $edit_data = null) {
     $upload_dir = getUploadDirectory();
     if (!isset($file) || empty($file['name'])) {
-        return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
+        // Jika mode edit dan sudah ada foto sebelumnya, gunakan foto lama
+        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
+            return $edit_data['Photo_Alat'];
+        }
+        // Jika mode tambah atau edit tanpa foto lama, return false sebagai penanda error
+        return false;
     }
     if (!is_dir($upload_dir)) {
         @mkdir($upload_dir, 0755, true);
@@ -107,6 +112,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     }
     if ($stok_raw === '' || !is_numeric($stok_raw)) {
         $errors[] = 'Stok harus berupa angka.';
+    } else {
+        $stok_num = intval($stok_raw);
+        if ($stok_num <= 0) {
+            $errors[] = 'Stok harus lebih dari 0.';
+        } elseif ($stok_num > 9999) {
+            $errors[] = 'Stok maksimal 9999.';
+        }
     }
     if ($harga_raw === '' || !is_numeric($harga_raw)) {
         $errors[] = 'Harga harus berupa angka.';
@@ -123,6 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
+
+        // Validasi: foto wajib diisi untuk data baru
+        if ($photo_alat === false) {
+            $errors[] = 'Foto alat wajib diupload.';
+        }
+    }
+
+    if (empty($errors)) {
         if ($edit_mode && $id > 0) {
             $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Photo_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
             $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $id];
@@ -209,10 +229,9 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 }
 $where_sql = implode(" AND ", $where_clauses);
 
-$sort_by = "ID_Alat ASC";
+$sort_by = "Nama_Alat ASC";
 if (isset($_GET['f_sort'])) {
     switch ($_GET['f_sort']) {
-        case 'id_desc': $sort_by = "ID_Alat DESC"; break;
         case 'nama_asc': $sort_by = "Nama_Alat ASC"; break;
         case 'stok_desc': $sort_by = "Stok DESC"; break;
         case 'harga_desc': $sort_by = "Harga_Alat DESC"; break;
@@ -374,12 +393,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .alat-card-stok i { color: var(--orange); margin-right: 4px; }
 .alat-card-toggle { display: flex; align-items: center; gap: 6px; }
 .alat-card-toggle-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.toggle-switch-mini { position: relative; display: inline-flex; align-items: center; width: 36px; height: 20px; cursor: pointer; }
-.toggle-switch-mini input { opacity: 0; width: 0; height: 0; }
-.toggle-slider-mini { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .3s; border-radius: 20px; }
-.toggle-slider-mini::before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.toggle-switch-mini input:checked + .toggle-slider-mini { background-color: var(--green); }
-.toggle-switch-mini input:checked + .toggle-slider-mini::before { transform: translateX(16px); }
+/* TOGGLE SWITCH - SAMA PERSIS LAPANGAN.PHP */
+.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
+.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); will-change: transform; }
+.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.toggle-switch:hover .toggle-slider { opacity: .9; }
 .empty-grid { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
 .empty-grid i { font-size: 64px; margin-bottom: 20px; opacity: .3; display: block; }
 .empty-grid div { font-size: 16px; font-weight: 700; }
@@ -405,10 +426,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; z-index: 10; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-.photo-upload-area { width: 100%; height: 180px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
+/* ===== SAMA PERSIS LAPANGAN.PHP - 140px ===== */
+.photo-upload-area { width: 100%; height: 140px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
 .photo-upload-area:hover { border-color: var(--orange); background: var(--orange-lt); }
+.photo-upload-area.error { border-color: var(--red); background: var(--red-lt); }
+.photo-upload-area.error:hover { border-color: var(--red); background: var(--red-lt); }
 .photo-upload-area.has-image { border-style: solid; border-color: var(--orange); }
-.photo-upload-area i.upload-icon { font-size: 32px; color: var(--orange); margin-bottom: 8px; }
+.photo-upload-area i.upload-icon { font-size: 28px; color: var(--orange); margin-bottom: 8px; }
 .photo-upload-area p { font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; }
 .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 5; }
 .photo-upload-preview { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
@@ -419,17 +443,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
+/* ===== SAMA PERSIS LAPANGAN.PHP - DETAIL FOTO BULAT ===== */
 .detail-modal-box { width: 460px; border-radius: 24px; border: 1px solid var(--border); overflow-y: auto; }
-.detail-photo-wrap { width: 100%; aspect-ratio: 1.5 / 1; background: #ffffff; border-radius: 16px; overflow: hidden; margin-bottom: 16px; position: relative; border: 1.5px solid var(--border); box-shadow: inset 0 0 20px rgba(0,0,0,.02); }
-.detail-photo-wrap img { width: 100%; height: 100%; object-fit: contain; background: #ffffff; display: block; }
+.detail-photo-wrap { width: 120px; height: 120px; margin: 0 auto 16px auto; background: #ffffff; border-radius: 50%; overflow: hidden; position: relative; border: 3px solid var(--orange); box-shadow: 0 4px 16px rgba(255,69,0,.2); }
+.detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .detail-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); }
-.detail-photo-placeholder i { font-size: 56px; color: var(--orange); opacity: .6; }
-.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; }
-.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; }
+.detail-photo-placeholder i { font-size: 40px; color: var(--orange); opacity: .6; }
+.detail-name { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px; text-transform: uppercase; text-align: center; }
+.detail-price { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 20px; border-bottom: 1px solid var(--border-lt); padding-bottom: 14px; text-align: center; }
 .detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
 .detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
 .detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .detail-info-value { font-size: 18px; font-weight: 800; color: var(--text); }
+.detail-status-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
+.detail-status-aktif { background: var(--green-lt); color: var(--green); }
+.detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
+.detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
+
 .detail-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-bottom: 14px; text-transform: uppercase; }
 .badge-status-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
 .badge-status-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
@@ -493,6 +523,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     .modal-box{width:90%;margin:20px;}
     .search-box{width:100%;}
     .action-bar{flex-direction:column;align-items:stretch;}
+    .detail-photo-wrap { width: 100px; height: 100px; }
 }
 @media(max-width:480px){.alat-grid{grid-template-columns:1fr;}}
 </style>
@@ -515,7 +546,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     <input type="hidden" name="edit_photo_path" value="<?= htmlspecialchars($edit_data['Photo_Alat'] ?? '') ?>">
                 <?php endif; ?>
 
-                <label class="modal-label">Foto Alat <span style="color:var(--muted);font-size:10px;">(Opsional, max 5MB)</span></label>
+                <label class="modal-label">Foto Alat <span class="required">*</span> <span style="color:var(--muted);font-size:10px;">(Wajib, max 5MB)</span></label>
                 <div class="photo-upload-area <?= ($edit_data && !empty($edit_data['Photo_Alat'])) ? 'has-image' : '' ?>" id="uploadArea">
                     <input type="file" name="photo_alat" id="photo_alat" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onchange="handlePhotoUpload(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:5;">
 
@@ -542,6 +573,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <p style="font-size:11px; margin-top:4px; opacity:.7;">JPG, PNG, GIF, WEBP (Max 5MB)</p>
                     </div>
                 </div>
+                <div class="val-msg" id="val-photo_alat"></div>
 
                 <label class="modal-label">Nama Alat <span class="required">*</span></label>
                 <input type="text" name="nama_alat" id="nama_alat" class="modal-input"
@@ -550,9 +582,10 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="val-msg" id="val-nama_alat"></div>
 
                 <label class="modal-label">Stok <span class="required">*</span></label>
+                <!-- min="1" agar tidak bisa input 0 -->
                 <input type="number" name="stok" id="stok" class="modal-input"
                        value="<?= htmlspecialchars($edit_data['Stok'] ?? '') ?>"
-                       placeholder="Contoh: 10" min="0" max="9999" autocomplete="off">
+                       placeholder="Contoh: 10" min="1" max="9999" autocomplete="off">
                 <div class="val-msg" id="val-stok"></div>
 
                 <label class="modal-label">Harga Jual <span class="required">*</span></label>
@@ -570,15 +603,16 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         </div>
     </div>
 </div>
-<!-- MODAL DETAIL ALAT -->
+
+<!-- MODAL DETAIL ALAT - SAMA PERSIS LAPANGAN.PHP -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-header">
+        <div class="modal-header" style="text-align: center; padding-bottom: 10px;">
             <div class="modal-subtitle">Detail Informasi</div>
             <div class="modal-title">Spesifikasi Alat</div>
         </div>
-        <div class="modal-body" style="padding-top:20px;">
+        <div class="modal-body" style="padding-top:10px;">
             <?php if ($detail_data): ?>
                 <div class="detail-photo-wrap">
                     <?php
@@ -594,12 +628,14 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     <?php endif; ?>
                 </div>
                 
-                <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
-                    <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
+                <div style="text-align: center;">
+                    <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
+                        <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
+                    </div>
                 </div>
 
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
-                <div class="detail-price"><?= rupiah($detail_data['Harga_Alat']) ?></div>
+                <div class="detail-price"><?= rupiah($detail_data['Harga_Alat']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
                 
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
@@ -612,11 +648,9 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     </div>
                 </div>
 
-                <div style="margin-top:24px;">
-                    <button type="button" onclick="closeModal()" class="btn-submit" style="width:100%;background:var(--sidebar);">
-                        <i class="fa-solid fa-arrow-left"></i> Kembali
-                    </button>
-                </div>
+                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117;">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali
+                </button>
             <?php endif; ?>
         </div>
     </div>
@@ -752,8 +786,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <div class="filter-group">
                                 <label>Urutkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="id_asc"    <?= ($_GET['f_sort'] ?? '') === 'id_asc'    ? 'selected' : '' ?>>ID &uarr;</option>
-                                    <option value="id_desc"   <?= ($_GET['f_sort'] ?? '') === 'id_desc'   ? 'selected' : '' ?>>ID &darr;</option>
                                     <option value="nama_asc"  <?= ($_GET['f_sort'] ?? '') === 'nama_asc'  ? 'selected' : '' ?>>Nama A-Z</option>
                                     <option value="stok_desc" <?= ($_GET['f_sort'] ?? '') === 'stok_desc' ? 'selected' : '' ?>>Stok Terbanyak</option>
                                     <option value="harga_desc"<?= ($_GET['f_sort'] ?? '') === 'harga_desc'? 'selected' : '' ?>>Harga Termahal</option>
@@ -819,10 +851,10 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         </span>
                         <div class="alat-card-toggle">
                             <span class="alat-card-toggle-label"><?= $is_aktif ? 'ON' : 'OFF' ?></span>
-                            <label class="toggle-switch-mini" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                            <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                 <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?>
-                                       onchange="event.stopPropagation(); doToggle(<?= intval($row['ID_Alat']) ?>, <?= intval($row['Status']) ?>, '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>')">
-                                <span class="toggle-slider-mini"></span>
+                                       onchange="confirmToggle('<?= intval($row['ID_Alat']) ?>', '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>', <?= intval($row['Status']) ?>, event)">
+                                <span class="toggle-slider"></span>
                             </label>
                         </div>
                     </div>
@@ -893,6 +925,13 @@ function closeModal() {
 
 function handlePhotoUpload(input) {
     if (!input.files || !input.files[0]) return;
+
+    // Clear photo validation error
+    var uploadArea = document.getElementById('uploadArea');
+    var valPhoto = document.getElementById('val-photo_alat');
+    if (uploadArea) uploadArea.classList.remove('error');
+    if (valPhoto) { valPhoto.classList.remove('show'); valPhoto.innerHTML = ''; }
+
     var file = input.files[0];
     if (file.size > 5 * 1024 * 1024) {
         Swal.fire({
@@ -927,12 +966,35 @@ function removePhoto() {
     var fileInput = document.getElementById('photo_alat');
     var uploadArea = document.getElementById('uploadArea');
     var removeBtn = document.getElementById('removeBtn');
+    var valPhoto = document.getElementById('val-photo_alat');
+
+    // Clear file input
     if (fileInput) fileInput.value = '';
+
+    // Clear preview
     if (previewImg) {
         previewImg.src = '';
         previewImg.style.display = 'none';
     }
-    if (uploadArea) uploadArea.classList.remove('has-image');
+
+    // Reset upload area styling
+    if (uploadArea) {
+        uploadArea.classList.remove('has-image');
+        // Show error immediately if this was an existing photo in edit mode
+        var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
+        var editPhotoPath = document.querySelector('input[name="edit_photo_path"]');
+        if (isEditMode && editPhotoPath && editPhotoPath.value) {
+            // User removed existing photo but hasn't uploaded new one
+            uploadArea.classList.add('error');
+            if (valPhoto) {
+                valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Foto alat wajib diupload.';
+                valPhoto.classList.add('show');
+            }
+            // Clear the hidden edit_photo_path so backend knows photo was removed
+            editPhotoPath.value = '';
+        }
+    }
+
     if (uploadPlaceholder) uploadPlaceholder.style.display = 'flex';
     if (removeBtn) removeBtn.style.display = 'none';
 }
@@ -976,7 +1038,8 @@ function validateForm() {
         var errStok = '';
         if (vs === '') errStok = 'Stok wajib diisi.';
         else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus berupa angka bulat positif.';
-        else if (parseInt(vs) < 0) errStok = 'Stok tidak boleh negatif.';
+        // ===== STOK HARUS LEBIH DARI 0 =====
+        else if (parseInt(vs) <= 0) errStok = 'Stok harus lebih dari 0.';
         else if (parseInt(vs) > 9999) errStok = 'Stok maksimal 9999.';
         if (errStok) {
             stok.classList.add('error');
@@ -1001,6 +1064,33 @@ function validateForm() {
             valHarga.classList.add('show');
             valid = false;
         }
+    }
+
+    // Validasi foto wajib — sama seperti field lain (border merah + pesan error)
+    var photoInput = document.getElementById('photo_alat');
+    var previewImg = document.getElementById('previewImg');
+    var uploadArea = document.getElementById('uploadArea');
+    var valPhoto = document.getElementById('val-photo_alat');
+    var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
+    var hasExistingPhoto = previewImg && previewImg.style.display !== 'none' && previewImg.src && previewImg.src !== '' && !previewImg.src.includes('data:image');
+
+    var photoError = '';
+    if (!isEditMode && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
+        photoError = 'Foto alat wajib diupload.';
+    } else if (isEditMode && !hasExistingPhoto && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
+        photoError = 'Foto alat wajib diupload.';
+    }
+
+    if (photoError) {
+        if (uploadArea) uploadArea.classList.add('error');
+        if (valPhoto) {
+            valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + photoError;
+            valPhoto.classList.add('show');
+        }
+        valid = false;
+    } else {
+        if (uploadArea) uploadArea.classList.remove('error');
+        if (valPhoto) valPhoto.classList.remove('show');
     }
 
     if (!valid) return false;
@@ -1039,9 +1129,10 @@ document.addEventListener('DOMContentLoaded', function() {
             var v = this.value.trim();
             this.classList.remove('error'); valStok.classList.remove('show');
             if (v !== '' && /^[0-9]+$/.test(v)) {
-                if (parseInt(v) < 0) {
+                // ===== STOK HARUS LEBIH DARI 0 (real-time) =====
+                if (parseInt(v) <= 0) {
                     this.classList.add('error');
-                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok tidak boleh negatif.';
+                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok harus lebih dari 0.';
                     valStok.classList.add('show');
                 } else if (parseInt(v) > 9999) {
                     this.classList.add('error');
@@ -1114,42 +1205,39 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-function doToggle(id, currentStatus, namaAlat) {
-    var action = currentStatus == 1 ? 'nonaktifkan' : 'aktifkan';
-    var iconType = currentStatus == 1 ? 'warning' : 'question';
-    var titleText = currentStatus == 1 ? 'Nonaktifkan Alat?' : 'Aktifkan Alat?';
-    var bodyText = currentStatus == 1 
-        ? 'Apakah Anda yakin ingin menonaktifkan alat "' + namaAlat + '"?' 
-        : 'Apakah Anda yakin ingin mengaktifkan alat "' + namaAlat + '"?';
+function confirmToggle(id, name, currentStatus, event) {
+    var checkbox = event.target;
+    var newStatus = currentStatus === 1 ? 0 : 1;
+    var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
+    var icon = newStatus === 1 ? 'success' : 'warning';
+    var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
 
     Swal.fire({
-        title: titleText,
-        html: bodyText + '<br><span style="font-size:12px;color:var(--muted);">Status alat akan diubah secara permanen.</span>',
-        icon: iconType,
+        title: 'Ubah Status?',
+        html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
+        icon: icon,
         showCancelButton: true,
-        confirmButtonColor: '#FF4500',
+        confirmButtonColor: confirmColor,
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, ' + action + '!',
+        confirmButtonText: 'Ya, Ubah!',
         cancelButtonText: 'Batal',
-        reverseButtons: true
+        reverseButtons: true,
+        allowOutsideClick: false
     }).then(function(result) {
         if (result.isConfirmed) {
-            Swal.fire({ 
-                title: 'Memproses...', 
-                allowOutsideClick: false, 
-                didOpen: function() { Swal.showLoading(); } 
-            });
-            setTimeout(function() {
-                window.location.href = 'alat.php?toggle_id=' + id + '&s=' + currentStatus;
-            }, 500);
-        } else {
-            var allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
-            allCheckboxes.forEach(function(cb) {
-                var oc = cb.getAttribute('onchange') || '';
-                if (oc.indexOf('doToggle(' + id + ',' + currentStatus) > -1) {
-                    cb.checked = (currentStatus == 1);
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Mengubah status alat',
+                allowOutsideClick: false,
+                didOpen: function() {
+                    Swal.showLoading();
                 }
             });
+            setTimeout(function() {
+                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
+            }, 600);
+        } else {
+            checkbox.checked = !checkbox.checked;
         }
     });
 }
