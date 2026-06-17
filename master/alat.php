@@ -70,7 +70,12 @@ function getUploadDirectory() {
 function processPhotoUpload($file, $edit_data = null) {
     $upload_dir = getUploadDirectory();
     if (!isset($file) || empty($file['name'])) {
-        return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
+        // Jika mode edit dan sudah ada foto sebelumnya, gunakan foto lama
+        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
+            return $edit_data['Photo_Alat'];
+        }
+        // Jika mode tambah atau edit tanpa foto lama, return false sebagai penanda error
+        return false;
     }
     if (!is_dir($upload_dir)) {
         @mkdir($upload_dir, 0755, true);
@@ -130,6 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
+
+        // Validasi: foto wajib diisi untuk data baru
+        if ($photo_alat === false) {
+            $errors[] = 'Foto alat wajib diupload.';
+        }
+    }
+
+    if (empty($errors)) {
         if ($edit_mode && $id > 0) {
             $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Photo_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
             $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $id];
@@ -416,6 +429,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 /* ===== SAMA PERSIS LAPANGAN.PHP - 140px ===== */
 .photo-upload-area { width: 100%; height: 140px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
 .photo-upload-area:hover { border-color: var(--orange); background: var(--orange-lt); }
+.photo-upload-area.error { border-color: var(--red); background: var(--red-lt); }
+.photo-upload-area.error:hover { border-color: var(--red); background: var(--red-lt); }
 .photo-upload-area.has-image { border-style: solid; border-color: var(--orange); }
 .photo-upload-area i.upload-icon { font-size: 28px; color: var(--orange); margin-bottom: 8px; }
 .photo-upload-area p { font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; }
@@ -531,7 +546,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     <input type="hidden" name="edit_photo_path" value="<?= htmlspecialchars($edit_data['Photo_Alat'] ?? '') ?>">
                 <?php endif; ?>
 
-                <label class="modal-label">Foto Alat <span style="color:var(--muted);font-size:10px;">(Opsional, max 5MB)</span></label>
+                <label class="modal-label">Foto Alat <span class="required">*</span> <span style="color:var(--muted);font-size:10px;">(Wajib, max 5MB)</span></label>
                 <div class="photo-upload-area <?= ($edit_data && !empty($edit_data['Photo_Alat'])) ? 'has-image' : '' ?>" id="uploadArea">
                     <input type="file" name="photo_alat" id="photo_alat" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onchange="handlePhotoUpload(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:5;">
 
@@ -558,6 +573,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <p style="font-size:11px; margin-top:4px; opacity:.7;">JPG, PNG, GIF, WEBP (Max 5MB)</p>
                     </div>
                 </div>
+                <div class="val-msg" id="val-photo_alat"></div>
 
                 <label class="modal-label">Nama Alat <span class="required">*</span></label>
                 <input type="text" name="nama_alat" id="nama_alat" class="modal-input"
@@ -909,6 +925,13 @@ function closeModal() {
 
 function handlePhotoUpload(input) {
     if (!input.files || !input.files[0]) return;
+
+    // Clear photo validation error
+    var uploadArea = document.getElementById('uploadArea');
+    var valPhoto = document.getElementById('val-photo_alat');
+    if (uploadArea) uploadArea.classList.remove('error');
+    if (valPhoto) { valPhoto.classList.remove('show'); valPhoto.innerHTML = ''; }
+
     var file = input.files[0];
     if (file.size > 5 * 1024 * 1024) {
         Swal.fire({
@@ -943,12 +966,35 @@ function removePhoto() {
     var fileInput = document.getElementById('photo_alat');
     var uploadArea = document.getElementById('uploadArea');
     var removeBtn = document.getElementById('removeBtn');
+    var valPhoto = document.getElementById('val-photo_alat');
+
+    // Clear file input
     if (fileInput) fileInput.value = '';
+
+    // Clear preview
     if (previewImg) {
         previewImg.src = '';
         previewImg.style.display = 'none';
     }
-    if (uploadArea) uploadArea.classList.remove('has-image');
+
+    // Reset upload area styling
+    if (uploadArea) {
+        uploadArea.classList.remove('has-image');
+        // Show error immediately if this was an existing photo in edit mode
+        var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
+        var editPhotoPath = document.querySelector('input[name="edit_photo_path"]');
+        if (isEditMode && editPhotoPath && editPhotoPath.value) {
+            // User removed existing photo but hasn't uploaded new one
+            uploadArea.classList.add('error');
+            if (valPhoto) {
+                valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Foto alat wajib diupload.';
+                valPhoto.classList.add('show');
+            }
+            // Clear the hidden edit_photo_path so backend knows photo was removed
+            editPhotoPath.value = '';
+        }
+    }
+
     if (uploadPlaceholder) uploadPlaceholder.style.display = 'flex';
     if (removeBtn) removeBtn.style.display = 'none';
 }
@@ -1018,6 +1064,33 @@ function validateForm() {
             valHarga.classList.add('show');
             valid = false;
         }
+    }
+
+    // Validasi foto wajib — sama seperti field lain (border merah + pesan error)
+    var photoInput = document.getElementById('photo_alat');
+    var previewImg = document.getElementById('previewImg');
+    var uploadArea = document.getElementById('uploadArea');
+    var valPhoto = document.getElementById('val-photo_alat');
+    var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
+    var hasExistingPhoto = previewImg && previewImg.style.display !== 'none' && previewImg.src && previewImg.src !== '' && !previewImg.src.includes('data:image');
+
+    var photoError = '';
+    if (!isEditMode && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
+        photoError = 'Foto alat wajib diupload.';
+    } else if (isEditMode && !hasExistingPhoto && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
+        photoError = 'Foto alat wajib diupload.';
+    }
+
+    if (photoError) {
+        if (uploadArea) uploadArea.classList.add('error');
+        if (valPhoto) {
+            valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + photoError;
+            valPhoto.classList.add('show');
+        }
+        valid = false;
+    } else {
+        if (uploadArea) uploadArea.classList.remove('error');
+        if (valPhoto) valPhoto.classList.remove('show');
     }
 
     if (!valid) return false;
