@@ -82,7 +82,7 @@ if (isset($_POST['save_promo'])) {
 
     // Validasi Diskon: 1-100%
     if ($diskon <= 0) {
-        header("Location: promo.php?page=1&status=error&msg=Diskon harus lebih besar dari 0%!");
+        header("Location: promo.php?page=1&status=error&msg=Diskon tidak boleh 0 atau kurang dari 0!");
         exit();
     }
     if ($diskon > 100) {
@@ -800,7 +800,7 @@ html.swal2-height-auto {
                 
                 <label class="modal-label">Diskon (%) <span class="required">*</span></label>
                 <input type="number" name="diskon" id="diskon" class="modal-input"
-                    placeholder="10" min="1" max="100" autocomplete="off"
+                    placeholder="10" max="100" autocomplete="off"
                     value="<?= (int)($edit_data['Diskon'] ?? '') ?>" required>
                 <div class="val-msg" id="val-diskon"></div>
                 
@@ -1402,7 +1402,7 @@ function validateForm() {
     // Validasi Diskon
 if (!validateField('diskon', 'val-diskon', {
     required: true,
-    minNum: 0,
+    minNum: 1,
     maxNum: 100,
     label: 'Diskon'
 })) valid = false;

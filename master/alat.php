@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     } else {
         $stok_num = intval($stok_raw);
         if ($stok_num <= 0) {
-            $errors[] = 'Stok harus lebih dari 0.';
+            $errors[] = 'Stok tidak boleh 0 atau kurang dari 0.';
         } elseif ($stok_num > 9999) {
             $errors[] = 'Stok maksimal 9999.';
         }
@@ -585,7 +585,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <!-- min="1" agar tidak bisa input 0 -->
                 <input type="number" name="stok" id="stok" class="modal-input"
                        value="<?= htmlspecialchars($edit_data['Stok'] ?? '') ?>"
-                       placeholder="Contoh: 10" min="1" max="9999" autocomplete="off">
+                       placeholder="Contoh: 10" max="9999" autocomplete="off">
                 <div class="val-msg" id="val-stok"></div>
 
                 <label class="modal-label">Harga Jual <span class="required">*</span></label>
@@ -1037,9 +1037,9 @@ function validateForm() {
         var vs = stok.value.trim();
         var errStok = '';
         if (vs === '') errStok = 'Stok wajib diisi.';
-        else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus berupa angka bulat positif.';
+        else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus di atas 0.';
         // ===== STOK HARUS LEBIH DARI 0 =====
-        else if (parseInt(vs) <= 0) errStok = 'Stok harus lebih dari 0.';
+        else if (parseInt(vs) <= 0) errStok = 'Stok tidak boleh 0 atau kurang dari 0.';
         else if (parseInt(vs) > 9999) errStok = 'Stok maksimal 9999.';
         if (errStok) {
             stok.classList.add('error');
@@ -1132,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // ===== STOK HARUS LEBIH DARI 0 (real-time) =====
                 if (parseInt(v) <= 0) {
                     this.classList.add('error');
-                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok harus lebih dari 0.';
+                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok tidak boleh 0 atau kurang dari 0.';
                     valStok.classList.add('show');
                 } else if (parseInt(v) > 9999) {
                     this.classList.add('error');
