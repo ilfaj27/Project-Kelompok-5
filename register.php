@@ -71,19 +71,12 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
-        // Generate ID Customer: CST00001 (CST + 5 digit)
-        $q_cus = sqlsrv_query($conn, "SELECT MAX(ID_Customer) as max_id FROM Customer");
-        $d_cus = sqlsrv_fetch_array($q_cus, SQLSRV_FETCH_ASSOC);
-        $num_cus = ($d_cus['max_id']) ? (int) substr($d_cus['max_id'], 3) + 1 : 1;
-        $id_cus_baru = "CST" . sprintf("%05d", $num_cus); // Format CST00001
-
-        // Insert ke tabel Customer (hanya kolom yang perlu diisi, sisanya default)
+        // Insert ke tabel Customer (ID_Customer dilewati karena otomatis diisi oleh IDENTITY di database)
         $sql_customer = "INSERT INTO Customer 
-            (ID_Customer, Nama_Customer, Tanggal_Lahir, Tempat_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Email, Username, Kata_Sandi, Status, Created_By, Created_Date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'System', GETDATE())";
+            (Nama_Customer, Tanggal_Lahir, Tempat_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Email, Username, Kata_Sandi, Status, Created_By, Created_Date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'System', GETDATE())";
 
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array(
-            $id_cus_baru,
             $nama,
             $tgl_lahir,
             $tmp_lahir,

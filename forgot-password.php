@@ -4,21 +4,22 @@ include 'includes/config.php';
 
 $res_status = "";
 $res_msg = "";
-$is_verified = false;
+$is_verified = isset($_SESSION['reset_id_customer']);
+
+$username_input = "";
+$tanggal_input = "";
+$nominal_input = "";
 
 // TAHAP 1: VERIFIKASI KEAMANAN DATA AKUN
 // TAHAP 1: VERIFIKASI KEAMANAN DATA AKUN & RIWAYAT TRANSAKSI
 if (isset($_POST['verify_account'])) {
-    $username = $_POST['username_input'];
-    $email = $_POST['email_input'];
-    $telp = $_POST['telp_input'];
-    $nominal_input = $_POST['nominal_input'];
-    $tanggal_input = $_POST['tanggal_input']; // format: YYYY-MM-DD
+    $username_input = trim($_POST['username_input'] ?? '');
+    $nominal_input = trim($_POST['nominal_input'] ?? '');
+    $tanggal_input = trim($_POST['tanggal_input'] ?? '');
 
-    // Query ke tabel Customer
     $sql = "SELECT ID_Customer FROM Customer 
-            WHERE Username = ? AND Email = ? AND No_Telepon = ? AND Is_Deleted = 0";
-    $params = array($username, $email, $telp);
+            WHERE Username = ? AND Is_Deleted = 0";
+    $params = array($username_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt === false) {
@@ -79,7 +80,7 @@ if (isset($_POST['verify_account'])) {
             }
         } else {
             $res_status = "error";
-            $res_msg = "Data verifikasi salah. Nama pengguna, Email, atau Telepon tidak cocok!";
+            $res_msg = "Data verifikasi salah. Nama pengguna tidak ditemukan!";
         }
     }
 }
@@ -89,7 +90,7 @@ if (isset($_POST['reset_password'])) {
     // DISESUAIKAN: Menggunakan 'reset_id_customer' sesuai Tahap 1
     if (isset($_SESSION['reset_id_customer'])) {
         $id_customer = $_SESSION['reset_id_customer'];
-        $new_pass = $_POST['new_password'];
+        $new_pass = trim($_POST['new_password']);
 
         // DISESUAIKAN: Query ke tabel 'Customer' bukan 'Akun'
         $sql_old = "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?";
@@ -97,9 +98,15 @@ if (isset($_POST['reset_password'])) {
         $d_old = sqlsrv_fetch_array($q_old, SQLSRV_FETCH_ASSOC);
         $old_pass = $d_old['Kata_Sandi'] ?? '';
 
-        if ($new_pass === $old_pass) {
-            $res_status = "error";
-            $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
+        if (empty($new_pass)) {
+    $res_status = "error";
+    $res_msg = "Kata sandi baru tidak boleh kosong!";
+} else if (strlen($new_pass) < 8) {
+    $res_status = "error";
+    $res_msg = "Kata sandi baru minimal harus berisi 8 karakter!";
+} else if ($new_pass === $old_pass) {
+    $res_status = "error";
+    $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
         } else {
             // DISESUAIKAN: Update ke tabel 'Customer' bukan 'Akun'
             $sql = "UPDATE Customer SET Kata_Sandi = ? WHERE ID_Customer = ?";
@@ -291,6 +298,7 @@ if (isset($_POST['reset_password'])) {
             font-size: 14px;
             pointer-events: none;
             transition: color 0.3s ease;
+            z-index: 3; /* Menjaga ikon kustom tetap tampil di depan background input */
         }
 
         .input-group:focus-within .input-wrapper i.icon-left {
@@ -580,6 +588,28 @@ if (isset($_POST['reset_password'])) {
             color: var(--text-muted);
         }
 
+        .input-wrapper input[type="date"] {
+            padding: 14px 44px 14px 44px; /* Kiri 44px (untuk FontAwesome), Kanan 44px (untuk indikator bawaan) */
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            position: relative;
+            z-index: 1;
+        }
+
+        .input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            right: 16px; /* Dikunci presisi di sebelah kanan */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            padding: 0;
+            cursor: pointer;
+            opacity: 1; /* Menampilkan kembali logo kalender bawaan di sebelah kanan */
+            filter: invert(0.4); /* Menyelaraskan warna ikon agar abu-abu elegan */
+            z-index: 4;
+        }
+
         @media (max-width: 992px) {
             .auth-hero-wrapper {
                 grid-template-columns: 1fr;
@@ -655,7 +685,7 @@ html.swal2-shown {
         <label>Nama Pengguna Terdaftar</label>
         <div class="input-wrapper">
             <i class="fa-solid fa-signature icon-left"></i>
-            <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops">
+            <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops" value="<?= htmlspecialchars($username_input) ?>">
         </div>
         <span class="error-text" id="usernameError"></span>
     </div>
@@ -665,7 +695,7 @@ html.swal2-shown {
         <label>Tanggal Booking Terakhir</label>
         <div class="input-wrapper">
             <i class="fa-regular fa-calendar-days icon-left"></i>
-            <input type="date" name="tanggal_input" id="tanggalField">
+            <input type="date" name="tanggal_input" id="tanggalField" value="<?= htmlspecialchars($tanggal_input) ?>">
         </div>
         <span class="error-text" id="tanggalError"></span>
     </div>
@@ -675,7 +705,7 @@ html.swal2-shown {
         <label>Nominal Pembayaran Terakhir (Rupiah)</label>
         <div class="input-wrapper">
             <i class="fa-solid fa-money-bill-wave icon-left"></i>
-            <input type="text" name="nominal_input" id="nominalField" placeholder="Contoh: 150000" maxlength="10">
+            <input type="text" name="nominal_input" id="nominalField" placeholder="Contoh: 150000" maxlength="10" value="<?= htmlspecialchars($nominal_input) ?>">
         </div>
         <span class="error-text" id="nominalError"></span>
     </div>
@@ -823,35 +853,6 @@ html.swal2-shown {
 
     <!-- VALIDASI JAVASCRIPT & EVENT HANDLERS -->
     <script>
-
-        // Deklarasikan variabel elemen baru
-const tanggal = document.getElementById('tanggalField');
-const nominal = document.getElementById('nominalField');
-
-const tanggalError = document.getElementById('tanggalError');
-const nominalError = document.getElementById('nominalError');
-
-// Batasi input nominal agar hanya bisa angka
-nominal.addEventListener('input', () => {
-    nominal.value = nominal.value.replace(/[^0-9]/g, '');
-});
-
-// Tambahkan aturan validasi berikut di dalam event listener submit verifyForm:
-if (tanggal.value === '') {
-    setValidationError(tanggal, tanggalError, 'Tanggal booking terakhir wajib diisi.');
-    isValid = false;
-} else {
-    clearValidationError(tanggal, tanggalError);
-}
-
-if (nominal.value.trim() === '') {
-    setValidationError(nominal, nominalError, 'Nominal pembayaran terakhir wajib diisi.');
-    isValid = false;
-} else {
-    clearValidationError(nominal, nominalError);
-}
-
-
         document.addEventListener('DOMContentLoaded', () => {
 
             // FUNGSI PEMBANTU VALIDASI
