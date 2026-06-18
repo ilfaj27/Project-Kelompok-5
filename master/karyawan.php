@@ -17,7 +17,6 @@ $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
 if (!empty($id_karyawan_session)) {
-    // Query database untuk foto profil
     $photo_stmt = sqlsrv_query($conn, 
         "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0", 
         array($id_karyawan_session)
@@ -25,7 +24,6 @@ if (!empty($id_karyawan_session)) {
     if ($photo_stmt && $photo_row = sqlsrv_fetch_array($photo_stmt, SQLSRV_FETCH_ASSOC)) {
         $db_photo = $photo_row['Photo_Profile'] ?? '';
         if (!empty($db_photo)) {
-            // Sesuaikan path untuk subdirectory (master/, laporan/, dll)
             $folder_name = basename(dirname($_SERVER['PHP_SELF']));
             if (in_array($folder_name, ['master', 'laporan'])) {
                 $profile_photo = '../' . $db_photo;
@@ -36,7 +34,6 @@ if (!empty($id_karyawan_session)) {
     }
 }
 
-// Simpan ke session untuk halaman lain
 if (!empty($profile_photo)) {
     $_SESSION['Photo_Profile'] = $profile_photo;
 }
@@ -97,6 +94,36 @@ function formatDateOnly($date) {
 }
 
 // ============================================
+// AJAX CHECK NIK (for real-time validation)
+// ============================================
+if (isset($_GET['ajax_check_nik'])) {
+    header('Content-Type: application/json');
+    $nik = $_GET['nik'] ?? '';
+    $exclude_id = isset($_GET['exclude_id']) ? intval($_GET['exclude_id']) : 0;
+
+    if (empty($nik)) {
+        echo json_encode(['exists' => false]);
+        exit();
+    }
+
+    if ($exclude_id > 0) {
+        $check = safe_sqlsrv_query($conn, 
+            "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND ID_Karyawan<>? AND Is_Deleted=0", 
+            array($nik, $exclude_id), false
+        );
+    } else {
+        $check = safe_sqlsrv_query($conn, 
+            "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND Is_Deleted=0", 
+            array($nik), false
+        );
+    }
+
+    $exists = ($check && safe_sqlsrv_has_rows($check));
+    echo json_encode(['exists' => $exists]);
+    exit();
+}
+
+// ============================================
 // PROSES TAMBAH KARYAWAN
 // ============================================
 if (isset($_POST['add_karyawan'])) {
@@ -114,7 +141,7 @@ if (isset($_POST['add_karyawan'])) {
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    // Check NIK uniqueness
+    // Check NIK uniqueness (final server-side check)
     $checkNIK = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND Is_Deleted=0", array($nik), false);
     if ($checkNIK && safe_sqlsrv_has_rows($checkNIK)) {
         header("Location: karyawan.php?add=1&error=nik_exists");
@@ -225,7 +252,7 @@ if (isset($_POST['update_karyawan'])) {
 }
 
 // ============================================
-// PROSES TOGGLE STATUS (AJAX) -> UBAH JADI REDIRECT
+// PROSES TOGGLE STATUS
 // ============================================
 if (isset($_GET['toggle_id'])) {
     $toggle_id = intval($_GET['toggle_id']);
@@ -628,7 +655,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 </style>
 </head>
 <body>
-
 <!-- MODAL TAMBAH/EDIT -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modal">
     <div class="modal-box">
@@ -642,12 +668,15 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
             <form method="POST" id="formKaryawan" onsubmit="return validateForm(this)" novalidate>
                 <div class="form-grid">
                     <?php if ($edit_data): ?>
-                    <input type="hidden" name="id_kry" value="<?= htmlspecialchars($edit_data['ID_Karyawan']) ?>">
+                    <input type="hidden" name="id_kry" id="edit_id_kry" value="<?= htmlspecialchars($edit_data['ID_Karyawan']) ?>">
+                    <?php else: ?>
+                    <input type="hidden" id="edit_id_kry" value="0">
                     <?php endif; ?>
                     <div>
                         <label class="field-label">NIK <span class="required">*</span></label>
-                        <input type="text" name="nik" id="nik" class="modal-input" value="<?= htmlspecialchars($edit_data['NIK'] ?? '') ?>" required minlength="16" maxlength="16" placeholder="3173011203950001">
+                        <input type="text" name="nik" id="nik" class="modal-input" value="<?= htmlspecialchars($edit_data['NIK'] ?? '') ?>" required minlength="16" maxlength="16" placeholder="3173011203950001" oninput="checkNIKDuplicate()" onblur="checkNIKDuplicate()">
                         <div class="val-msg" id="val-nik"><i class="fa-solid fa-circle-exclamation"></i> NIK harus 16 digit angka</div>
+                        <div class="val-msg" id="val-nik-dup"><i class="fa-solid fa-circle-exclamation"></i> NIK sudah terdaftar di sistem</div>
                     </div>
                     <div>
                         <label class="field-label">Nama Lengkap <span class="required">*</span></label>
@@ -773,7 +802,6 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         </div>
     </div>
 </div>
-
 <!-- SIDEBAR -->
 <aside class="sidebar">
     <a href="../view_pemilik.php" class="sb-brand">
@@ -1006,8 +1034,66 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         <?php endif; ?>
     </div>
 </main>
-
 <script>
+// ============================================
+// NIK DUPLICATE CHECK (AJAX - REAL TIME)
+// ============================================
+let nikCheckTimeout = null;
+let nikDuplicateExists = false;
+
+function checkNIKDuplicate() {
+    const nikInput = document.getElementById('nik');
+    const nikDupMsg = document.getElementById('val-nik-dup');
+    const nikFormatMsg = document.getElementById('val-nik');
+    const editId = document.getElementById('edit_id_kry').value;
+
+    if (!nikInput || !nikDupMsg) return;
+
+    const nik = nikInput.value.trim();
+
+    // Clear previous timeout
+    if (nikCheckTimeout) {
+        clearTimeout(nikCheckTimeout);
+    }
+
+    // Reset states
+    nikDuplicateExists = false;
+    nikDupMsg.classList.remove('show');
+    nikInput.classList.remove('error');
+
+    // Only check if NIK is valid length (16 digits)
+    if (!nik || nik.length !== 16 || !/^[0-9]{16}$/.test(nik)) {
+        return;
+    }
+
+    // Debounce check
+    nikCheckTimeout = setTimeout(function() {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'karyawan.php?ajax_check_nik=1&nik=' + encodeURIComponent(nik) + '&exclude_id=' + editId, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.exists) {
+                        nikDuplicateExists = true;
+                        nikInput.classList.add('error');
+                        nikDupMsg.classList.add('show');
+                        // Hide format error if showing
+                        if (nikFormatMsg) nikFormatMsg.classList.remove('show');
+                    } else {
+                        nikDuplicateExists = false;
+                        nikInput.classList.remove('error');
+                        nikDupMsg.classList.remove('show');
+                    }
+                } catch (e) {
+                    console.error('NIK check error:', e);
+                }
+            }
+        };
+        xhr.send();
+    }, 400);
+}
+
 // ============================================
 // MODAL CONTROLS
 // ============================================
@@ -1083,6 +1169,18 @@ function validateDate(input) {
 // ============================================
 function validateForm(form) {
     let valid = true;
+
+    // Check NIK duplicate first
+    if (nikDuplicateExists) {
+        const nikInput = document.getElementById('nik');
+        const nikDupMsg = document.getElementById('val-nik-dup');
+        if (nikInput && nikDupMsg) {
+            nikInput.classList.add('error');
+            nikDupMsg.classList.add('show');
+            nikInput.focus();
+        }
+        valid = false;
+    }
 
     const fields = [
         { id: 'nik', err: 'val-nik', label: 'NIK', required: true, min: 16, max: 16, pattern: /^[0-9]{16}$/ },
@@ -1203,6 +1301,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nikInput) {
         nikInput.addEventListener('input', () => {
             nikInput.value = nikInput.value.replace(/[^0-9]/g, '').substring(0, 16);
+            // Auto-check duplicate after user stops typing
+            if (nikInput.value.length === 16) {
+                checkNIKDuplicate();
+            } else {
+                // Hide duplicate message if NIK is not complete
+                const nikDupMsg = document.getElementById('val-nik-dup');
+                if (nikDupMsg) nikDupMsg.classList.remove('show');
+                nikInput.classList.remove('error');
+                nikDuplicateExists = false;
+            }
         });
     }
 
