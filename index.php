@@ -2022,7 +2022,7 @@ html::-webkit-scrollbar {
         <div class="hero-visual">
              <!-- Mengganti img dengan video -->
     <video autoplay loop muted playsinline>
-        <source src="asset/image/video/video.mp4" type="video/mp4">
+        <source src="asset/video/video.mp4" type="video/mp4">
         Browser Anda tidak mendukung pemutaran video.
     </video>
             <div class="fade-overlay"></div>
