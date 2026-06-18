@@ -1576,7 +1576,7 @@ function format_date_display($date) {
     </a>
     <div class="nav-links">
         <a href="../dashboard/view_customer.php" class="active">Beranda</a>
-        <a href="#">Lapangan</a>
+        <a href="#">Booking</a>
         <a href="#">Jadwal</a>
         <a href="#">Member</a>
         <a href="#">Pembelian</a>
