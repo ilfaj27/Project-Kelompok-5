@@ -4,7 +4,7 @@ date_default_timezone_set("Asia/Jakarta");
 include '../includes/config.php';
 
 if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION['role'] !== 'pemilik')) {
-    echo "<script>alert('Akses Ditolak!'); window.location='../dashboard.php';</script>";
+    echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
 $role = $_SESSION['role'];
@@ -556,7 +556,7 @@ input[type="time"].modal-input {
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
-    <a href="../view_admin.php" class="sb-brand">
+    <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -566,7 +566,7 @@ input[type="time"].modal-input {
 
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="../view_admin.php" class="sb-link">
+        <a href="../dashboard/view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
@@ -602,26 +602,26 @@ input[type="time"].modal-input {
 
     <div class="sb-section-label">Transaksi</div>
     <nav>
-        <a href="booking.php" class="sb-link">
+        <a href="../transaksi/booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Kelola Booking
         </a>
-        <a href="langganan.php" class="sb-link">
+        <a href="../transaksilangganan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
             Kelola Langganan
         </a>
-        <a href="pembelian.php" class="sb-link">
+        <a href="../transaksi/pembelian.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
             Kelola Pembelian Alat
         </a>
-        <a href="pembatalan.php" class="sb-link">
+        <a href="../transaksi/pembatalan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
             Kelola Pembatalan
         </a>
     </nav>
 
     <div class="sb-section-label">Akun</div>
-    <a href="../profile.php" class="sb-link">
+    <a href="../profile/profile.php" class="sb-link">
         <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
         Profil Saya
     </a>
@@ -636,7 +636,7 @@ input[type="time"].modal-input {
                 <?php endif; ?>
             </div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
-            <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
+            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
@@ -677,9 +677,9 @@ input[type="time"].modal-input {
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="../profile/profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
-                    <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
             </div>
         </div>

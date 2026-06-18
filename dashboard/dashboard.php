@@ -1,9 +1,9 @@
 <?php
 session_start();
-include 'includes/config.php';
+include '../includes/config.php';
 
 if (!isset($_SESSION['login'])) {
-    header("Location: login.php");
+    header("Location: ../login/login.php");
     exit();
 }
 
@@ -20,7 +20,7 @@ switch ($role) {
         header("Location: view_customer.php");
         break;
     default:
-        header("Location: login.php");
+        header("Location: ../login/login.php");
 }
 exit();
 ?>

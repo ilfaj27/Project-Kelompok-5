@@ -5,8 +5,8 @@
 ob_start();
 
 session_start();
-include 'includes/auth_helper.php';
-include 'includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
+include '../includes/auth_helper.php';
+include '../includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
 
 // ============================================================================
 // HARD DELETE AKUN CUSTOMER — Soft Delete di DB, Hard Delete di Program
@@ -46,7 +46,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
             setcookie('remember_me', '', time() - 3600, "/");
 
             ob_end_clean();
-            header("Location: login.php?status=success&msg=Akun Anda telah dihapus permanen. Anda harus mendaftar ulang untuk menggunakan layanan kami.");
+            header("Location: ../login/login.php?status=success&msg=Akun Anda telah dihapus permanen. Anda harus mendaftar ulang untuk menggunakan layanan kami.");
             exit();
         } else {
             ob_end_clean();
@@ -55,7 +55,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
         }
     } else {
         ob_end_clean();
-        header("Location: login.php?status=error&msg=Sesi tidak valid. Silakan login kembali.");
+        header("Location: ../login/login.php?status=error&msg=Sesi tidak valid. Silakan login kembali.");
         exit();
     }
 }
@@ -86,7 +86,7 @@ if (!empty($id_customer)) {
                 session_destroy();
                 setcookie('remember_me', '', time() - 3600, "/");
                 ob_end_clean();
-                header("Location: login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
+                header("Location: ../login/login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
                 exit();
             }
             $nama_customer = $row_cust['Nama_Customer'];
@@ -187,7 +187,7 @@ if ($query_tipe) {
             gap: 10px;
         }
         .nav-logo img {
-            height: 36px;
+            height: 70px;
             width: auto;
         }
         .nav-logo span {
@@ -1018,7 +1018,7 @@ if ($query_tipe) {
             margin-bottom: 16px;
         }
         .footer-logo img {
-            height: 36px;
+            height: 70px;
         }
         .footer-logo span {
             color: var(--white);
@@ -1095,8 +1095,7 @@ if ($query_tipe) {
 <!-- NAVBAR -->
 <nav>
     <a href="view_customer.php" class="nav-logo">
-        <img src="logo.png" alt="HoopBall">
-        <span>HoopBall</span>
+        <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
         <a href="#" class="active">Beranda</a>
@@ -1124,12 +1123,12 @@ if ($query_tipe) {
                 <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
                 <span class="u-role">Customer</span>
             </div>
-            <a href="profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
+            <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
-            <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+            <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
 </nav>
@@ -1512,8 +1511,7 @@ if ($query_tipe) {
     <div class="footer-grid">
         <div>
             <div class="footer-logo">
-                <img src="logo.png" alt="HoopBall">
-                <span>HoopBall</span>
+                <img src="../asset/image/logo.png" alt="HoopBall">
             </div>
             <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
             <div class="social-links">
@@ -1625,7 +1623,7 @@ document.getElementById('btn-submit-booking').addEventListener('click', function
         return;
     }
     // Redirect ke halaman pemrosesan transaksi sewa lapangan Anda dengan membawa parameter id_jadwal
-    window.location.href = 'transaksi_booking.php?id_jadwal=' + selectedJadwalId;
+    window.location.href = '../trasanksi/booking.php?id_jadwal=' + selectedJadwalId;
 });
 
 // ============================================

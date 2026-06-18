@@ -4,7 +4,7 @@
 // ============================================================================
 ob_start();
 session_start();
-include 'includes/config.php';
+include '../includes/config.php';
 
 // ============================================================================
 // AMBIL NOTIFIKASI DARI URL PARAMETER
@@ -16,15 +16,15 @@ $notif_msg    = $_GET['msg']    ?? '';
 // CEK SESSION — Jika sudah login, redirect ke dashboard
 // ============================================================================
 if (isset($_SESSION['id_customer']) && !empty($_SESSION['id_customer'])) {
-    header("Location: view_customer.php");
+    header("Location: ../dashboard/view_customer.php");
     exit();
 }
 if (isset($_SESSION['id_karyawan']) && !empty($_SESSION['id_karyawan'])) {
     $role = strtolower(trim($_SESSION['role'] ?? ''));
     if ($role == 'pemilik') {
-        header("Location: view_pemilik.php");
+        header("Location: ../dashboard/view_pemilik.php");
     } else {
-        header("Location: view_admin.php");
+        header("Location: ../dashboard/view_admin.php");
     }
     exit();
 }
@@ -73,11 +73,11 @@ if (isset($_POST['login'])) {
                 }
 
                 if ($_SESSION['role'] == 'pemilik') {
-                    header("Location: view_pemilik.php");
+                    header("Location: ../dashboard/view_pemilik.php");
                 } elseif ($_SESSION['role'] == 'karyawan') {
-                    header("Location: view_admin.php"); 
+                    header("Location: ../dashboard/view_admin.php"); 
                 } else {
-                    header("Location: view_customer.php"); 
+                    header("Location: ../dashboard/view_customer.php"); 
                 }
                 exit();
             } else {
@@ -104,7 +104,7 @@ if (isset($_POST['login'])) {
                         setcookie('remember_me', '', time() - 3600, "/");
                     }
 
-                    header("Location: view_customer.php");
+                    header("Location: ../dashboard/view_customer.php");
                     exit();
                 } else {
                     $error_msg = "Akun tidak ditemukan";
@@ -140,7 +140,7 @@ if (isset($_POST['login'])) {
 
         .auth-hero-wrapper {
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
-                url('login.png') no-repeat center center;
+                url('../asset/image/login.png') no-repeat center center;
             background-size: cover;
             min-height: 100vh; 
             padding: 80px 8% 80px 8%; 
@@ -338,7 +338,7 @@ html.swal2-shown {
 </head>
 <body>
 
-    <a href="index.php" class="btn-close-auth" title="Kembali ke Beranda">
+    <a href="../index.php" class="btn-close-auth" title="Kembali ke Beranda">
         <i class="fa-solid fa-xmark"></i>
     </a>
 
@@ -462,10 +462,10 @@ html.swal2-shown {
             <div class="footer-col">
                 <h4>Tautan</h4>
                 <ul class="footer-links">
-                    <li><a href="index.php#lapangan">Lapangan</a></li>
-                    <li><a href="index.php#jadwal">Jadwal</a></li>
-                    <li><a href="index.php#member">Alat Basket</a></li>
-                    <li><a href="index.php#tentang-kami">Tentang Kami</a></li>
+                    <li><a href="../index.php#lapangan">Lapangan</a></li>
+                    <li><a href="../index.php#jadwal">Jadwal</a></li>
+                    <li><a href="../index.php#member">Alat Basket</a></li>
+                    <li><a href="../index.php#tentang-kami">Tentang Kami</a></li>
                 </ul>
             </div>
 

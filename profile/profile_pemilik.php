@@ -1,9 +1,9 @@
 <?php
 session_start();
-include 'includes/config.php';
+include '../includes/config.php';
 
 if (!isset($_SESSION['role'])) {
-    header("Location: login.php");
+    header("Location: ../login/login.php");
     exit();
 }
 
@@ -13,7 +13,7 @@ $nama = $_SESSION['nama'] ?? '';
 // FIX: Ambil id_karyawan dari session
 $id_karyawan = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
-$dashboard_url = ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php';
+$dashboard_url = ($role === 'pemilik') ? '../dashboard/view_pemilik.php' : '../dashboard/view_admin.php';
 
 // ── CARI DATA KARYAWAN ──
 $user_data = null;
@@ -72,7 +72,7 @@ if (!$user_data) {
         <div class="error-debug"><strong>Debug Info:</strong><br>' . htmlspecialchars($debug_info) . '</div>
         <div>
             <a href="' . $dashboard_url . '" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard</a>
-            <a href="logout.php" class="btn-refresh"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="../login/logout.php" class="btn-refresh"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
         </div>
     </div>
     </body>
@@ -323,7 +323,7 @@ body::-webkit-scrollbar {
 <body>
 
 <aside class="sidebar">
-    <a href="<?= ($role === 'pemilik') ? 'view_pemilik.php' : 'view_admin.php' ?>" class="sb-brand">
+    <a href="<?= ($role === 'pemilik') ? '../dashboard/view_pemilik.php' : '../dashboard/view_admin.php' ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Management System</div></div>
     </a>
@@ -334,15 +334,15 @@ body::-webkit-scrollbar {
     <!-- ====== MENU PEMILIK / MANAJER ====== -->
     <div class="sb-section-label">Manajemen</div>
     <nav>
-        <a href="view_pemilik.php" class="sb-link">
+        <a href="../dashboard/view_pemilik.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="master/karyawan.php" class="sb-link">
+        <a href="../master/karyawan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
             Kelola Karyawan
         </a>
-        <a href="laporan/omzet.php" class="sb-link">
+        <a href="../laporan/omzet.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
             Laporan & Omzet
         </a>
@@ -351,35 +351,35 @@ body::-webkit-scrollbar {
     <!-- ====== MENU KARYAWAN ====== -->
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="view_admin.php" class="sb-link">
+        <a href="../dashboard/view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="master/customer.php" class="sb-link">
+        <a href="../master/customer.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Kelola Customer
         </a>
-        <a href="master/lapangan.php" class="sb-link">
+        <a href="../master/lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Kelola Lapangan
         </a>
-        <a href="master/fasilitas_lapangan.php" class="sb-link">
+        <a href="../master/fasilitas_lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
             Kelola Fasilitas
         </a>
-        <a href="master/jadwal.php" class="sb-link">
+        <a href="../master/jadwal.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
             Kelola Jadwal
         </a>
-        <a href="master/promo.php" class="sb-link">
+        <a href="../master/promo.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
             Kelola Promo
         </a>
-        <a href="master/tipe_member.php" class="sb-link">
+        <a href="../master/tipe_member.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
             Kelola Tipe Member
         </a>
-        <a href="master/alat.php" class="sb-link">
+        <a href="../master/alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
@@ -387,19 +387,19 @@ body::-webkit-scrollbar {
 
     <div class="sb-section-label">Transaksi</div>
     <nav>
-        <a href="master/booking.php" class="sb-link">
+        <a href="../transaksi/booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Kelola Booking
         </a>
-        <a href="master/langganan.php" class="sb-link">
+        <a href="../transaksi/langganan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
             Kelola Langganan
         </a>
-        <a href="master/pembelian.php" class="sb-link">
+        <a href="../transaksi/pembelian.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
             Kelola Pembelian Alat
         </a>
-        <a href="master/pembatalan.php" class="sb-link">
+        <a href="../transaksi/pembatalan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
             Kelola Pembatalan
         </a>
@@ -425,7 +425,7 @@ body::-webkit-scrollbar {
                 <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                 <div class="sb-user-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div>
             </div>
-            <a href="logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
+            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
@@ -453,7 +453,7 @@ body::-webkit-scrollbar {
                 <div class="dropdown-menu">
                     <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
-                    <a href="logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
             </div>
         </div>

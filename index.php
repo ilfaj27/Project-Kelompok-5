@@ -1987,7 +1987,7 @@ html::-webkit-scrollbar {
          NAVBAR
          ═══════════════════════════════════════════════════════════════ -->
     <nav class="navbar">
-        <a href="#" class="logo"><img src="logo2.png" alt="HoopBall"></a>
+        <a href="#" class="logo"><img src="asset/image/logo2.png" alt="HoopBall"></a>
         <div class="nav-menu">
             <a href="#beranda">Beranda</a>
             <a href="#lapangan">Lapangan</a>
@@ -1997,9 +1997,9 @@ html::-webkit-scrollbar {
         </div>
         <div class="nav-btns">
             <!-- LOGIN: Langsung ke login.php (TANPA animasi exit) -->
-            <a href="login.php" class="btn-login">Masuk</a>
+            <a href="login/login.php" class="btn-login">Masuk</a>
             <!-- DAFTAR: Langsung ke register.php (TANPA animasi exit) -->
-            <a href="register.php" class="btn-join">Daftar Sekarang</a>
+            <a href="login/register.php" class="btn-join">Daftar Sekarang</a>
         </div>
     </nav>
 
@@ -2013,7 +2013,7 @@ html::-webkit-scrollbar {
                 terbaik untuk pengalaman bermain yang seru!</p>
             <div class="hero-cta">
                 <!-- Pemesanan: Langsung ke register.php -->
-                <a href="register.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Pemesanan
+                <a href="login/register.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Pemesanan
                     Lapangan</a>
                 <!-- Lihat Jadwal: Smooth scroll ke section jadwal -->
                 <a href="#jadwal" class="btn-hero-secondary"><i class="fa-regular fa-clock"></i> Lihat Jadwal</a>
@@ -2022,7 +2022,7 @@ html::-webkit-scrollbar {
         <div class="hero-visual">
              <!-- Mengganti img dengan video -->
     <video autoplay loop muted playsinline>
-        <source src="video.mp4" type="video/mp4">
+        <source src="asset/image/video/video.mp4" type="video/mp4">
         Browser Anda tidak mendukung pemutaran video.
     </video>
             <div class="fade-overlay"></div>
@@ -2086,7 +2086,7 @@ html::-webkit-scrollbar {
         <div class="court-grid">
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="lapangan1.png" alt="Lapangan A">
+                    <img src="asset/image/lapangan1.png" alt="Lapangan A">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan A</h3>
@@ -2099,7 +2099,7 @@ html::-webkit-scrollbar {
             </div>
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="lapangan2.png" alt="Lapangan B">
+                    <img src="asset/image/lapangan2.png" alt="Lapangan B">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan B</h3>
@@ -2112,7 +2112,7 @@ html::-webkit-scrollbar {
             </div>
             <div class="court-card">
                 <div class="court-img-container">
-                    <img src="lapangan3.png" alt="Lapangan C">
+                    <img src="asset/image/lapangan3.png" alt="Lapangan C">
                 </div>
                 <div class="court-info">
                     <h3>Lapangan C</h3>
@@ -2237,7 +2237,7 @@ html::-webkit-scrollbar {
                 <div class="btn-promo-yellow">Setiap Sabtu & Minggu</div>
                 <div class="promo-terms">*Syarat & ketentuan berlaku</div>
             </div>
-            <img src="promo1.png" class="promo-player-img" alt="Basketball Player Promo">
+            <img src="asset/image/promo1.png" class="promo-player-img" alt="Basketball Player Promo">
         </div>
 
         <div class="location-map-card">
@@ -2271,7 +2271,7 @@ html::-webkit-scrollbar {
                 </a>
             </div>
             <div class="store-visual">
-                <img src="alat basket.png" class="store-gear-img" alt="Basketball Gear Layout">
+                <img src="asset/image/alat basket.png" class="store-gear-img" alt="Basketball Gear Layout">
             </div>
             <div class="store-features-shelf">
                 <div class="shelf-item">
@@ -2301,7 +2301,7 @@ html::-webkit-scrollbar {
         <div class="footer-grid">
             <div class="footer-brand">
                 <a href="#" class="logo">
-                    <img src="logo2.png" alt="HoopBall">
+                    <img src="asset/image/logo2.png" alt="HoopBall">
                 </a>
                 <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
                 <div class="social-links">

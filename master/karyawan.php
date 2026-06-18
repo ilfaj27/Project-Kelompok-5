@@ -3,7 +3,7 @@ session_start();
 include '../includes/config.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
-    echo "<script>alert('Akses Ditolak!'); window.location='../dashboard.php';</script>";
+    echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
 $nama = $_SESSION['nama'];
@@ -804,23 +804,23 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 </div>
 <!-- SIDEBAR -->
 <aside class="sidebar">
-    <a href="../view_pemilik.php" class="sb-brand">
+    <a href="../dashboard/view_pemilik.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
     </a>
     <div class="sb-section-label">Manajemen</div>
     <nav>
-        <a href="../view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
+        <a href="../dashboard/view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
         <a href="karyawan.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
         <a href="../laporan/omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
     </nav>
     <div class="sb-section-label">Akun</div>
-    <a href="../profile_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
+    <a href="../profile/profile_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar"><?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?></div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
-            <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
+            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
@@ -845,9 +845,9 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="../profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="../profile/profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
-                    <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
             </div>
         </div>

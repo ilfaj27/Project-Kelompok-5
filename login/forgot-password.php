@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'includes/config.php';
+include '../includes/config.php';
 
 $res_status = "";
 $res_msg = "";
@@ -196,7 +196,7 @@ if (isset($_POST['reset_password'])) {
 
         /* HERO AUTH WRAPPER */
         .auth-hero-wrapper {
-            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), url('login.png') no-repeat center center;
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), url('../asset/image/login.png') no-repeat center center;
             background-size: cover;
             padding: 120px 8% 80px 8%;
             display: grid;
@@ -811,10 +811,10 @@ html.swal2-shown {
             <div class="footer-col">
                 <h4>Tautan</h4>
                 <ul class="footer-links">
-                    <li><a href="index.php#lapangan">Lapangan</a></li>
-                    <li><a href="index.php#jadwal">Jadwal</a></li>
-                    <li><a href="index.php#member">Alat Basket</a></li>
-                    <li><a href="index.php#tentang-kami">Tentang Kami</a></li>
+                    <li><a href="../index.php#lapangan">Lapangan</a></li>
+                    <li><a href="../index.php#jadwal">Jadwal</a></li>
+                    <li><a href="../index.php#member">Alat Basket</a></li>
+                    <li><a href="../index.php#tentang-kami">Tentang Kami</a></li>
                 </ul>
             </div>
             <div class="footer-col">

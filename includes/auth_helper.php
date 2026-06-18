@@ -14,7 +14,7 @@ function cek_akses($role_yang_diizinkan) {
 
     // Jika tidak ada session role (belum login)
     if (!isset($_SESSION['role'])) {
-        header("Location: login.php"); // Sesuaikan path jika file ada di dalam folder
+        header("Location: ../login/login.php"); // Sesuaikan path jika file ada di dalam folder
         exit();
     }
 
@@ -22,7 +22,7 @@ function cek_akses($role_yang_diizinkan) {
     if (!in_array($_SESSION['role'], $role_yang_diizinkan)) {
         echo "<script>
                 alert('Akses Ditolak! Anda tidak punya izin untuk mengakses halaman ini.'); 
-                window.location='dashboard.php';
+                window.location='../dashboard/dashboard.php';
               </script>";
         exit();
     }
