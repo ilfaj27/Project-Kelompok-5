@@ -3,8 +3,8 @@
 // AJAX HANDLER — Cek Username Duplikat (inline, tanpa file terpisah)
 // ============================================================================
 if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (file_exists('../includes/config.php')) {
-        include '../includes/config.php';
+    if (file_exists('includes/config.php')) {
+        include 'includes/config.php';
     } elseif (file_exists('../includes/config.php')) {
         include '../includes/config.php';
     } else {
@@ -56,17 +56,17 @@ if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET')
 
 session_start();
 
-include '../includes/auth_helper.php';
+include 'includes/auth_helper.php';
 cek_akses('customer');
 
 $ID_Customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? $_SESSION['ID_Akun'] ?? '';
 if (empty($ID_Customer)) {
-    header("Location: ../login/login.php");
+    header("Location: login.php");
     exit();
 }
 
-if (file_exists('../includes/config.php')) {
-    include '../includes/config.php';
+if (file_exists('includes/config.php')) {
+    include 'includes/config.php';
 } elseif (file_exists('../includes/config.php')) {
     include '../includes/config.php';
 } else {
@@ -262,7 +262,7 @@ if (isset($_POST['delete_account'])) {
             // Hancurkan session dan arahkan kembali ke login
             session_unset();
             session_destroy();
-            header("Location: ../login/login.php?status=deleted");
+            header("Location: login.php?status=deleted");
             exit();
         } else {
             $swal_status = 'error';
@@ -532,7 +532,7 @@ function format_date_display($date) {
             gap: 10px;
         }
         .nav-logo img {
-            height: 70px;
+            height: 36px;
             width: auto;
         }
         .nav-logo span {
@@ -1320,7 +1320,7 @@ function format_date_display($date) {
             color: var(--white);
         }
         .footer-brand h3 img {
-            height: 70px;
+            height: 32px;
             width: auto;
         }
         .footer-brand p {
@@ -1571,12 +1571,13 @@ function format_date_display($date) {
 
 <!-- NAVBAR (PUTIH - TIDAK DIUBAH) -->
 <nav>
-    <a href="../dashboard/view_customer.php" class="nav-logo">
-        <img src="../asset/image/logo2.png" alt="HoopBall">
+    <a href="view_customer.php" class="nav-logo">
+        <img src="logo.png" alt="HoopBall">
+        <span>HoopBall</span>
     </a>
     <div class="nav-links">
-        <a href="../dashboard/view_customer.php" class="active">Beranda</a>
-        <a href="#">Booking</a>
+        <a href="view_customer.php" class="active">Beranda</a>
+        <a href="#">Lapangan</a>
         <a href="#">Jadwal</a>
         <a href="#">Member</a>
         <a href="#">Pembelian</a>
@@ -1599,11 +1600,11 @@ function format_date_display($date) {
                 <span class="u-name"><?php echo htmlspecialchars($nama); ?></span>
                 <span class="u-role">Customer</span>
             </div>
-            <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
+            <a href="profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
-            <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+            <a href="logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
 </nav>
@@ -1733,7 +1734,7 @@ function format_date_display($date) {
     <i class="fa-solid fa-user-minus"></i> Hapus Akun
 </button>
                     <div class="menu-btn-divider"></div>
-                    <a href="../login/logout.php" class="menu-btn" style="color: var(--primary);">
+                    <a href="logout.php" class="menu-btn" style="color: var(--primary);">
                         <i class="fa-solid fa-right-from-bracket"></i> Keluar
                     </a>
                 </div>
@@ -2160,7 +2161,7 @@ function format_date_display($date) {
         
         <!-- Kolom 1 -->
         <div class="footer-brand">
-            <h3><img src="../asset/image/logo.png" alt="HoopBall"></h3>
+            <h3><img src="logo.png" alt="HoopBall"> HoopBall</h3>
             <p>HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
             <div class="social-row">
                 <a href="#" class="social-circle"><i class="fa-brands fa-instagram"></i></a>
@@ -2174,7 +2175,7 @@ function format_date_display($date) {
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul class="footer-links-list">
-                <li><a href="../dashboard/view_customer.php">Beranda</a></li>
+                <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="#">Lapangan</a></li>
                 <li><a href="#">Jadwal</a></li>
                 <li><a href="#">Member</a></li>
