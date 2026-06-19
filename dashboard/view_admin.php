@@ -27,8 +27,21 @@ if (!empty($id_karyawan)) {
 if (empty($profile_photo)) {
     $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 }
-if (!empty($profile_photo) && !file_exists($profile_photo)) {
-    $profile_photo = '';
+
+// FIX: Sesuaikan path foto untuk folder dashboard/ (sama seperti customer.php tapi path relatif berbeda)
+$sidebar_photo = '';
+if (!empty($profile_photo)) {
+    if (strpos($profile_photo, '../') === 0) {
+        $sidebar_photo = $profile_photo;
+    } elseif (strpos($profile_photo, 'uploads/') === 0) {
+        $sidebar_photo = '../' . $profile_photo;
+    } else {
+        $sidebar_photo = '../uploads/profiles/' . $profile_photo;
+    }
+    // Cek file exists, jika tidak ada kosongkan
+    if (!file_exists($sidebar_photo)) {
+        $sidebar_photo = '';
+    }
 }
 
 function safeQuery($conn, $sql, $params = array()) {
@@ -351,8 +364,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($profile_photo): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile">
+                <?php if (!empty($sidebar_photo)): ?>
+                    <img src="<?= $sidebar_photo ?>" alt="Profile">
                 <?php else: ?>
                     <i class="fa-solid fa-user"></i>
                 <?php endif; ?>
@@ -380,8 +393,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div class="dropdown-wrap">
             <div class="topbar-user">
                 <div class="t-avatar">
-                    <?php if ($profile_photo): ?>
-                        <img src="<?= $profile_photo ?>" alt="Profile">
+                    <?php if (!empty($sidebar_photo)): ?>
+                        <img src="<?= $sidebar_photo ?>" alt="Profile">
                     <?php else: ?>
                         <i class="fa-solid fa-user"></i>
                     <?php endif; ?>
