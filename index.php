@@ -1,9 +1,15 @@
 <?php
+session_start();
+// Jika ada parameter load=done, tandai di session bahwa intro sudah selesai ditonton
+if (isset($_GET['load']) && $_GET['load'] === 'done') {
+    $_SESSION['intro_done'] = true;
+}
 
-if (!isset($_GET['load']) || $_GET['load'] !== 'done') {
+// Jika session penanda belum ada, arahkan pengguna ke intro.php
+if (!isset($_SESSION['intro_done'])) {
     header("Location: intro.php");
     exit();
-}
+}    
 
 // Mengamankan koneksi database jika file konfigurasi disertakan
 $total_lapangan = 15; // default fallback
