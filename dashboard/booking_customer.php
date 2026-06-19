@@ -98,7 +98,7 @@ if (!$has_member) {
 }
 
 // ============================================================================
-// AMBIL JADWAL TERSEDIA
+// AMBIL JADWAL TERSEDIA (Status=1 / Tersedia, belum di-booking aktif)
 // ============================================================================
 $jadwal_list = [];
 $q_jadwal = sqlsrv_query($conn,
@@ -116,6 +116,35 @@ $q_jadwal = sqlsrv_query($conn,
 if ($q_jadwal) {
     while ($r = sqlsrv_fetch_array($q_jadwal, SQLSRV_FETCH_ASSOC)) {
         $jadwal_list[] = $r;
+    }
+}
+
+// ============================================================================
+// RIWAYAT BOOKING CUSTOMER
+// ============================================================================
+$riwayat_list = [];
+$q_riwayat = sqlsrv_query($conn,
+    "SELECT B.ID_Booking, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
+            L.Nama_Lapangan, L.Harga_Sewa,
+            J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
+            P.Nama_Promo, P.Diskon,
+            T.Nama_Tipe, TM.Potongan_Harga AS Potong_Member
+     FROM Booking B
+     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+     LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+     LEFT JOIN Langganan LG ON LG.ID_Customer = B.ID_Customer
+         AND LG.Status = 1
+         AND B.Tanggal_Booking BETWEEN CAST(LG.Tanggal_Mulai AS DATE) AND CAST(LG.Tanggal_Selesai AS DATE)
+     LEFT JOIN Tipe_Member TM ON LG.ID_Tipe = TM.ID_Tipe
+     LEFT JOIN Tipe_Member T ON LG.ID_Tipe = T.ID_Tipe
+     WHERE B.ID_Customer = ?
+     ORDER BY B.Created_Date DESC",
+    array($id_customer)
+);
+if ($q_riwayat) {
+    while ($r = sqlsrv_fetch_array($q_riwayat, SQLSRV_FETCH_ASSOC)) {
+        $riwayat_list[] = $r;
     }
 }
 
@@ -154,7 +183,7 @@ if (isset($_GET['ajax_jadwal'])) {
 }
 
 // ============================================================================
-// AJAX: SUBMIT BOOKING
+// AJAX: SUBMIT BOOKING → INSERT & RETURN STATUS
 // ============================================================================
 if (isset($_POST['ajax_booking'])) {
     header('Content-Type: application/json');
@@ -164,19 +193,22 @@ if (isset($_POST['ajax_booking'])) {
     $metode      = trim($_POST['metode'] ?? '');
     $total_bayar = floatval($_POST['total_bayar'] ?? 0);
 
+    // Validasi dasar
     if (!$id_jadwal || !$metode || $total_bayar <= 0) {
         ob_end_clean();
         echo json_encode(['success' => false, 'msg' => 'Data tidak lengkap.']);
         exit();
     }
 
-    $allowed_methods = ['Virtual Account', 'QRIS'];
+    // Validasi metode
+    $allowed_methods = ['Transfer Bank', 'QRIS'];
     if (!in_array($metode, $allowed_methods)) {
         ob_end_clean();
         echo json_encode(['success' => false, 'msg' => 'Metode pembayaran tidak valid.']);
         exit();
     }
 
+    // Cek jadwal masih tersedia
     $cek_jadwal = sqlsrv_query($conn,
         "SELECT ID_Jadwal FROM Jadwal WHERE ID_Jadwal = ? AND Status = 1 AND Is_Deleted = 0",
         array($id_jadwal)
@@ -187,6 +219,7 @@ if (isset($_POST['ajax_booking'])) {
         exit();
     }
 
+    // Cek jadwal belum dibooking aktif
     $cek_conflict = sqlsrv_query($conn,
         "SELECT ID_Booking FROM Booking WHERE ID_Jadwal = ? AND Status IN (0,1,2)",
         array($id_jadwal)
@@ -197,6 +230,7 @@ if (isset($_POST['ajax_booking'])) {
         exit();
     }
 
+    // Ambil karyawan aktif secara random untuk assign (karena customer booking mandiri)
     $cek_kary = sqlsrv_query($conn,
         "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0 AND Jabatan = 1 ORDER BY NEWID()"
     );
@@ -206,6 +240,7 @@ if (isset($_POST['ajax_booking'])) {
         $id_karyawan = $rk ? intval($rk['ID_Karyawan']) : 0;
     }
     if (!$id_karyawan) {
+        // Fallback ke karyawan mana saja
         $cek_kary2 = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0");
         if ($cek_kary2) {
             $rk2 = sqlsrv_fetch_array($cek_kary2, SQLSRV_FETCH_ASSOC);
@@ -225,7 +260,7 @@ if (isset($_POST['ajax_booking'])) {
         $tanggal_booking,
         $metode,
         $total_bayar,
-        0,
+        0, // Status 0 = Menunggu Konfirmasi
         $created_by
     );
 
@@ -253,46 +288,7 @@ if (isset($_POST['ajax_booking'])) {
 }
 
 // ============================================================================
-// AJAX: BATALKAN BOOKING
-// ============================================================================
-if (isset($_POST['ajax_batal_booking'])) {
-    header('Content-Type: application/json');
-    $id_booking = intval($_POST['id_booking'] ?? 0);
-    
-    if (!$id_booking) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'ID booking tidak valid.']);
-        exit();
-    }
-    
-    $cek = sqlsrv_query($conn,
-        "SELECT ID_Booking, ID_Jadwal FROM Booking WHERE ID_Booking = ? AND ID_Customer = ? AND Status = 0",
-        array($id_booking, $id_customer)
-    );
-    $booking = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
-    
-    if (!$booking) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Booking tidak ditemukan atau sudah tidak bisa dibatalkan.']);
-        exit();
-    }
-    
-    $del = sqlsrv_query($conn, "DELETE FROM Booking WHERE ID_Booking = ?", array($id_booking));
-    
-    if ($del) {
-        ob_end_clean();
-        echo json_encode(['success' => true, 'msg' => 'Booking berhasil dibatalkan.']);
-    } else {
-        $errors = sqlsrv_errors();
-        $err_msg = $errors ? $errors[0]['message'] : 'Unknown error';
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Gagal membatalkan booking: ' . $err_msg]);
-    }
-    exit();
-}
-
-// ============================================================================
-// AJAX: CEK STATUS BOOKING
+// AJAX: CEK STATUS BOOKING (polling untuk transfer bank)
 // ============================================================================
 if (isset($_GET['ajax_cek_status'])) {
     header('Content-Type: application/json');
@@ -327,6 +323,13 @@ function formatJam($jam) {
 function rupiahFormat($n) {
     return 'Rp ' . number_format($n, 0, ',', '.');
 }
+
+$status_labels = [
+    0 => ['label' => 'Menunggu Konfirmasi', 'class' => 'sp-pending',  'icon' => 'fa-clock'],
+    1 => ['label' => 'Berhasil',            'class' => 'sp-active',   'icon' => 'fa-check-circle'],
+    2 => ['label' => 'Selesai',             'class' => 'sp-success',  'icon' => 'fa-flag-checkered'],
+    3 => ['label' => 'Dibatalkan',          'class' => 'sp-inactive', 'icon' => 'fa-ban'],
+];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -337,6 +340,7 @@ function rupiahFormat($n) {
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- QRCode library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
@@ -357,18 +361,15 @@ function rupiahFormat($n) {
             --blue: #007AFF;
             --blue-lt: rgba(0,122,255,.10);
         }
-        .swal-toast-front { z-index: 100000 !important; }
-        .swal2-container { z-index: 100000 !important; }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--white);
+            background: var(--light-bg);
             color: #111;
             overflow-x: hidden;
         }
 
-        /* ---- NAVBAR (PUTIH) — SAMA DENGAN VIEW_CUSTOMER ---- */
+        /* ---- NAVBAR ---- */
         nav {
             background: var(--white);
             padding: 0 80px;
@@ -383,12 +384,6 @@ function rupiahFormat($n) {
         }
         .nav-logo { display: flex; align-items: center; text-decoration: none; gap: 10px; }
         .nav-logo img { height: 70px; width: auto; }
-        .nav-logo span {
-            color: #1C1C1E;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
         .nav-links { display: flex; align-items: center; gap: 8px; }
         .nav-links a {
             color: #636366; text-decoration: none; font-size: 14px; font-weight: 500;
@@ -426,271 +421,66 @@ function rupiahFormat($n) {
         .dropdown-menu a.logout:hover { color: #ff3b30; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ---- HERO SECTION — SAMA DENGAN VIEW_CUSTOMER (DARK THEME) ---- */
-        .hero {
-            background-color: var(--dark-bg);
-            background-image: linear-gradient(180deg, rgba(11,11,12,0.6) 0%, rgba(11,11,12,0.9) 100%), url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2000');
-            background-size: cover;
-            background-position: center;
-            min-height: 600px;
-            padding: 60px 80px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 40px;
-        }
-        .hero-left { max-width: 620px; }
-        .hero-title {
-            font-size: 54px;
-            font-weight: 800;
+        /* ---- PAGE HERO ---- */
+        .page-hero {
+            background: linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.85)),
+                        url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=1500');
+            background-size: cover; background-position: center;
+            padding: 50px 80px;
             color: var(--white);
-            line-height: 1.15;
-            margin-bottom: 20px;
         }
-        .hero-title span { color: var(--primary); }
-        .hero-desc {
-            color: #A0A0A5;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 36px;
+        .page-hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 8px; }
+        .page-hero p { color: #AEAEB2; font-size: 15px; }
+        .page-hero .breadcrumb {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: #8E8E93; margin-bottom: 16px;
         }
-        .hero-btns { display: flex; gap: 16px; }
-        .btn-primary {
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 15px;
-            text-decoration: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.2s;
-        }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-outline {
-            background: transparent;
-            color: var(--white);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 15px;
-            text-decoration: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.2s;
-        }
-        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--white); }
+        .page-hero .breadcrumb a { color: #8E8E93; text-decoration: none; }
+        .page-hero .breadcrumb a:hover { color: var(--primary); }
+        .page-hero .breadcrumb i { font-size: 10px; }
 
-        /* MEMBER BADGE */
-        .member-badge-hero {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--green-lt);
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .member-badge-hero i { font-size: 14px; }
-
-        /* WIDGET CARI LAPANGAN — SAMA DENGAN VIEW_CUSTOMER */
-        .search-widget {
-            background: rgba(18, 18, 20, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            width: 440px;
-            padding: 28px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-        .widget-title {
-            color: var(--white);
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 24px;
-        }
-        .form-group {
-            margin-bottom: 16px;
-            position: relative;
-        }
-        .form-label {
-            display: block;
-            color: #A0A0A5;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .input-wrapper { position: relative; }
-        .input-wrapper i {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #636366;
-            font-size: 14px;
-        }
-        .form-select, .form-input {
-            width: 100%;
-            background: #1C1C1E;
-            border: 1px solid #2C2C2E;
-            border-radius: 8px;
-            padding: 12px 14px 12px 40px;
-            color: var(--white);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            appearance: none;
-            transition: 0.2s;
-        }
-        .form-select:focus, .form-input:focus { border-color: var(--primary); }
-        .form-select {
-            background-image: url("data:image/svg+xml;utf8,<svg fill='none' height='24' stroke='%238E8E93' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><polyline points='6 9 12 15 18 9'/></svg>");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            background-size: 16px;
-        }
-        .form-row-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        .btn-widget {
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            width: 100%;
-            padding: 14px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 14px;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .btn-widget:hover { background: var(--primary-hover); }
-
-        /* ---- ROW FITUR — SAMA DENGAN VIEW_CUSTOMER ---- */
-        .features-row {
-            padding: 40px 80px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 24px;
-            background: var(--white);
-            border-bottom: 1px solid #F2F2F7;
-        }
-        .feature-card {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-        .feature-icon-circle {
-            background: #FFF0E6;
-            width: 48px;
-            height: 48px;
-            min-width: 48px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .feature-icon-circle i {
-            color: var(--primary);
-            font-size: 20px;
-        }
-        .feature-text h4 {
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 6px;
-            color: #1C1C1E;
-        }
-        .feature-text p {
-            font-size: 13px;
-            color: #636366;
-            line-height: 1.5;
-        }
-
-        /* ---- MAIN CONTAINER — SAMA DENGAN VIEW_CUSTOMER ---- */
-        .main-container {
-            padding: 60px 80px;
+        /* ---- MAIN LAYOUT ---- */
+        .main-wrapper {
             max-width: 1440px;
             margin: 0 auto;
+            padding: 40px 80px 60px;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 30px;
+            align-items: start;
         }
 
-        /* ---- SECTION HEADER — SAMA DENGAN VIEW_CUSTOMER ---- */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 24px;
-        }
-        .section-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: #111;
-        }
-        .section-subtitle {
-            font-size: 14px;
-            color: #636366;
-            margin-top: 4px;
-        }
-        .section-action {
-            color: var(--primary);
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .section-action:hover { color: var(--primary-hover); }
-
-        /* ---- BOOKING FORM CARD — STYLE SAMA DENGAN VIEW_CUSTOMER CARDS ---- */
+        /* ---- BOOKING FORM CARD ---- */
         .booking-card {
             background: var(--white);
-            border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 40px;
-            margin-bottom: 40px;
+            border: 1px solid var(--border-color);
+            padding: 32px;
         }
         .booking-card-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 800;
             color: #1C1C1E;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .booking-card-title i { color: var(--primary); font-size: 22px; }
+        .booking-card-title i { color: var(--primary); font-size: 20px; }
 
         /* STEP INDICATOR */
         .step-indicator {
             display: flex;
             gap: 0;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
             position: relative;
         }
         .step-indicator::before {
             content: '';
             position: absolute;
-            top: 20px;
-            left: 40px;
-            right: 40px;
+            top: 18px;
+            left: 18px;
+            right: 18px;
             height: 2px;
             background: #E5E5EA;
             z-index: 0;
@@ -700,24 +490,22 @@ function rupiahFormat($n) {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             position: relative;
             z-index: 1;
         }
         .step-circle {
-            width: 40px; height: 40px;
+            width: 36px; height: 36px;
             border-radius: 50%;
             background: #E5E5EA;
             color: #8E8E93;
             display: flex; align-items: center; justify-content: center;
             font-size: 14px; font-weight: 800;
             transition: 0.3s;
-            border: 3px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .step-circle.active { background: var(--primary); color: var(--white); }
         .step-circle.done { background: var(--green); color: var(--white); }
-        .step-label { font-size: 12px; font-weight: 700; color: #8E8E93; text-align: center; }
+        .step-label { font-size: 11px; font-weight: 700; color: #8E8E93; text-align: center; }
         .step-label.active { color: var(--primary); }
         .step-label.done { color: var(--green); }
 
@@ -725,142 +513,139 @@ function rupiahFormat($n) {
         .form-section { display: none; }
         .form-section.visible { display: block; }
 
-        .form-group-booking { margin-bottom: 20px; }
-        .form-label-booking {
+        .form-group { margin-bottom: 20px; }
+        .form-label {
             display: block; font-size: 12px; font-weight: 700;
             color: #1C1C1E; margin-bottom: 8px;
+        }
+        .form-select, .form-input-field {
+            width: 100%;
+            background: #FAFAFA;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            padding: 13px 16px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #1C1C1E;
+            outline: none;
+            transition: 0.2s;
+            appearance: none;
+        }
+        .form-select:focus, .form-input-field:focus {
+            border-color: var(--primary);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(255,82,0,0.08);
+        }
+        .select-wrapper { position: relative; }
+        .select-wrapper i {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            color: #8E8E93; font-size: 13px; pointer-events: none;
         }
 
         /* LAPANGAN CARD GRID */
         .lapangan-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
+            gap: 14px;
             margin-top: 8px;
         }
         .lapangan-option {
             border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 16px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: 0.2s;
             position: relative;
-            background: white;
         }
-        .lapangan-option:hover { 
-            border-color: var(--primary); 
-            background: #FFF9F6; 
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(255,82,0,0.08);
-        }
-        .lapangan-option.selected { 
-            border-color: var(--primary); 
-            background: #FFF0E6; 
-        }
+        .lapangan-option:hover { border-color: var(--primary); background: #FFF9F6; }
+        .lapangan-option.selected { border-color: var(--primary); background: #FFF0E6; }
         .lapangan-option input[type="radio"] { display: none; }
-        .lap-name { font-size: 15px; font-weight: 800; color: #1C1C1E; margin-bottom: 6px; }
-        .lap-price { font-size: 14px; color: var(--primary); font-weight: 700; }
+        .lap-name { font-size: 14px; font-weight: 800; color: #1C1C1E; margin-bottom: 4px; }
+        .lap-price { font-size: 13px; color: var(--primary); font-weight: 700; }
         .lap-check {
-            position: absolute; top: 16px; right: 16px;
-            width: 24px; height: 24px; border-radius: 50%;
+            position: absolute; top: 12px; right: 12px;
+            width: 20px; height: 20px; border-radius: 50%;
             background: var(--border-color); border: none;
             display: flex; align-items: center; justify-content: center;
             transition: 0.2s;
         }
         .lapangan-option.selected .lap-check { background: var(--primary); }
-        .lapangan-option.selected .lap-check::after { content: '✓'; color: white; font-size: 12px; font-weight: 800; }
+        .lapangan-option.selected .lap-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 800; }
 
         /* JADWAL SLOT */
         .jadwal-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
+            gap: 10px;
             margin-top: 8px;
         }
         .jadwal-slot {
             border: 2px solid #E5E5EA;
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 10px;
+            padding: 12px;
             cursor: pointer;
             text-align: center;
-            transition: all 0.2s ease;
-            background: white;
+            transition: 0.2s;
         }
-        .jadwal-slot:hover { 
-            border-color: var(--primary); 
-            background: #FFF9F6; 
-            transform: translateY(-2px);
-        }
-        .jadwal-slot.selected { 
-            border-color: var(--primary); 
-            background: #FFF0E6; 
-        }
-        .slot-tanggal { font-size: 12px; color: #8E8E93; font-weight: 600; }
-        .slot-jam { font-size: 15px; font-weight: 800; color: #1C1C1E; margin: 4px 0; }
-        .slot-status { font-size: 11px; color: var(--green); font-weight: 700; }
-        .jadwal-empty { text-align: center; padding: 40px; color: #8E8E93; grid-column: span 3; }
-        .jadwal-empty i { font-size: 32px; margin-bottom: 12px; color: #AEAEB2; display: block; }
+        .jadwal-slot:hover { border-color: var(--primary); background: #FFF9F6; }
+        .jadwal-slot.selected { border-color: var(--primary); background: #FFF0E6; }
+        .slot-tanggal { font-size: 11px; color: #8E8E93; font-weight: 600; }
+        .slot-jam { font-size: 14px; font-weight: 800; color: #1C1C1E; margin: 2px 0; }
+        .slot-status { font-size: 10px; color: var(--green); font-weight: 700; }
+        .jadwal-empty { text-align: center; padding: 30px; color: #8E8E93; grid-column: span 3; }
+        .jadwal-empty i { font-size: 28px; margin-bottom: 8px; color: #AEAEB2; display: block; }
 
         /* METODE PEMBAYARAN */
         .metode-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 14px;
             margin-top: 8px;
         }
         .metode-card {
             border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px 20px;
+            border-radius: 12px;
+            padding: 20px 16px;
             cursor: pointer;
             text-align: center;
-            transition: all 0.2s ease;
-            background: white;
+            transition: 0.2s;
         }
-        .metode-card:hover { 
-            border-color: var(--primary); 
-            background: #FFF9F6; 
-            transform: translateY(-2px);
-        }
-        .metode-card.selected { 
-            border-color: var(--primary); 
-            background: #FFF0E6; 
-        }
+        .metode-card:hover { border-color: var(--primary); background: #FFF9F6; }
+        .metode-card.selected { border-color: var(--primary); background: #FFF0E6; }
         .metode-card input[type="radio"] { display: none; }
-        .metode-icon { font-size: 32px; margin-bottom: 10px; display: block; }
-        .metode-name { font-size: 15px; font-weight: 800; color: #1C1C1E; }
-        .metode-desc { font-size: 12px; color: #8E8E93; margin-top: 6px; }
+        .metode-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+        .metode-name { font-size: 14px; font-weight: 800; color: #1C1C1E; }
+        .metode-desc { font-size: 11px; color: #8E8E93; margin-top: 4px; }
 
         /* PROMO SELECT */
         .promo-option {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 16px 20px;
+            padding: 14px 16px;
             border: 1.5px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 10px;
             cursor: pointer;
-            margin-bottom: 12px;
-            transition: all 0.2s ease;
-            background: white;
+            margin-bottom: 10px;
+            transition: 0.2s;
         }
         .promo-option:hover { border-color: var(--primary); }
         .promo-option.selected { border-color: var(--primary); background: #FFF0E6; }
         .promo-option input[type="radio"] { accent-color: var(--primary); }
         .promo-detail { flex: 1; }
-        .promo-name { font-size: 14px; font-weight: 700; color: #1C1C1E; }
-        .promo-disc { font-size: 13px; color: var(--green); font-weight: 700; }
+        .promo-name { font-size: 13px; font-weight: 700; color: #1C1C1E; }
+        .promo-disc { font-size: 12px; color: var(--green); font-weight: 700; }
 
         /* NAVIGATION BUTTONS */
         .btn-row {
             display: flex;
             gap: 12px;
-            margin-top: 28px;
+            margin-top: 24px;
         }
         .btn-back {
             background: var(--white); color: #1C1C1E;
             border: 1.5px solid var(--border-color);
-            padding: 14px 28px; border-radius: 12px;
+            padding: 13px 28px; border-radius: 10px;
             font-size: 14px; font-weight: 700; cursor: pointer;
             transition: 0.2s;
         }
@@ -868,299 +653,259 @@ function rupiahFormat($n) {
         .btn-next {
             flex: 1;
             background: var(--primary); color: var(--white);
-            border: none; padding: 14px 28px; border-radius: 12px;
+            border: none; padding: 13px 28px; border-radius: 10px;
             font-size: 14px; font-weight: 700; cursor: pointer;
-            transition: all 0.2s ease; 
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .btn-next:hover { 
-            background: var(--primary-hover); 
-            transform: translateY(-1px);
-            box-shadow: 0 4px 16px rgba(255,82,0,0.25);
-        }
-        .btn-next:disabled { background: #AEAEB2; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-next:hover { background: var(--primary-hover); }
+        .btn-next:disabled { background: #AEAEB2; cursor: not-allowed; }
 
-        /* ---- MODAL STYLES ---- */
+        /* ---- SUMMARY SIDEBAR ---- */
+        .summary-card {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px;
+            position: sticky;
+            top: 96px;
+        }
+        .summary-title {
+            font-size: 16px; font-weight: 800; color: #1C1C1E; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .summary-title i { color: var(--primary); }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 12px 0; border-bottom: 1px solid #F2F2F7; font-size: 13px;
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .s-label { color: #636366; font-weight: 600; }
+        .s-value { color: #1C1C1E; font-weight: 700; text-align: right; max-width: 55%; }
+        .s-value.discount { color: var(--green); }
+        .s-total { font-size: 18px; font-weight: 800; color: var(--primary); }
+        .summary-divider { height: 1px; background: var(--border-color); margin: 8px 0; }
+        .member-badge-summary {
+            background: var(--green-lt); border: 1px solid var(--green);
+            color: var(--green); padding: 8px 14px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+            margin-bottom: 16px;
+        }
+        .summary-empty {
+            text-align: center; padding: 30px 0; color: #AEAEB2;
+        }
+        .summary-empty i { font-size: 40px; margin-bottom: 12px; display: block; }
+
+        /* ---- QRIS MODAL ---- */
         .modal-overlay {
             display: none;
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.7);
             z-index: 9999;
             align-items: center; justify-content: center;
-            padding: 20px;
         }
         .modal-overlay.show { display: flex; }
         .modal-box {
             background: var(--white);
-            border-radius: 24px;
-            padding: 0;
-            max-width: 420px;
-            width: 100%;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 440px;
+            width: 90%;
             text-align: center;
             animation: slideUp 0.3s ease-out;
-            overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
         }
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        .qris-header {
-            background: linear-gradient(135deg, var(--primary) 0%, #FF7A3D 100%);
-            padding: 32px 24px 24px;
-            color: var(--white);
-        }
-        .qris-header-icon {
-            width: 64px; height: 64px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 20px;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 16px;
-            font-size: 32px;
-            backdrop-filter: blur(10px);
-        }
-        .qris-header-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
-        .qris-header-sub { font-size: 14px; color: rgba(255,255,255,0.85); }
-        
-        .qris-body { padding: 32px 24px; }
-        .qris-merchant {
-            display: flex; align-items: center; justify-content: center;
-            gap: 10px; margin-bottom: 24px;
-        }
-        .qris-merchant-logo {
-            width: 36px; height: 36px;
-            background: var(--primary);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 18px;
-        }
-        .qris-merchant-name { font-size: 15px; font-weight: 700; color: #1C1C1E; }
-        
-        .qris-code-box {
+        .modal-title { font-size: 20px; font-weight: 800; color: #1C1C1E; margin-bottom: 6px; }
+        .modal-subtitle { font-size: 13px; color: #636366; margin-bottom: 24px; }
+        .qris-container {
             background: #FAFAFA;
-            border: 2px solid #F0F0F0;
-            border-radius: 20px;
-            padding: 28px;
-            margin-bottom: 24px;
-            display: flex; flex-direction: column; align-items: center;
-        }
-        #qrcode-canvas {
-            padding: 16px;
-            background: white;
+            border: 2px dashed var(--border-color);
             border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            padding: 24px;
             margin-bottom: 20px;
         }
+        #qrcode-canvas { margin: 0 auto; }
         .qris-amount {
-            font-size: 28px; font-weight: 800; color: var(--primary);
+            font-size: 22px; font-weight: 800; color: var(--primary); margin-top: 16px;
         }
-        .qris-amount-label {
-            font-size: 13px; color: #8E8E93; margin-top: 6px;
-        }
-        
+        .qris-note { font-size: 12px; color: #8E8E93; margin-top: 8px; }
         .qris-timer {
-            background: #FFF5F0;
-            border: 1.5px solid #FFD4C2;
-            border-radius: 14px;
-            padding: 16px 24px;
-            margin-bottom: 24px;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            font-size: 15px; font-weight: 700; color: var(--primary);
+            background: #FFF0E6; border: 1px solid #FFD2BC;
+            border-radius: 10px; padding: 12px;
+            font-size: 14px; font-weight: 700; color: var(--primary);
+            margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .qris-timer i { font-size: 20px; }
-        .qris-timer.expired {
-            background: #FFF5F5;
-            border-color: #FFD1D1;
-            color: var(--red);
-        }
-        
-        .qris-actions { padding: 0 24px 28px; }
         .btn-confirm-paid {
             background: var(--green); color: var(--white);
-            border: none; width: 100%; padding: 18px;
-            border-radius: 14px;
-            font-size: 16px; font-weight: 800;
+            border: none; width: 100%; padding: 14px;
+            border-radius: 10px; font-size: 15px; font-weight: 800;
             cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 14px rgba(52,199,89,0.3);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .btn-confirm-paid:hover { background: #28A745; transform: translateY(-1px); }
+        .btn-confirm-paid:hover { background: #28A745; }
         .btn-cancel-modal {
             background: none; border: none;
-            color: #8E8E93; font-size: 14px; cursor: pointer;
-            margin-top: 16px; display: block; width: 100%;
-            font-family: inherit; padding: 12px;
-            transition: 0.2s; font-weight: 600;
+            color: #8E8E93; font-size: 13px; cursor: pointer;
+            margin-top: 12px; display: block; width: 100%;
+            font-family: inherit; padding: 8px; transition: 0.2s;
         }
         .btn-cancel-modal:hover { color: var(--red); }
 
         /* TRANSFER MODAL */
-        .va-info-box {
+        .transfer-info-box {
             background: #F8F9FA; border: 1px solid var(--border-color);
-            border-radius: 14px; padding: 24px; margin-bottom: 24px; text-align: left;
+            border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: left;
         }
-        .va-row {
+        .transfer-row {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 0; border-bottom: 1px solid #EEEEEE; font-size: 14px;
+            padding: 10px 0; border-bottom: 1px solid #EEEEEE; font-size: 13px;
         }
-        .va-row:last-child { border-bottom: none; }
+        .transfer-row:last-child { border-bottom: none; }
         .tr-label { color: #636366; font-weight: 600; }
         .tr-value { color: #1C1C1E; font-weight: 800; }
-        .tr-value.highlight { color: var(--primary); font-size: 20px; }
+        .tr-value.highlight { color: var(--primary); font-size: 18px; }
         .copy-btn {
-            background: #F2F2F7; border: none; border-radius: 8px;
-            padding: 6px 12px; font-size: 12px; font-weight: 700;
+            background: #F2F2F7; border: none; border-radius: 6px;
+            padding: 4px 10px; font-size: 11px; font-weight: 700;
             cursor: pointer; color: #636366; transition: 0.2s;
         }
         .copy-btn:hover { background: var(--primary); color: white; }
-        .btn-sudah-va {
+        .btn-sudah-transfer {
             background: var(--primary); color: var(--white);
-            border: none; width: 100%; padding: 16px;
-            border-radius: 12px; font-size: 15px; font-weight: 800;
+            border: none; width: 100%; padding: 14px;
+            border-radius: 10px; font-size: 15px; font-weight: 800;
             cursor: pointer; transition: 0.2s;
         }
-        .btn-sudah-va:hover { background: var(--primary-hover); }
+        .btn-sudah-transfer:hover { background: var(--primary-hover); }
 
         /* WAITING MODAL */
-        .waiting-box { text-align: center; padding: 24px 0; }
+        .waiting-box { text-align: center; padding: 20px 0; }
         .waiting-spinner {
-            width: 72px; height: 72px; border-radius: 50%;
+            width: 64px; height: 64px; border-radius: 50%;
             border: 4px solid #E5E5EA; border-top-color: var(--primary);
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .waiting-text { font-size: 18px; font-weight: 700; color: #1C1C1E; margin-bottom: 10px; }
-        .waiting-sub { font-size: 14px; color: #8E8E93; }
+        .waiting-text { font-size: 16px; font-weight: 700; color: #1C1C1E; margin-bottom: 8px; }
+        .waiting-sub { font-size: 13px; color: #8E8E93; }
 
         /* SUCCESS MODAL */
         .success-icon-big {
-            width: 80px; height: 80px; border-radius: 50%;
+            width: 72px; height: 72px; border-radius: 50%;
             background: var(--green-lt); border: 2px solid var(--green);
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 24px; font-size: 36px; color: var(--green);
+            margin: 0 auto 20px; font-size: 32px; color: var(--green);
         }
 
-        /* ---- FOOTER — SAMA DENGAN VIEW_CUSTOMER ---- */
-        footer {
-            background: var(--dark-bg);
-            color: #8E8E93;
-            padding: 80px 80px 40px;
-            border-top: 1px solid #1C1C1E;
+        /* ---- RIWAYAT SECTION ---- */
+        .riwayat-section {
+            margin-top: 40px;
+            background: var(--white);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 32px;
+            grid-column: 1 / -1;
         }
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
-            gap: 40px;
-            margin-bottom: 60px;
-        }
-        .footer-logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        .footer-logo img {
-            height: 70px;
-        }
-        .footer-logo span {
-            color: var(--white);
-            font-size: 20px;
-            font-weight: 800;
-        }
-        .footer-desc {
-            font-size: 13px;
-            line-height: 1.6;
+        .riwayat-header {
+            display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 24px;
         }
-        .social-links {
-            display: flex;
-            gap: 12px;
+        .riwayat-title { font-size: 18px; font-weight: 800; color: #1C1C1E; }
+        .tab-filters { display: flex; gap: 8px; }
+        .tab-filter-btn {
+            background: none; border: 1.5px solid var(--border-color);
+            border-radius: 20px; padding: 6px 16px;
+            font-size: 13px; font-weight: 700; color: #636366; cursor: pointer; transition: 0.2s;
         }
-        .social-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #1C1C1E;
-            color: var(--white);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            transition: 0.2s;
-        }
-        .social-btn:hover {
-            background: var(--primary);
-        }
-        .footer-col h4 {
-            color: var(--white);
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .footer-col ul {
-            list-style: none;
-        }
-        .footer-col ul li {
-            margin-bottom: 12px;
-        }
-        .footer-col ul li a {
-            color: #8E8E93;
-            text-decoration: none;
-            font-size: 13px;
-            transition: 0.2s;
-        }
-        .footer-col ul li a:hover {
-            color: var(--white);
-        }
-        .contact-item {
-            display: flex;
-            gap: 12px;
-            font-size: 13px;
-            line-height: 1.5;
-            margin-bottom: 16px;
-        }
-        .contact-item i {
-            color: var(--primary);
-            font-size: 14px;
-            margin-top: 3px;
-        }
-        .footer-bottom {
-            border-top: 1px solid #1C1C1E;
-            padding-top: 30px;
-            text-align: center;
-            font-size: 13px;
-        }
+        .tab-filter-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+        .tab-filter-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
-        .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+        /* RIWAYAT TABLE */
+        .riwayat-table { width: 100%; border-collapse: collapse; }
+        .riwayat-table th {
+            font-size: 11px; font-weight: 700; color: #8E8E93;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 10px 16px; text-align: left;
+            background: #F8F9FA; border-bottom: 1px solid var(--border-color);
+        }
+        .riwayat-table th:first-child { border-radius: 8px 0 0 8px; }
+        .riwayat-table th:last-child { border-radius: 0 8px 8px 0; }
+        .riwayat-table td {
+            padding: 16px; border-bottom: 1px solid #F2F2F7;
+            font-size: 13px; vertical-align: middle;
+        }
+        .riwayat-table tr:last-child td { border-bottom: none; }
+        .riwayat-table tr:hover td { background: #FAFAFA; }
+        .r-court { font-size: 14px; font-weight: 800; color: #1C1C1E; }
+        .r-meta { font-size: 12px; color: #636366; margin-top: 3px; }
+        .r-price { font-size: 15px; font-weight: 800; color: var(--primary); }
+
+        /* STATUS PILLS */
+        .status-pill {
+            padding: 5px 12px; border-radius: 20px;
+            font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .sp-active  { background: var(--green-lt);  color: var(--green); }
+        .sp-success { background: var(--blue-lt);   color: var(--blue); }
+        .sp-pending { background: var(--yellow-lt); color: #D97706; }
+        .sp-inactive{ background: var(--red-lt);    color: var(--red); }
+
+        .riwayat-empty { text-align: center; padding: 50px 20px; color: #AEAEB2; }
+        .riwayat-empty i { font-size: 40px; margin-bottom: 12px; display: block; }
+
+        /* ---- FOOTER ---- */
+        footer {
+            background: var(--dark-bg); color: #8E8E93;
+            padding: 60px 80px 30px; border-top: 1px solid #1C1C1E;
+        }
+        .footer-inner {
+            max-width: 1440px; margin: 0 auto;
+            display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px;
+            margin-bottom: 40px;
+        }
+        .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .footer-logo img { height: 60px; }
+        .footer-desc { font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+        .social-links { display: flex; gap: 10px; }
+        .social-btn {
+            width: 34px; height: 34px; border-radius: 50%; background: #1C1C1E;
+            color: var(--white); display: flex; align-items: center; justify-content: center;
+            text-decoration: none; transition: 0.2s; font-size: 13px;
+        }
+        .social-btn:hover { background: var(--primary); }
+        .footer-col h4 { color: var(--white); font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+        .footer-col ul { list-style: none; }
+        .footer-col ul li { margin-bottom: 10px; }
+        .footer-col ul li a { color: #8E8E93; text-decoration: none; font-size: 13px; transition: 0.2s; }
+        .footer-col ul li a:hover { color: var(--white); }
+        .contact-item { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
+        .contact-item i { color: var(--primary); font-size: 13px; margin-top: 3px; }
+        .footer-bottom { border-top: 1px solid #1C1C1E; padding-top: 24px; text-align: center; font-size: 12px; }
 
         /* RESPONSIVE */
         @media(max-width: 1024px) {
-            .hero { flex-direction: column; min-height: auto; padding: 40px 40px; }
-            .hero-left { max-width: 100%; }
-            .hero-title { font-size: 36px; }
-            .search-widget { width: 100%; max-width: 440px; }
-            .features-row { grid-template-columns: repeat(2, 1fr); padding: 40px 40px; }
-            .main-container { padding: 40px 40px; }
-            .lapangan-grid { grid-template-columns: 1fr; }
-            .jadwal-grid { grid-template-columns: repeat(2, 1fr); }
+            .main-wrapper { grid-template-columns: 1fr; padding: 30px 30px 50px; }
+            .summary-card { position: static; }
         }
         @media(max-width: 768px) {
             nav { padding: 0 20px; }
-            .hero { padding: 40px 20px; }
-            .hero-title { font-size: 28px; }
-            .features-row { grid-template-columns: 1fr; padding: 30px 20px; }
-            .main-container { padding: 30px 20px; }
-            .jadwal-grid { grid-template-columns: 1fr; }
+            .page-hero { padding: 40px 20px; }
+            .lapangan-grid { grid-template-columns: 1fr; }
+            .jadwal-grid { grid-template-columns: repeat(2, 1fr); }
+            .riwayat-section { padding: 20px; }
             footer { padding: 40px 20px 20px; }
-            .footer-grid { grid-template-columns: 1fr 1fr; }
+            .footer-inner { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
 
-<!-- NAVBAR — SAMA DENGAN VIEW_CUSTOMER -->
+<!-- NAVBAR -->
 <nav>
     <a href="../dashboard/view_customer.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
@@ -1198,284 +943,423 @@ function rupiahFormat($n) {
     </div>
 </nav>
 
-<!-- HERO SECTION — SAMA DENGAN VIEW_CUSTOMER -->
-<header class="hero">
-    <div class="hero-left">
-        <?php if ($has_member): ?>
-        <div class="member-badge-hero">
-            <i class="fa-solid fa-crown"></i> Member <?= htmlspecialchars($member_tipe) ?> Aktif
-        </div>
-        <?php endif; ?>
-        <h1 class="hero-title">Booking Lapangan<br>Basket Jadi<br><span>Lebih Mudah</span></h1>
-        <p class="hero-desc">Pilih lapangan, jadwal, dan metode pembayaran untuk melengkapi reservasi Anda. Cek ketersediaan real-time dan nikmati promo khusus member.</p>
-        <div class="hero-btns">
-            <a href="#booking-form" class="btn-primary">
-                <i class="fa-solid fa-calendar-check"></i> Booking Sekarang
-            </a>
-            <a href="../dashboard/view_customer.php" class="btn-outline">
-                <i class="fa-solid fa-house"></i> Kembali ke Beranda
-            </a>
-        </div>
+<!-- PAGE HERO -->
+<section class="page-hero">
+    <div class="breadcrumb">
+        <a href="../dashboard/view_customer.php">Beranda</a>
+        <i class="fa-solid fa-chevron-right"></i>
+        <span style="color: var(--primary);">Booking Lapangan</span>
     </div>
-
-    <!-- Search Widget — SAMA DENGAN VIEW_CUSTOMER -->
-    <div class="search-widget">
-        <h3 class="widget-title"><i class="fa-solid fa-magnifying-glass"></i> Cari & Booking</h3>
-        <div class="form-group">
-            <label class="form-label">Pilih Lapangan</label>
-            <div class="input-wrapper">
-                <i class="fa-solid fa-basketball"></i>
-                <select class="form-select" id="hero-lapangan" onchange="pilihLapanganHero(this)">
-                    <option value="">Semua Lapangan</option>
-                    <?php foreach ($lapangan_list as $lap): ?>
-                    <option value="<?= $lap['ID_Lapangan'] ?>" data-harga="<?= $lap['Harga_Sewa'] ?>" data-nama="<?= htmlspecialchars($lap['Nama_Lapangan']) ?>">
-                        <?= htmlspecialchars($lap['Nama_Lapangan']) ?>
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-        </div>
-        <div class="form-row-2">
-            <div class="form-group">
-                <label class="form-label">Tanggal</label>
-                <div class="input-wrapper">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <input type="date" class="form-input" id="hero-tanggal" value="<?= date('Y-m-d') ?>">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Jam</label>
-                <div class="input-wrapper">
-                    <i class="fa-solid fa-clock"></i>
-                    <input type="time" class="form-input" id="hero-jam" value="18:00">
-                </div>
-            </div>
-        </div>
-        <button class="btn-widget" onclick="lanjutkanBooking()">
-            <i class="fa-solid fa-calendar-check"></i> Lanjutkan Booking
-        </button>
-    </div>
-</header>
-
-<!-- FITUR ROW — SAMA DENGAN VIEW_CUSTOMER -->
-<section class="features-row">
-    <div class="feature-card">
-        <div class="feature-icon-circle"><i class="fa-solid fa-calendar-check"></i></div>
-        <div class="feature-text">
-            <h4>Booking Online</h4>
-            <p>Pesan lapangan kapan saja di mana saja dengan mudah dan cepat.</p>
-        </div>
-    </div>
-    <div class="feature-card">
-        <div class="feature-icon-circle"><i class="fa-solid fa-clock"></i></div>
-        <div class="feature-text">
-            <h4>Jadwal Real-Time</h4>
-            <p>Cek ketersediaan lapangan secara real-time dan akurat setiap saat.</p>
-        </div>
-    </div>
-    <div class="feature-card">
-        <div class="feature-icon-circle"><i class="fa-solid fa-tags"></i></div>
-        <div class="feature-text">
-            <h4>Promo Member</h4>
-            <p>Dapatkan promo menarik dan diskon eksklusif untuk member setia.</p>
-        </div>
-    </div>
-    <div class="feature-card">
-        <div class="feature-icon-circle"><i class="fa-solid fa-award"></i></div>
-        <div class="feature-text">
-            <h4>Lapangan Berkualitas</h4>
-            <p>Lapangan terawat, nyaman, dan standar profesional untuk pengalaman terbaik.</p>
-        </div>
-    </div>
+    <h1>Booking Lapangan Basket</h1>
+    <p>Pilih lapangan, jadwal, dan metode pembayaran untuk melengkapi reservasi Anda.</p>
 </section>
 
-<!-- MAIN CONTENT — SAMA DENGAN VIEW_CUSTOMER -->
-<main class="main-container" id="booking-form">
+<!-- MAIN CONTENT -->
+<div class="main-wrapper">
 
-    <!-- BOOKING FORM -->
-    <div class="booking-card">
-        <div class="booking-card-title">
-            <i class="fa-solid fa-basketball"></i>
-            Form Booking Lapangan
-        </div>
+    <!-- LEFT: BOOKING FORM -->
+    <div>
+        <div class="booking-card">
+            <div class="booking-card-title">
+                <i class="fa-solid fa-basketball"></i>
+                Form Booking Lapangan
+            </div>
 
-        <!-- STEP INDICATOR -->
-        <div class="step-indicator">
-            <div class="step-item">
-                <div class="step-circle active" id="step-circle-1">1</div>
-                <div class="step-label active" id="step-label-1">Pilih Lapangan</div>
-            </div>
-            <div class="step-item">
-                <div class="step-circle" id="step-circle-2">2</div>
-                <div class="step-label" id="step-label-2">Pilih Jadwal</div>
-            </div>
-            <div class="step-item">
-                <div class="step-circle" id="step-circle-3">3</div>
-                <div class="step-label" id="step-label-3">Promo</div>
-            </div>
-            <div class="step-item">
-                <div class="step-circle" id="step-circle-4">4</div>
-                <div class="step-label" id="step-label-4">Pembayaran</div>
-            </div>
-        </div>
-
-        <!-- STEP 1: PILIH LAPANGAN -->
-        <div class="form-section visible" id="step-1">
-            <p style="font-size: 14px; color: #636366; margin-bottom: 20px;">Pilih lapangan basket yang ingin Anda sewa.</p>
-            <div class="lapangan-grid">
-                <?php foreach ($lapangan_list as $lap): ?>
-                <label class="lapangan-option" onclick="pilihLapangan(<?= $lap['ID_Lapangan'] ?>, '<?= htmlspecialchars($lap['Nama_Lapangan']) ?>', <?= $lap['Harga_Sewa'] ?>)" data-id="<?= $lap['ID_Lapangan'] ?>">
-                    <input type="radio" name="lapangan" value="<?= $lap['ID_Lapangan'] ?>">
-                    <span class="lap-check" id="check-lap-<?= $lap['ID_Lapangan'] ?>"></span>
-                    <div class="lap-name"><?= htmlspecialchars($lap['Nama_Lapangan']) ?></div>
-                    <div class="lap-price"><?= rupiahFormat($lap['Harga_Sewa']) ?> / jam</div>
-                </label>
-                <?php endforeach; ?>
-                <?php if (empty($lapangan_list)): ?>
-                <div style="grid-column: span 2; text-align: center; padding: 40px; color: #8E8E93;">
-                    <i class="fa-solid fa-circle-info" style="font-size: 32px; margin-bottom: 12px; color: var(--primary);"></i>
-                    <p>Tidak ada lapangan aktif saat ini.</p>
+            <!-- STEP INDICATOR -->
+            <div class="step-indicator">
+                <div class="step-item">
+                    <div class="step-circle active" id="step-circle-1">1</div>
+                    <div class="step-label active" id="step-label-1">Pilih Lapangan</div>
                 </div>
-                <?php endif; ?>
-            </div>
-            <div class="btn-row" style="margin-top: 32px;">
-                <button class="btn-next" id="btn-next-1" onclick="goStep(2)" disabled>
-                    Pilih Jadwal <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- STEP 2: PILIH JADWAL -->
-        <div class="form-section" id="step-2">
-            <p style="font-size: 14px; color: #636366; margin-bottom: 20px;">Pilih jadwal yang tersedia untuk lapangan yang dipilih.</p>
-            <div class="jadwal-grid" id="jadwal-grid-container">
-                <div class="jadwal-empty">
-                    <i class="fa-regular fa-calendar-xmark"></i>
-                    Memuat jadwal...
+                <div class="step-item">
+                    <div class="step-circle" id="step-circle-2">2</div>
+                    <div class="step-label" id="step-label-2">Pilih Jadwal</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle" id="step-circle-3">3</div>
+                    <div class="step-label" id="step-label-3">Promo</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle" id="step-circle-4">4</div>
+                    <div class="step-label" id="step-label-4">Pembayaran</div>
                 </div>
             </div>
-            <div class="btn-row">
-                <button class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                <button class="btn-next" id="btn-next-2" onclick="goStep(3)" disabled>
-                    <?php if (!$has_member): ?>Pilih Promo<?php else: ?>Pilih Pembayaran<?php endif; ?> <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-        </div>
 
-        <!-- STEP 3: PROMO / LANGSUNG LANJUT JIKA MEMBER -->
-        <div class="form-section" id="step-3">
-            <?php if ($has_member): ?>
-                <div style="text-align: center; padding: 40px 0;">
-                    <div style="background: var(--green-lt); border: 1px solid var(--green); border-radius: 16px; padding: 28px; margin-bottom: 24px;">
-                        <i class="fa-solid fa-crown" style="color: var(--green); font-size: 32px; margin-bottom: 14px; display: block;"></i>
-                        <div style="font-weight: 800; color: var(--green); font-size: 16px;">Potongan Member <?= htmlspecialchars($member_tipe) ?> Aktif!</div>
-                        <div style="font-size: 14px; color: #636366; margin-top: 8px;">Anda mendapatkan potongan <strong><?= rupiahFormat($member_potong) ?></strong> secara otomatis.</div>
-                    </div>
-                    <p style="font-size: 14px; color: #8E8E93;">Promo tidak dapat digunakan bersamaan dengan keuntungan member.</p>
-                </div>
-            <?php else: ?>
-                <p style="font-size: 14px; color: #636366; margin-bottom: 20px;">Gunakan promo untuk mendapatkan potongan harga (opsional).</p>
-                <?php if (!empty($promo_list)): ?>
-                    <label class="promo-option" id="promo-none" onclick="pilihPromo(0, 0, 'Tanpa Promo')">
-                        <input type="radio" name="promo" value="0" checked>
-                        <div class="promo-detail">
-                            <div class="promo-name">Tanpa Promo</div>
-                            <div style="font-size: 13px; color: #8E8E93;">Bayar dengan harga normal</div>
-                        </div>
-                    </label>
-                    <?php foreach ($promo_list as $pr): ?>
-                    <label class="promo-option" id="promo-<?= $pr['ID_Promo'] ?>" onclick="pilihPromo(<?= $pr['ID_Promo'] ?>, <?= $pr['Diskon'] ?>, '<?= htmlspecialchars($pr['Nama_Promo']) ?>')">
-                        <input type="radio" name="promo" value="<?= $pr['ID_Promo'] ?>">
-                        <div class="promo-detail">
-                            <div class="promo-name"><?= htmlspecialchars($pr['Nama_Promo']) ?></div>
-                            <div class="promo-disc"><i class="fa-solid fa-tags"></i> Hemat <?= rupiahFormat($pr['Diskon']) ?></div>
-                        </div>
-                        <span style="font-size: 20px; font-weight: 800; color: var(--primary);">-<?= rupiahFormat($pr['Diskon']) ?></span>
+            <!-- STEP 1: PILIH LAPANGAN -->
+            <div class="form-section visible" id="step-1">
+                <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Pilih lapangan basket yang ingin Anda sewa.</p>
+                <div class="lapangan-grid">
+                    <?php foreach ($lapangan_list as $lap): ?>
+                    <label class="lapangan-option" onclick="pilihLapangan(<?= $lap['ID_Lapangan'] ?>, '<?= htmlspecialchars($lap['Nama_Lapangan']) ?>', <?= $lap['Harga_Sewa'] ?>)">
+                        <input type="radio" name="lapangan" value="<?= $lap['ID_Lapangan'] ?>">
+                        <span class="lap-check" id="check-lap-<?= $lap['ID_Lapangan'] ?>"></span>
+                        <div class="lap-name"><?= htmlspecialchars($lap['Nama_Lapangan']) ?></div>
+                        <div class="lap-price"><?= rupiahFormat($lap['Harga_Sewa']) ?> / jam</div>
                     </label>
                     <?php endforeach; ?>
-                <?php else: ?>
-                    <div style="text-align: center; padding: 40px; background: #F8F9FA; border-radius: 16px; color: #8E8E93;">
-                        <i class="fa-solid fa-tag" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-                        Tidak ada promo aktif saat ini. Harga normal akan diterapkan.
+                    <?php if (empty($lapangan_list)): ?>
+                    <div style="grid-column: span 2; text-align: center; padding: 30px; color: #8E8E93;">
+                        <i class="fa-solid fa-circle-info" style="font-size: 24px; margin-bottom: 8px; color: var(--primary);"></i>
+                        <p>Tidak ada lapangan aktif saat ini.</p>
                     </div>
+                    <?php endif; ?>
+                </div>
+                <div class="btn-row" style="margin-top: 28px;">
+                    <button class="btn-next" id="btn-next-1" onclick="goStep(2)" disabled>
+                        Pilih Jadwal <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: PILIH JADWAL -->
+            <div class="form-section" id="step-2">
+                <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Pilih jadwal yang tersedia untuk lapangan yang dipilih.</p>
+                <div class="jadwal-grid" id="jadwal-grid-container">
+                    <div class="jadwal-empty">
+                        <i class="fa-regular fa-calendar-xmark"></i>
+                        Memuat jadwal...
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                    <button class="btn-next" id="btn-next-2" onclick="goStep(3)" disabled>
+                        <?php if (!$has_member): ?>Pilih Promo<?php else: ?>Pilih Pembayaran<?php endif; ?> <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: PROMO / LANGSUNG LANJUT JIKA MEMBER -->
+            <div class="form-section" id="step-3">
+                <?php if ($has_member): ?>
+                    <!-- Member langsung skip promo -->
+                    <div style="text-align: center; padding: 30px 0;">
+                        <div style="background: var(--green-lt); border: 1px solid var(--green); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <i class="fa-solid fa-crown" style="color: var(--green); font-size: 28px; margin-bottom: 10px; display: block;"></i>
+                            <div style="font-weight: 800; color: var(--green); font-size: 15px;">Potongan Member <?= htmlspecialchars($member_tipe) ?> Aktif!</div>
+                            <div style="font-size: 13px; color: #636366; margin-top: 6px;">Anda mendapatkan potongan <strong><?= rupiahFormat($member_potong) ?></strong> secara otomatis.</div>
+                        </div>
+                        <p style="font-size: 13px; color: #8E8E93;">Promo tidak dapat digunakan bersamaan dengan keuntungan member.</p>
+                    </div>
+                <?php else: ?>
+                    <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Gunakan promo untuk mendapatkan potongan harga (opsional).</p>
+                    <?php if (!empty($promo_list)): ?>
+                        <label class="promo-option" id="promo-none" onclick="pilihPromo(0, 0, 'Tanpa Promo')">
+                            <input type="radio" name="promo" value="0" checked>
+                            <div class="promo-detail">
+                                <div class="promo-name">Tanpa Promo</div>
+                                <div style="font-size: 12px; color: #8E8E93;">Bayar dengan harga normal</div>
+                            </div>
+                        </label>
+                        <?php foreach ($promo_list as $pr): ?>
+                        <label class="promo-option" id="promo-<?= $pr['ID_Promo'] ?>" onclick="pilihPromo(<?= $pr['ID_Promo'] ?>, <?= $pr['Diskon'] ?>, '<?= htmlspecialchars($pr['Nama_Promo']) ?>')">
+                            <input type="radio" name="promo" value="<?= $pr['ID_Promo'] ?>">
+                            <div class="promo-detail">
+                                <div class="promo-name"><?= htmlspecialchars($pr['Nama_Promo']) ?></div>
+                                <div class="promo-disc"><i class="fa-solid fa-tags"></i> Hemat <?= rupiahFormat($pr['Diskon']) ?></div>
+                            </div>
+                            <span style="font-size: 18px; font-weight: 800; color: var(--primary);">-<?= rupiahFormat($pr['Diskon']) ?></span>
+                        </label>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div style="text-align: center; padding: 30px; background: #F8F9FA; border-radius: 12px; color: #8E8E93;">
+                            <i class="fa-solid fa-tag" style="font-size: 28px; margin-bottom: 10px; display: block;"></i>
+                            Tidak ada promo aktif saat ini. Harga normal akan diterapkan.
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
-            <?php endif; ?>
-            <div class="btn-row">
-                <button class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                <button class="btn-next" onclick="goStep(4)">
-                    Pilih Pembayaran <i class="fa-solid fa-arrow-right"></i>
-                </button>
+                <div class="btn-row">
+                    <button class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                    <button class="btn-next" onclick="goStep(4)">
+                        Pilih Pembayaran <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 4: METODE PEMBAYARAN -->
+            <div class="form-section" id="step-4">
+                <p style="font-size: 13px; color: #636366; margin-bottom: 20px;">Pilih metode pembayaran online untuk menyelesaikan booking.</p>
+                <div class="metode-grid">
+                    <label class="metode-card" id="card-qris" onclick="pilihMetode('QRIS')">
+                        <input type="radio" name="metode" value="QRIS">
+                        <span class="metode-icon">📱</span>
+                        <div class="metode-name">QRIS</div>
+                        <div class="metode-desc">Scan & bayar langsung</div>
+                    </label>
+                    <label class="metode-card" id="card-transfer" onclick="pilihMetode('Transfer Bank')">
+                        <input type="radio" name="metode" value="Transfer Bank">
+                        <span class="metode-icon">🏦</span>
+                        <div class="metode-name">Transfer Bank</div>
+                        <div class="metode-desc">Transfer ke rekening tujuan</div>
+                    </label>
+                </div>
+
+                <!-- RINGKASAN SEBELUM BAYAR -->
+                <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; margin-top: 20px;" id="final-summary-box">
+                    <div style="font-size: 13px; font-weight: 700; color: #1C1C1E; margin-bottom: 12px;">Ringkasan Pesanan</div>
+                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+                        <span style="color: #636366;">Lapangan</span><span id="fs-lapangan" style="font-weight: 700;">-</span>
+                    </div>
+                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+                        <span style="color: #636366;">Jadwal</span><span id="fs-jadwal" style="font-weight: 700;">-</span>
+                    </div>
+                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+                        <span style="color: #636366;">Harga Sewa</span><span id="fs-harga" style="font-weight: 700;">-</span>
+                    </div>
+                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;" id="fs-potongan-row">
+                        <span style="color: #636366;" id="fs-potongan-label">Potongan</span>
+                        <span id="fs-potongan" style="font-weight: 700; color: var(--green);">-</span>
+                    </div>
+                    <div style="height: 1px; background: #E5E5EA; margin: 12px 0;"></div>
+                    <div style="display:flex; justify-content: space-between; font-size: 16px;">
+                        <span style="font-weight: 800; color: #1C1C1E;">Total Bayar</span>
+                        <span id="fs-total" style="font-weight: 800; color: var(--primary);">-</span>
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                    <button class="btn-next" id="btn-bayar" onclick="prosesBooking()" disabled>
+                        <i class="fa-solid fa-lock"></i> Bayar Sekarang
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- STEP 4: METODE PEMBAYARAN -->
-        <div class="form-section" id="step-4">
-            <p style="font-size: 14px; color: #636366; margin-bottom: 20px;">Pilih metode pembayaran online untuk menyelesaikan booking.</p>
-            <div class="metode-grid">
-                <label class="metode-card" id="card-qris" onclick="pilihMetode('QRIS', this)">
-                    <input type="radio" name="metode" value="QRIS">
-                    <span class="metode-icon">📱</span>
-                    <div class="metode-name">QRIS</div>
-                    <div class="metode-desc">Scan & bayar langsung</div>
-                </label>
-                <label class="metode-card" id="card-va" onclick="pilihMetode('Virtual Account', this)">
-                    <input type="radio" name="metode" value="Virtual Account">
-                    <span class="metode-icon">🏦</span>
-                    <div class="metode-name">Virtual Account</div>
-                    <div class="metode-desc">Bayar via Virtual Account</div>
-                </label>
-            </div>
-
-            <!-- RINGKASAN SEBELUM BAYAR -->
-            <div style="background: #F8F9FA; border-radius: 16px; padding: 24px; margin-top: 24px;" id="final-summary-box">
-                <div style="font-size: 14px; font-weight: 700; color: #1C1C1E; margin-bottom: 16px;">Ringkasan Pesanan</div>
-                <div style="display:flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;">
-                    <span style="color: #636366;">Lapangan</span><span id="fs-lapangan" style="font-weight: 700;">-</span>
-                </div>
-                <div style="display:flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;">
-                    <span style="color: #636366;">Jadwal</span><span id="fs-jadwal" style="font-weight: 700;">-</span>
-                </div>
-                <div style="display:flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;">
-                    <span style="color: #636366;">Harga Sewa</span><span id="fs-harga" style="font-weight: 700;">-</span>
-                </div>
-                <div style="display:flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;" id="fs-potongan-row">
-                    <span style="color: #636366;" id="fs-potongan-label">Potongan</span>
-                    <span id="fs-potongan" style="font-weight: 700; color: var(--green);">-</span>
-                </div>
-                <div style="height: 1px; background: #E5E5EA; margin: 16px 0;"></div>
-                <div style="display:flex; justify-content: space-between; font-size: 18px;">
-                    <span style="font-weight: 800; color: #1C1C1E;">Total Bayar</span>
-                    <span id="fs-total" style="font-weight: 800; color: var(--primary);">-</span>
+        <!-- RIWAYAT BOOKING -->
+        <div class="riwayat-section">
+            <div class="riwayat-header">
+                <div class="riwayat-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i> Riwayat Booking Saya</div>
+                <div class="tab-filters">
+                    <button class="tab-filter-btn active" onclick="filterRiwayat('semua', this)">Semua</button>
+                    <button class="tab-filter-btn" onclick="filterRiwayat('0', this)">Menunggu</button>
+                    <button class="tab-filter-btn" onclick="filterRiwayat('1', this)">Berhasil</button>
+                    <button class="tab-filter-btn" onclick="filterRiwayat('2', this)">Selesai</button>
+                    <button class="tab-filter-btn" onclick="filterRiwayat('3', this)">Dibatalkan</button>
                 </div>
             </div>
-
-            <div class="btn-row">
-                <button class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                <button class="btn-next" id="btn-bayar" onclick="prosesBooking()" disabled>
-                    <i class="fa-solid fa-lock"></i> Bayar Sekarang
-                </button>
+            <?php if (!empty($riwayat_list)): ?>
+            <table class="riwayat-table" id="riwayat-tbl">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Lapangan & Jadwal</th>
+                        <th>Tgl Booking</th>
+                        <th>Metode</th>
+                        <th>Diskon</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($riwayat_list as $i => $r):
+                        $sl = $status_labels[$r['Status']] ?? $status_labels[0];
+                        $potongan_info = '';
+                        if ($r['Nama_Promo']) {
+                            $potongan_info = '<span style="color: var(--green); font-size:11px; font-weight:700;">🏷️ '
+                                . htmlspecialchars($r['Nama_Promo']) . '<br>-' . rupiahFormat($r['Diskon']) . '</span>';
+                        } elseif ($r['Nama_Tipe']) {
+                            $potongan_info = '<span style="color: var(--green); font-size:11px; font-weight:700;">👑 Member '
+                                . htmlspecialchars($r['Nama_Tipe']) . '<br>-' . rupiahFormat($r['Potong_Member']) . '</span>';
+                        } else {
+                            $potongan_info = '<span style="color:#8E8E93; font-size:12px;">-</span>';
+                        }
+                    ?>
+                    <tr data-status="<?= $r['Status'] ?>">
+                        <td style="font-size: 12px; color: #8E8E93; font-weight: 700;">#<?= str_pad($r['ID_Booking'], 4, '0', STR_PAD_LEFT) ?></td>
+                        <td>
+                            <div class="r-court"><?= htmlspecialchars($r['Nama_Lapangan']) ?></div>
+                            <div class="r-meta">
+                                <i class="fa-regular fa-calendar"></i> <?= formatTanggal($r['Tanggal']) ?>
+                                &nbsp;|&nbsp;
+                                <i class="fa-regular fa-clock"></i> <?= formatJam($r['Jam_Mulai']) ?> - <?= formatJam($r['Jam_Selesai']) ?>
+                            </div>
+                        </td>
+                        <td style="font-size: 13px; color: #636366;"><?= formatTanggal($r['Tanggal_Booking']) ?></td>
+                        <td>
+                            <span style="font-size: 13px; font-weight: 600;">
+                                <?= $r['Metode_Pembayaran'] === 'QRIS' ? '📱 QRIS' : '🏦 ' . htmlspecialchars($r['Metode_Pembayaran']) ?>
+                            </span>
+                        </td>
+                        <td><?= $potongan_info ?></td>
+                        <td class="r-price"><?= rupiahFormat($r['Total_Bayar']) ?></td>
+                        <td>
+                            <span class="status-pill <?= $sl['class'] ?>">
+                                <i class="fa-solid <?= $sl['icon'] ?>"></i> <?= $sl['label'] ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+            <div class="riwayat-empty">
+                <i class="fa-regular fa-calendar-xmark"></i>
+                <p style="font-size: 14px; font-weight: 700; color: #636366; margin-bottom: 6px;">Belum ada riwayat booking</p>
+                <p style="font-size: 13px;">Mulai booking lapangan pertama Anda sekarang!</p>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 
-</main>
+    <!-- RIGHT: SUMMARY SIDEBAR -->
+    <div class="summary-card">
+        <div class="summary-title"><i class="fa-solid fa-receipt"></i> Ringkasan Pesanan</div>
 
-<!-- FOOTER — SAMA DENGAN VIEW_CUSTOMER -->
+        <?php if ($has_member): ?>
+        <div class="member-badge-summary">
+            <i class="fa-solid fa-crown"></i> Member <?= htmlspecialchars($member_tipe) ?> — Potongan <?= rupiahFormat($member_potong) ?>
+        </div>
+        <?php endif; ?>
+
+        <div id="summary-content">
+            <div class="summary-empty">
+                <i class="fa-regular fa-calendar-plus"></i>
+                <p style="font-size: 14px; font-weight: 700; color: #636366; margin-bottom: 6px;">Belum ada pilihan</p>
+                <p style="font-size: 12px; color: #AEAEB2;">Pilih lapangan dan jadwal terlebih dahulu</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==============================
+     MODAL: QRIS PAYMENT
+============================== -->
+<div class="modal-overlay" id="modal-qris">
+    <div class="modal-box">
+        <div class="modal-title">Pembayaran QRIS</div>
+        <div class="modal-subtitle">Scan QR code di bawah untuk melakukan pembayaran</div>
+
+        <div class="qris-container">
+            <div id="qrcode-canvas"></div>
+            <div class="qris-amount" id="qris-amount-display">Rp 0</div>
+            <div class="qris-note">Merchant: <strong>HoopBall Indonesia</strong></div>
+        </div>
+
+        <div class="qris-timer" id="qris-timer-box">
+            <i class="fa-solid fa-clock"></i>
+            Batas waktu: <strong id="qris-timer-text">15:00</strong>
+        </div>
+
+        <button class="btn-confirm-paid" onclick="konfirmasiSudahBayarQRIS()">
+            <i class="fa-solid fa-check-circle"></i> Saya Sudah Bayar
+        </button>
+        <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
+    </div>
+</div>
+
+<!-- ==============================
+     MODAL: TRANSFER BANK
+============================== -->
+<div class="modal-overlay" id="modal-transfer">
+    <div class="modal-box">
+        <div class="modal-title">Transfer Bank</div>
+        <div class="modal-subtitle">Lakukan transfer ke rekening berikut dalam 1x24 jam</div>
+
+        <div class="transfer-info-box">
+            <div class="transfer-row">
+                <span class="tr-label">Bank Tujuan</span>
+                <span class="tr-value">BCA</span>
+            </div>
+            <div class="transfer-row">
+                <span class="tr-label">Nomor Rekening</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="tr-value" id="rek-number">1234567890</span>
+                    <button class="copy-btn" onclick="copyToClipboard('1234567890')">Salin</button>
+                </div>
+            </div>
+            <div class="transfer-row">
+                <span class="tr-label">Atas Nama</span>
+                <span class="tr-value">HoopBall Indonesia</span>
+            </div>
+            <div class="transfer-row">
+                <span class="tr-label">Total Transfer</span>
+                <span class="tr-value highlight" id="transfer-amount-display">Rp 0</span>
+            </div>
+        </div>
+
+        <div style="background: #FFF0E6; border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 12px; color: #D97706; display: flex; gap: 10px; align-items: flex-start;">
+            <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px;"></i>
+            <span>Transfer sesuai nominal <strong>tepat</strong> untuk mempercepat konfirmasi. Booking akan dikonfirmasi oleh tim kami dalam 1×24 jam setelah pembayaran diterima.</span>
+        </div>
+
+        <button class="btn-sudah-transfer" onclick="konfirmasiSudahTransfer()">
+            <i class="fa-solid fa-paper-plane"></i> Saya Sudah Transfer — Tunggu Konfirmasi
+        </button>
+        <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
+    </div>
+</div>
+
+<!-- ==============================
+     MODAL: WAITING KONFIRMASI
+============================== -->
+<div class="modal-overlay" id="modal-waiting">
+    <div class="modal-box">
+        <div class="waiting-box">
+            <div class="waiting-spinner"></div>
+            <div class="waiting-text">Menunggu Konfirmasi Pembayaran</div>
+            <div class="waiting-sub" id="waiting-sub-text">Kami sedang memverifikasi pembayaran Anda.<br>Harap tunggu atau hubungi admin HoopBall.</div>
+
+            <div style="background: #F8F9FA; border-radius: 12px; padding: 16px; margin-top: 20px; font-size: 13px; text-align: left;">
+                <div style="font-weight: 700; color: #1C1C1E; margin-bottom: 8px;">Detail Booking</div>
+                <div style="color: #636366; margin-bottom: 4px;">Lapangan: <strong id="w-lapangan" style="color: #1C1C1E;">-</strong></div>
+                <div style="color: #636366; margin-bottom: 4px;">Jadwal: <strong id="w-jadwal" style="color: #1C1C1E;">-</strong></div>
+                <div style="color: #636366;">Total: <strong id="w-total" style="color: var(--primary);">-</strong></div>
+            </div>
+
+            <div style="margin-top: 20px; padding: 12px; background: var(--yellow-lt); border-radius: 10px; font-size: 12px; color: #D97706;">
+                <i class="fa-solid fa-info-circle"></i>
+                Status booking Anda saat ini: <strong>Menunggu Konfirmasi Karyawan</strong>
+            </div>
+
+            <button onclick="selesaiMenunggu()" style="margin-top: 20px; background: var(--primary); color: white; border: none; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%;">
+                <i class="fa-solid fa-home"></i> Kembali ke Beranda
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ==============================
+     MODAL: BOOKING SUCCESS
+============================== -->
+<div class="modal-overlay" id="modal-success">
+    <div class="modal-box">
+        <div class="success-icon-big"><i class="fa-solid fa-check"></i></div>
+        <div class="modal-title">Booking Terkonfirmasi!</div>
+        <div class="modal-subtitle" style="margin-bottom: 24px;">Pembayaran Anda telah dikonfirmasi. Lapangan sudah siap untuk Anda!</div>
+
+        <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 24px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom: 8px;">
+                <span style="color: #636366;">Lapangan</span><strong id="suc-lapangan">-</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom: 8px;">
+                <span style="color: #636366;">Jadwal</span><strong id="suc-jadwal">-</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                <span style="color: #636366;">Total Bayar</span><strong style="color: var(--primary);" id="suc-total">-</strong>
+            </div>
+        </div>
+
+        <button onclick="window.location.href='booking_customer.php'" style="background: var(--primary); color: white; border: none; padding: 13px; width: 100%; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer;">
+            Lihat Riwayat Booking
+        </button>
+    </div>
+</div>
+
+
+<!-- FOOTER -->
 <footer>
-    <div class="footer-grid">
+    <div class="footer-inner">
         <div>
             <div class="footer-logo">
                 <img src="../asset/image/logo.png" alt="HoopBall">
             </div>
-            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <p class="footer-desc">Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
             <div class="social-links">
                 <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
                 <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
                 <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
             </div>
         </div>
-
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul>
@@ -1483,10 +1367,8 @@ function rupiahFormat($n) {
                 <li><a href="booking_customer.php">Booking</a></li>
                 <li><a href="#">Lapangan</a></li>
                 <li><a href="#">Member</a></li>
-                <li><a href="#">Pembelian</a></li>
             </ul>
         </div>
-
         <div class="footer-col">
             <h4>Informasi</h4>
             <ul>
@@ -1496,158 +1378,16 @@ function rupiahFormat($n) {
                 <li><a href="#">FAQ</a></li>
             </ul>
         </div>
-
         <div class="footer-col">
             <h4>Hubungi Kami</h4>
-            <div class="contact-item">
-                <i class="fa-solid fa-location-dot"></i>
-                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-phone"></i>
-                +62 812-3456-7890
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-envelope"></i>
-                info@hoopball.id
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-clock"></i>
-                Setiap hari 07:00 - 23:00 WIB
-            </div>
+            <div class="contact-item"><i class="fa-solid fa-location-dot"></i> Jl. Olahraga No. 10, Jakarta Selatan 12190</div>
+            <div class="contact-item"><i class="fa-solid fa-phone"></i> +62 812-3456-7890</div>
+            <div class="contact-item"><i class="fa-solid fa-envelope"></i> info@hoopball.id</div>
+            <div class="contact-item"><i class="fa-solid fa-clock"></i> Setiap hari 07:00 – 23:00 WIB</div>
         </div>
     </div>
-    <div class="footer-bottom">
-        <p>&copy; 2025 HoopBall. All rights reserved.</p>
-    </div>
+    <div class="footer-bottom">&copy; 2025 HoopBall. All rights reserved.</div>
 </footer>
-
-
-<!-- MODAL: QRIS PAYMENT -->
-<div class="modal-overlay" id="modal-qris">
-    <div class="modal-box">
-        <div class="qris-header">
-            <div class="qris-header-icon">📱</div>
-            <div class="qris-header-title">Pembayaran QRIS</div>
-            <div class="qris-header-sub">Scan kode QR untuk menyelesaikan pembayaran</div>
-        </div>
-        <div class="qris-body">
-            <div class="qris-merchant">
-                <div class="qris-merchant-logo"><i class="fa-solid fa-basketball"></i></div>
-                <div class="qris-merchant-name">HoopBall Indonesia</div>
-            </div>
-            <div class="qris-code-box">
-                <div id="qrcode-canvas"></div>
-                <div class="qris-amount" id="qris-amount-display">Rp 0</div>
-                <div class="qris-amount-label">Total Pembayaran</div>
-            </div>
-            <div class="qris-timer" id="qris-timer-box">
-                <i class="fa-solid fa-clock"></i>
-                <span>Batas waktu: <strong id="qris-timer-text">15:00</strong></span>
-            </div>
-        </div>
-        <div class="qris-actions">
-            <button class="btn-confirm-paid" onclick="konfirmasiSudahBayarQRIS()">
-                <i class="fa-solid fa-check-circle"></i> Saya Sudah Bayar
-            </button>
-            <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: TRANSFER BANK -->
-<div class="modal-overlay" id="modal-va">
-    <div class="modal-box">
-        <div class="qris-header">
-            <div class="qris-header-icon">🏦</div>
-            <div class="qris-header-title">Virtual Account</div>
-            <div class="qris-header-sub">Lakukan pembayaran ke Virtual Account berikut</div>
-        </div>
-        <div class="qris-body">
-            <div class="va-info-box">
-                <div class="va-row">
-                    <span class="tr-label">Bank</span>
-                    <span class="tr-value">BCA</span>
-                </div>
-                <div class="va-row">
-                    <span class="tr-label">Nomor VA</span>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="tr-value" id="rek-number">1234567890</span>
-                        <button class="copy-btn" onclick="copyToClipboard('1234567890')">Salin</button>
-                    </div>
-                </div>
-                <div class="va-row">
-                    <span class="tr-label">Atas Nama</span>
-                    <span class="tr-value">HoopBall Indonesia</span>
-                </div>
-                <div class="va-row">
-                    <span class="tr-label">Total Bayar</span>
-                    <span class="tr-value highlight" id="va-amount-display">Rp 0</span>
-                </div>
-            </div>
-            <div style="background: #FFF0E6; border-radius: 12px; padding: 16px; margin-bottom: 20px; font-size: 13px; color: #D97706; display: flex; gap: 10px; align-items: flex-start;">
-                <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px;"></i>
-                <span>Bayar sesuai nominal <strong>tepat</strong> untuk mempercepat konfirmasi. Booking akan dikonfirmasi oleh tim kami dalam 1×24 jam setelah pembayaran diterima.</span>
-            </div>
-            <button class="btn-sudah-va" onclick="konfirmasiSudahVA()">
-                <i class="fa-solid fa-credit-card"></i> Saya Sudah Bayar — Tunggu Konfirmasi
-            </button>
-            <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: WAITING KONFIRMASI -->
-<div class="modal-overlay" id="modal-waiting">
-    <div class="modal-box">
-        <div class="waiting-box">
-            <div class="waiting-spinner"></div>
-            <div class="waiting-text">Menunggu Konfirmasi Pembayaran</div>
-            <div class="waiting-sub" id="waiting-sub-text">Kami sedang memverifikasi pembayaran Anda.<br>Harap tunggu atau hubungi admin HoopBall.</div>
-
-            <div style="background: #F8F9FA; border-radius: 16px; padding: 20px; margin-top: 24px; font-size: 14px; text-align: left;">
-                <div style="font-weight: 700; color: #1C1C1E; margin-bottom: 10px;">Detail Booking</div>
-                <div style="color: #636366; margin-bottom: 6px;">Lapangan: <strong id="w-lapangan" style="color: #1C1C1E;">-</strong></div>
-                <div style="color: #636366; margin-bottom: 6px;">Jadwal: <strong id="w-jadwal" style="color: #1C1C1E;">-</strong></div>
-                <div style="color: #636366;">Total: <strong id="w-total" style="color: var(--primary);">-</strong></div>
-            </div>
-
-            <div style="margin-top: 24px; padding: 14px; background: var(--yellow-lt); border-radius: 12px; font-size: 13px; color: #D97706;">
-                <i class="fa-solid fa-info-circle"></i>
-                Status booking Anda saat ini: <strong>Menunggu Konfirmasi Karyawan</strong>
-            </div>
-
-            <button onclick="selesaiMenunggu()" style="margin-top: 24px; background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 15px; cursor: pointer; width: 100%;">
-                <i class="fa-solid fa-home"></i> Kembali ke Beranda
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: BOOKING SUCCESS -->
-<div class="modal-overlay" id="modal-success">
-    <div class="modal-box">
-        <div class="success-icon-big"><i class="fa-solid fa-check"></i></div>
-        <div style="font-size: 22px; font-weight: 800; color: #1C1C1E; margin-bottom: 8px;">Booking Terkonfirmasi!</div>
-        <div style="font-size: 14px; color: #636366; margin-bottom: 28px;">Pembayaran Anda telah dikonfirmasi. Lapangan sudah siap untuk Anda!</div>
-
-        <div style="background: #F8F9FA; border-radius: 16px; padding: 24px; text-align: left; margin-bottom: 28px;">
-            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom: 10px;">
-                <span style="color: #636366;">Lapangan</span><strong id="suc-lapangan">-</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom: 10px;">
-                <span style="color: #636366;">Jadwal</span><strong id="suc-jadwal">-</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:14px;">
-                <span style="color: #636366;">Total Bayar</span><strong style="color: var(--primary);" id="suc-total">-</strong>
-            </div>
-        </div>
-
-        <button onclick="window.location.href='booking_customer.php'" style="background: var(--primary); color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer;">
-            Lihat Riwayat Booking
-        </button>
-    </div>
-</div>
 
 
 <script>
@@ -1675,39 +1415,10 @@ const memberTipe  = "<?= htmlspecialchars($member_tipe) ?>";
 const memberPotong = <?= $member_potong ?>;
 
 // ============================================================================
-// HERO INTERACTION
-// ============================================================================
-function pilihLapanganHero(select) {
-    const option = select.options[select.selectedIndex];
-    if (option.value) {
-        const id = parseInt(option.value);
-        const nama = option.dataset.nama;
-        const harga = parseFloat(option.dataset.harga);
-        
-        document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
-        
-        setTimeout(() => {
-            const lapOption = document.querySelector('.lapangan-option[data-id="' + id + '"]');
-            if (lapOption) {
-                lapOption.click();
-            }
-        }, 500);
-    }
-}
-
-function lanjutkanBooking() {
-    const select = document.getElementById('hero-lapangan');
-    if (!select.value) {
-        showToast('error', 'Pilih lapangan terlebih dahulu.');
-        return;
-    }
-    document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
-}
-
-// ============================================================================
 // STEP NAVIGATION
 // ============================================================================
 function goStep(step) {
+    // Validasi sebelum pindah step
     if (step === 2 && !state.lapanganId) {
         showToast('error', 'Pilih lapangan terlebih dahulu.');
         return;
@@ -1758,6 +1469,7 @@ function pilihLapangan(id, nama, harga) {
     document.getElementById('btn-next-1').disabled = false;
     updateSummary();
 
+    // Muat jadwal
     loadJadwal(id);
 }
 
@@ -1822,6 +1534,7 @@ function pilihPromo(id, diskon, nama) {
     updateSummary();
 }
 
+// Default: promo none aktif
 <?php if (!$has_member): ?>
 pilihPromo(0, 0, 'Tanpa Promo');
 <?php endif; ?>
@@ -1829,14 +1542,10 @@ pilihPromo(0, 0, 'Tanpa Promo');
 // ============================================================================
 // STEP 4: METODE PEMBAYARAN
 // ============================================================================
-function pilihMetode(metode, el) {
+function pilihMetode(metode) {
     state.metode = metode;
     document.querySelectorAll('.metode-card').forEach(c => c.classList.remove('selected'));
-    if (el) {
-        el.classList.add('selected');
-    } else {
-        document.getElementById('card-' + (metode === 'QRIS' ? 'qris' : 'va')).classList.add('selected');
-    }
+    document.getElementById('card-' + (metode === 'QRIS' ? 'qris' : 'transfer')).classList.add('selected');
     document.getElementById('btn-bayar').disabled = false;
 }
 
@@ -1880,7 +1589,7 @@ function updateSummary() {
     const box = document.getElementById('summary-content');
 
     if (!state.lapanganId) {
-        box.innerHTML = `<div class="summary-empty"><i class="fa-regular fa-calendar-plus"></i><p style="font-size:16px;font-weight:700;color:#636366;margin-bottom:8px;">Belum ada pilihan</p><p style="font-size:13px;color:#AEAEB2;">Pilih lapangan dan jadwal terlebih dahulu</p></div>`;
+        box.innerHTML = `<div class="summary-empty"><i class="fa-regular fa-calendar-plus"></i><p style="font-size:14px;font-weight:700;color:#636366;margin-bottom:6px;">Belum ada pilihan</p><p style="font-size:12px;color:#AEAEB2;">Pilih lapangan dan jadwal terlebih dahulu</p></div>`;
         return;
     }
 
@@ -1912,7 +1621,7 @@ function updateSummary() {
         ${potonganHTML}
         <div class="summary-divider"></div>
         <div class="summary-row" style="padding-top:16px;">
-            <span class="s-label" style="font-weight:800; font-size:16px; color:#1C1C1E;">Total Bayar</span>
+            <span class="s-label" style="font-weight:800; font-size:15px; color:#1C1C1E;">Total Bayar</span>
             <span class="s-value s-total">${formatRupiah(state.totalBayar)}</span>
         </div>`;
 }
@@ -1943,7 +1652,7 @@ function prosesBooking() {
                 if (state.metode === 'QRIS') {
                     tampilModalQRIS();
                 } else {
-                    tampilModalVA();
+                    tampilModalTransfer();
                 }
             } else {
                 showToast('error', res.msg || 'Gagal membuat booking.');
@@ -1958,6 +1667,7 @@ function prosesBooking() {
 let qrisTimerInterval = null;
 
 function tampilModalQRIS() {
+    // Generate QR code
     const qrContainer = document.getElementById('qrcode-canvas');
     qrContainer.innerHTML = '';
     const qrData = `hoopball://pay?booking=${state.idBooking}&amount=${state.totalBayar}&merchant=HoopBall`;
@@ -1972,9 +1682,7 @@ function tampilModalQRIS() {
     document.getElementById('qris-amount-display').textContent = formatRupiah(state.totalBayar);
     document.getElementById('modal-qris').classList.add('show');
 
-    const timerBox = document.getElementById('qris-timer-box');
-    timerBox.classList.remove('expired');
-
+    // Timer 15 menit
     let seconds = 15 * 60;
     updateQrisTimer(seconds);
     qrisTimerInterval = setInterval(() => {
@@ -1982,8 +1690,10 @@ function tampilModalQRIS() {
         updateQrisTimer(seconds);
         if (seconds <= 0) {
             clearInterval(qrisTimerInterval);
-            const tb = document.getElementById('qris-timer-box');
-            tb.classList.add('expired');
+            // Expired → masih bisa di-handle manual
+            document.getElementById('qris-timer-box').style.background = '#FFF5F5';
+            document.getElementById('qris-timer-box').style.borderColor = '#FFD1D1';
+            document.getElementById('qris-timer-box').style.color = '#FF3B30';
             document.getElementById('qris-timer-text').textContent = 'Waktu habis';
         }
     }, 1000);
@@ -2004,13 +1714,13 @@ function konfirmasiSudahBayarQRIS() {
 // ============================================================================
 // MODAL TRANSFER BANK
 // ============================================================================
-function tampilModalVA() {
-    document.getElementById('va-amount-display').textContent = formatRupiah(state.totalBayar);
-    document.getElementById('modal-va').classList.add('show');
+function tampilModalTransfer() {
+    document.getElementById('transfer-amount-display').textContent = formatRupiah(state.totalBayar);
+    document.getElementById('modal-transfer').classList.add('show');
 }
 
-function konfirmasiSudahVA() {
-    document.getElementById('modal-va').classList.remove('show');
+function konfirmasiSudahTransfer() {
+    document.getElementById('modal-transfer').classList.remove('show');
     tampilModalMenunggu();
 }
 
@@ -2028,15 +1738,17 @@ function tampilModalMenunggu() {
     document.getElementById('w-jadwal').textContent   = state.jadwalDisplay;
     document.getElementById('w-total').textContent    = formatRupiah(state.totalBayar);
 
-    if (state.metode === 'Virtual Account') {
+    if (state.metode === 'Transfer Bank') {
         document.getElementById('waiting-sub-text').innerHTML =
-            'Pembayaran Virtual Account sedang diproses. Karyawan akan mengkonfirmasi setelah pembayaran diterima.<br><small style="color:#AEAEB2;">Estimasi: 1×24 jam</small>';
+            'Booking berhasil dicatat. Karyawan akan mengkonfirmasi setelah menerima bukti transfer Anda.<br><small style="color:#AEAEB2;">Estimasi: 1×24 jam</small>';
     } else {
         document.getElementById('waiting-sub-text').innerHTML =
             'Pembayaran QRIS sedang diverifikasi oleh sistem. Karyawan akan mengkonfirmasi segera.<br><small style="color:#AEAEB2;">Estimasi: beberapa menit</small>';
     }
     document.getElementById('modal-waiting').classList.add('show');
 
+    // Polling status setiap 5 detik (opsional, untuk kasus demo)
+    // Dalam produksi, karyawan konfirmasi manual lewat dashboard mereka
     startPollingStatus();
 }
 
@@ -2048,6 +1760,7 @@ function startPollingStatus() {
             .then(r => r.json())
             .then(res => {
                 if (res.status === 1) {
+                    // Karyawan sudah konfirmasi!
                     clearInterval(pollingInterval);
                     document.getElementById('modal-waiting').classList.remove('show');
                     tampilModalSuccess();
@@ -2073,12 +1786,12 @@ function tampilModalSuccess() {
 }
 
 // ============================================================================
-// BATALKAN BOOKING
+// BATALKAN BOOKING (hapus dari DB jika status masih 0)
 // ============================================================================
 function batalBooking() {
     Swal.fire({
         title: 'Batalkan Booking?',
-        text: 'Booking akan dibatalkan dan jadwal akan kembali tersedia.',
+        text: 'Data booking akan dihapus. Anda perlu membooking ulang.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#FF3B30',
@@ -2087,70 +1800,29 @@ function batalBooking() {
         cancelButtonText: 'Tidak',
     }).then(res => {
         if (res.isConfirmed) {
-            if (state.idBooking > 0) {
-                const formData = new FormData();
-                formData.append('ajax_batal_booking', '1');
-                formData.append('id_booking', state.idBooking);
-
-                fetch('booking_customer.php', { method: 'POST', body: formData })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            clearInterval(qrisTimerInterval);
-                            clearInterval(pollingInterval);
-                            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
-                            resetBookingState();
-                            showToast('success', 'Booking berhasil dibatalkan. Jadwal kembali tersedia.');
-                        } else {
-                            showToast('error', data.msg || 'Gagal membatalkan booking.');
-                        }
-                    })
-                    .catch(() => {
-                        showToast('error', 'Terjadi kesalahan. Coba lagi.');
-                    });
-            } else {
-                clearInterval(qrisTimerInterval);
-                clearInterval(pollingInterval);
-                document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
-                resetBookingState();
-            }
+            clearInterval(qrisTimerInterval);
+            clearInterval(pollingInterval);
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+            // Reload page untuk refresh jadwal
+            window.location.href = 'booking_customer.php';
         }
     });
 }
 
 // ============================================================================
-// RESET STATE BOOKING
+// FILTER RIWAYAT TABLE
 // ============================================================================
-function resetBookingState() {
-    state.metode = '';
-    state.idBooking = 0;
-    
-    document.querySelectorAll('.metode-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('btn-bayar').disabled = true;
-    
-    state.lapanganId = 0;
-    state.lapanganNama = '';
-    state.lapanganHarga = 0;
-    state.jadwalId = 0;
-    state.jadwalDisplay = '';
-    state.jadwalTanggal = '';
-    state.jadwalJam = '';
-    
-    state.promoId = 0;
-    state.promoDiskon = 0;
-    state.promoPilihan = 'Tanpa Promo';
-    <?php if (!$has_member): ?>
-    pilihPromo(0, 0, 'Tanpa Promo');
-    <?php endif; ?>
-    
-    document.querySelectorAll('.lapangan-option').forEach(el => el.classList.remove('selected'));
-    document.getElementById('jadwal-grid-container').innerHTML = 
-        '<div class="jadwal-empty"><i class="fa-regular fa-calendar-xmark"></i>Pilih lapangan terlebih dahulu untuk melihat jadwal.</div>';
-    document.getElementById('btn-next-1').disabled = true;
-    document.getElementById('btn-next-2').disabled = true;
-    
-    updateSummary();
-    goStep(1);
+function filterRiwayat(status, btn) {
+    document.querySelectorAll('.tab-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.querySelectorAll('#riwayat-tbl tbody tr').forEach(tr => {
+        if (status === 'semua' || tr.dataset.status === status) {
+            tr.style.display = '';
+        } else {
+            tr.style.display = 'none';
+        }
+    });
 }
 
 // ============================================================================
@@ -2164,6 +1836,7 @@ function formatTanggalJS(dateStr) {
     if (!dateStr) return '-';
     const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
     const d = new Date(dateStr);
+    // Handle timezone offset
     const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
     return utc.getDate() + ' ' + months[utc.getMonth()] + ' ' + utc.getFullYear();
 }
@@ -2180,9 +1853,6 @@ function showToast(icon, msg) {
         background: '#ffffff',
         color: '#1C1C1E',
         iconColor: icon === 'success' ? '#34C759' : '#FF3B30',
-        customClass: {
-            popup: 'swal-toast-front'
-        }
     });
 }
 
