@@ -691,58 +691,64 @@ function format_date_display($date)
             color: var(--primary);
         }
 
+       /* ---- USER DROPDOWN (TEMA TERANG & PEMICU HOVER) ---- */
         .dropdown-menu {
             position: absolute;
             top: 85%;
             right: 0;
-            background: #16161a;
+            background: #FFFFFF !important; /* Warna latar putih */
             min-width: 220px;
             border-radius: 12px;
-            border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #E5E5EA !important; /* Garis tepi tipis abu-abu */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); /* Bayangan halus */
             padding: 8px 0;
-            display: none;
+            display: none; /* Sembunyi saat awal */
             z-index: 1001;
             animation: fadeIn 0.2s ease-out;
         }
 
+        /* PEMICU HOVER (Harus ada agar menu muncul saat kursor didekatkan) */
         .nav-user-container:hover .dropdown-menu {
-            display: block;
+            display: block !important;
         }
 
         .dropdown-menu .user-info-header {
-            padding: 12px 20px;
-            border-bottom: 1px solid #2d2d33;
+            padding: 12px 20px 10px 20px;
+            border-bottom: 1px solid #E5E5EA !important; /* Memberi garis pembatas tipis di bawah CUSTOMER */
             margin-bottom: 6px;
+            display: flex;
+            flex-direction: column; /* Memaksa teks tersusun ke bawah */
+            gap: 4px; /* Jarak antara Nama dan CUSTOMER */
         }
 
         .dropdown-menu .user-info-header span {
-            display: block;
+            display: block !important; /* Memastikan setiap teks berada di baris baru */
         }
 
         .dropdown-menu .user-info-header .u-name {
-            color: var(--white);
+            color: #1C1C1E !important; /* Nama teks hitam gelap */
             font-size: 14px;
             font-weight: 700;
         }
 
         .dropdown-menu .user-info-header .u-role {
-            color: #8E8E93;
+            color: #8E8E93 !important; /* Role teks abu-abu */
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-top: 2px;
         }
 
+        /* WARNA TEKS MENU AKTIF */
         .dropdown-menu a {
-            display: flex;
+            display: flex !important;
             align-items: center;
             gap: 12px;
             padding: 10px 20px;
-            color: #c5c5ca;
-            text-decoration: none;
+            color: #48484A !important; /* Teks abu-abu gelap */
+            text-decoration: none !important;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             transition: 0.2s;
         }
 
@@ -750,21 +756,37 @@ function format_date_display($date)
             font-size: 14px;
             width: 16px;
             text-align: center;
+            color: #8E8E93 !important; /* Warna ikon */
+            transition: 0.2s;
         }
 
+        /* EFEK HOVER INDIVIDU */
         .dropdown-menu a:hover {
-            background: #222227;
-            color: var(--primary);
+            background: #F2F2F7 !important; /* Highlight background saat hover */
+            color: #FF5200 !important; /* Teks berubah oranye */
         }
 
+        .dropdown-menu a:hover i {
+            color: #FF5200 !important; /* Ikon berubah oranye */
+        }
+
+        /* GARIS PEMBATAS TENGAH */
         .dropdown-divider {
-            height: 1px;
-            background: #2d2d33;
-            margin: 6px 0;
+            display: none !important;
+        }
+
+        /* KHUSUS TOMBOL KELUAR */
+        .dropdown-menu a.logout {
+            color: #48484A !important;
         }
 
         .dropdown-menu a.logout:hover {
-            color: #ff3b30;
+            background: #FFEBEA !important; /* Latar merah sangat tipis */
+            color: #FF3B30 !important; /* Teks menjadi merah */
+        }
+
+        .dropdown-menu a.logout:hover i {
+            color: #FF3B30 !important; /* Ikon menjadi merah */
         }
 
         @keyframes fadeIn {
@@ -781,7 +803,7 @@ function format_date_display($date)
 
         /* ---- HERO BANNER ---- */
         .hero-banner {
-            background: linear-gradient(to right, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=1200&auto=format&fit=crop');
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('../asset/image/profile_customer.png');
             background-size: cover;
             background-position: center;
             padding: 70px 80px 100px 80px;
@@ -1286,6 +1308,7 @@ function format_date_display($date)
             margin-top: 2px;
         }
 
+
         .b-meta-item i {
             color: #8E8E93;
             width: 14px;
@@ -1481,117 +1504,125 @@ function format_date_display($date)
         }
 
         /* ---- FOOTER STYLES (DIPERBAIKI) ---- */
+        /* ---- FOOTER STYLES (DISAMAKAN DENGAN INDEX) ---- */
         footer {
-            background: var(--dark-bg);
-            color: var(--white);
-            padding: 60px 80px 30px 80px;
+            background: #0F172A;
+            color: #94A3B8;
+            padding: 80px 8% 40px 8%;
             margin-top: 60px;
-            border-top: 1px solid #2d2d33;
         }
 
-        .footer-grid-4 {
+        .footer-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 2fr;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
             gap: 40px;
+            margin-bottom: 60px;
             max-width: 1440px;
-            margin: 0 auto;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        .footer-brand h3 {
-            font-size: 20px;
-            font-weight: 800;
+        .footer-brand .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-            color: var(--white);
+            gap: 12px;
+            text-decoration: none;
+            margin-bottom: 24px;
         }
 
-        .footer-brand h3 img {
-            height: 70px;
+        .footer-brand .logo img {
             width: auto;
+            height: 90px;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease;
+        }
+
+        .footer-brand .logo:hover img {
+            transform: scale(1.05);
         }
 
         .footer-brand p {
-            color: #AEAEB2;
             font-size: 13px;
             line-height: 1.6;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            color: #94A3B8;
         }
 
-        .social-row {
+        .social-links {
             display: flex;
-            gap: 12px;
+            gap: 16px;
         }
 
-        .social-circle {
+        .social-links a {
             width: 36px;
             height: 36px;
+            background: #1E293B;
             border-radius: 50%;
-            background: #222227;
-            color: var(--white);
             display: flex;
             align-items: center;
             justify-content: center;
-            text-decoration: none;
-            transition: 0.2s;
+            color: white;
+            transition: all 0.3s ease;
         }
 
-        .social-circle:hover {
+        .social-links a:hover {
             background: var(--primary);
-            color: var(--white);
         }
 
         .footer-col h4 {
-            font-size: 14px;
+            color: white;
+            font-size: 15px;
             font-weight: 700;
-            margin-bottom: 20px;
-            color: var(--white);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: none;
+            letter-spacing: normal;
         }
 
-        .footer-links-list {
+        .footer-links {
             list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .footer-links-list li {
-            margin-bottom: 12px;
-        }
-
-        .footer-links-list a {
-            color: #AEAEB2;
-            text-decoration: none;
+        .footer-links li a {
+            color: #94A3B8;
             font-size: 13px;
-            transition: 0.2s;
+            transition: color 0.3s ease;
+            text-decoration: none;
         }
 
-        .footer-links-list a:hover {
-            color: var(--primary);
+        .footer-links li a:hover {
+            color: white;
         }
 
-        .contact-item-box {
+        .footer-contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .contact-item {
             display: flex;
             gap: 12px;
-            align-items: flex-start;
-            margin-bottom: 14px;
             font-size: 13px;
-            color: #AEAEB2;
+            color: #94A3B8;
         }
 
-        .contact-item-box i {
+        .contact-item i {
             color: var(--primary);
-            font-size: 14px;
-            margin-top: 2px;
+            margin-top: 3px;
         }
 
-        .footer-bottom-copyright {
-            border-top: 1px solid #2d2d33;
-            padding-top: 20px;
-            margin-top: 40px;
+        .footer-bottom {
+            padding-top: 40px;
+            border-top: 1px solid #1E293B;
             text-align: center;
             font-size: 12px;
-            color: #8E8E93;
+            color: #94A3B8;
         }
 
 
@@ -1972,14 +2003,14 @@ function format_date_display($date)
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
-            <a href="../dashboard/view_customer.php" class="active">Beranda</a>
-            <a href="#">Booking</a>
-            <a href="#">Jadwal</a>
-            <a href="#">Member</a>
-            <a href="#">Pembelian</a>
-            <a href="#">Tentang</a>
-            <a href="#">Kontak</a>
-        </div>
+    <a href="../dashboard/view_customer.php">Beranda</a>
+    <a href="#">Booking</a>
+    <a href="#">Jadwal</a>
+    <a href="#">Member</a>
+    <a href="#">Pembelian</a>
+    <a href="#">Tentang</a>
+    <a href="#">Kontak</a>
+</div>
 
         <div class="nav-user-container">
             <div class="nav-user">
@@ -1996,10 +2027,6 @@ function format_date_display($date)
                     <span class="u-name"><?php echo htmlspecialchars($nama); ?></span>
                     <span class="u-role">Customer</span>
                 </div>
-                <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-                <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-                <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
-                <div class="dropdown-divider"></div>
                 <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
             </div>
         </div>
@@ -2750,72 +2777,63 @@ function format_date_display($date)
     </main>
 
     <!-- FOOTER -->
-    <footer>
-        <div class="footer-grid-4">
-
-            <!-- Kolom 1 -->
+    <footer id="tentang-kami">
+        <div class="footer-grid">
             <div class="footer-brand">
-                <h3><img src="../asset/image/logo.png" alt="HoopBall"></h3>
-                <p>HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
-                <div class="social-row">
-                    <a href="#" class="social-circle"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#" class="social-circle"><i class="fa-brands fa-facebook-f"></i></a>
-                    <a href="#" class="social-circle"><i class="fa-brands fa-tiktok"></i></a>
-                    <a href="#" class="social-circle"><i class="fa-brands fa-youtube"></i></a>
+                <a href="../index.php" class="logo">
+                    <img src="../asset/image/logo2.png" alt="HoopBall">
+                </a>
+                <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+                <div class="social-links">
+                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#"><i class="fa-brands fa-facebook"></i></a>
+                    <a href="#"><i class="fa-brands fa-youtube"></i></a>
+                    <a href="#"><i class="fa-brands fa-tiktok"></i></a>
                 </div>
             </div>
 
-            <!-- Kolom 2 -->
             <div class="footer-col">
-                <h4>Navigasi</h4>
-                <ul class="footer-links-list">
-                    <li><a href="../dashboard/view_customer.php">Beranda</a></li>
-                    <li><a href="#">Lapangan</a></li>
-                    <li><a href="#">Jadwal</a></li>
-                    <li><a href="#">Member</a></li>
-                    <li><a href="#">Pembelian</a></li>
-                    <li><a href="#">Tentang</a></li>
-                    <li><a href="#">Kontak</a></li>
+                <h4>Kontak Kami</h4>
+                <div class="footer-contact-info">
+                    <div class="contact-item">
+                        <i class="fa-solid fa-phone"></i>
+                        <span>0812-3456-7890</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fa-solid fa-envelope"></i>
+                        <span>info@hoopball.id</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fa-solid fa-location-dot"></i>
+                        <span>Jl. Sunset Road No. 123, Jakarta Selatan, 12050</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h4>Tautan</h4>
+                <ul class="footer-links">
+                    <li><a href="../index.php#lapangan">Lapangan</a></li>
+                    <li><a href="../index.php#jadwal">Jadwal</a></li>
+                    <li><a href="../index.php#alat-basket">Alat Basket</a></li>
+                    <li><a href="../index.php#tentang-kami">Tentang Kami</a></li>
                 </ul>
             </div>
 
-            <!-- Kolom 3 -->
             <div class="footer-col">
                 <h4>Informasi</h4>
-                <ul class="footer-links-list">
-                    <li><a href="#">Cara Booking</a></li>
+                <ul class="footer-links">
+                    <li><a href="#">Cara Pemesanan</a></li>
                     <li><a href="#">Syarat & Ketentuan</a></li>
                     <li><a href="#">Kebijakan Privasi</a></li>
                     <li><a href="#">FAQ</a></li>
-                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Hubungi Kami</a></li>
                 </ul>
             </div>
-
-            <!-- Kolom 4 -->
-            <div class="footer-col">
-                <h4>Hubungi Kami</h4>
-                <div class="contact-item-box">
-                    <i class="fa-solid fa-location-dot"></i>
-                    <span>Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190</span>
-                </div>
-                <div class="contact-item-box">
-                    <i class="fa-solid fa-phone"></i>
-                    <span>+62 812-3456-7890</span>
-                </div>
-                <div class="contact-item-box">
-                    <i class="fa-solid fa-envelope"></i>
-                    <span>info@hoopball.id</span>
-                </div>
-                <div class="contact-item-box">
-                    <i class="fa-solid fa-clock"></i>
-                    <span>Setiap hari 07:00 - 23:00 WIB</span>
-                </div>
-            </div>
-
         </div>
 
-        <div class="footer-bottom-copyright">
-            <p>© 2025 HoopBall. All rights reserved.</p>
+        <div class="footer-bottom">
+            <p>&copy; 2024 HoopBall. All rights reserved.</p>
         </div>
     </footer>
 
