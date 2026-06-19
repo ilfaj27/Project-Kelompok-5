@@ -175,7 +175,7 @@ html, body {
 }
 
 /* ════════════════════════════════════════
-   CENTER LOGO — Basketball
+   CENTER LOGO — Basketball (SPINNING)
    ════════════════════════════════════════ */
 .center-logo {
     position: absolute;
@@ -189,12 +189,13 @@ html, body {
 .ball-svg {
     width: 100%;
     height: 100%;
-    animation: ballBreathe 3s ease-in-out infinite;
+    animation: ballSpin 2s linear infinite;
 }
 
-@keyframes ballBreathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.06); }
+/* Ball spinning animation - rotates continuously */
+@keyframes ballSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* ════════════════════════════════════════
@@ -504,7 +505,7 @@ html, body {
             <circle class="progress-ring-fill" id="progressRing" cx="130" cy="130" r="120"/>
         </svg>
 
-        <!-- Center Basketball Logo -->
+        <!-- Center Basketball Logo (SPINNING) -->
         <div class="center-logo">
             <svg class="ball-svg" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
                 <defs>

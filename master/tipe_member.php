@@ -827,7 +827,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                         </form>
                     </div>
                 </div>
-                <a href="tipe_member.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Tipe Member</a>
+                <a href="tipe_member.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 

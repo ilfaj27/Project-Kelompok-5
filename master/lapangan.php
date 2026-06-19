@@ -792,7 +792,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         </form>
                     </div>
                 </div>
-                <a href="lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Lapangan</a>
+                <a href="lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 
