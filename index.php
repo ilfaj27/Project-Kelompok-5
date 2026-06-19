@@ -895,6 +895,68 @@ if (file_exists('includes/config.php')) {
         body.exit-initiated { animation:bodyFade 0.6s ease-out forwards; }
         @keyframes bodyFade { to{filter:blur(10px) brightness(0.2) saturate(0);transform:scale(0.92);opacity:0.3;} }
 
+        
+        /* ═══════════════════════════════════════════
+           DRIBBLING PLAYER ANIMATION (ICON)
+           ═══════════════════════════════════════════ */
+        .dribble-player {
+            position: absolute;
+            bottom: 15px;
+            left: -120px;
+            z-index: 6;
+            animation: playerRunAcross 6s linear infinite;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        .dribble-player .fa-person-running {
+            font-size: 64px;
+            color: var(--orange);
+            opacity: 0.9;
+            filter: drop-shadow(0 4px 8px rgba(255,69,0,0.3));
+        }
+        .dribble-player .player-ball {
+            font-size: 20px;
+            color: var(--orange);
+            animation: ballBounce 0.35s ease-in-out infinite alternate;
+            margin-bottom: 4px;
+            filter: drop-shadow(0 2px 4px rgba(255,69,0,0.4));
+        }
+        @keyframes playerRunAcross {
+            0% { left: -120px; transform: scaleX(1); }
+            48% { left: calc(100% + 30px); transform: scaleX(1); }
+            50% { left: calc(100% + 30px); transform: scaleX(-1); }
+            98% { left: -120px; transform: scaleX(-1); }
+            100% { left: -120px; transform: scaleX(1); }
+        }
+        @keyframes ballBounce {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-18px) scale(0.95); }
+        }
+        /* Speed lines behind player */
+        .speed-line {
+            position: absolute;
+            bottom: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255,69,0,0.4), transparent);
+            border-radius: 2px;
+            animation: speedLine 6s linear infinite;
+            pointer-events: none;
+        }
+        .speed-line:nth-child(3) { left: -120px; width: 40px; animation-delay: 0s; }
+        .speed-line:nth-child(4) { left: -120px; width: 60px; animation-delay: 0.15s; }
+        .speed-line:nth-child(5) { left: -120px; width: 30px; animation-delay: 0.3s; }
+        @keyframes speedLine {
+            0% { left: -120px; opacity: 0; }
+            5% { opacity: 1; }
+            45% { left: calc(100% + 20px); opacity: 0; }
+            50% { left: calc(100% + 20px); opacity: 0; }
+            55% { opacity: 1; }
+            95% { left: -120px; opacity: 0; }
+            100% { opacity: 0; }
+        }
+
         /* ═══════════════════════════════════════════
            RESPONSIVE
            ═══════════════════════════════════════════ */
@@ -963,6 +1025,15 @@ if (file_exists('includes/config.php')) {
         </video>
         <div class="fade-overlay"></div>
         <div class="bottom-fade-overlay"></div>
+        
+        <!-- Dribbling Player Animation -->
+        <div class="dribble-player">
+            <i class="fa-solid fa-person-running"></i>
+            <i class="fa-solid fa-basketball player-ball"></i>
+        </div>
+        <div class="speed-line"></div>
+        <div class="speed-line"></div>
+        <div class="speed-line"></div>
         <div class="hero-stats-card">
             <div class="stat-box">
                 <div class="stat-icon"><i class="fa-solid fa-calendar-check"></i></div>

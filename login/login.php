@@ -200,54 +200,292 @@ if (isset($_POST['login'])) {
 
         .auth-card-container { display: flex; justify-content: flex-end; }
         .auth-card {
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
             border-radius: 24px;
             width: 100%;
             max-width: 440px;
             padding: 44px 36px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            box-shadow: 
+                0 20px 50px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+                0 0 80px rgba(255, 84, 0, 0.08) inset;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transform-style: preserve-3d;
         }
-        .auth-card h3 { font-size: 26px; font-weight: 800; color: var(--dark-blue); margin-bottom: 6px; }
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 40%,
+                rgba(255, 84, 0, 0.03) 50%,
+                transparent 60%
+            );
+            animation: cardShine 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes cardShine {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+        .auth-card:hover {
+            transform: translateY(-5px) rotateX(2deg) rotateY(-2deg);
+            box-shadow: 
+                0 30px 60px rgba(0, 0, 0, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                0 0 100px rgba(255, 84, 0, 0.12) inset;
+        }
+        .auth-card h3 { font-size: 28px; font-weight: 900; color: var(--dark-blue); margin-bottom: 6px; letter-spacing: -0.5px; }
         .auth-card .card-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; display: block; }
 
-        .input-group { margin-bottom: 20px; text-align: left; transition: all 0.3s ease; }
-        .input-group label { font-size: 12px; font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; transition: color 0.3s ease; }
-        .input-group:focus-within label { color: var(--orange); }
-        .input-group:focus-within .input-wrapper i.icon-left { color: var(--orange); }
-        .input-wrapper { position: relative; }
+        .card-header-decoration {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .card-icon-wrapper {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--orange) 0%, #FF6B35 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 25px rgba(255, 84, 0, 0.3);
+            animation: iconPulse 2s ease-in-out infinite;
+            position: relative;
+        }
+        .card-icon-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 84, 0, 0.2);
+            animation: ringExpand 2s ease-out infinite;
+        }
+        .card-icon-wrapper i {
+            font-size: 28px;
+            color: #fff;
+            animation: ballSpin 3s linear infinite;
+        }
+        @keyframes iconPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes ringExpand {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes ballSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .input-group { 
+            margin-bottom: 24px; 
+            text-align: left; 
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .input-group label { 
+            font-size: 12px; 
+            font-weight: 700; 
+            color: var(--text-dark); 
+            margin-bottom: 8px; 
+            display: block; 
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .input-group label::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--orange);
+            transition: width 0.3s ease;
+        }
+        .input-group:focus-within label { 
+            color: var(--orange);
+            transform: translateX(4px);
+        }
+        .input-group:focus-within label::after {
+            width: 30px;
+        }
+        .input-group:focus-within .input-wrapper i.icon-left { 
+            color: var(--orange);
+            transform: scale(1.2);
+        }
+        .input-wrapper { 
+            position: relative;
+            transition: all 0.3s ease;
+        }
         .input-wrapper i.icon-left {
             position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-            color: #94A3B8; font-size: 14px; pointer-events: none; transition: color 0.3s ease;
+            color: #94A3B8; font-size: 14px; pointer-events: none; 
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .input-wrapper input {
-            width: 100%; padding: 14px 44px 14px 44px; background: #FFFFFF;
-            border: 1px solid var(--border-color); color: var(--text-dark);
-            border-radius: 12px; font-size: 13px; outline: none; transition: all 0.3s ease;
+            width: 100%; padding: 14px 44px 14px 44px; 
+            background: linear-gradient(135deg, #FFFFFF 0%, #FAFBFC 100%);
+            border: 2px solid var(--border-color); 
+            color: var(--text-dark);
+            border-radius: 14px; 
+            font-size: 14px; 
+            outline: none; 
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .input-wrapper input:focus { border-color: var(--orange); box-shadow: 0 0 12px rgba(255, 84, 0, 0.12); }
+        .input-wrapper input:focus { 
+            border-color: var(--orange); 
+            box-shadow: 
+                0 0 0 4px rgba(255, 84, 0, 0.08),
+                0 4px 20px rgba(255, 84, 0, 0.1);
+            transform: translateY(-2px);
+            background: #FFFFFF;
+        }
+        .input-wrapper input::placeholder {
+            color: #CBD5E1;
+            transition: all 0.3s ease;
+        }
+        .input-wrapper input:focus::placeholder {
+            color: #E2E8F0;
+            transform: translateX(5px);
+        }
         .input-wrapper i.icon-right {
             position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
             color: #94A3B8; font-size: 14px; cursor: pointer; padding: 4px;
+            transition: all 0.3s ease;
+            border-radius: 50%;
+        }
+        .input-wrapper i.icon-right:hover {
+            color: var(--orange);
+            background: rgba(255, 84, 0, 0.08);
+            transform: translateY(-50%) scale(1.1);
         }
 
-        .remember-row { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 24px 0; }
-        .check-container { display: flex; align-items: center; gap: 8px; }
-        .check-container label { color: var(--text-muted); font-size: 12px; font-weight: 500; cursor: pointer; user-select: none; }
-        input[type="checkbox"] { accent-color: var(--orange); width: 15px; height: 15px; cursor: pointer; }
-        .remember-row .forgot-link { color: var(--orange); font-size: 12px; font-weight: 700; text-decoration: none; }
-        .remember-row .forgot-link:hover { color: var(--orange-hover); text-decoration: underline !important; }
+        .remember-row { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 28px 0; }
+        .check-container { display: flex; align-items: center; gap: 10px; }
+        .check-container label { color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; user-select: none; transition: color 0.3s ease; }
+        .check-container:hover label { color: var(--text-dark); }
+        input[type="checkbox"] { 
+            accent-color: var(--orange); 
+            width: 18px; height: 18px; cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        input[type="checkbox"]:hover { transform: scale(1.1); }
+        .remember-row .forgot-link { 
+            color: var(--orange); 
+            font-size: 13px; font-weight: 700; 
+            text-decoration: none; 
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .remember-row .forgot-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--orange);
+            transition: width 0.3s ease;
+        }
+        .remember-row .forgot-link:hover { 
+            color: var(--orange-hover);
+        }
+        .remember-row .forgot-link:hover::after {
+            width: 100%;
+        }
 
         .btn-submit {
-            width: 100%; padding: 15px; background: var(--orange); color: #ffffff;
-            border: none; border-radius: 12px; font-weight: 750; font-size: 14px;
-            cursor: pointer; transition: all 0.3s ease;
+            width: 100%; padding: 16px; 
+            background: linear-gradient(135deg, var(--orange) 0%, #FF6B35 50%, var(--orange) 100%);
+            background-size: 200% 200%;
+            color: #ffffff;
+            border: none; 
+            border-radius: 14px; 
+            font-weight: 800; 
+            font-size: 15px;
+            cursor: pointer; 
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
-        .btn-submit:hover { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 84, 0, 0.25); }
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s ease;
+        }
+        .btn-submit:hover::before {
+            left: 100%;
+        }
+        .btn-submit:hover { 
+            background-position: 100% 0;
+            transform: translateY(-3px) scale(1.02); 
+            box-shadow: 
+                0 12px 30px rgba(255, 84, 0, 0.4),
+                0 0 40px rgba(255, 84, 0, 0.15);
+        }
+        .btn-submit:active {
+            transform: translateY(-1px) scale(0.98);
+        }
 
-        .card-footer { margin-top: 20px; font-size: 12px; color: var(--text-muted); text-align: center; }
-        .card-footer a { color: var(--orange); text-decoration: none; font-weight: 700; }
-        .card-footer a:hover { color: var(--orange-hover); text-decoration: underline !important; }
+        .card-footer { 
+            margin-top: 24px; 
+            font-size: 13px; 
+            color: var(--text-muted); 
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            position: relative;
+        }
+        .card-footer::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--orange), transparent);
+        }
+        .card-footer a { 
+            color: var(--orange); 
+            text-decoration: none; 
+            font-weight: 800;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .card-footer a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--orange);
+            transition: width 0.3s ease;
+        }
+        .card-footer a:hover { 
+            color: var(--orange-hover);
+        }
+        .card-footer a:hover::after {
+            width: 100%;
+        }
 
         .features-bar {
             padding: 40px 8%; background: #FFFFFF;
@@ -316,6 +554,125 @@ if (isset($_POST['login'])) {
         .error-text { font-size: 11px; color: #EF4444; font-weight: 600; margin-top: 6px; display: none; animation: fadeInError 0.2s ease-out; }
         @keyframes fadeInError { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
+        
+        /* ═══════════════════════════════════════════
+           AUTH CARD ENTRANCE ANIMATIONS
+           ═══════════════════════════════════════════ */
+        .auth-card {
+            animation: cardPopIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+        }
+        @keyframes cardPopIn {
+            0% { opacity: 0; transform: scale(0.8) translateY(40px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .auth-info {
+            animation: slideInLeft 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+        }
+        @keyframes slideInLeft {
+            0% { opacity: 0; transform: translateX(-50px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        .info-item:nth-child(1) { animation: fadeInUp 0.5s ease-out 0.6s both; }
+        .info-item:nth-child(2) { animation: fadeInUp 0.5s ease-out 0.75s both; }
+        .info-item:nth-child(3) { animation: fadeInUp 0.5s ease-out 0.9s both; }
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Input focus glow animation */
+        .input-wrapper input:focus {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 4px rgba(255, 84, 0, 0.1), 0 0 20px rgba(255, 84, 0, 0.15);
+            transform: translateY(-1px);
+        }
+
+        /* Button ripple effect */
+        .btn-submit {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-submit::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+        .btn-submit:active::after {
+            width: 300px;
+            height: 300px;
+        }
+        .btn-submit:hover {
+            background: var(--orange-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(255, 84, 0, 0.35);
+        }
+
+        /* Features bar entrance */
+        .feat-bar-item:nth-child(1) { animation: slideUp 0.5s ease-out 1s both; }
+        .feat-bar-item:nth-child(2) { animation: slideUp 0.5s ease-out 1.15s both; }
+        .feat-bar-item:nth-child(3) { animation: slideUp 0.5s ease-out 1.3s both; }
+        @keyframes slideUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer entrance */
+        footer {
+            animation: fadeIn 0.6s ease-out 1.2s both;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* Close button pulse */
+        .btn-close-auth {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 84, 0, 0); }
+            50% { box-shadow: 0 0 0 8px rgba(255, 84, 0, 0.15); }
+        }
+
+        /* Shake animation for error */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Logo bounce on load */
+        .auth-info h2 {
+            animation: bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+        }
+        @keyframes bounceIn {
+            0% { opacity: 0; transform: scale(0.3); }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Social links hover bounce */
+        .social-links a {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .social-links a:hover {
+            transform: translateY(-5px) scale(1.1);
+        }
+
         @media (max-width: 992px) {
             .auth-hero-wrapper { grid-template-columns: 1fr; padding-top: 140px; text-align: center; }
             .auth-info .intro-p { margin: 0 auto 40px auto; }
@@ -329,6 +686,49 @@ if (isset($_POST['login'])) {
         html { scrollbar-width: none; -ms-overflow-style: none; }
         html::-webkit-scrollbar { display: none; }
 
+        /* ═══════════════════════════════════════════
+           FLOATING BASKETBALL PARTICLES
+           ═══════════════════════════════════════════ */
+        .floating-balls {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .float-ball {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FF6B35, #CC3700);
+            opacity: 0.08;
+            animation: floatBall 15s ease-in-out infinite;
+        }
+        .float-ball::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        .float-ball:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; width: 30px; height: 30px; }
+        .float-ball:nth-child(2) { left: 85%; top: 15%; animation-delay: 2s; width: 15px; height: 15px; }
+        .float-ball:nth-child(3) { left: 70%; top: 60%; animation-delay: 4s; width: 25px; height: 25px; }
+        .float-ball:nth-child(4) { left: 20%; top: 70%; animation-delay: 6s; width: 18px; height: 18px; }
+        .float-ball:nth-child(5) { left: 50%; top: 40%; animation-delay: 8s; width: 22px; height: 22px; }
+        .float-ball:nth-child(6) { left: 90%; top: 80%; animation-delay: 10s; width: 28px; height: 28px; }
+        .float-ball:nth-child(7) { left: 5%; top: 50%; animation-delay: 12s; width: 16px; height: 16px; }
+        .float-ball:nth-child(8) { left: 40%; top: 10%; animation-delay: 14s; width: 20px; height: 20px; }
+
+        @keyframes floatBall {
+            0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+            25% { transform: translateY(-30px) rotate(90deg) scale(1.1); }
+            50% { transform: translateY(-15px) rotate(180deg) scale(0.95); }
+            75% { transform: translateY(-40px) rotate(270deg) scale(1.05); }
+        }
+
+
         /* Mencegah pergeseran halaman belakang saat SweetAlert2 aktif */
 body.swal2-shown, 
 html.swal2-shown {
@@ -337,6 +737,18 @@ html.swal2-shown {
     </style>
 </head>
 <body>
+
+<!-- Floating basketball particles -->
+<div class="floating-balls">
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+    <div class="float-ball"></div>
+</div>
 
     <a href="../index.php" class="btn-close-auth" title="Kembali ke Beranda">
         <i class="fa-solid fa-xmark"></i>
@@ -374,6 +786,11 @@ html.swal2-shown {
 
         <div class="auth-card-container">
             <div class="auth-card">
+                <div class="card-header-decoration">
+                    <div class="card-icon-wrapper">
+                        <i class="fa-solid fa-basketball"></i>
+                    </div>
+                </div>
                 <h3>Masuk</h3>
                 <span class="card-subtitle">Selamat datang kembali!</span>
 
@@ -567,7 +984,13 @@ html.swal2-shown {
                 passwordInput.parentElement.parentElement.classList.remove('error-active');
                 passwordError.style.display = 'none';
             }
-            if (!isValid) { e.preventDefault(); }
+            if (!isValid) {
+                e.preventDefault();
+                const card = document.querySelector('.auth-card');
+                card.classList.remove('shake');
+                void card.offsetWidth; // trigger reflow
+                card.classList.add('shake');
+            }
         });
 
         userInput.addEventListener('input', () => {
