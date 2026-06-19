@@ -15,7 +15,6 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
     $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 
     if (!empty($id_customer)) {
-        // SOFT DELETE: Update Is_Deleted = 1, Status = 0 (data tetap ada di DB sesuai skema)
         $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
 
         $stmt = sqlsrv_query($conn, 
@@ -29,11 +28,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
         );
 
         if ($stmt) {
-            // ========================================
-            // DESTROY SESSION — Logout total
-            // ========================================
             $_SESSION = array();
-
             if (ini_get('session.use_cookies')) {
                 $params = session_get_cookie_params();
                 setcookie(session_name(), '', time() - 42000,
@@ -41,10 +36,8 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
                     $params['secure'], $params['httponly']
                 );
             }
-
             session_destroy();
             setcookie('remember_me', '', time() - 3600, "/");
-
             ob_end_clean();
             header("Location: ../login/login.php?status=success&msg=Akun Anda telah dihapus permanen. Anda harus mendaftar ulang untuk menggunakan layanan kami.");
             exit();
@@ -80,7 +73,6 @@ if (!empty($id_customer)) {
     if ($cek_deleted) {
         $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
         if ($row_cust) {
-            // Force logout jika dinonaktifkan atau dihapus
             if ($row_cust['Is_Deleted'] == 1 || $row_cust['Status'] == 0) {
                 $_SESSION = array();
                 session_destroy();
@@ -96,6 +88,25 @@ if (!empty($id_customer)) {
 }
 
 // ============================================================================
+// CHECK MEMBER STATUS
+// ============================================================================
+$member_data = null;
+$member_check = sqlsrv_query($conn, 
+    "SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
+     FROM Langganan L 
+     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
+     WHERE L.ID_Customer = ? AND L.Status = 1 
+     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
+     ORDER BY L.Tanggal_Selesai DESC", 
+    array($id_customer)
+);
+if ($member_check) {
+    $member_data = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
+}
+$has_member = !empty($member_data);
+$member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
+
+// ============================================================================
 // LOAD DATA MASTER DINAMIS UNTUK LANDING PAGE
 // ============================================================================
 
@@ -108,13 +119,13 @@ if ($query_lapangan) {
     }
 }
 
-// 2. Data Jadwal Tersedia Hari Ini
+// 2. Data Jadwal Tersedia (Hanya yang Status = 1 / Tersedia)
 $jadwal_list = [];
 $query_jadwal = sqlsrv_query($conn, "
-    SELECT TOP 5 J.ID_Jadwal, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, J.Status, L.Nama_Lapangan, L.Harga_Sewa 
+    SELECT TOP 5 J.ID_Jadwal, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, J.Status, L.ID_Lapangan, L.Nama_Lapangan, L.Harga_Sewa, L.Photo_Lapangan 
     FROM Jadwal J 
     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan 
-    WHERE J.Is_Deleted = 0 
+    WHERE J.Is_Deleted = 0 AND L.Is_Deleted = 0 AND L.Status = 1 AND J.Status = 1
     ORDER BY J.Tanggal ASC, J.Jam_Mulai ASC
 ");
 if ($query_jadwal) {
@@ -131,6 +142,46 @@ if ($query_tipe) {
         $tipe_member_list[] = $row;
     }
 }
+
+// 4. Riwayat Booking Customer (Top 3)
+$riwayat_list = [];
+$query_riwayat = sqlsrv_query($conn, "
+    SELECT TOP 3 B.ID_Booking, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
+           L.Nama_Lapangan, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai
+    FROM Booking B
+    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    WHERE B.ID_Customer = ?
+    ORDER BY B.Created_Date DESC
+", array($id_customer));
+if ($query_riwayat) {
+    while ($row = sqlsrv_fetch_array($query_riwayat, SQLSRV_FETCH_ASSOC)) {
+        $riwayat_list[] = $row;
+    }
+}
+
+$status_labels = [
+    0 => ['label' => 'Menunggu', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
+    1 => ['label' => 'Berhasil', 'class' => 'sp-active', 'icon' => 'fa-check-circle'],
+    2 => ['label' => 'Selesai', 'class' => 'sp-success', 'icon' => 'fa-flag-checkered'],
+    3 => ['label' => 'Dibatalkan', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
+];
+
+function formatTanggal($tanggal) {
+    if (empty($tanggal)) return '-';
+    if (is_object($tanggal) && method_exists($tanggal, 'format')) {
+        return $tanggal->format('d M Y');
+    }
+    return date('d M Y', strtotime($tanggal));
+}
+function formatJam($jam) {
+    if (empty($jam)) return '-';
+    if (is_object($jam) && method_exists($jam, 'format')) {
+        return $jam->format('H:i');
+    }
+    return substr($jam, 0, 5);
+}
+function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -151,13 +202,17 @@ if ($query_tipe) {
             --border-color: #222225;
             --white: #FFFFFF;
             --light-bg: #F8F9FA;
+            --green: #34C759;
+            --green-lt: rgba(52,199,89,.10);
+            --yellow: #FFCC00;
+            --yellow-lt: rgba(255,204,0,.10);
+            --red: #FF3B30;
+            --red-lt: rgba(255,59,48,.10);
+            --blue: #007AFF;
+            --blue-lt: rgba(0,122,255,.10);
         }
 
-        * { 
-            box-sizing: border-box; 
-            margin: 0; 
-            padding: 0; 
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
@@ -166,8 +221,7 @@ if ($query_tipe) {
             overflow-x: hidden; 
         }
 
-        /* ---- NAVBAR ---- */
-        /* ---- NAVBAR (DIUBAH MENJADI PUTIH) ---- */
+        /* ---- NAVBAR (PUTIH) ---- */
         nav {
             background: var(--white);
             padding: 0 80px;
@@ -178,7 +232,7 @@ if ($query_tipe) {
             position: sticky;
             top: 0;
             z-index: 1000;
-            border-bottom: 1px solid #E5E5EA; /* Garis pembatas abu-abu terang */
+            border-bottom: 1px solid #E5E5EA;
         }
         .nav-logo {
             display: flex;
@@ -191,7 +245,7 @@ if ($query_tipe) {
             width: auto;
         }
         .nav-logo span {
-            color: #1C1C1E; /* Teks logo gelap agar terbaca di latar putih */
+            color: #1C1C1E;
             font-size: 20px;
             font-weight: 800;
             letter-spacing: -0.5px;
@@ -202,7 +256,7 @@ if ($query_tipe) {
             gap: 8px;
         }
         .nav-links a {
-            color: #636366; /* Warna menu abu-abu gelap */
+            color: #636366;
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
@@ -210,15 +264,10 @@ if ($query_tipe) {
             border-radius: 20px;
             transition: all 0.2s ease;
         }
-        .nav-links a:hover { 
-            color: #1C1C1E; /* Warna menu saat diarahkan kursor */
-        }
-        .nav-links a.active { 
-            color: var(--primary); 
-            font-weight: 600;
-        }
+        .nav-links a:hover { color: #1C1C1E; }
+        .nav-links a.active { color: var(--primary); font-weight: 600; }
 
-        /* ---- USER DROPDOWN (DIUBAH MENJADI TERANG) ---- */
+        /* ---- USER DROPDOWN ---- */
         .nav-user-container {
             position: relative;
             height: 76px;
@@ -226,11 +275,11 @@ if ($query_tipe) {
             align-items: center;
         }
         .nav-user {
-            background: #F2F2F7; /* Latar belakang tombol profil abu-abu terang */
+            background: #F2F2F7;
             border: 1px solid #E5E5EA;
             padding: 8px 16px;
             border-radius: 50px;
-            color: #1C1C1E; /* Teks profil gelap */
+            color: #1C1C1E;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
@@ -239,10 +288,7 @@ if ($query_tipe) {
             gap: 10px;
             transition: 0.2s;
         }
-        .nav-user:hover { 
-            background: #E5E5EA; 
-            border-color: var(--primary);
-        }
+        .nav-user:hover { background: #E5E5EA; border-color: var(--primary); }
         .nav-user img.user-avatar {
             width: 24px;
             height: 24px;
@@ -406,6 +452,22 @@ if ($query_tipe) {
             background: rgba(255, 255, 255, 0.05); 
             border-color: var(--white);
         }
+
+        /* MEMBER BADGE */
+        .member-badge-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--green-lt);
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .member-badge-hero i { font-size: 14px; }
 
         /* WIDGET CARI LAPANGAN */
         .search-widget {
@@ -684,7 +746,7 @@ if ($query_tipe) {
             border-color: #AEAEB2;
         }
 
-        /* ---- JADWAL TERSEDIA (LAYOUT SPLIT) ---- */
+        /* ---- JADWAL TERSEDIA ---- */
         .schedule-box {
             border: 1px solid #E5E5EA;
             border-radius: 16px;
@@ -735,6 +797,7 @@ if ($query_tipe) {
             background: #FFF5F5;
             border-color: #FFD1D1;
             cursor: not-allowed;
+            opacity: 0.6;
         }
         .time-slot.booked .status-lbl {
             color: #FF3B30;
@@ -764,7 +827,7 @@ if ($query_tipe) {
             color: #8E8E93;
         }
 
-        /* JADWAL TERPILIH BOX */
+        /* RINGKASAN JADWAL */
         .selected-summary-card {
             background: #F8F9FA;
             border-radius: 12px;
@@ -816,6 +879,72 @@ if ($query_tipe) {
         .btn-booking-submit:hover {
             background: var(--primary-hover);
         }
+
+        /* ---- RIWAYAT BOOKING MINI ---- */
+        .riwayat-section {
+            margin-bottom: 60px;
+        }
+        .riwayat-card {
+            border: 1px solid #E5E5EA;
+            border-radius: 16px;
+            padding: 24px;
+            background: var(--white);
+        }
+        .riwayat-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid #F2F2F7;
+        }
+        .riwayat-item:last-child {
+            border-bottom: none;
+        }
+        .riwayat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--orange-lt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .riwayat-info {
+            flex: 1;
+        }
+        .riwayat-info h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1C1C1E;
+            margin-bottom: 4px;
+        }
+        .riwayat-info p {
+            font-size: 13px;
+            color: #636366;
+        }
+        .riwayat-price {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        .status-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .sp-active { background: var(--green-lt); color: var(--green); }
+        .sp-success { background: var(--blue-lt); color: var(--blue); }
+        .sp-pending { background: var(--yellow-lt); color: #D97706; }
+        .sp-inactive { background: var(--red-lt); color: var(--red); }
 
         /* ---- BANNER MEMBER ---- */
         .member-promo-banner {
@@ -1088,6 +1217,8 @@ if ($query_tipe) {
             text-align: center;
             font-size: 13px;
         }
+
+        .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
     </style>
 </head>
 <body>
@@ -1098,16 +1229,16 @@ if ($query_tipe) {
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
-        <a href="#" class="active">Beranda</a>
+        <a href="view_customer.php" class="active">Beranda</a>
+        <a href="booking_customer.php">Booking</a>
         <a href="#">Lapangan</a>
-        <a href="#">Jadwal</a>
         <a href="#">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
 
-    <!-- User Dropdown (Sesi & Profil Terintegrasi) -->
+    <!-- User Dropdown -->
     <div class="nav-user-container">
         <div class="nav-user">
             <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
@@ -1124,7 +1255,7 @@ if ($query_tipe) {
                 <span class="u-role">Customer</span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="#"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
+            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
@@ -1136,26 +1267,30 @@ if ($query_tipe) {
 <!-- HERO SECTION -->
 <header class="hero">
     <div class="hero-left">
+        <?php if ($has_member): ?>
+        <div class="member-badge-hero">
+            <i class="fa-solid fa-crown"></i> Member <?php echo htmlspecialchars($member_tipe); ?> Aktif
+        </div>
+        <?php endif; ?>
         <h1 class="hero-title">Sewa Lapangan<br>Basket Jadi<br><span>Lebih Mudah</span></h1>
         <p class="hero-desc">Booking lapangan favoritmu secara online dengan cepat, cek jadwal real-time, dan nikmati promo khusus member.</p>
         <div class="hero-btns">
-            <button class="btn-primary">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></button>
-            <button class="btn-outline"><i class="fa-solid fa-calendar-days"></i> Lihat Jadwal</button>
+            <a href="booking_customer.php" class="btn-primary">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></a>
+            <a href="#jadwal-section" class="btn-outline" onclick="document.getElementById('jadwal-section').scrollIntoView({behavior:'smooth'}); return false;"><i class="fa-solid fa-calendar-days"></i> Lihat Jadwal</a>
         </div>
     </div>
 
-    <!-- WIDGET CARI LAPANGAN (DATA DARI DATABASE) -->
+    <!-- WIDGET CARI LAPANGAN -->
     <div class="search-widget">
-        <h3 class="widget-title">Cari & Booking Lapangan</h3>
-        
+        <h3 class="widget-title"><i class="fa-solid fa-magnifying-glass"></i> Cari & Booking</h3>
+
         <div class="form-group">
             <label class="form-label">Pilih Lapangan</label>
             <div class="input-wrapper">
                 <i class="fa-solid fa-basketball"></i>
-                <select class="form-select">
-                    <option value="">Pilih lapangan</option>
+                <select class="form-select" id="heroLapangan" onchange="filterJadwal()">
+                    <option value="">Semua Lapangan</option>
                     <?php
-                    // Mengambil semua data lapangan aktif untuk dropdown
                     $q_all_lap = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY Nama_Lapangan ASC");
                     if ($q_all_lap) {
                         while ($lap = sqlsrv_fetch_array($q_all_lap, SQLSRV_FETCH_ASSOC)) {
@@ -1167,38 +1302,26 @@ if ($query_tipe) {
             </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">Lokasi</label>
-            <div class="input-wrapper">
-                <i class="fa-solid fa-location-dot"></i>
-                <select class="form-select">
-                    <option value="">Pilih lokasi</option>
-                    <option value="Jakarta Selatan">Jakarta Selatan</option>
-                    <option value="Jakarta Barat">Jakarta Barat</option>
-                    <option value="Tangerang">Tangerang</option>
-                    <option value="Yogyakarta">Yogyakarta</option>
-                </select>
-            </div>
-        </div>
-
         <div class="form-row-2">
             <div class="form-group">
                 <label class="form-label">Tanggal</label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-calendar-days"></i>
-                    <input type="text" class="form-input" placeholder="YYYY-MM-DD" value="<?php echo date('Y-m-d'); ?>">
+                    <input type="date" class="form-input" id="heroTanggal" value="<?php echo date('Y-m-d'); ?>" onchange="filterJadwal()">
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Jam</label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-clock"></i>
-                    <input type="text" class="form-input" placeholder="HH:MM" value="18:00">
+                    <input type="time" class="form-input" id="heroJam" value="18:00" onchange="filterJadwal()">
                 </div>
             </div>
         </div>
 
-        <button class="btn-widget">Cek Ketersediaan</button>
+        <a href="booking_customer.php" class="btn-widget" style="text-decoration: none; display: inline-flex; justify-content: center;">
+            <i class="fa-solid fa-calendar-check"></i> Lanjutkan Booking
+        </a>
     </div>
 </header>
 
@@ -1237,20 +1360,51 @@ if ($query_tipe) {
 <!-- MAIN CONTENT -->
 <main class="main-container">
 
-    <!-- LAPANGAN POPULER (DIAMBIL DARI DATABASE) -->
+    <!-- RIWAYAT BOOKING TERBARU -->
+    <?php if (!empty($riwayat_list)): ?>
+    <section class="riwayat-section">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Booking Terbaru Saya</h2>
+                <p class="section-subtitle">Status booking lapangan yang baru saja Anda lakukan.</p>
+            </div>
+            <a href="booking_customer.php" class="section-action">Lihat Semua <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+        <div class="riwayat-card">
+            <?php foreach ($riwayat_list as $rb): 
+                $status = $status_labels[$rb['Status']] ?? $status_labels[0];
+            ?>
+            <div class="riwayat-item">
+                <div class="riwayat-icon"><i class="fa-solid fa-basketball"></i></div>
+                <div class="riwayat-info">
+                    <h4><?php echo htmlspecialchars($rb['Nama_Lapangan']); ?></h4>
+                    <p><?php echo formatTanggal($rb['Tanggal']); ?> | <?php echo formatJam($rb['Jam_Mulai']); ?> - <?php echo formatJam($rb['Jam_Selesai']); ?> | <?php echo $rb['Metode_Pembayaran']; ?></p>
+                </div>
+                <div style="text-align: right;">
+                    <div class="riwayat-price"><?php echo rupiahFormat($rb['Total_Bayar']); ?></div>
+                    <span class="status-pill <?php echo $status['class']; ?>" style="margin-top: 4px;">
+                        <i class="fa-solid <?php echo $status['icon']; ?>"></i> <?php echo $status['label']; ?>
+                    </span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- LAPANGAN POPULER -->
     <section>
         <div class="section-header">
             <div>
                 <h2 class="section-title">Lapangan Populer</h2>
                 <p class="section-subtitle">Temukan pilihan lapangan basket terbaik yang sering disewa.</p>
             </div>
-            <a href="#" class="section-action">Lihat Semua Lapangan <i class="fa-solid fa-chevron-right"></i></a>
+            <a href="booking_customer.php" class="section-action">Lihat Semua Lapangan <i class="fa-solid fa-chevron-right"></i></a>
         </div>
 
         <div class="court-grid-3">
             <?php 
             if (!empty($lapangan_list)):
-                // Array gambar fallback jika photo_lapangan NULL
                 $fallback_images = [
                     "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800",
                     "https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=800",
@@ -1261,33 +1415,24 @@ if ($query_tipe) {
                     $img = (!empty($lapangan['Photo_Lapangan']) && file_exists($lapangan['Photo_Lapangan'])) 
                            ? htmlspecialchars($lapangan['Photo_Lapangan']) 
                            : $fallback_images[$idx % 3];
-                    $rating = 4.5 + (($lapangan['ID_Lapangan'] * 3) % 5) / 10; // Dummy rating proporsional
-                    $review_count = 50 + ($lapangan['ID_Lapangan'] * 12) % 100;
                     $idx++;
             ?>
-                <!-- Card Item -->
                 <div class="court-card-new">
                     <div class="court-img-container">
                         <img class="court-img-new" src="<?php echo $img; ?>" alt="<?php echo htmlspecialchars($lapangan['Nama_Lapangan']); ?>">
-                        <button class="heart-btn"><i class="fa-regular fa-heart"></i></button>
                     </div>
                     <div class="court-body-new">
                         <div class="court-meta">
                             <h3 class="court-name-new"><?php echo htmlspecialchars($lapangan['Nama_Lapangan']); ?></h3>
-                            <div class="court-rating"><i class="fa-solid fa-star"></i> <?php echo number_format($rating, 1); ?> <span>(<?php echo $review_count; ?>)</span></div>
                         </div>
-                        <div class="court-location"><i class="fa-solid fa-location-dot"></i> Jakarta Pusat</div>
                         <div class="court-footer">
-                            <div class="court-price-box"><strong>Rp <?php echo number_format($lapangan['Harga_Sewa'], 0, ',', '.'); ?></strong> / jam</div>
-                            <button class="btn-detail">Lihat Detail</button>
+                            <div class="court-price-box"><strong><?php echo rupiahFormat($lapangan['Harga_Sewa']); ?></strong> / jam</div>
+                            <a href="booking_customer.php" class="btn-detail">Booking</a>
                         </div>
                     </div>
                 </div>
-            <?php 
-                endforeach; 
-            else:
-            ?>
-                <!-- Placeholder jika database kosong -->
+            <?php endforeach; ?>
+            <?php else: ?>
                 <div style="grid-column: span 3; text-align: center; padding: 40px; color: #8E8E93;">
                     <i class="fa-solid fa-circle-info" style="font-size: 32px; margin-bottom: 12px; color: var(--primary);"></i>
                     <p>Tidak ada data lapangan yang aktif saat ini.</p>
@@ -1296,120 +1441,74 @@ if ($query_tipe) {
         </div>
     </section>
 
-    <!-- JADWAL TERSEDIA HARI INI (DIAMBIL DARI DATABASE) -->
-    <section class="schedule-box">
+    <!-- JADWAL TERSEDIA -->
+    <section class="schedule-box" id="jadwal-section">
         <div class="section-header" style="margin-bottom: 0;">
             <div>
-                <h2 class="section-title">Jadwal Tersedia Hari Ini</h2>
-                <p class="section-subtitle">Sistem pemesanan real-time. Pilih salah satu jam untuk melihat ringkasan.</p>
+                <h2 class="section-title">Jadwal Tersedia</h2>
+                <p class="section-subtitle">Pilih jadwal dan lanjutkan ke halaman booking.</p>
             </div>
+            <a href="booking_customer.php" class="section-action">Lihat Semua Jadwal <i class="fa-solid fa-chevron-right"></i></a>
         </div>
 
         <div class="schedule-layout">
             <div class="schedule-left">
-                <div class="time-slot-grid">
+                <div class="time-slot-grid" id="jadwalGrid">
                     <?php 
                     if (!empty($jadwal_list)):
-                        $first_selected = null;
-                        foreach ($jadwal_list as $index => $jadwal):
-                            // Format Waktu SQL Server (TIME) menjadi HH:MM
+                        foreach ($jadwal_list as $jadwal):
                             $jam_mulai = $jadwal['Jam_Mulai'] instanceof DateTime ? $jadwal['Jam_Mulai']->format('H:i') : substr($jadwal['Jam_Mulai'], 0, 5);
                             $jam_selesai = $jadwal['Jam_Selesai'] instanceof DateTime ? $jadwal['Jam_Selesai']->format('H:i') : substr($jadwal['Jam_Selesai'], 0, 5);
                             $tanggal_str = $jadwal['Tanggal'] instanceof DateTime ? $jadwal['Tanggal']->format('Y-m-d') : $jadwal['Tanggal'];
-                            
-                            $status_class = 'available';
-                            $status_text = 'Tersedia';
-
-                            if ($jadwal['Status'] == 0) {
-                                $status_class = 'booked';
-                                $status_text = 'Penuh';
-                            } else if ($index === 0) {
-                                $status_class = 'selected';
-                                $status_text = 'Terpilih';
-                                $first_selected = $jadwal;
-                            }
                     ?>
-                        <div class="time-slot <?php echo $status_class; ?>" 
-                             data-id="<?php echo $jadwal['ID_Jadwal']; ?>"
-                             data-status="<?php echo $jadwal['Status']; ?>"
-                             data-tanggal="<?php echo $tanggal_str; ?>"
-                             data-jam="<?php echo $jam_mulai . ' - ' . $jam_selesai; ?>"
-                             data-lapangan="<?php echo htmlspecialchars($jadwal['Nama_Lapangan']); ?>"
-                             onclick="selectTimeSlot(this)">
+                        <a href="booking_customer.php?jadwal=<?php echo $jadwal['ID_Jadwal']; ?>" 
+                           class="time-slot available" 
+                           style="text-decoration: none; color: inherit;"
+                           data-lapangan="<?php echo htmlspecialchars($jadwal['Nama_Lapangan']); ?>"
+                           data-tanggal="<?php echo $tanggal_str; ?>"
+                           data-jam="<?php echo $jam_mulai; ?> - <?php echo $jam_selesai; ?>">
                             <span class="time-lbl"><?php echo $jam_mulai; ?></span>
-                            <span class="status-lbl"><?php echo $status_text; ?></span>
-                        </div>
-                    <?php 
-                        endforeach;
-                    else:
-                    ?>
+                            <span class="status-lbl"><?php echo htmlspecialchars($jadwal['Nama_Lapangan']); ?></span>
+                            <span style="font-size: 10px; color: #8E8E93; display: block; margin-top: 2px;"><?php echo formatTanggal($jadwal['Tanggal']); ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                    <?php else: ?>
                         <div style="grid-column: span 5; text-align: center; padding: 20px; color: #8E8E93;">
-                            Tidak ada jadwal aktif tersedia hari ini.
+                            <i class="fa-solid fa-calendar-xmark" style="font-size: 24px; margin-bottom: 8px; color: var(--primary);"></i>
+                            <div>Tidak ada jadwal tersedia saat ini.</div>
                         </div>
                     <?php endif; ?>
                 </div>
                 <div class="schedule-info-row">
                     <i class="fa-solid fa-circle-info"></i>
-                    <span>Pemesanan dapat dibatalkan hingga H-1 sebelum jadwal.</span>
+                    <span>Klik jadwal untuk langsung menuju halaman booking.</span>
                 </div>
             </div>
 
-            <!-- RINGKASAN JADWAL TERPILIH (INTERAKTIF) -->
             <div class="schedule-right">
                 <div class="selected-summary-card">
-                    <h4 class="summary-title">Jadwal Terpilih</h4>
-                    
+                    <h4 class="summary-title"><i class="fa-solid fa-lightbulb" style="color: var(--primary);"></i> Cara Booking</h4>
                     <div class="summary-item">
-                        <i class="fa-solid fa-calendar"></i>
-                        <div>
-                            <span>Tanggal</span>
-                            <strong id="summary-tanggal">
-                                <?php 
-                                    if (isset($first_selected)) {
-                                        echo $first_selected['Tanggal'] instanceof DateTime ? $first_selected['Tanggal']->format('l, d M Y') : date('l, d M Y', strtotime($first_selected['Tanggal']));
-                                    } else {
-                                        echo '-';
-                                    }
-                                ?>
-                            </strong>
-                        </div>
+                        <i class="fa-solid fa-1" style="color: var(--primary);"></i>
+                        <div><span>Langkah 1</span><strong>Pilih jadwal lapangan yang tersedia</strong></div>
                     </div>
-
                     <div class="summary-item">
-                        <i class="fa-solid fa-clock"></i>
-                        <div>
-                            <span>Durasi</span>
-                            <strong id="summary-durasi">
-                                <?php 
-                                    if (isset($first_selected)) {
-                                        $j_mulai = $first_selected['Jam_Mulai'] instanceof DateTime ? $first_selected['Jam_Mulai']->format('H:i') : substr($first_selected['Jam_Mulai'], 0, 5);
-                                        $j_selesai = $first_selected['Jam_Selesai'] instanceof DateTime ? $first_selected['Jam_Selesai']->format('H:i') : substr($first_selected['Jam_Selesai'], 0, 5);
-                                        echo $j_mulai . ' - ' . $j_selesai . ' (2 Jam)';
-                                    } else {
-                                        echo '-';
-                                    }
-                                ?>
-                            </strong>
-                        </div>
+                        <i class="fa-solid fa-2" style="color: var(--primary);"></i>
+                        <div><span>Langkah 2</span><strong>Pilih metode pembayaran (Transfer/QRIS)</strong></div>
                     </div>
-
                     <div class="summary-item">
-                        <i class="fa-solid fa-location-dot"></i>
-                        <div>
-                            <span>Lapangan</span>
-                            <strong id="summary-lapangan">
-                                <?php echo isset($first_selected) ? htmlspecialchars($first_selected['Nama_Lapangan']) : '-'; ?>
-                            </strong>
-                        </div>
+                        <i class="fa-solid fa-3" style="color: var(--primary);"></i>
+                        <div><span>Langkah 3</span><strong>Lakukan pembayaran dan tunggu konfirmasi</strong></div>
                     </div>
-
-                    <button class="btn-booking-submit" id="btn-submit-booking">Lanjut Booking <i class="fa-solid fa-arrow-right"></i></button>
+                    <a href="booking_customer.php" class="btn-booking-submit" style="text-decoration: none;">
+                        <i class="fa-solid fa-calendar-check"></i> Booking Sekarang
+                    </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- BANNER PROMO MEMBER (SINKRON DENGAN TIPE_MEMBER DB) -->
+    <!-- BANNER PROMO MEMBER -->
     <section class="member-promo-banner">
         <div class="member-banner-left">
             <div class="member-img-card">
@@ -1419,7 +1518,7 @@ if ($query_tipe) {
             <div class="member-banner-desc">
                 <h3>Jadi Member,<br><span>Main Makin Hemat!</span></h3>
                 <p>
-                    Daftar tipe member yang tersedia saat ini:
+                    Tipe member tersedia: 
                     <strong>
                     <?php 
                         $types = [];
@@ -1429,9 +1528,9 @@ if ($query_tipe) {
                         echo implode(', ', $types);
                     ?>
                     </strong>.
-                    Nikmati berbagai keuntungan eksklusif dengan menjadi member HoopBall.
+                    Nikmati potongan harga dan prioritas jadwal.
                 </p>
-                <button class="btn-join-member">Gabung Member</button>
+                <a href="#" class="btn-join-member" style="text-decoration: none; display: inline-block;">Gabung Member</a>
             </div>
         </div>
 
@@ -1439,7 +1538,7 @@ if ($query_tipe) {
             <div class="member-benefit-item">
                 <div class="benefit-icon-circle"><i class="fa-solid fa-percent"></i></div>
                 <h5>Potongan Harga</h5>
-                <p>Hingga Rp <?php echo !empty($tipe_member_list) ? number_format($tipe_member_list[count($tipe_member_list)-1]['Potongan_Harga'], 0, ',', '.') : '35.000'; ?> per booking.</p>
+                <p>Hingga <?php echo !empty($tipe_member_list) ? rupiahFormat($tipe_member_list[count($tipe_member_list)-1]['Potongan_Harga']) : 'Rp 35.000'; ?> per booking.</p>
             </div>
             <div class="member-benefit-item">
                 <div class="benefit-icon-circle"><i class="fa-solid fa-calendar-check"></i></div>
@@ -1495,13 +1594,15 @@ if ($query_tipe) {
         </div>
     </section>
 
-    <!-- SIAP MAIN CTA -->
+    <!-- CTA BANNER -->
     <section class="cta-banner">
         <div class="cta-left">
             <h2 class="cta-title">Siap Main Bareng?</h2>
             <p class="cta-desc">Booking lapangan favoritmu sekarang dan rasakan pengalaman bermain terbaik bersama teman-temanmu di HoopBall!</p>
         </div>
-        <button class="btn-cta">Booking Sekarang <i class="fa-solid fa-arrow-right"></i></button>
+        <a href="booking_customer.php" class="btn-cta" style="text-decoration: none;">
+            Booking Sekarang <i class="fa-solid fa-arrow-right"></i>
+        </a>
     </section>
 
 </main>
@@ -1525,13 +1626,11 @@ if ($query_tipe) {
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul>
-                <li><a href="#">Beranda</a></li>
+                <li><a href="view_customer.php">Beranda</a></li>
+                <li><a href="booking_customer.php">Booking</a></li>
                 <li><a href="#">Lapangan</a></li>
-                <li><a href="#">Jadwal</a></li>
                 <li><a href="#">Member</a></li>
                 <li><a href="#">Pembelian</a></li>
-                <li><a href="#">Tentang</a></li>
-                <li><a href="#">Kontak</a></li>
             </ul>
         </div>
 
@@ -1542,7 +1641,6 @@ if ($query_tipe) {
                 <li><a href="#">Syarat & Ketentuan</a></li>
                 <li><a href="#">Kebijakan Privasi</a></li>
                 <li><a href="#">FAQ</a></li>
-                <li><a href="#">Blog</a></li>
             </ul>
         </div>
 
@@ -1567,68 +1665,30 @@ if ($query_tipe) {
         </div>
     </div>
     <div class="footer-bottom">
-        <p>© 2025 HoopBall. All rights reserved.</p>
+        <p>&copy; 2025 HoopBall. All rights reserved.</p>
     </div>
 </footer>
 
 <script>
-// ============================================
-// INTERACTIVE TIME SLOT SELECTION
-// ============================================
-let selectedJadwalId = "<?php echo isset($first_selected) ? $first_selected['ID_Jadwal'] : ''; ?>";
+// ============================================================================
+// FILTER JADWAL (Hero Widget)
+// ============================================================================
+function filterJadwal() {
+    // This is a visual filter - in real implementation, 
+    // it would filter the displayed jadwal or redirect to booking page with params
+    const lapangan = document.getElementById('heroLapangan').value;
+    const tanggal = document.getElementById('heroTanggal').value;
+    const jam = document.getElementById('heroJam').value;
 
-function selectTimeSlot(element) {
-    const status = element.getAttribute('data-status');
-    if (status == "0") return; // Jika penuh, abaikan klik
-
-    // Reset status slot terpilih sebelumnya
-    document.querySelectorAll('.time-slot').forEach(slot => {
-        if (slot.classList.contains('selected')) {
-            slot.classList.remove('selected');
-            slot.classList.add('available');
-            slot.querySelector('.status-lbl').textContent = 'Tersedia';
-        }
-    });
-
-    // Set slot yang baru diklik menjadi terpilih
-    element.classList.remove('available');
-    element.classList.add('selected');
-    element.querySelector('.status-lbl').textContent = 'Terpilih';
-
-    // Ambil data atribut
-    selectedJadwalId = element.getAttribute('data-id');
-    const tanggal = element.getAttribute('data-tanggal');
-    const jam = element.getAttribute('data-jam');
-    const lapangan = element.getAttribute('data-lapangan');
-
-    // Parsing tanggal ke format lokal yang representatif
-    const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
-    const dateFormatted = new Date(tanggal).toLocaleDateString('id-ID', options);
-
-    // Update elemen ringkasan di sebelah kanan secara real-time
-    document.getElementById('summary-tanggal').textContent = dateFormatted;
-    document.getElementById('summary-durasi').textContent = jam + ' (2 Jam)';
-    document.getElementById('summary-lapangan').textContent = lapangan;
+    // Store in session/localStorage for booking page to pick up
+    localStorage.setItem('booking_filter_lapangan', lapangan);
+    localStorage.setItem('booking_filter_tanggal', tanggal);
+    localStorage.setItem('booking_filter_jam', jam);
 }
 
-// Handler Submit Booking ke Database
-document.getElementById('btn-submit-booking').addEventListener('click', function() {
-    if (!selectedJadwalId) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Jadwal belum terpilih',
-            text: 'Silakan pilih jam bermain yang tersedia terlebih dahulu.',
-            confirmButtonColor: '#FF5200'
-        });
-        return;
-    }
-    // Redirect ke halaman pemrosesan transaksi sewa lapangan Anda dengan membawa parameter id_jadwal
-    window.location.href = '../trasanksi/booking.php?id_jadwal=' + selectedJadwalId;
-});
-
-// ============================================
+// ============================================================================
 // HARD DELETE AKUN CONFIRMATION
-// ============================================
+// ============================================================================
 function confirmHapusAkun(e) {
     e.preventDefault();
     Swal.fire({
@@ -1672,9 +1732,9 @@ function confirmHapusAkun(e) {
     });
 }
 
-// ============================================
-// URL PARAMETER NOTIFICATION
-// ============================================
+// ============================================================================
+// URL PARAMETER NOTIFICATION (TOAST STYLE)
+// ============================================================================
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
@@ -1699,5 +1759,6 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
+
 </body>
 </html>
