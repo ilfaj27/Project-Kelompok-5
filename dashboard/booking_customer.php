@@ -208,7 +208,21 @@ if (isset($_GET['action'])) {
             ));
 
             if ($stmtInsert === false) {
-                throw new Exception("Kesalahan sistem saat membuat entri transaksi.");
+                $db_errors = sqlsrv_errors();
+                $customer_friendly_error = "Terjadi kendala sistem saat membuat pesanan Anda. Silakan coba beberapa saat lagi.";
+                
+                if (!empty($db_errors)) {
+                    $sqlState = $db_errors[0]['SQLSTATE'] ?? '';
+                    $sqlCode = $db_errors[0]['code'] ?? 0;
+                    
+                    // Kode 2601 & 2627 di SQL Server adalah tanda bentrokan data / Double Booking
+                    if ($sqlCode == 2601 || $sqlCode == 2627) {
+                        $customer_friendly_error = "Maaf, slot jadwal yang Anda pilih baru saja dipesan oleh pelanggan lain. Silakan pilih tanggal atau jam bermain yang berbeda.";
+                    } else {
+                        $customer_friendly_error = "Terjadi kendala koneksi database (Kode: " . $sqlCode . "). Silakan hubungi operator kami untuk bantuan.";
+                    }
+                }
+                throw new Exception($customer_friendly_error);
             }
 
             // 4. Ubah status ketersediaan Jadwal menjadi tidak tersedia
@@ -494,83 +508,6 @@ if (!$has_member) {
             gap: 24px;
         }
 
-        /* Wizard & Form */
-        .left-col {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        /* ---- WIZARD (Panduan Statis Tanpa Animasi / Warna Melompat) ---- */
-        .steps-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 24px;
-            position: relative;
-        }
-
-        .steps-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            position: relative;
-        }
-
-        .steps-line {
-            position: absolute;
-            top: 16px;
-            left: 8%;
-            right: 8%;
-            height: 2px;
-            background: #E2E8F0;
-            z-index: 1;
-        }
-
-        .step-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            position: relative;
-            z-index: 3;
-            flex: 1;
-        }
-
-        .step-num {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-            margin-bottom: 8px;
-            background: #F1F5F9;
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-        }
-
-        .step-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-        }
-
-        .step-desc {
-            font-size: 11px;
-            color: var(--muted);
-            font-weight: 500;
-        }
-
-        .form-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 30px;
-        }
 
         .section-header {
             margin-bottom: 20px;
@@ -646,26 +583,6 @@ if (!$has_member) {
             border: 1px solid rgba(52, 199, 89, 0.2);
         }
 
-        .badge-selected-check {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: var(--orange);
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 10px;
-            z-index: 5;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
-
-        .court-card.selected .badge-selected-check {
-            display: flex;
-        }
 
         .court-info {
             padding: 16px;
@@ -750,15 +667,23 @@ if (!$has_member) {
 
         .form-control {
             width: 100%;
-            padding: 11px 14px 11px 40px;
+            /* Ditambah padding kanan (40px) agar teks pilihan tidak menabrak tanda panah */
+            padding: 11px 40px 11px 40px; 
             border: 1px solid var(--border);
             border-radius: 10px;
             font-family: inherit;
             font-size: 13px;
             color: var(--text-primary);
-            background: #white;
+            background-color: #fff;
+            
+            /* Menambahkan ikon panah bawah (chevron-down) kustom menggunakan SVG */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 14px;
+            
             outline: none;
-            appearance: none;
+            appearance: none; /* Menyembunyikan panah default browser agar digantikan panah SVG di atas */
         }
 
         .form-control:focus {
@@ -902,20 +827,20 @@ if (!$has_member) {
         .btn-trigger-modal {
             display: flex;
             width: 100%;
-            max-width: 320px;    /* Membatasi lebar tombol agar proporsional */
-            margin: 30px 0 0 auto; /* Menggunakan 'auto' di sisi kiri agar tombol terdorong ke kanan */
+            max-width: 100%;       /* Lebar disamakan penuh dengan kotak di atasnya */
+            margin: 24px 0 0 0;    /* Rata tengah, tidak didorong ke kanan lagi */
             background: var(--orange);
             color: #fff;
             border: none;
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 10px;   /* Sudut membulat disamakan dengan input di atasnya */
+            padding: 12px 20px;    /* Diperkecil ketebalannya (sebelumnya 16px) */
             font-family: inherit;
-            font-size: 15px;
+            font-size: 13.5px;     /* Ukuran font diperkecil sedikit agar proporsional */
             font-weight: 700;
             cursor: pointer;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             transition: background 0.2s ease;
         }
 
@@ -1525,6 +1450,18 @@ if (!$has_member) {
                 transform: translateX(50%);
             }
         }
+
+        /* 1. Menghilangkan scrollbar secara global untuk Chrome, Safari, dan Opera */
+::-webkit-scrollbar {
+    display: none;
+}
+
+/* 2. Menghilangkan scrollbar secara global untuk Firefox, IE, dan Edge */
+html, body, .summary-card {
+    -ms-overflow-style: none;  /* IE dan Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+        
     </style>
 </head>
 <body>
@@ -1572,92 +1509,56 @@ if (!$has_member) {
 
 <div class="container">
     
-    <!-- STEP WIZARD (Panduan Statis Tanpa Animasi / Warna Melompat) -->
-    <div class="steps-card">
-        <div class="steps-line"></div>
-        <div class="steps-container">
-            <div class="step-item">
-                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
-                <div class="step-title">Pilih Lapangan</div>
-                <div class="step-desc">Pilih lapangan favoritmu</div>
-            </div>
-            <div class="step-item">
-                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
-                <div class="step-title">Pilih Jadwal</div>
-                <div class="step-desc">Tentukan tanggal & waktu</div>
-            </div>
-            <div class="step-item">
-                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
-                <div class="step-title">Pembayaran</div>
-                <div class="step-desc">Pilih metode pembayaran</div>
-            </div>
-            <div class="step-item">
-                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
-                <div class="step-title">Konfirmasi</div>
-                <div class="step-desc">Menunggu konfirmasi</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MAIN FORM CARD -->
-    <div class="form-card">
         
         <!-- 1. Pilih Lapangan -->
-        <div class="section-header">
-            <h2 class="section-title">1. Pilih Lapangan</h2>
-            <p class="section-subtitle">Pilih lapangan basket yang aktif dan tersedia</p>
-        </div>
-
-        <div class="court-grid">
-            <?php if (!empty($lapanganList)): ?>
-                <?php foreach ($lapanganList as $index => $lap): 
-                    $courtId = $lap['ID_Lapangan'];
-                    $courtName = htmlspecialchars($lap['Nama_Lapangan']);
-                    $courtPrice = floatval($lap['Harga_Sewa']);
-                    $isSelected = ($index === 0) ? 'selected' : '';
-                    $imgUrl = !empty($lap['Photo_Lapangan']) ? htmlspecialchars($lap['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
-                ?>
-                    <div class="court-card <?= $isSelected ?>" 
-                         data-id="<?= $courtId ?>" 
-                         data-price="<?= $courtPrice ?>" 
-                         data-name="<?= $courtName ?>" 
-                         data-img="<?= $imgUrl ?>">
-                        <div class="badge-selected-check"><i class="fa-solid fa-check"></i></div>
-                        <div class="court-img-wrapper">
-                            <img src="<?= $imgUrl ?>" alt="<?= $courtName ?>" class="court-img">
-                            <span class="badge-available">Tersedia</span>
-                        </div>
-                        <div class="court-info">
-                            <h3 class="court-name"><?= $courtName ?></h3>
-                            <p class="court-price">Rp <?= number_format($courtPrice, 0, ',', '.') ?> / jam</p>
-                            <ul class="court-perk-list">
-                                <?php if (isset($lapanganFasilitas[$courtId])): ?>
-                                    <?php foreach ($lapanganFasilitas[$courtId] as $fas): ?>
-                                        <li class="court-perk-item">
-                                            <i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($fas) ?>
-                                        </li>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <li class="court-perk-item"><i class="fa-solid fa-basketball"></i> Bola Basket Standar</li>
-                                    <li class="court-perk-item"><i class="fa-solid fa-lightbulb"></i> Pencahayaan Terang</li>
-                                <?php endif; ?>
-                            </ul>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p>Tidak ada lapangan aktif yang tersedia saat ini.</p>
-            <?php endif; ?>
-        </div>
-
-        <!-- TOMBOL STRATEGIS UNTUK MEMBUKA POP-UP JADWAL (MODAL 1) -->
-        <button class="btn-trigger-modal" id="btnOpenSchedule" disabled>
-            <i class="fa-solid fa-calendar-days"></i> Pilih Jadwal Bermain
-        </button>
+    <div class="section-header">
+        <h2 class="section-title">Pilih Lapangan</h2>
+        <p class="section-subtitle">Pilih lapangan basket yang aktif dan tersedia. Klik sekali untuk memilih lapangan, klik sekali lagi untuk melanjutkan.</p>
     </div>
-</div>
 
-<!-- POP-UP MODAL 1: PILIH JADWAL -->
+    <div class="court-grid">
+        <?php if (!empty($lapanganList)): ?>
+            <?php foreach ($lapanganList as $index => $lap): 
+                $courtId = $lap['ID_Lapangan'];
+                $courtName = htmlspecialchars($lap['Nama_Lapangan']);
+                $courtPrice = floatval($lap['Harga_Sewa']);
+                $isSelected = ($index === 0) ? 'selected' : '';
+                $imgUrl = !empty($lap['Photo_Lapangan']) ? htmlspecialchars($lap['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+            ?>
+                <div class="court-card <?= $isSelected ?>" 
+                     data-id="<?= $courtId ?>" 
+                     data-price="<?= $courtPrice ?>" 
+                     data-name="<?= $courtName ?>" 
+                     data-img="<?= $imgUrl ?>">
+                    <div class="court-img-wrapper">
+                        <img src="<?= $imgUrl ?>" alt="<?= $courtName ?>" class="court-img">
+                        <span class="badge-available">Tersedia</span>
+                    </div>
+                    <div class="court-info">
+                        <h3 class="court-name"><?= $courtName ?></h3>
+                        <p class="court-price">Rp <?= number_format($courtPrice, 0, ',', '.') ?> / jam</p>
+                        <ul class="court-perk-list">
+                            <?php if (isset($lapanganFasilitas[$courtId])): ?>
+                                <?php foreach ($lapanganFasilitas[$courtId] as $fas): ?>
+                                    <li class="court-perk-item">
+                                        <i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($fas) ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <li class="court-perk-item"><i class="fa-solid fa-basketball"></i> Bola Basket Standar</li>
+                                <li class="court-perk-item"><i class="fa-solid fa-lightbulb"></i> Pencahayaan Terang</li>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            </div> <!-- Penutup .court-grid -->
+        <?php else: ?>
+            <p>Tidak ada lapangan aktif yang tersedia saat ini.</p>
+        <?php endif; ?>
+    </div>
+
+<!-- POP-UP MODAL 1: PILIH JADWAL (Berada di luar container utama) -->
 <div class="booking-modal-overlay" id="scheduleModal">
     <div class="summary-card" style="max-width: 600px;">
         <button class="booking-modal-close" id="btnCloseSchedule">
@@ -1665,17 +1566,29 @@ if (!$has_member) {
         </button>
         
         <div class="section-header">
-            <h2 class="section-title">2. Pilih Jadwal Bermain</h2>
+            <h2 class="section-title">Pilih Jadwal Bermain</h2>
             <p class="section-subtitle">Tentukan waktu bermain berdasarkan ketersediaan jadwal lapangan</p>
         </div>
 
         <div class="schedule-controls">
+            <!-- Pilihan Tanggal -->
             <div class="input-group">
-                <label class="input-label">Pilih Slot Jadwal Tersedia</label>
+                <label class="input-label">Pilih Tanggal Bermain</label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-calendar-days"></i>
-                    <select id="slotSelect" class="form-control">
-                        <!-- Diisi secara dinamis dengan JS AJAX -->
+                    <select id="dateSelect" class="form-control">
+                        <option value="">Silakan pilih tanggal...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Pilihan Jam (Akan aktif setelah tanggal dipilih) -->
+            <div class="input-group">
+                <label class="input-label">Pilih Jam Bermain</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-clock"></i>
+                    <select id="timeSelect" class="form-control" disabled>
+                        <option value="">Pilih tanggal terlebih dahulu...</option>
                     </select>
                 </div>
             </div>
@@ -1832,7 +1745,57 @@ if (!$has_member) {
     </div>
 </div>
 
-<!-- FOOTER -->
+<!-- MASUKKAN KODE INI DI SINI -->
+<div class="booking-modal-overlay" id="paymentInstructionModal">
+    <div class="summary-card" style="max-width: 460px; text-align: center;">
+        <h2 class="summary-title" style="margin-bottom: 12px; text-align: center;">Instruksi Pembayaran</h2>
+        
+        <div class="alert-banner" style="background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); margin-top: 0; margin-bottom: 20px; justify-content: center;">
+            <i class="fa-solid fa-clock" style="color: var(--orange);"></i>
+            <p class="alert-banner-text" style="color: var(--orange-hover); font-weight: 700; font-size: 12px;">
+                Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
+            </p>
+        </div>
+
+        <div style="background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Tagihan</div>
+            <div id="paymentTotalAmount" style="font-size: 24px; color: var(--orange); font-weight: 900; margin-top: 4px;">Rp 0</div>
+        </div>
+
+        <div id="instruksiTransfer" style="display: none;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-align: left;">Nomor Virtual Account (Mandiri / BCA)</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <input type="text" id="vaNumber" value="8801281234567890" class="form-control" style="padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border-color: var(--border);" readonly>
+                <button class="btn-toast-action" id="btnCopyVA" style="border-radius: 10px; font-size: 12px;"><i class="fa-regular fa-copy"></i> Salin</button>
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>Pilih menu <strong>Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</li>
+                <li>Masukkan nomor Virtual Account kustom di atas.</li>
+                <li>Nominal pembayaran akan otomatis muncul sesuai total tagihan.</li>
+            </ul>
+        </div>
+
+        <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Pindai Kode QRIS Resmi HoopBall</div>
+            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <img id="qrisImage" src="" alt="QRIS Code" style="display: block; width: 170px; height: 180px; object-fit: contain;">
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                <li>Buka aplikasi e-wallet Anda (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
+                <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
+                <li>Arahkan kamera smartphone ke kode QR di atas, lalu selesaikan pembayaran.</li>
+            </ul>
+        </div>
+
+        <hr class="divider" style="margin: 20px 0;">
+        
+        <button class="btn-booking" id="btnDonePayment" style="margin-top: 0;">
+            Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
+        </button>
+    </div>
+</div>
+
+<!-- FOOTER (Sekarang berada di luar container dan akan melebar penuh secara normal) -->
 <footer>
     <div class="footer-grid">
         <div>
@@ -1930,8 +1893,10 @@ if (!$has_member) {
     let selectedPaymentMethod = 'Transfer Bank';
 
     // Elements
+    let currentCourtSlots = [];
     const courts = document.querySelectorAll('.court-card');
-    const slotSelect = document.getElementById('slotSelect');
+    const dateSelect = document.getElementById('dateSelect');
+    const timeSelect = document.getElementById('timeSelect');
     const promoSelect = document.getElementById('promoSelect');
     const payments = document.querySelectorAll('.payment-card');
     
@@ -1951,7 +1916,6 @@ if (!$has_member) {
     const btnSubmit = document.getElementById('btnSubmit');
 
     // Pop-up Trigger Elements
-    const btnOpenSchedule = document.getElementById('btnOpenSchedule');
     const scheduleModal = document.getElementById('scheduleModal');
     const btnCloseSchedule = document.getElementById('btnCloseSchedule');
     
@@ -1970,11 +1934,6 @@ if (!$has_member) {
     function formatRupiah(number) {
         return 'Rp ' + Math.max(0, number).toLocaleString('id-ID');
     }
-
-    // Modal 1 (Pilih Jadwal) Trigger Events
-    btnOpenSchedule.addEventListener('click', function() {
-        scheduleModal.style.display = 'flex';
-    });
 
     btnCloseSchedule.addEventListener('click', function() {
         scheduleModal.style.display = 'none';
@@ -2002,38 +1961,54 @@ if (!$has_member) {
 
     // Load available slots dynamically using PHP AJAX Handler
     function loadSlots(courtId) {
-        slotSelect.innerHTML = '<option value="">Memuat slot waktu...</option>';
+        dateSelect.innerHTML = '<option value="">Memuat tanggal...</option>';
+        timeSelect.innerHTML = '<option value="">Menunggu tanggal...</option>';
+        timeSelect.disabled = true;
         btnSubmit.disabled = true;
-        btnOpenSchedule.disabled = true;
         btnGoToSummary.disabled = true;
+        currentCourtSlots = [];
         
-        fetch(`booking_customer.php?action=get_slots&court_id=${courtId}`)
+        return fetch(`booking_customer.php?action=get_slots&court_id=${courtId}`)
             .then(response => response.json())
             .then(slots => {
-                slotSelect.innerHTML = '';
+                currentCourtSlots = slots;
+                dateSelect.innerHTML = '';
+                
                 if (slots.length === 0) {
-                    slotSelect.innerHTML = '<option value="">Tidak ada jadwal kosong</option>';
+                    dateSelect.innerHTML = '<option value="">Tidak ada jadwal kosong</option>';
                     showSlotStatus(false, 'Tidak ada jadwal', 'Semua slot terbooking');
-                    return;
+                    return false;
                 }
 
-                slots.forEach((slot, index) => {
-                    const opt = document.createElement('option');
-                    opt.value = slot.ID_Jadwal;
-                    opt.setAttribute('data-tanggal', slot.Tanggal_Formatted);
-                    opt.setAttribute('data-mulai', slot.Jam_Mulai);
-                    opt.setAttribute('data-selesai', slot.Jam_Selesai);
-                    opt.innerText = `${slot.Tanggal_Formatted} [${slot.Jam_Mulai} - ${slot.Jam_Selesai}]`;
-                    slotSelect.appendChild(opt);
+                const uniqueDates = [];
+                slots.forEach(slot => {
+                    if (!uniqueDates.includes(slot.Tanggal_Formatted)) {
+                        uniqueDates.push(slot.Tanggal_Formatted);
+                    }
                 });
 
-                // Select first slot by default
-                slotSelect.dispatchEvent(new Event('change'));
-                btnOpenSchedule.disabled = false;
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = "";
+                defaultOpt.innerText = "-- Pilih Tanggal Bermain --";
+                dateSelect.appendChild(defaultOpt);
+
+                uniqueDates.forEach(dateStr => {
+                    const opt = document.createElement('option');
+                    opt.value = dateStr;
+                    opt.innerText = dateStr;
+                    dateSelect.appendChild(opt);
+                });
+
+                if (uniqueDates.length > 0) {
+                    dateSelect.selectedIndex = 1;
+                    dateSelect.dispatchEvent(new Event('change'));
+                }
+                return true;
             })
             .catch(err => {
                 console.error("Gagal memuat jadwal:", err);
-                slotSelect.innerHTML = '<option value="">Gagal memuat jadwal</option>';
+                dateSelect.innerHTML = '<option value="">Gagal memuat jadwal</option>';
+                return false;
             });
     }
 
@@ -2095,27 +2070,76 @@ if (!$has_member) {
         btnGoToSummary.disabled = false;
     }
 
-    // Court selection event
+    // Court selection event (2 Klik untuk Melanjutkan)
     courts.forEach(court => {
         court.addEventListener('click', function() {
-            courts.forEach(c => c.classList.remove('selected'));
-            this.classList.add('selected');
+            const isAlreadySelected = this.classList.contains('selected');
 
-            selectedCourtId = this.getAttribute('data-id');
-            selectedCourtPrice = parseFloat(this.getAttribute('data-price'));
-            selectedCourtName = this.getAttribute('data-name');
-            selectedCourtImg = this.getAttribute('data-img');
+            if (!isAlreadySelected) {
+                // KLIK PERTAMA: Pilih lapangan dan muat data jadwal di background
+                courts.forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
 
-            loadSlots(selectedCourtId);
+                selectedCourtId = this.getAttribute('data-id');
+                selectedCourtPrice = parseFloat(this.getAttribute('data-price'));
+                selectedCourtName = this.getAttribute('data-name');
+                selectedCourtImg = this.getAttribute('data-img');
+
+                loadSlots(selectedCourtId);
+            } else {
+                // KLIK KEDUA: Jika lapangan yang diklik sudah berstatus selected, langsung buka modal jadwal
+                if (selectedCourtId) {
+                    scheduleModal.style.display = 'flex';
+                }
+            }
         });
     });
 
-    // Slot select trigger
-    slotSelect.addEventListener('change', function() {
+    // Event filter jam berdasarkan tanggal yang dipilih
+    dateSelect.addEventListener('change', function() {
+        const selectedDate = this.value;
+        timeSelect.innerHTML = '';
+        
+        if (!selectedDate) {
+            timeSelect.innerHTML = '<option value="">Pilih tanggal terlebih dahulu...</option>';
+            timeSelect.disabled = true;
+            selectedSlotId = null;
+            showSlotStatus(false, 'Tanggal belum dipilih', 'Silakan pilih tanggal terlebih dahulu');
+            calculatePrices();
+            return;
+        }
+
+        const filteredSlots = currentCourtSlots.filter(slot => slot.Tanggal_Formatted === selectedDate);
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.innerText = "-- Pilih Jam Bermain --";
+        timeSelect.appendChild(defaultOpt);
+
+        filteredSlots.forEach(slot => {
+            const opt = document.createElement('option');
+            opt.value = slot.ID_Jadwal;
+            opt.setAttribute('data-tanggal', slot.Tanggal_Formatted);
+            opt.setAttribute('data-mulai', slot.Jam_Mulai);
+            opt.setAttribute('data-selesai', slot.Jam_Selesai);
+            opt.innerText = `${slot.Jam_Mulai} - ${slot.Jam_Selesai}`;
+            timeSelect.appendChild(opt);
+        });
+
+        timeSelect.disabled = false;
+
+        if (filteredSlots.length > 0) {
+            timeSelect.selectedIndex = 1;
+            timeSelect.dispatchEvent(new Event('change'));
+        }
+    });
+
+    // Event ketika opsi jam dipilih
+    timeSelect.addEventListener('change', function() {
         const opt = this.options[this.selectedIndex];
         if (!opt || !opt.value) {
             selectedSlotId = null;
-            showSlotStatus(false, 'Jadwal belum dipilih', 'Pilih slot waktu terlebih dahulu');
+            showSlotStatus(false, 'Jam belum dipilih', 'Silakan pilih jam bermain Anda');
             calculatePrices();
             return;
         }
@@ -2187,29 +2211,54 @@ if (!$has_member) {
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                // Tutup modal terlebih dahulu sebelum menampilkan animasi sukses
+                // Tutup modal ringkasan terlebih dahulu
                 bookingModal.style.display = 'none';
 
-                // Update Toast meta-information
-                pillCourt.innerText = selectedCourtName;
-                pillDate.innerText = selectedSlotDateFormatted;
-                pillTime.innerText = selectedSlotTimeFormatted;
+                document.getElementById('paymentTotalAmount').innerText = formatRupiah(finalAmount);
 
-                // Show success toast
-                successToast.style.display = 'flex';
+                if (selectedPaymentMethod === 'Transfer Bank') {
+                    document.getElementById('instruksiTransfer').style.display = 'block';
+                    document.getElementById('instruksiQRIS').style.display = 'none';
+                } else if (selectedPaymentMethod === 'QRIS') {
+                    document.getElementById('instruksiTransfer').style.display = 'none';
+                    document.getElementById('instruksiQRIS').style.display = 'flex';
+                    
+                    const qrPayload = `HOOPBALL-PAYMENT-${selectedSlotId}-${finalAmount}`;
+                    document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}`;
+                }
+
+                document.getElementById('paymentInstructionModal').style.display = 'flex';
+                startPaymentCountdown(15 * 60); 
             } else {
-                alert(result.message || "Gagal melakukan pemesanan sewa.");
+                // GANTI DENGAN SWEETALERT2 YANG RAMAH CUSTOMER
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Jadwal Tidak Tersedia',
+                    text: result.message,
+                    confirmButtonColor: 'var(--orange)',
+                    confirmButtonText: 'Pilih Jadwal Lain'
+                });
+                
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
             }
         })
         .catch(err => {
             console.error("Kesalahan checkout:", err);
-            alert("Kesalahan koneksi ke server database.");
+            
+            // GANTI DENGAN SWEETALERT2 UNTUK ERROR KONEKSI
+            Swal.fire({
+                icon: 'error',
+                title: 'Koneksi Terputus',
+                text: 'Gagal terhubung ke sistem server. Pastikan koneksi internet Anda stabil lalu coba kembali.',
+                confirmButtonColor: 'var(--orange)',
+                confirmButtonText: 'Coba Lagi'
+            });
+            
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
         });
-    });
+
 
     btnCloseToast.addEventListener('click', function() {
         successToast.style.display = 'none';
@@ -2220,7 +2269,12 @@ if (!$has_member) {
     document.addEventListener("DOMContentLoaded", function() {
         const activeCourt = document.querySelector('.court-card.selected');
         if (activeCourt) {
-            activeCourt.click();
+            // Pada awal load halaman, setup data internal lapangan pertama
+            selectedCourtId = activeCourt.getAttribute('data-id');
+            selectedCourtPrice = parseFloat(activeCourt.getAttribute('data-price'));
+            selectedCourtName = activeCourt.getAttribute('data-name');
+            selectedCourtImg = activeCourt.getAttribute('data-img');
+            loadSlots(selectedCourtId);
         }
     });
 
@@ -2296,6 +2350,65 @@ if (!$has_member) {
         });
         window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // Fungsionalitas Timer Hitung Mundur Pembayaran
+    let countdownInterval;
+    function startPaymentCountdown(duration) {
+        let timer = duration, minutes, seconds;
+        const display = document.getElementById('paymentCountdown');
+        clearInterval(countdownInterval);
+        
+        countdownInterval = setInterval(function () {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+            display.textContent = minutes + ":" + seconds;
+
+            if (--timer < 0) {
+                clearInterval(countdownInterval);
+                display.textContent = "Waktu Pembayaran Habis";
+                document.getElementById('btnDonePayment').disabled = true;
+            }
+        }, 1000);
+    }
+
+    // Salin Nomor Virtual Account ke Clipboard
+    document.getElementById('btnCopyVA').addEventListener('click', function() {
+        const vaInput = document.getElementById('vaNumber');
+        vaInput.select();
+        vaInput.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(vaInput.value).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil Disalin!',
+                text: 'Nomor Virtual Account disalin ke papan klip Anda.',
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end',
+                customClass: { popup: 'swal-toast' }
+            });
+        });
+    });
+
+    // Event ketika pengguna menekan tombol "Saya Sudah Bayar"
+    document.getElementById('btnDonePayment').addEventListener('click', function() {
+        clearInterval(countdownInterval);
+        document.getElementById('paymentInstructionModal').style.display = 'none';
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Pembayaran Diterima!',
+            text: 'Terima kasih, sistem kami sedang memverifikasi transaksi pembayaran Anda secara otomatis.',
+            confirmButtonColor: 'var(--orange)',
+            confirmButtonText: 'Selesai'
+        }).then(() => {
+            location.reload();
+        });
+    });
 </script>
 
 </body>
