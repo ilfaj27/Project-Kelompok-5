@@ -2003,9 +2003,9 @@ function format_date_display($date)
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
-    <a href="../dashboard/view_customer.php">Beranda</a>
-    <a href="#">Booking</a>
-    <a href="#">Jadwal</a>
+    <a href="../customer/view_customer.php">Beranda</a>
+    <a href="../customer/booking_customer.php">Booking</a>
+    <a href="../customer/jadwal_customer.php">Jadwal</a>
     <a href="../customer/langganan_customer.php">Member</a>
     <a href="#">Pembelian</a>
     <a href="#">Tentang</a>
