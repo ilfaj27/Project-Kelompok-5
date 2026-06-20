@@ -1989,18 +1989,146 @@ function format_date_display($date)
                 grid-template-columns: 1fr;
             }
         }
+    
+/* ============ KEYFRAMES (from view_customer.php) ============ */
+@keyframes fadeInUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInLeft { from{opacity:0;transform:translateX(-40px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeInRight { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+@keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+@keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)} }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes bounceIn { 0%{opacity:0;transform:scale(0.3)} 50%{opacity:1;transform:scale(1.05)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
+@keyframes rotateIn { from{opacity:0;transform:rotate(-180deg) scale(0.5)} to{opacity:1;transform:rotate(0) scale(1)} }
+@keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes ripple { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+@keyframes glow { 0%,100%{box-shadow:0 0 5px rgba(255,82,0,0.3)} 50%{box-shadow:0 0 25px rgba(255,82,0,0.6),0 0 50px rgba(255,82,0,0.2)} }
+@keyframes drawLine { from{width:0} to{width:60px} }
+@keyframes wave { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+@keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes countUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+@keyframes borderGlow { 0%,100%{border-color:rgba(255,82,0,0.1)} 50%{border-color:rgba(255,82,0,0.4)} }
+@keyframes textReveal { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
+@keyframes iconPop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+@keyframes neonPulse { 0%,100%{text-shadow:0 0 5px rgba(255,82,0,0.5),0 0 10px rgba(255,82,0,0.3)} 50%{text-shadow:0 0 10px rgba(255,82,0,0.8),0 0 20px rgba(255,82,0,0.5),0 0 30px rgba(255,82,0,0.3)} }
+@keyframes slideDown { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes zoomIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes flipX { from{transform:perspective(400px) rotateX(90deg);opacity:0} to{transform:perspective(400px) rotateX(0);opacity:1} }
+@keyframes flipY { from{transform:perspective(400px) rotateY(90deg);opacity:0} to{transform:perspective(400px) rotateY(0);opacity:1} }
+@keyframes swing { 0%{transform:rotate(0)} 20%{transform:rotate(15deg)} 40%{transform:rotate(-10deg)} 60%{transform:rotate(5deg)} 80%{transform:rotate(-5deg)} 100%{transform:rotate(0)} }
+@keyframes rubberBand { 0%{transform:scale(1)} 30%{transform:scale(1.25,0.75)} 40%{transform:scale(0.75,1.25)} 50%{transform:scale(1.15,0.85)} 65%{transform:scale(0.95,1.05)} 75%{transform:scale(1.05,0.95)} 100%{transform:scale(1)} }
+@keyframes heartBeat { 0%{transform:scale(1)} 14%{transform:scale(1.3)} 28%{transform:scale(1)} 42%{transform:scale(1.3)} 70%{transform:scale(1)} }
+@keyframes jello { 0%,100%{transform:skewX(0) skewY(0)} 22.2%{transform:skewX(-12.5deg) skewY(-12.5deg)} 33.3%{transform:skewX(6.25deg) skewY(6.25deg)} 44.4%{transform:skewX(-3.125deg) skewY(-3.125deg)} 55.5%{transform:skewX(1.5625deg) skewY(1.5625deg)} 66.6%{transform:skewX(-0.78125deg) skewY(-0.78125deg)} 77.7%{transform:skewX(0.390625deg) skewY(0.390625deg)} 88.8%{transform:skewX(-0.1953125deg) skewY(-0.1953125deg)} }
+@keyframes rollIn { from{opacity:0;transform:translateX(-100%) rotate(-120deg)} to{opacity:1;transform:translateX(0) rotate(0)} }
+@keyframes jackInTheBox { from{opacity:0;transform:scale(0.1) rotate(30deg);transform-origin:center bottom} 50%{transform:rotate(-10deg)} 70%{transform:rotate(3deg)} to{opacity:1;transform:scale(1)} }
+@keyframes lightSpeedIn { from{transform:translate3d(100%,0,0) skewX(-30deg);opacity:0} 60%{transform:skewX(20deg);opacity:1} 80%{transform:skewX(-5deg)} to{transform:translate3d(0,0,0)} }
+
+/* ============ ANIMATION CLASSES ============ */
+.anim-hidden { opacity:0; }
+.anim-fade-up { animation:fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-down { animation:fadeInDown 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-left { animation:fadeInLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-right { animation:fadeInRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-scale-in { animation:scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.anim-slide-up { animation:slideInUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-bounce-in { animation:bounceIn 0.8s cubic-bezier(0.68,-0.55,0.265,1.55) forwards; }
+.anim-rotate-in { animation:rotateIn 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-text-reveal { animation:textReveal 1s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-zoom-in { animation:zoomIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-flip-x { animation:flipX 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-flip-y { animation:flipY 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-swing { animation:swing 1s ease forwards; }
+.anim-rubber { animation:rubberBand 1s ease forwards; }
+.anim-heart { animation:heartBeat 1.3s ease-in-out forwards; }
+.anim-jello { animation:jello 0.9s ease forwards; }
+.anim-roll-in { animation:rollIn 0.6s ease forwards; }
+.anim-jack-in { animation:jackInTheBox 0.8s ease forwards; }
+.anim-light-speed { animation:lightSpeedIn 0.8s ease forwards; }
+.anim-neon { animation:neonPulse 2s ease-in-out infinite; }
+
+.delay-100 { animation-delay:0.1s; }
+.delay-200 { animation-delay:0.2s; }
+.delay-300 { animation-delay:0.3s; }
+.delay-400 { animation-delay:0.4s; }
+.delay-500 { animation-delay:0.5s; }
+.delay-600 { animation-delay:0.6s; }
+.delay-700 { animation-delay:0.7s; }
+.delay-800 { animation-delay:0.8s; }
+.delay-900 { animation-delay:0.9s; }
+.delay-1000 { animation-delay:1.0s; }
+.delay-1200 { animation-delay:1.2s; }
+.delay-1500 { animation-delay:1.5s; }
+.delay-2000 { animation-delay:2.0s; }
+
+/* ============ INTERSECTION OBSERVER ============ */
+.reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal.active { opacity:1; transform:translateY(0); }
+.reveal-left { opacity:0; transform:translateX(-50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal-left.active { opacity:1; transform:translateX(0); }
+.reveal-right { opacity:0; transform:translateX(50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal-right.active { opacity:1; transform:translateX(0); }
+.reveal-scale { opacity:0; transform:scale(0.9); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+.reveal-scale.active { opacity:1; transform:scale(1); }
+.reveal-stagger .stagger-item { opacity:0; transform:translateY(30px); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); }
+.reveal-stagger.active .stagger-item { opacity:1; transform:translateY(0); }
+.reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-stagger.active .stagger-item:nth-child(2){transition-delay:0.1s}
+.reveal-stagger.active .stagger-item:nth-child(3){transition-delay:0.2s}
+.reveal-stagger.active .stagger-item:nth-child(4){transition-delay:0.3s}
+.reveal-stagger.active .stagger-item:nth-child(5){transition-delay:0.4s}
+.reveal-flip .stagger-item { opacity:0; transform:perspective(1000px) rotateY(90deg); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+.reveal-flip.active .stagger-item { opacity:1; transform:perspective(1000px) rotateY(0); }
+.reveal-flip.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-flip.active .stagger-item:nth-child(2){transition-delay:0.15s}
+.reveal-flip.active .stagger-item:nth-child(3){transition-delay:0.3s}
+.reveal-flip.active .stagger-item:nth-child(4){transition-delay:0.45s}
+.reveal-flip.active .stagger-item:nth-child(5){transition-delay:0.6s}
+.reveal-zoom .stagger-item { opacity:0; transform:scale(0.5); transition:all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+.reveal-zoom.active .stagger-item { opacity:1; transform:scale(1); }
+.reveal-zoom.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-zoom.active .stagger-item:nth-child(2){transition-delay:0.1s}
+.reveal-zoom.active .stagger-item:nth-child(3){transition-delay:0.2s}
+.reveal-zoom.active .stagger-item:nth-child(4){transition-delay:0.3s}
+
+/* ============ ENHANCED HOVER EFFECTS ============ */
+.hover-lift { transition:all 0.4s cubic-bezier(0.16,1,0.3,1); }
+.hover-lift:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,0.1); }
+
+/* ============ SCROLL PROGRESS BAR ============ */
+.scroll-progress { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--primary),#FF8C42); z-index:9999; transform-origin:left; transform:scaleX(0); transition:transform 0.1s ease-out; }
+
+/* ============ CUSTOM SCROLLBAR ============ */
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:#f1f1f1; }
+::-webkit-scrollbar-thumb { background:var(--primary); border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:var(--primary-hover); }
+
+/* ============ SELECTION COLOR ============ */
+::selection { background:rgba(255,82,0,0.3); color:#1C1C1E; }
+
+/* ============ REDUCED MOTION ============ */
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+}
+
     </style>
+
 </head>
 
 <body>
+    <div class="scroll-progress" id="scrollProgress"></div>
 
     <!-- NAVBAR (PUTIH - TIDAK DIUBAH) -->
-    <nav>
-        <a href="../dashboard/view_customer.php" class="nav-logo">
+    <nav class="anim-fade-down">
+        <a href="../customer/view_customer.php" class="nav-logo">
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
-    <a href="../dashboard/view_customer.php">Beranda</a>
+    <a href="../customer/view_customer.php">Beranda</a>
     <a href="#">Booking</a>
     <a href="#">Jadwal</a>
     <a href="../customer/langganan_customer.php">Member</a>
@@ -2031,14 +2159,14 @@ function format_date_display($date)
 
     <!-- HERO BANNER -->
     <section class="hero-banner">
-        <div class="hero-left">
+        <div class="hero-left anim-fade-up delay-200">
             <h2>Profil Customer</h2>
             <h1>Kelola Akunmu</h1>
             <p>Lihat informasi akun, riwayat aktivitas, dan update data pribadi dengan mudah.</p>
         </div>
 
         <!-- Ringkasan Akun Card -->
-        <div class="ringkasan-akun-card">
+        <div class="ringkasan-akun-card anim-slide-up delay-400">
             <div class="ringkasan-title">Ringkasan Akun</div>
 
             <div class="ringkasan-user">
@@ -2102,29 +2230,29 @@ function format_date_display($date)
     </section> <!-- TAG PENUTUP </section> UNTUK .hero-banner YANG SEBELUMNYA TERHAPUS -->
 
     <!-- STATS CARDS ROW (INDIKATOR ATAS) -->
-    <section class="stats-indicator-container">
-        <div class="stat-indicator-card">
+    <section class="stats-indicator-container reveal-stagger">
+        <div class="stat-indicator-card stagger-item hover-lift">
             <div class="stat-ind-icon orange-icon"><i class="fa-regular fa-calendar-check"></i></div>
             <div class="stat-ind-info">
                 <span class="stat-ind-label">Booking Selesai</span>
                 <span class="stat-ind-val"><?= $count_selesai ?></span>
             </div>
         </div>
-        <div class="stat-indicator-card">
+        <div class="stat-indicator-card stagger-item hover-lift">
             <div class="stat-ind-icon orange-icon"><i class="fa-regular fa-clock"></i></div>
             <div class="stat-ind-info">
                 <span class="stat-ind-label">Booking Mendatang</span>
                 <span class="stat-ind-val"><?= $count_mendatang ?></span>
             </div>
         </div>
-        <div class="stat-indicator-card">
+        <div class="stat-indicator-card stagger-item hover-lift">
             <div class="stat-ind-icon orange-icon"><i class="fa-solid fa-bag-shopping"></i></div>
             <div class="stat-ind-info">
                 <span class="stat-ind-label">Pesanan Alat</span>
                 <span class="stat-ind-val"><?= $count_alat ?></span>
             </div>
         </div>
-        <div class="stat-indicator-card">
+        <div class="stat-indicator-card stagger-item hover-lift">
             <div class="stat-ind-icon orange-icon"><i class="fa-solid fa-wallet"></i></div>
             <div class="stat-ind-info">
                 <span class="stat-ind-label">Total Transaksi</span>
@@ -2142,7 +2270,7 @@ function format_date_display($date)
         <div class="profile-row-1">
 
             <!-- SISI KIRI: SIDEBAR KELOMPOK (Menu Navigasi & Detail Akun Pendukung) -->
-            <aside class="sidebar-aside-container">
+            <aside class="sidebar-aside-container reveal-left">
 
                 <!-- Menu Akun (Bagian Atas) -->
                 <div class="sidebar-menu-card">
@@ -2204,7 +2332,7 @@ function format_date_display($date)
             </aside>
 
             <!-- SISI KANAN: FORM EDIT BIODATA (Tinggi menyesuaikan stretch secara otomatis) -->
-            <div class="form-card" id="profile-form-card" style="justify-content: flex-start;">
+            <div class="form-card" id="profile-form-card" class="reveal-right" style="justify-content: flex-start;">
                 <div class="form-card-title">Informasi Pribadi</div>
                 <form method="POST" id="formBiodata" style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
     <div>
@@ -2310,7 +2438,7 @@ function format_date_display($date)
             </div>
 
             <!-- FORM KATA SANDI (TAMPIL KONDISIONAL VIA TAB) -->
-            <div class="form-card" id="password-form-card" style="display: none; align-self: start;">
+            <div class="form-card" id="password-form-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title">Keamanan & Ubah Password</div>
                 <form method="POST" id="formPassword"
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
@@ -2347,7 +2475,7 @@ function format_date_display($date)
             </div>
 
             <!-- TAB HAPUS AKUN -->
-            <div class="form-card" id="delete-form-card" style="display: none; align-self: start;">
+            <div class="form-card" id="delete-form-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title" style="color: var(--red);">Hapus Akun Permanen</div>
                 <form method="POST" id="formDeleteAccount"
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
@@ -2385,7 +2513,7 @@ function format_date_display($date)
             </div>
 
             <!-- TAB 1: KARTU RIWAYAT BOOKING -->
-            <div class="form-card" id="booking-list-card" style="display: none; align-self: start;">
+            <div class="form-card" id="booking-list-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Booking Lapangan</div>
                 <div class="list-container">
                     <?php if (empty($bookings)): ?>
@@ -2395,7 +2523,7 @@ function format_date_display($date)
                         </div>
                     <?php else: ?>
                         <?php foreach ($bookings as $b): ?>
-                            <div class="history-item">
+                            <div class="history-item hover-lift">
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-regular fa-clock"></i>
                                         <?= format_date_display($b['Tanggal_Booking']) ?></span>
@@ -2452,7 +2580,7 @@ function format_date_display($date)
             </div>
 
             <!-- TAB 2: KARTU RIWAYAT LANGGANAN MEMBER -->
-            <div class="form-card" id="member-list-card" style="display: none; align-self: start;">
+            <div class="form-card" id="member-list-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Langganan Member</div>
                 <div class="list-container">
                     <?php if (empty($memberships)): ?>
@@ -2462,7 +2590,7 @@ function format_date_display($date)
                         </div>
                     <?php else: ?>
                         <?php foreach ($memberships as $m): ?>
-                            <div class="history-item">
+                            <div class="history-item hover-lift">
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-solid fa-crown"></i> Paket:
                                         <?= htmlspecialchars($m['Nama_Tipe']) ?></span>
@@ -2516,7 +2644,7 @@ function format_date_display($date)
             </div>
 
             <!-- TAB 3: KARTU RIWAYAT PEMBELIAN ALAT -->
-            <div class="form-card" id="purchase-list-card" style="display: none; align-self: start;">
+            <div class="form-card" id="purchase-list-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Pembelian Perlengkapan</div>
                 <div class="list-container">
                     <?php if (empty($purchases)): ?>
@@ -2526,7 +2654,7 @@ function format_date_display($date)
                         </div>
                     <?php else: ?>
                         <?php foreach ($purchases as $p): ?>
-                            <div class="history-item">
+                            <div class="history-item hover-lift">
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-regular fa-clock"></i>
                                         <?= format_date_display($p['Tanggal_Beli']) ?></span>
@@ -2572,10 +2700,10 @@ function format_date_display($date)
         </div>
 
         <!-- BARIS 2: DETAIL BOOKING BERIKUTNYA & MEMBER AKTIF (LEBAR PENUH) -->
-        <div class="lower-panel-grid" id="lower-dashboard-section">
+        <div class="lower-panel-grid reveal" id="lower-dashboard-section">
 
             <!-- Booking Berikutnya -->
-            <div class="lower-card">
+            <div class="lower-card hover-lift">
                 <div class="lower-card-title">Booking Berikutnya</div>
                 <?php if ($next_booking): ?>
                     <div class="booking-row">
@@ -2610,7 +2738,7 @@ function format_date_display($date)
             </div>
 
             <!-- Member Aktif -->
-            <div class="lower-card">
+            <div class="lower-card hover-lift">
                 <div class="lower-card-title">Member Aktif</div>
                 <?php if ($has_member): ?>
                     <div class="member-row">
@@ -2662,9 +2790,9 @@ function format_date_display($date)
         </div> <!-- <-- TAMBAHKAN TAG PENUTUP INI UNTUK MENUTUP .lower-panel-grid YANG HILANG -->
 
         <!-- BARIS 3: AKTIVITAS TERBARU (LEBAR PENUH) -->
-        <div class="activity-section-card" id="activity-section">
+        <div class="activity-section-card reveal" id="activity-section">
             <div class="form-card-title" style="margin-bottom: 16px;">Aktivitas Terbaru</div>
-            <div class="activity-grid-3">
+            <div class="activity-grid-3 reveal-stagger">
 
                 <!-- AKTIVITAS 1: Booking Terakhir -->
                 <?php if (!empty($bookings)):
@@ -2682,7 +2810,7 @@ function format_date_display($date)
                         $b_status_class = 'red';
                     }
                     ?>
-                    <div class="activity-item-card">
+                    <div class="activity-item-card stagger-item">
                         <div class="activity-item-icon"><i class="fa-regular fa-calendar-check"></i></div>
                         <div class="activity-item-details">
                             <div class="act-title">Booking: <?= htmlspecialchars($last_b['Nama_Lapangan']) ?></div>
@@ -2710,7 +2838,7 @@ function format_date_display($date)
                     $p_status_class = $last_p['PurchaseStatus'] == 1 ? 'green' : 'blue';
                     $item_name = !empty($last_p['items']) ? $last_p['items'][0]['Nama_Alat'] : 'Perlengkapan';
                     ?>
-                    <div class="activity-item-card">
+                    <div class="activity-item-card stagger-item">
                         <div class="activity-item-icon"><i class="fa-solid fa-bag-shopping"></i></div>
                         <div class="activity-item-details">
                             <div class="act-title">Beli: <?= htmlspecialchars($item_name) ?></div>
@@ -2747,7 +2875,7 @@ function format_date_display($date)
                         $m_status_class = 'red';
                     }
                     ?>
-                    <div class="activity-item-card">
+                    <div class="activity-item-card stagger-item">
                         <div class="activity-item-icon"><i class="fa-regular fa-user"></i></div>
                         <div class="activity-item-details">
                             <div class="act-title">Member: <?= htmlspecialchars($last_m['Nama_Tipe']) ?></div>
@@ -2774,7 +2902,7 @@ function format_date_display($date)
     </main>
 
     <!-- FOOTER -->
-    <footer id="tentang-kami">
+    <footer id="tentang-kami" class="reveal">
         <div class="footer-grid">
             <div class="footer-brand">
                 <a href="../index.php" class="logo">
@@ -3207,7 +3335,43 @@ if (formBiodata) {
     });
 <?php endif; ?>
 
-    </script>
+    
+
+// ============ INTERSECTION OBSERVER FOR SCROLL ANIMATIONS ============
+document.addEventListener('DOMContentLoaded', function() {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1
+    };
+
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    // Observe all reveal elements
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+        revealObserver.observe(el);
+    });
+
+    // Scroll progress bar
+    const scrollProgress = document.getElementById('scrollProgress');
+    if (scrollProgress) {
+        window.addEventListener('scroll', () => {
+            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrollPercent = scrollTop / scrollHeight;
+            scrollProgress.style.transform = `scaleX(${scrollPercent})`;
+        });
+    }
+});
+
+</script>
 </body>
 
 </html>

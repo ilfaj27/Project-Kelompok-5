@@ -113,7 +113,6 @@ $member_discount = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
 // GENERATOR JADWAL OTOMATIS (Durasi Bermain: 1 JAM PER SLOT | Operasional 07:00 - 23:00)
 // ============================================================================
 function generateJadwalOtomatis($conn) {
-    // 1. Ambil semua ID_Lapangan aktif yang tidak dihapus
     $q_lap = sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0");
     if ($q_lap === false) return;
 
@@ -122,87 +121,48 @@ function generateJadwalOtomatis($conn) {
         $daftar_lapangan[] = $row['ID_Lapangan'];
     }
 
-    // 2. Definisi Template Jam Operasional (Durasi Bermain: 1 JAM PER SLOT)
     $template_jam = [
-        ['07:00:00', '08:00:00'],
-        ['08:00:00', '09:00:00'],
-        ['09:00:00', '10:00:00'],
-        ['10:00:00', '11:00:00'],
-        ['11:00:00', '12:00:00'],
-        ['12:00:00', '13:00:00'],
-        ['13:00:00', '14:00:00'],
-        ['14:00:00', '15:00:00'],
-        ['15:00:00', '16:00:00'],
-        ['16:00:00', '17:00:00'],
-        ['17:00:00', '18:00:00'],
-        ['18:00:00', '19:00:00'],
-        ['19:00:00', '20:00:00'],
-        ['20:00:00', '21:00:00'],
-        ['21:00:00', '22:00:00'],
+        ['07:00:00', '08:00:00'], ['08:00:00', '09:00:00'], ['09:00:00', '10:00:00'],
+        ['10:00:00', '11:00:00'], ['11:00:00', '12:00:00'], ['12:00:00', '13:00:00'],
+        ['13:00:00', '14:00:00'], ['14:00:00', '15:00:00'], ['15:00:00', '16:00:00'],
+        ['16:00:00', '17:00:00'], ['17:00:00', '18:00:00'], ['18:00:00', '19:00:00'],
+        ['19:00:00', '20:00:00'], ['20:00:00', '21:00:00'], ['21:00:00', '22:00:00'],
         ['22:00:00', '23:00:00']
     ];
 
-    // 3. Loop Tanggal: Buat slot otomatis untuk hari ini sampai 7 hari ke depan
     for ($i = 0; $i < 7; $i++) {
         $target_date = date('Y-m-d', strtotime("+$i days"));
-
         foreach ($daftar_lapangan as $id_lapangan) {
             foreach ($template_jam as $jam) {
-                $mulai = $jam[0];
-                $selesai = $jam[1];
-
-                // Cek apakah kombinasi Lapangan, Tanggal, dan Jam ini sudah ada di DB?
-                $cek_query = "SELECT ID_Jadwal FROM Jadwal 
-                              WHERE ID_Lapangan = ? AND Tanggal = ? AND Jam_Mulai = ? AND Jam_Selesai = ?";
+                $mulai = $jam[0]; $selesai = $jam[1];
+                $cek_query = "SELECT ID_Jadwal FROM Jadwal WHERE ID_Lapangan = ? AND Tanggal = ? AND Jam_Mulai = ? AND Jam_Selesai = ?";
                 $cek_stmt = sqlsrv_query($conn, $cek_query, array($id_lapangan, $target_date, $mulai, $selesai));
-
-                // Jika belum ada, lakukan INSERT otomatis
                 if ($cek_stmt && !sqlsrv_fetch_array($cek_stmt, SQLSRV_FETCH_ASSOC)) {
-                    $insert_query = "INSERT INTO Jadwal 
-                                     (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) 
-                                     VALUES (?, ?, ?, ?, 1, 0, 'SYSTEM_AUTO', GETDATE())";
+                    $insert_query = "INSERT INTO Jadwal (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, 'SYSTEM_AUTO', GETDATE())";
                     sqlsrv_query($conn, $insert_query, array($id_lapangan, $target_date, $mulai, $selesai));
                 }
             }
         }
     }
 }
-
-// Jalankan fungsi otomatisasi pembuat jadwal agar selalu terisi ke depan
 generateJadwalOtomatis($conn);
 
-
 // ============================================================================
-// AJAX REQUEST HANDLERS (Untuk interaktivitas pemilihan slot dan proses checkout)
+// AJAX REQUEST HANDLERS
 // ============================================================================
 if (isset($_GET['action'])) {
     header('Content-Type: application/json');
 
-    // Ambil Slot Jadwal Berdasarkan Lapangan
     if ($_GET['action'] == 'get_slots' && isset($_GET['court_id'])) {
         $court_id = intval($_GET['court_id']);
-       // Query ini membuang jadwal hari-hari kemarin, serta jam-jam yang sudah lewat khusus untuk hari ini
-        $queryJadwal = "SELECT ID_Jadwal, Tanggal, Jam_Mulai, Jam_Selesai 
-                        FROM Jadwal 
-                        WHERE ID_Lapangan = ? 
-                          AND Status = 1 
-                          AND Is_Deleted = 0
-                          AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking)
-                          AND (
-                              Tanggal > CAST(GETDATE() AS DATE) 
-                              OR 
-                              (Tanggal = CAST(GETDATE() AS DATE) AND Jam_Mulai > CAST(GETDATE() AS TIME))
-                          )
-                        ORDER BY Tanggal ASC, Jam_Mulai ASC";
+        $queryJadwal = "SELECT ID_Jadwal, Tanggal, Jam_Mulai, Jam_Selesai FROM Jadwal WHERE ID_Lapangan = ? AND Status = 1 AND Is_Deleted = 0 AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking) AND (Tanggal > CAST(GETDATE() AS DATE) OR (Tanggal = CAST(GETDATE() AS DATE) AND Jam_Mulai > CAST(GETDATE() AS TIME))) ORDER BY Tanggal ASC, Jam_Mulai ASC";
         $stmtJadwal = sqlsrv_query($conn, $queryJadwal, array($court_id));
         $slots = [];
-
         if ($stmtJadwal) {
             while ($row = sqlsrv_fetch_array($stmtJadwal, SQLSRV_FETCH_ASSOC)) {
                 $tanggal_str = ($row['Tanggal'] instanceof DateTime) ? $row['Tanggal']->format('Y-m-d') : $row['Tanggal'];
                 $jam_mulai = ($row['Jam_Mulai'] instanceof DateTime) ? $row['Jam_Mulai']->format('H:i') : substr($row['Jam_Mulai'], 0, 5);
                 $jam_selesai = ($row['Jam_Selesai'] instanceof DateTime) ? $row['Jam_Selesai']->format('H:i') : substr($row['Jam_Selesai'], 0, 5);
-
                 $slots[] = [
                     'ID_Jadwal' => $row['ID_Jadwal'],
                     'Tanggal' => $tanggal_str,
@@ -216,12 +176,9 @@ if (isset($_GET['action'])) {
         exit();
     }
 
-    // Proses Transaksi Booking Baru
     if ($_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
-        if (!$input) {
-            $input = $_POST;
-        }
+        if (!$input) $input = $_POST;
 
         $id_jadwal = intval($input['id_jadwal'] ?? 0);
         $id_promo = !empty($input['id_promo']) ? intval($input['id_promo']) : null;
@@ -233,70 +190,39 @@ if (isset($_GET['action'])) {
             exit();
         }
 
-        // Mulai transaksi SQL Server
         if (sqlsrv_begin_transaction($conn) === false) {
             echo json_encode(['success' => false, 'message' => 'Gagal menginisiasi sesi transaksi database.']);
             exit();
         }
 
         try {
-            // 1. Verifikasi ketersediaan jadwal
             $queryCheck = "SELECT Status, ID_Lapangan FROM Jadwal WHERE ID_Jadwal = ?";
             $stmtCheck = sqlsrv_query($conn, $queryCheck, array($id_jadwal));
             $jadwal = null;
-            if ($stmtCheck) {
-                $jadwal = sqlsrv_fetch_array($stmtCheck, SQLSRV_FETCH_ASSOC);
-            }
+            if ($stmtCheck) $jadwal = sqlsrv_fetch_array($stmtCheck, SQLSRV_FETCH_ASSOC);
+            if (!$jadwal || $jadwal['Status'] != 1) throw new Exception("Maaf, slot jadwal ini sudah terbooking atau tidak tersedia.");
 
-            if (!$jadwal || $jadwal['Status'] != 1) {
-                throw new Exception("Maaf, slot jadwal ini sudah terbooking atau tidak tersedia.");
-            }
-
-            // 2. Pilih karyawan penanggung jawab transaksi secara acak/berurutan
             $queryKaryawan = "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY ID_Karyawan ASC";
             $stmtKary = sqlsrv_query($conn, $queryKaryawan, array());
             $id_karyawan = 1;
             if ($stmtKary) {
                 $kary = sqlsrv_fetch_array($stmtKary, SQLSRV_FETCH_ASSOC);
-                if ($kary) {
-                    $id_karyawan = $kary['ID_Karyawan'];
-                }
+                if ($kary) $id_karyawan = $kary['ID_Karyawan'];
             }
 
-            // 3. Simpan data ke tabel Booking
             $created_by = $_SESSION['nama'] ?? 'CUSTOMER';
-            $queryInsert = "INSERT INTO Booking 
-                            (ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date) 
-                            VALUES (?, ?, ?, ?, CAST(GETDATE() AS DATE), ?, ?, 0, ?, GETDATE())";
-            
-            $stmtInsert = sqlsrv_query($conn, $queryInsert, array(
-                $id_customer,
-                $id_karyawan,
-                $id_jadwal,
-                $id_promo,
-                $metode_pembayaran,
-                $total_bayar,
-                $created_by
-            ));
+            $queryInsert = "INSERT INTO Booking (ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date) VALUES (?, ?, ?, ?, CAST(GETDATE() AS DATE), ?, ?, 0, ?, GETDATE())";
+            $stmtInsert = sqlsrv_query($conn, $queryInsert, array($id_customer, $id_karyawan, $id_jadwal, $id_promo, $metode_pembayaran, $total_bayar, $created_by));
 
             if ($stmtInsert === false) {
                 $db_errors = sqlsrv_errors();
-                $customer_friendly_error = "Terjadi kendala sistem saat membuat pesanan Anda. Silakan coba beberapa saat lagi.";
-                
-                if (!empty($db_errors)) {
-                    $sqlCode = $db_errors[0]['code'] ?? 0;
-                    $customer_friendly_error = "Terjadi kendala koneksi database (Kode: " . $sqlCode . "). Silakan hubungi operator kami untuk bantuan.";
-                }
+                $customer_friendly_error = "Terjadi kendala koneksi database (Kode: " . ($db_errors[0]['code'] ?? 0) . "). Silakan hubungi operator kami untuk bantuan.";
                 throw new Exception($customer_friendly_error);
             }
 
-            // 4. Ubah status ketersediaan Jadwal menjadi tidak tersedia
             $queryUpdateJadwal = "UPDATE Jadwal SET Status = 0, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Jadwal = ?";
             $stmtUpdate = sqlsrv_query($conn, $queryUpdateJadwal, array($created_by, $id_jadwal));
-
-            if ($stmtUpdate === false) {
-                throw new Exception("Gagal merubah status jadwal sewa.");
-            }
+            if ($stmtUpdate === false) throw new Exception("Gagal merubah status jadwal sewa.");
 
             sqlsrv_commit($conn);
             echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
@@ -309,10 +235,8 @@ if (isset($_GET['action'])) {
 }
 
 // ============================================================================
-// LOAD DATA MASTER (Lapangan, Fasilitas, & Promo)
+// LOAD DATA MASTER
 // ============================================================================
-
-// 1. Data Lapangan
 $lapanganList = [];
 $queryLapangan = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0");
 if ($queryLapangan) {
@@ -321,7 +245,6 @@ if ($queryLapangan) {
     }
 }
 
-// 2. Mapping Fasilitas per Lapangan
 $lapanganFasilitas = [];
 $queryFasilitas = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Fasilitas FROM Fasilitas_Lapangan WHERE Status = 1 AND Is_Deleted = 0");
 if ($queryFasilitas) {
@@ -330,7 +253,6 @@ if ($queryFasilitas) {
     }
 }
 
-// 3. Data Promo Aktif (Hanya untuk non-member)
 $promos = [];
 if (!$has_member) {
     $queryPromo = sqlsrv_query($conn, "SELECT ID_Promo, Nama_Promo, Diskon FROM Promo WHERE Status = 1 AND Is_Deleted = 0 AND CAST(GETDATE() AS DATE) BETWEEN Tanggal_Mulai AND Tanggal_Selesai");
@@ -347,16 +269,12 @@ if (!$has_member) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Booking Lapangan | HoopBall Arena</title>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         :root {
-            /* Palette Design System */
             --primary: #FF5200;
             --primary-hover: #E04800;
             --primary-light: rgba(255, 82, 0, 0.1);
@@ -376,8 +294,6 @@ if (!$has_member) {
             --blue: #007AFF;
             --blue-lt: rgba(0,122,255,.10);
             --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-            /* Interface Builder */
             --orange: #FF5A1F;
             --orange-hover: #E0440E;
             --orange-lt: rgba(255, 90, 31, 0.06);
@@ -390,11 +306,7 @@ if (!$has_member) {
             --bg: #F8FAFC;
         }
 
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -404,332 +316,166 @@ if (!$has_member) {
             overflow-x: hidden;
         }
 
-        /* ============ NAVBAR (View Customer Style) ============ */
-        nav {
-            background: var(--white);
-            padding: 0 80px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 76px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid #E5E5EA;
-        }
+        /* ============ KEYFRAMES ============ */
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInLeft { from{opacity:0;transform:translateX(-40px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes fadeInRight { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+        @keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes bounceIn { 0%{opacity:0;transform:scale(0.3)} 50%{opacity:1;transform:scale(1.05)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
+        @keyframes rotateIn { from{opacity:0;transform:rotate(-180deg) scale(0.5)} to{opacity:1;transform:rotate(0) scale(1)} }
+        @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes ripple { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+        @keyframes glow { 0%,100%{box-shadow:0 0 5px rgba(255,82,0,0.3)} 50%{box-shadow:0 0 25px rgba(255,82,0,0.6),0 0 50px rgba(255,82,0,0.2)} }
+        @keyframes drawLine { from{width:0} to{width:60px} }
+        @keyframes wave { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+        @keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes countUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        @keyframes borderGlow { 0%,100%{border-color:rgba(255,82,0,0.1)} 50%{border-color:rgba(255,82,0,0.4)} }
+        @keyframes textReveal { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
+        @keyframes iconPop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+        @keyframes neonPulse { 0%,100%{text-shadow:0 0 5px rgba(255,82,0,0.5),0 0 10px rgba(255,82,0,0.3)} 50%{text-shadow:0 0 10px rgba(255,82,0,0.8),0 0 20px rgba(255,82,0,0.5),0 0 30px rgba(255,82,0,0.3)} }
+        @keyframes slideDown { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes zoomIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes flipX { from{transform:perspective(400px) rotateX(90deg);opacity:0} to{transform:perspective(400px) rotateX(0);opacity:1} }
+        @keyframes flipY { from{transform:perspective(400px) rotateY(90deg);opacity:0} to{transform:perspective(400px) rotateY(0);opacity:1} }
+        @keyframes swing { 0%{transform:rotate(0)} 20%{transform:rotate(15deg)} 40%{transform:rotate(-10deg)} 60%{transform:rotate(5deg)} 80%{transform:rotate(-5deg)} 100%{transform:rotate(0)} }
+        @keyframes rubberBand { 0%{transform:scale(1)} 30%{transform:scale(1.25,0.75)} 40%{transform:scale(0.75,1.25)} 50%{transform:scale(1.15,0.85)} 65%{transform:scale(0.95,1.05)} 75%{transform:scale(1.05,0.95)} 100%{transform:scale(1)} }
+        @keyframes heartBeat { 0%{transform:scale(1)} 14%{transform:scale(1.3)} 28%{transform:scale(1)} 42%{transform:scale(1.3)} 70%{transform:scale(1)} }
+        @keyframes jello { 0%,100%{transform:skewX(0) skewY(0)} 22.2%{transform:skewX(-12.5deg) skewY(-12.5deg)} 33.3%{transform:skewX(6.25deg) skewY(6.25deg)} 44.4%{transform:skewX(-3.125deg) skewY(-3.125deg)} 55.5%{transform:skewX(1.5625deg) skewY(1.5625deg)} 66.6%{transform:skewX(-0.78125deg) skewY(-0.78125deg)} 77.7%{transform:skewX(0.390625deg) skewY(0.390625deg)} 88.8%{transform:skewX(-0.1953125deg) skewY(-0.1953125deg)} }
+        @keyframes rollIn { from{opacity:0;transform:translateX(-100%) rotate(-120deg)} to{opacity:1;transform:translateX(0) rotate(0)} }
+        @keyframes jackInTheBox { from{opacity:0;transform:scale(0.1) rotate(30deg);transform-origin:center bottom} 50%{transform:rotate(-10deg)} 70%{transform:rotate(3deg)} to{opacity:1;transform:scale(1)} }
+        @keyframes lightSpeedIn { from{transform:translate3d(100%,0,0) skewX(-30deg);opacity:0} 60%{transform:skewX(20deg);opacity:1} 80%{transform:skewX(-5deg)} to{transform:translate3d(0,0,0)} }
 
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            gap: 10px;
-            transition: transform 0.3s ease;
-        }
+        /* ============ ANIMATION CLASSES ============ */
+        .anim-hidden { opacity:0; }
+        .anim-fade-up { animation:fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-fade-down { animation:fadeInDown 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-fade-left { animation:fadeInLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-fade-right { animation:fadeInRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-scale-in { animation:scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        .anim-slide-up { animation:slideInUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-bounce-in { animation:bounceIn 0.8s cubic-bezier(0.68,-0.55,0.265,1.55) forwards; }
+        .anim-rotate-in { animation:rotateIn 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-text-reveal { animation:textReveal 1s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-zoom-in { animation:zoomIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-flip-x { animation:flipX 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-flip-y { animation:flipY 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .anim-swing { animation:swing 1s ease forwards; }
+        .anim-rubber { animation:rubberBand 1s ease forwards; }
+        .anim-heart { animation:heartBeat 1.3s ease-in-out forwards; }
+        .anim-jello { animation:jello 0.9s ease forwards; }
+        .anim-roll-in { animation:rollIn 0.6s ease forwards; }
+        .anim-jack-in { animation:jackInTheBox 0.8s ease forwards; }
+        .anim-light-speed { animation:lightSpeedIn 0.8s ease forwards; }
+        .anim-neon { animation:neonPulse 2s ease-in-out infinite; }
 
-        .nav-logo:hover {
-            transform: scale(1.05);
-        }
+        .delay-100 { animation-delay:0.1s; }
+        .delay-200 { animation-delay:0.2s; }
+        .delay-300 { animation-delay:0.3s; }
+        .delay-400 { animation-delay:0.4s; }
+        .delay-500 { animation-delay:0.5s; }
+        .delay-600 { animation-delay:0.6s; }
+        .delay-700 { animation-delay:0.7s; }
+        .delay-800 { animation-delay:0.8s; }
+        .delay-900 { animation-delay:0.9s; }
+        .delay-1000 { animation-delay:1.0s; }
+        .delay-1200 { animation-delay:1.2s; }
+        .delay-1500 { animation-delay:1.5s; }
+        .delay-2000 { animation-delay:2.0s; }
 
-        .nav-logo img {
-            height: 70px;
-            width: auto;
-            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
+        /* ============ INTERSECTION OBSERVER ============ */
+        .reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .reveal.active { opacity:1; transform:translateY(0); }
+        .reveal-left { opacity:0; transform:translateX(-50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-left.active { opacity:1; transform:translateX(0); }
+        .reveal-right { opacity:0; transform:translateX(50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-right.active { opacity:1; transform:translateX(0); }
+        .reveal-scale { opacity:0; transform:scale(0.9); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-scale.active { opacity:1; transform:scale(1); }
+        .reveal-stagger .stagger-item { opacity:0; transform:translateY(30px); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-stagger.active .stagger-item { opacity:1; transform:translateY(0); }
+        .reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
+        .reveal-stagger.active .stagger-item:nth-child(2){transition-delay:0.1s}
+        .reveal-stagger.active .stagger-item:nth-child(3){transition-delay:0.2s}
+        .reveal-stagger.active .stagger-item:nth-child(4){transition-delay:0.3s}
+        .reveal-stagger.active .stagger-item:nth-child(5){transition-delay:0.4s}
+        .reveal-flip .stagger-item { opacity:0; transform:perspective(1000px) rotateY(90deg); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-flip.active .stagger-item { opacity:1; transform:perspective(1000px) rotateY(0); }
+        .reveal-flip.active .stagger-item:nth-child(1){transition-delay:0s}
+        .reveal-flip.active .stagger-item:nth-child(2){transition-delay:0.15s}
+        .reveal-flip.active .stagger-item:nth-child(3){transition-delay:0.3s}
+        .reveal-flip.active .stagger-item:nth-child(4){transition-delay:0.45s}
+        .reveal-flip.active .stagger-item:nth-child(5){transition-delay:0.6s}
+        .reveal-zoom .stagger-item { opacity:0; transform:scale(0.5); transition:all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+        .reveal-zoom.active .stagger-item { opacity:1; transform:scale(1); }
+        .reveal-zoom.active .stagger-item:nth-child(1){transition-delay:0s}
+        .reveal-zoom.active .stagger-item:nth-child(2){transition-delay:0.1s}
+        .reveal-zoom.active .stagger-item:nth-child(3){transition-delay:0.2s}
+        .reveal-zoom.active .stagger-item:nth-child(4){transition-delay:0.3s}
 
-        .nav-logo:hover img {
-            transform: rotate(5deg) scale(1.1);
-        }
+        /* ============ NAVBAR ============ */
+        nav { background:var(--white); padding:0 80px; display:flex; justify-content:space-between; align-items:center; height:76px; position:sticky; top:0; z-index:1000; border-bottom:1px solid #E5E5EA; animation:fadeInDown 0.6s ease-out forwards; }
+        .nav-logo { display:flex; align-items:center; text-decoration:none; gap:10px; transition:transform 0.3s ease; }
+        .nav-logo:hover { transform:scale(1.05); }
+        .nav-logo img { height:70px; width:auto; transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-logo:hover img { transform:rotate(5deg) scale(1.1); }
+        .nav-logo span { color:#1C1C1E; font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+        .nav-links { display:flex; align-items:center; gap:8px; }
+        .nav-links a { color:#636366; text-decoration:none; font-size:14px; font-weight:500; padding:8px 16px; border-radius:20px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
+        .nav-links a::before { content:''; position:absolute; bottom:0; left:50%; width:0; height:2px; background:var(--primary); transition:all 0.3s cubic-bezier(0.16,1,0.3,1); transform:translateX(-50%); }
+        .nav-links a:hover { color:#1C1C1E; transform:translateY(-2px); }
+        .nav-links a:hover::before { width:60%; }
+        .nav-links a.active { color:var(--primary); font-weight:600; }
+        .nav-links a.active::before { width:60%; }
 
-        .nav-logo span {
-            color: #1C1C1E;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
+        .nav-user-container { position:relative; height:76px; display:flex; align-items:center; }
+        .nav-user { background:#F2F2F7; border:1px solid #E5E5EA; padding:8px 16px; border-radius:50px; color:#1C1C1E; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .nav-user:hover { background:#E5E5EA; border-color:var(--primary); transform:scale(1.02); box-shadow:0 4px 12px rgba(255,82,0,0.15); }
+        .nav-user img.user-avatar { width:24px; height:24px; border-radius:50%; object-fit:cover; transition:transform 0.3s ease; }
+        .nav-user:hover img.user-avatar { transform:scale(1.15); }
+        .nav-user i.user-icon { font-size:16px; color:var(--primary); transition:transform 0.3s ease; }
+        .nav-user:hover i.user-icon { transform:scale(1.2); }
+        .nav-user i.arrow { font-size:11px; color:#8E8E93; transition:0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-user-container:hover i.arrow { transform:rotate(180deg); color:var(--primary); }
+        .dropdown-menu { position:absolute; top:85%; right:0; background:#16161a; min-width:220px; border-radius:12px; border:1px solid #2d2d33; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; display:none; z-index:1001; transform-origin:top right; }
+        .nav-user-container:hover .dropdown-menu { display:block; animation:fadeInUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .dropdown-menu .user-info-header { padding:12px 20px; border-bottom:1px solid #2d2d33; margin-bottom:6px; animation:fadeInDown 0.3s ease-out; }
+        .dropdown-menu .user-info-header span { display:block; }
+        .dropdown-menu .user-info-header .u-name { color:var(--white); font-size:14px; font-weight:700; }
+        .dropdown-menu .user-info-header .u-role { color:var(--text-gray); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+        .dropdown-menu a { display:flex; align-items:center; gap:12px; padding:10px 20px; color:#c5c5ca; text-decoration:none; font-size:13px; font-weight:500; transition:all 0.25s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
+        .dropdown-menu a::after { content:''; position:absolute; left:0; top:0; width:3px; height:100%; background:var(--primary); transform:scaleY(0); transition:transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+        .dropdown-menu a i { font-size:14px; width:16px; text-align:center; transition:transform 0.3s ease; }
+        .dropdown-menu a:hover { background:#222227; color:var(--primary); padding-left:28px; }
+        .dropdown-menu a:hover::after { transform:scaleY(1); }
+        .dropdown-menu a:hover i { transform:scale(1.2); }
+        .dropdown-divider { height:1px; background:#2d2d33; margin:6px 0; }
+        .dropdown-menu a.logout:hover { color:#ff3b30; }
+        .dropdown-menu a.logout:hover::after { background:#ff3b30; }
 
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .nav-links a {
-            color: #636366;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 20px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .nav-links a::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 0;
-            height: 2px;
-            background: var(--primary);
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            transform: translateX(-50%);
-        }
-
-        .nav-links a:hover {
-            color: #1C1C1E;
-            transform: translateY(-2px);
-        }
-
-        .nav-links a:hover::before {
-            width: 60%;
-        }
-
-        .nav-links a.active {
-            color: var(--primary);
-            font-weight: 600;
-        }
-
-        .nav-links a.active::before {
-            width: 60%;
-        }
-
-        .nav-user-container {
-            position: relative;
-            height: 76px;
-            display: flex;
-            align-items: center;
-        }
-
-        .nav-user {
-            background: #F2F2F7;
-            border: 1px solid #E5E5EA;
-            padding: 8px 16px;
-            border-radius: 50px;
-            color: #1C1C1E;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .nav-user:hover {
-            background: #E5E5EA;
-            border-color: var(--primary);
-            transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(255, 82, 0, 0.15);
-        }
-
-        .nav-user img.user-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .nav-user:hover img.user-avatar {
-            transform: scale(1.15);
-        }
-
-        .nav-user i.user-icon {
-            font-size: 16px;
-            color: var(--primary);
-            transition: transform 0.3s ease;
-        }
-
-        .nav-user:hover i.user-icon {
-            transform: scale(1.2);
-        }
-
-        .nav-user i.arrow {
-            font-size: 11px;
-            color: #8E8E93;
-            transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .nav-user-container:hover i.arrow {
-            transform: rotate(180deg);
-            color: var(--primary);
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 85%;
-            right: 0;
-            background: #16161a;
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            padding: 8px 0;
-            display: none;
-            z-index: 1001;
-            transform-origin: top right;
-        }
-
-        .nav-user-container:hover .dropdown-menu {
-            display: block;
-            animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        .dropdown-menu .user-info-header {
-            padding: 12px 20px;
-            border-bottom: 1px solid #2d2d33;
-            margin-bottom: 6px;
-            animation: fadeInDown 0.3s ease-out;
-        }
-
-        .dropdown-menu .user-info-header span {
-            display: block;
-        }
-
-        .dropdown-menu .user-info-header .u-name {
-            color: var(--white);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .dropdown-menu .user-info-header .u-role {
-            color: var(--text-gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-
-        .dropdown-menu a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            color: #c5c5ca;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .dropdown-menu a::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 3px;
-            height: 100%;
-            background: var(--primary);
-            transform: scaleY(0);
-            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .dropdown-menu a i {
-            font-size: 14px;
-            width: 16px;
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-
-        .dropdown-menu a:hover {
-            background: #222227;
-            color: var(--primary);
-            padding-left: 28px;
-        }
-
-        .dropdown-menu a:hover::after {
-            transform: scaleY(1);
-        }
-
-        .dropdown-menu a:hover i {
-            transform: scale(1.2);
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background: #2d2d33;
-            margin: 6px 0;
-        }
-
-        .dropdown-menu a.logout:hover {
-            color: #ff3b30;
-        }
-
-        .dropdown-menu a.logout:hover::after {
-            background: #ff3b30;
-        }
-
-        .member-badge-nav {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: var(--primary);
-            color: var(--white);
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 12px;
-            margin-left: 4px;
-        }
+        .member-badge-nav { display:inline-flex; align-items:center; gap:4px; background:var(--primary); color:var(--white); font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:4px; }
 
         /* Animasi Transisi Halus */
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(40px); }
-            to { opacity: 1; transform: translateY(0); }
-        }       
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        /* ---- CONTAINER ---- */
+        .container { width: 100%; max-width: 95%; margin: 40px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 24px; }
 
-        /* ---- CONTAINER (Kini Melebar Dinamis Sesuai Resolusi Layar) ---- */
-        .container {
-            width: 100%;
-            max-width: 95%; /* Mengurangi ruang kosong margin kiri & kanan */
-            margin: 40px auto;
-            padding: 0 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-
-        .section-header {
-            margin-bottom: 20px;
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .section-subtitle {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 4px;
-            font-weight: 500;
-        }
+        .section-header { margin-bottom: 20px; }
+        .section-title { font-size: 16px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .section-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
 
         /* Court Selection Grid */
-        .court-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Ukuran kartu diperlebar */
-            gap: 24px;
-            margin-bottom: 30px;
-        }
+        .court-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 30px; }
 
         .court-card {
             border: 1px solid var(--border);
@@ -739,30 +485,17 @@ if (!$has_member) {
             cursor: pointer;
             position: relative;
             transition: all 0.2s ease;
+            opacity: 0;
+            transform: translateY(30px);
         }
+        .court-card.reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .court-card.reveal.active { opacity: 1; transform: translateY(0); }
+        .court-card:hover { border-color: var(--orange); box-shadow: 0 4px 12px var(--orange-glow); transform: translateY(-5px); }
+        .court-card.selected { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
 
-        .court-card:hover {
-            border-color: var(--orange);
-            box-shadow: 0 4px 12px var(--orange-glow);
-        }
-
-        .court-card.selected {
-            border-color: var(--orange);
-            box-shadow: 0 0 0 2px var(--orange);
-        }
-
-        .court-img-wrapper {
-            position: relative;
-            height: 200px; /* Rasio tinggi gambar ditingkatkan */
-            background: #cbd5e1;
-            overflow: hidden;
-        }
-
-        .court-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        .court-img-wrapper { position: relative; height: 200px; background: #cbd5e1; overflow: hidden; }
+        .court-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .court-card:hover .court-img { transform: scale(1.08); }
 
         .badge-available {
             position: absolute;
@@ -775,93 +508,27 @@ if (!$has_member) {
             padding: 4px 10px;
             border-radius: 20px;
             border: 1px solid rgba(52, 199, 89, 0.2);
+            animation: fadeIn 0.5s ease-out;
         }
 
+        .court-info { padding: 16px; }
+        .court-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .court-price { font-size: 14px; font-weight: 700; color: var(--orange); margin: 6px 0 12px; }
+        .court-perk-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .court-perk-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-secondary); }
+        .court-perk-item i { color: var(--muted); width: 14px; text-align: center; }
 
-        .court-info {
-            padding: 16px;
-        }
-
-        .court-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .court-price {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--orange);
-            margin: 6px 0 12px;
-        }
-
-        .court-perk-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .court-perk-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11.5px;
-            color: var(--text-secondary);
-        }
-
-        .court-perk-item i {
-            color: var(--muted);
-            width: 14px;
-            text-align: center;
-        }
-
-        .divider {
-            height: 1px;
-            background: var(--border-lt);
-            margin: 25px 0;
-        }
+        .divider { height: 1px; background: var(--border-lt); margin: 25px 0; }
 
         /* Schedule slot select */
-        .schedule-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            align-items: stretch;
-            margin-bottom: 16px;
-        }
-
-        .input-group {
-            flex: 1;
-            min-width: 250px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .input-label {
-            font-size: 11.5px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .input-wrapper i {
-            position: absolute;
-            left: 14px;
-            color: var(--muted);
-            font-size: 14px;
-            pointer-events: none;
-        }
+        .schedule-controls { display: flex; flex-direction: column; gap: 16px; align-items: stretch; margin-bottom: 16px; }
+        .input-group { flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 6px; }
+        .input-label { font-size: 11.5px; font-weight: 700; color: var(--text-primary); }
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .input-wrapper i { position: absolute; left: 14px; color: var(--muted); font-size: 14px; pointer-events: none; }
 
         .form-control {
             width: 100%;
-            /* Ditambah padding kanan (40px) agar teks pilihan tidak menabrak tanda panah */
             padding: 11px 40px 11px 40px; 
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -869,21 +536,15 @@ if (!$has_member) {
             font-size: 13px;
             color: var(--text-primary);
             background-color: #fff;
-            
-            /* Menambahkan ikon panah bawah (chevron-down) kustom menggunakan SVG */
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 14px center;
             background-size: 14px;
-            
             outline: none;
-            appearance: none; /* Menyembunyikan panah default browser agar digantikan panah SVG di atas */
+            appearance: none;
+            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-
-        .form-control:focus {
-            border-color: var(--orange);
-            box-shadow: 0 0 0 3px var(--orange-glow);
-        }
+        .form-control:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
 
         /* Status Availability */
         .status-availability-box {
@@ -895,41 +556,15 @@ if (!$has_member) {
             align-items: center;
             gap: 12px;
             min-height: 48px;
+            transition: all 0.3s ease;
         }
-
-        .status-availability-box.empty {
-            background: var(--red-lt);
-            border-color: rgba(255, 59, 48, 0.15);
-        }
-
-        .status-avail-icon {
-            color: var(--green);
-            font-size: 18px;
-        }
-
-        .status-availability-box.empty .status-avail-icon {
-            color: var(--red);
-        }
-
-        .status-avail-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #065F46;
-        }
-
-        .status-availability-box.empty .status-avail-title {
-            color: #991B1B;
-        }
-
-        .status-avail-desc {
-            font-size: 10px;
-            color: #047857;
-            margin-top: 2px;
-        }
-
-        .status-availability-box.empty .status-avail-desc {
-            color: #B91C1C;
-        }
+        .status-availability-box.empty { background: var(--red-lt); border-color: rgba(255, 59, 48, 0.15); }
+        .status-avail-icon { color: var(--green); font-size: 18px; transition: transform 0.3s ease; }
+        .status-availability-box.empty .status-avail-icon { color: var(--red); }
+        .status-avail-title { font-size: 12px; font-weight: 700; color: #065F46; }
+        .status-availability-box.empty .status-avail-title { color: #991B1B; }
+        .status-avail-desc { font-size: 10px; color: #047857; margin-top: 2px; }
+        .status-availability-box.empty .status-avail-desc { color: #B91C1C; }
 
         .alert-banner {
             background: #EFF6FF;
@@ -940,20 +575,12 @@ if (!$has_member) {
             align-items: center;
             gap: 12px;
             margin-top: 16px;
+            animation: fadeInUp 0.5s ease-out;
         }
+        .alert-banner i { color: var(--blue); font-size: 16px; animation: float 2s ease-in-out infinite; }
+        .alert-banner-text { font-size: 11.5px; color: #1E40AF; line-height: 1.5; }
 
-        .alert-banner i {
-            color: var(--blue);
-            font-size: 16px;
-        }
-
-        .alert-banner-text {
-            font-size: 11.5px;
-            color: #1E40AF;
-            line-height: 1.5;
-        }
-
-        /* ---- POP-UP MODAL STYLE (PENGGANTI SIDEBAR) ---- */
+        /* ---- POP-UP MODAL STYLE ---- */
         .booking-modal-overlay {
             position: fixed;
             top: 0;
@@ -962,18 +589,14 @@ if (!$has_member) {
             height: 100%;
             background: rgba(15, 23, 42, 0.6);
             backdrop-filter: blur(4px);
-            display: none; /* Dikontrol via JS */
+            display: none;
             align-items: center;
             justify-content: center;
             z-index: 2000;
             padding: 20px;
             animation: fadeInModal 0.25s ease-out forwards;
         }
-
-        @keyframes fadeInModal {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 
         .summary-card {
             background: #fff;
@@ -988,11 +611,7 @@ if (!$has_member) {
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
             animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-
-        @keyframes slideInModal {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+        @keyframes slideInModal { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .booking-modal-close {
             position: absolute;
@@ -1008,44 +627,47 @@ if (!$has_member) {
             justify-content: center;
             cursor: pointer;
             color: var(--text-secondary);
-            transition: var(--transition-smooth);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
         }
+        .booking-modal-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
 
-        .booking-modal-close:hover {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-
-        /* Tombol Utama untuk membuka Modal */
         .btn-trigger-modal {
             display: flex;
             width: 100%;
-            max-width: 100%;       /* Lebar disamakan penuh dengan kotak di atasnya */
-            margin: 24px 0 0 0;    /* Rata tengah, tidak didorong ke kanan lagi */
+            max-width: 100%;
+            margin: 24px 0 0 0;
             background: var(--orange);
             color: #fff;
             border: none;
-            border-radius: 10px;   /* Sudut membulat disamakan dengan input di atasnya */
-            padding: 12px 20px;    /* Diperkecil ketebalannya (sebelumnya 16px) */
+            border-radius: 10px;
+            padding: 12px 20px;
             font-family: inherit;
-            font-size: 13.5px;     /* Ukuran font diperkecil sedikit agar proporsional */
+            font-size: 13.5px;
             font-weight: 700;
             cursor: pointer;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: background 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+            position: relative;
+            overflow: hidden;
         }
-
-        .btn-trigger-modal:hover:not(:disabled) {
-            background: var(--orange-hover);
+        .btn-trigger-modal::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%,-50%);
+            transition: width 0.6s, height 0.6s;
         }
-
-        .btn-trigger-modal:disabled {
-            background: var(--muted);
-            cursor: not-allowed;
-        }
+        .btn-trigger-modal:hover::before { width: 300px; height: 300px; }
+        .btn-trigger-modal:hover:not(:disabled) { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,90,31,0.4); }
+        .btn-trigger-modal:disabled { background: var(--muted); cursor: not-allowed; }
 
         .summary-title {
             font-family: 'Barlow Condensed', sans-serif;
@@ -1057,126 +679,26 @@ if (!$has_member) {
             text-transform: uppercase;
         }
 
-        .summary-item-info {
-            display: flex;
-            gap: 14px;
-            margin-bottom: 20px;
-        }
-
-        .summary-thumb {
-            width: 70px;
-            height: 70px;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #e2e8f0;
-            flex-shrink: 0;
-        }
-
-        .summary-thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .summary-details {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .summary-court-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .summary-venue {
-            font-size: 11px;
-            color: var(--muted);
-            margin-bottom: 6px;
-            font-weight: 500;
-        }
-
-        .summary-meta {
-            font-size: 11.5px;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 2px;
-            font-weight: 500;
-        }
-
-        .summary-meta i {
-            font-size: 11px;
-            color: var(--muted);
-            width: 14px;
-        }
+        .summary-item-info { display: flex; gap: 14px; margin-bottom: 20px; }
+        .summary-thumb { width: 70px; height: 70px; border-radius: 10px; overflow: hidden; background: #e2e8f0; flex-shrink: 0; }
+        .summary-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .summary-thumb:hover img { transform: scale(1.1); }
+        .summary-details { display: flex; flex-direction: column; justify-content: center; }
+        .summary-court-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .summary-venue { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+        .summary-meta { font-size: 11.5px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-top: 2px; font-weight: 500; }
+        .summary-meta i { font-size: 11px; color: var(--muted); width: 14px; }
 
         /* Member Discount Area */
-        .member-block {
-            border-top: 1px solid var(--border-lt);
-            padding: 16px 0;
-        }
-
-        .member-status-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .member-status-label {
-            font-size: 12.5px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .badge-member-active {
-            background: var(--green-lt);
-            color: var(--green);
-            font-size: 10px;
-            font-weight: 800;
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .badge-member-inactive {
-            background: #FFF3CD;
-            color: #D97706;
-            font-size: 10px;
-            font-weight: 800;
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .member-text-congratulations {
-            font-size: 11px;
-            color: var(--muted);
-            margin-bottom: 12px;
-        }
-
-        .discount-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12.5px;
-        }
-
-        .discount-label {
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .discount-val {
-            color: var(--green);
-            font-weight: 700;
-        }
+        .member-block { border-top: 1px solid var(--border-lt); padding: 16px 0; }
+        .member-status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .member-status-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+        .badge-member-active { background: var(--green-lt); color: var(--green); font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 4px; animation: pulse 2s ease-in-out infinite; }
+        .badge-member-inactive { background: #FFF3CD; color: #D97706; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 4px; }
+        .member-text-congratulations { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+        .discount-row { display: flex; justify-content: space-between; font-size: 12.5px; }
+        .discount-label { color: var(--text-secondary); font-weight: 500; }
+        .discount-val { color: var(--green); font-weight: 700; }
 
         /* Promo Styles */
         .promo-warning-box {
@@ -1188,47 +710,15 @@ if (!$has_member) {
             align-items: center;
             gap: 10px;
             margin-bottom: 16px;
+            animation: fadeInUp 0.4s ease-out;
         }
+        .promo-warning-box i { color: #D97706; font-size: 14px; animation: swing 1s ease-in-out; }
+        .promo-warning-text { font-size: 11px; color: #B45309; line-height: 1.4; font-weight: 500; }
 
-        .promo-warning-box i {
-            color: #D97706;
-            font-size: 14px;
-        }
-
-        .promo-warning-text {
-            font-size: 11px;
-            color: #B45309;
-            line-height: 1.4;
-            font-weight: 500;
-        }
-
-        .promo-input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 20px;
-        }
-
-        .promo-input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .promo-input-wrapper i.prefix-icon {
-            position: absolute;
-            left: 14px;
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        .promo-input-wrapper i.lock-icon {
-            position: absolute;
-            right: 14px;
-            color: var(--muted);
-            font-size: 13px;
-        }
-
+        .promo-input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+        .promo-input-wrapper { position: relative; display: flex; align-items: center; }
+        .promo-input-wrapper i.prefix-icon { position: absolute; left: 14px; color: var(--muted); font-size: 13px; }
+        .promo-input-wrapper i.lock-icon { position: absolute; right: 14px; color: var(--muted); font-size: 13px; }
         .promo-input {
             width: 100%;
             padding: 10px 36px;
@@ -1239,71 +729,23 @@ if (!$has_member) {
             color: var(--text-primary);
             outline: none;
             font-weight: 500;
+            transition: all 0.3s ease;
         }
-
-        .promo-input:disabled {
-            background: #F8FAFC;
-            color: var(--muted);
-            cursor: not-allowed;
-        }
+        .promo-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+        .promo-input:disabled { background: #F8FAFC; color: var(--muted); cursor: not-allowed; }
 
         /* Price Breakdown */
-        .pricing-breakdown {
-            border-top: 1px solid var(--border-lt);
-            padding: 16px 0;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .price-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12.5px;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        .price-row.total-row {
-            margin-top: 6px;
-            font-size: 14px;
-            color: var(--text-primary);
-            font-weight: 800;
-            align-items: center;
-        }
-
-        .price-row.total-row .total-amount {
-            font-size: 20px;
-            color: var(--orange);
-            font-weight: 900;
-        }
+        .pricing-breakdown { border-top: 1px solid var(--border-lt); padding: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+        .price-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-secondary); font-weight: 500; transition: all 0.3s ease; }
+        .price-row:hover { transform: translateX(5px); }
+        .price-row.total-row { margin-top: 6px; font-size: 14px; color: var(--text-primary); font-weight: 800; align-items: center; }
+        .price-row.total-row .total-amount { font-size: 20px; color: var(--orange); font-weight: 900; animation: countUp 0.5s ease-out; }
 
         /* Payment Methods */
-        .payment-section {
-            border-top: 1px solid var(--border-lt);
-            padding: 20px 0 10px;
-        }
-
-        .payment-header {
-            font-size: 12.5px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .payment-header i {
-            color: var(--muted);
-        }
-
-        .payment-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
+        .payment-section { border-top: 1px solid var(--border-lt); padding: 20px 0 10px; }
+        .payment-header { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .payment-header i { color: var(--muted); }
+        .payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .payment-card {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -1312,18 +754,26 @@ if (!$has_member) {
             display: flex;
             align-items: center;
             gap: 10px;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
             user-select: none;
+            position: relative;
+            overflow: hidden;
         }
-
-        .payment-card:hover {
-            border-color: var(--orange);
+        .payment-card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,90,31,0.1);
+            border-radius: 50%;
+            transform: translate(-50%,-50%);
+            transition: width 0.4s, height 0.4s;
         }
-
-        .payment-card.selected {
-            border-color: var(--orange);
-            background: var(--orange-lt);
-        }
+        .payment-card:hover::before { width: 200px; height: 200px; }
+        .payment-card:hover { border-color: var(--orange); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,90,31,0.1); }
+        .payment-card.selected { border-color: var(--orange); background: var(--orange-lt); }
 
         .custom-radio {
             width: 16px;
@@ -1336,51 +786,14 @@ if (!$has_member) {
             flex-shrink: 0;
             transition: 0.2s;
         }
+        .payment-card.selected .custom-radio { border-color: var(--orange); }
+        .custom-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); display: none; }
+        .payment-card.selected .custom-radio::after { display: block; animation: scaleIn 0.2s ease-out; }
 
-        .payment-card.selected .custom-radio {
-            border-color: var(--orange);
-        }
-
-        .custom-radio::after {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--orange);
-            display: none;
-        }
-
-        .payment-card.selected .custom-radio::after {
-            display: block;
-        }
-
-        .payment-card-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .payment-name {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1.3;
-        }
-
-        .payment-sub {
-            font-size: 9px;
-            color: var(--muted);
-            margin-top: 1px;
-            font-weight: 500;
-        }
-
-        .qris-logo {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-weight: 900;
-            font-size: 14px;
-            color: #000;
-            letter-spacing: -0.5px;
-        }
+        .payment-card-content { display: flex; flex-direction: column; justify-content: center; }
+        .payment-name { font-size: 11px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+        .payment-sub { font-size: 9px; color: var(--muted); margin-top: 1px; font-weight: 500; }
+        .qris-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 14px; color: #000; letter-spacing: -0.5px; }
 
         .btn-booking {
             width: 100%;
@@ -1398,17 +811,25 @@ if (!$has_member) {
             justify-content: center;
             gap: 8px;
             margin-top: 16px;
-            transition: background 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+            position: relative;
+            overflow: hidden;
         }
-
-        .btn-booking:hover:not(:disabled) {
-            background: var(--orange-hover);
+        .btn-booking::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%,-50%);
+            transition: width 0.6s, height 0.6s;
         }
-
-        .btn-booking:disabled {
-            background: var(--muted);
-            cursor: not-allowed;
-        }
+        .btn-booking:hover::before { width: 400px; height: 400px; }
+        .btn-booking:hover:not(:disabled) { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,90,31,0.4); }
+        .btn-booking:disabled { background: var(--muted); cursor: not-allowed; }
 
         .booking-disclaimer {
             display: flex;
@@ -1420,151 +841,95 @@ if (!$has_member) {
             margin-top: 10px;
             font-weight: 500;
         }
-
-        .booking-disclaimer i {
-            color: var(--green);
-        }
-
-        @keyframes slideInUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+        .booking-disclaimer i { color: var(--green); animation: pulse 2s ease-in-out infinite; }
 
         .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
 
         /* ---- FOOTER ---- */
-        footer {
-            background: var(--dark-bg);
-            color: #8E8E93;
-            padding: 80px 80px 40px;
-            border-top: 1px solid #1C1C1E;
-        }
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
-            gap: 40px;
-            margin-bottom: 60px;
-        }
-        .footer-logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        .footer-logo img {
-            height: 70px;
-        }
-        .footer-logo span {
-            color: var(--white);
-            font-size: 20px;
-            font-weight: 800;
-        }
-        .footer-desc {
-            font-size: 13px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-        }
-        .social-links {
-            display: flex;
-            gap: 12px;
-        }
-        .social-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #1C1C1E;
-            color: var(--white);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            transition: 0.2s;
-        }
-        .social-btn:hover {
-            background: var(--primary);
-        }
-        .footer-col h4 {
-            color: var(--white);
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .footer-col ul {
-            list-style: none;
-        }
-        .footer-col ul li {
-            margin-bottom: 12px;
-        }
-        .footer-col ul li a {
-            color: #8E8E93;
-            text-decoration: none;
-            font-size: 13px;
-            transition: 0.2s;
-        }
-        .footer-col ul li a:hover {
-            color: var(--white);
-        }
-        .contact-item {
-            display: flex;
-            gap: 12px;
-            font-size: 13px;
-            line-height: 1.5;
-            margin-bottom: 16px;
-        }
-        .contact-item i {
-            color: var(--primary);
-            font-size: 14px;
-            margin-top: 3px;
-        }
-        .footer-bottom {
-            border-top: 1px solid #1C1C1E;
-            padding-top: 30px;
-            text-align: center;
-            font-size: 13px;
-        }
+        footer { background: var(--dark-bg); color: #8E8E93; padding: 80px 80px 40px; border-top: 1px solid #1C1C1E; position: relative; overflow: hidden; }
+        footer::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent); animation: shimmer 3s linear infinite; background-size: 200% 100%; }
+        .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; margin-bottom: 60px; }
+        .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; transition: transform 0.3s ease; }
+        .footer-logo:hover { transform: scale(1.05); }
+        .footer-logo img { height: 70px; transition: transform 0.5s ease; }
+        .footer-logo:hover img { transform: rotate(5deg); }
+        .footer-logo span { color: var(--white); font-size: 20px; font-weight: 800; }
+        .footer-desc { font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
+        .social-links { display: flex; gap: 12px; }
+        .social-btn { width: 36px; height: 36px; border-radius: 50%; background: #1C1C1E; color: var(--white); display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .social-btn:hover { background: var(--primary); transform: translateY(-3px) scale(1.1); box-shadow: 0 8px 20px rgba(255,82,0,0.3); }
+        .social-btn:active { transform: scale(0.95); }
+        .footer-col h4 { color: var(--white); font-size: 15px; font-weight: 700; margin-bottom: 20px; position: relative; display: inline-block; }
+        .footer-col h4::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 30px; height: 2px; background: var(--primary); transition: width 0.3s ease; }
+        .footer-col:hover h4::after { width: 100%; }
+        .footer-col ul { list-style: none; }
+        .footer-col ul li { margin-bottom: 12px; }
+        .footer-col ul li a { color: #8E8E93; text-decoration: none; font-size: 13px; transition: all 0.3s ease; display: inline-block; position: relative; }
+        .footer-col ul li a::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1px; background: var(--primary); transition: width 0.3s ease; }
+        .footer-col ul li a:hover { color: var(--white); transform: translateX(5px); }
+        .footer-col ul li a:hover::after { width: 100%; }
+        .contact-item { display: flex; gap: 12px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; transition: all 0.3s ease; padding: 4px; border-radius: 6px; }
+        .contact-item:hover { background: rgba(255,82,0,0.05); transform: translateX(5px); }
+        .contact-item i { color: var(--primary); font-size: 14px; margin-top: 3px; transition: transform 0.3s ease; }
+        .contact-item:hover i { transform: scale(1.2); }
+        .footer-bottom { border-top: 1px solid #1C1C1E; padding-top: 30px; text-align: center; font-size: 13px; position: relative; }
 
         /* Media queries responsive navbar */
-        @media (max-width: 1200px) {
-            nav { padding: 0 40px; }
-        }
+        @media (max-width: 1200px) { nav { padding: 0 40px; } .footer-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) {
-            nav {
-                flex-direction: column;
-                height: auto;
-                padding: 15px 20px;
-                gap: 15px;
-            }
-            .nav-links {
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 4px;
-            }
-            .nav-user-container {
-                height: auto;
-            }
-            .dropdown-menu {
-                top: 50px;
-                right: 50%;
-                transform: translateX(50%);
-            }
+            nav { flex-direction: column; height: auto; padding: 15px 20px; gap: 15px; }
+            .nav-links { flex-wrap: wrap; justify-content: center; gap: 4px; }
+            .nav-user-container { height: auto; }
+            .dropdown-menu { top: 50px; right: 50%; transform: translateX(50%); }
+            .footer-grid { grid-template-columns: 1fr; }
+            .court-grid { grid-template-columns: 1fr; }
         }
 
-        /* 1. Menghilangkan scrollbar secara global untuk Chrome, Safari, dan Opera */
-::-webkit-scrollbar {
-    display: none;
-}
+        /* 1. Menghilangkan scrollbar secara global */
+        ::-webkit-scrollbar { display: none; }
+        html, body, .summary-card { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 2. Menghilangkan scrollbar secara global untuk Firefox, IE, dan Edge */
-html, body, .summary-card {
-    -ms-overflow-style: none;  /* IE dan Edge */
-    scrollbar-width: none;  /* Firefox */
-}
-        
+        /* ============ SCROLL PROGRESS BAR ============ */
+        .scroll-progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--primary), #FF8C42); z-index: 9999; transform-origin: left; transform: scaleX(0); transition: transform 0.1s ease-out; }
+
+        /* ============ CARD SHINE ============ */
+        .card-shine { position: relative; overflow: hidden; }
+        .card-shine::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.6s ease; z-index: 10; pointer-events: none; }
+        .card-shine:hover::before { left: 100%; }
+
+        /* ============ HOVER LIFT ============ */
+        .hover-lift { transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+
+        /* ============ GLOWING BORDER ============ */
+        .glow-border { animation: borderGlow 2s ease-in-out infinite; }
+
+        /* ============ SMOOTH SCROLL ============ */
+        html { scroll-behavior: smooth; }
+
+        /* ============ CUSTOM SCROLLBAR ============ */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary-hover); }
+
+        /* ============ SELECTION COLOR ============ */
+        ::selection { background: rgba(255,82,0,0.3); color: #1C1C1E; }
+
+        /* ============ FOCUS STYLES ============ */
+        :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        /* ============ REDUCED MOTION ============ */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
     </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
+<!-- SCROLL PROGRESS BAR -->
+<div class="scroll-progress" id="scrollProgress"></div>
+
 <!-- NAVBAR -->
 <nav>
     <a href="view_customer.php" class="nav-logo">
@@ -1574,13 +939,12 @@ html, body, .summary-card {
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
         <a href="#">Lapangan</a>
-        <a href="#">Member</a>
+        <a href="langganan_customer.php">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
 
-    <!-- User Dropdown -->
     <div class="nav-user-container">
         <div class="nav-user">
             <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
@@ -1611,14 +975,13 @@ html, body, .summary-card {
 
 <div class="container">
     
-        
-        <!-- 1. Pilih Lapangan -->
-    <div class="section-header">
-        <h2 class="section-title">Pilih Lapangan</h2>
+    <!-- 1. Pilih Lapangan -->
+    <div class="section-header reveal">
+        <h2 class="section-title"><i class="fa-solid fa-basketball" style="color: var(--primary);"></i> Pilih Lapangan</h2>
         <p class="section-subtitle">Pilih lapangan basket yang aktif dan tersedia. Klik sekali untuk memilih lapangan, klik sekali lagi untuk melanjutkan.</p>
     </div>
 
-    <div class="court-grid">
+    <div class="court-grid reveal-stagger">
         <?php if (!empty($lapanganList)): ?>
             <?php foreach ($lapanganList as $index => $lap): 
                 $courtId = $lap['ID_Lapangan'];
@@ -1627,7 +990,7 @@ html, body, .summary-card {
                 $isSelected = ($index === 0) ? 'selected' : '';
                 $imgUrl = !empty($lap['Photo_Lapangan']) ? htmlspecialchars($lap['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
             ?>
-                <div class="court-card <?= $isSelected ?>" 
+                <div class="court-card stagger-item card-shine <?= $isSelected ?>" 
                      data-id="<?= $courtId ?>" 
                      data-price="<?= $courtPrice ?>" 
                      data-name="<?= $courtName ?>" 
@@ -1654,13 +1017,13 @@ html, body, .summary-card {
                     </div>
                 </div>
             <?php endforeach; ?>
-            </div> <!-- Penutup .court-grid -->
         <?php else: ?>
-            <p>Tidak ada lapangan aktif yang tersedia saat ini.</p>
+            <p style="grid-column: span 3; text-align: center; color: var(--muted); padding: 40px;">Tidak ada lapangan aktif yang tersedia saat ini.</p>
         <?php endif; ?>
     </div>
+</div>
 
-<!-- POP-UP MODAL 1: PILIH JADWAL (Berada di luar container utama) -->
+<!-- POP-UP MODAL 1: PILIH JADWAL -->
 <div class="booking-modal-overlay" id="scheduleModal">
     <div class="summary-card" style="max-width: 600px;">
         <button class="booking-modal-close" id="btnCloseSchedule">
@@ -1668,12 +1031,11 @@ html, body, .summary-card {
         </button>
         
         <div class="section-header">
-            <h2 class="section-title">Pilih Jadwal Bermain</h2>
+            <h2 class="section-title"><i class="fa-solid fa-calendar-days" style="color: var(--primary);"></i> Pilih Jadwal Bermain</h2>
             <p class="section-subtitle">Tentukan waktu bermain berdasarkan ketersediaan jadwal lapangan</p>
         </div>
 
         <div class="schedule-controls">
-            <!-- Pilihan Tanggal -->
             <div class="input-group">
                 <label class="input-label">Pilih Tanggal Bermain</label>
                 <div class="input-wrapper">
@@ -1684,7 +1046,6 @@ html, body, .summary-card {
                 </div>
             </div>
 
-            <!-- Pilihan Jam (Akan aktif setelah tanggal dipilih) -->
             <div class="input-group">
                 <label class="input-label">Pilih Jam Bermain</label>
                 <div class="input-wrapper">
@@ -1695,7 +1056,6 @@ html, body, .summary-card {
                 </div>
             </div>
 
-            <!-- Status Box -->
             <div class="status-availability-box" id="availabilityBox">
                 <div class="status-avail-icon" id="availIcon"><i class="fa-solid fa-circle-check"></i></div>
                 <div>
@@ -1705,12 +1065,11 @@ html, body, .summary-card {
             </div>
         </div>
 
-        <div class="alert-banner" style="margin-top: 20px; margin-bottom: 24px;">
+        <div class="alert-banner">
             <i class="fa-solid fa-circle-info"></i>
             <p class="alert-banner-text">Semua transaksi sewa disesuaikan dengan daftar slot jadwal yang dibuat oleh pihak operator HoopBall Arena.</p>
         </div>
 
-        <!-- TOMBOL STRATEGIS UNTUK MELANJUTKAN KE MODAL RINGKASAN & BAYAR (MODAL 2) -->
         <button class="btn-trigger-modal" id="btnGoToSummary" disabled>
             Lanjut ke Tinjau & Pembayaran <i class="fa-solid fa-arrow-right"></i>
         </button>
@@ -1738,7 +1097,6 @@ html, body, .summary-card {
             </div>
         </div>
 
-        <!-- Status Member -->
         <div class="member-block">
             <div class="member-status-header">
                 <span class="member-status-label">Status Member</span>
@@ -1760,7 +1118,6 @@ html, body, .summary-card {
             <?php endif; ?>
         </div>
 
-        <!-- Promo Segment -->
         <?php if ($has_member): ?>
             <div class="promo-warning-box">
                 <i class="fa-solid fa-triangle-exclamation"></i>
@@ -1791,7 +1148,6 @@ html, body, .summary-card {
             </div>
         <?php endif; ?>
 
-        <!-- Price Breakdown -->
         <div class="pricing-breakdown">
             <div class="price-row">
                 <span id="lblNormalPriceLabel">Harga Sewa</span>
@@ -1814,7 +1170,6 @@ html, body, .summary-card {
             </div>
         </div>
 
-        <!-- Payment Methods -->
         <div class="payment-section">
             <div class="payment-header">
                 <i class="fa-solid fa-wallet"></i> Metode Pembayaran
@@ -1837,7 +1192,6 @@ html, body, .summary-card {
             </div>
         </div>
 
-        <!-- Submit Button -->
         <button class="btn-booking" id="btnSubmit" disabled>
             <i class="fa-solid fa-lock"></i> Selesaikan Booking
         </button>
@@ -1847,7 +1201,7 @@ html, body, .summary-card {
     </div>
 </div>
 
-<!-- MASUKKAN KODE INI DI SINI -->
+<!-- MODAL 3: INSTRUKSI PEMBAYARAN -->
 <div class="booking-modal-overlay" id="paymentInstructionModal">
     <div class="summary-card" style="max-width: 460px; text-align: center;">
         <h2 class="summary-title" style="margin-bottom: 12px; text-align: center;">Instruksi Pembayaran</h2>
@@ -1862,13 +1216,13 @@ html, body, .summary-card {
         </div>
         
         <div class="alert-banner" style="background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); margin-top: 0; margin-bottom: 20px; justify-content: center;">
-            <i class="fa-solid fa-clock" style="color: var(--orange);"></i>
+            <i class="fa-solid fa-clock" style="color: var(--orange); animation: pulse 2s ease-in-out infinite;"></i>
             <p class="alert-banner-text" style="color: var(--orange-hover); font-weight: 700; font-size: 12px;">
                 Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
             </p>
         </div>
 
-        <div style="background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border);">
+        <div style="background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); animation: fadeInUp 0.5s ease-out;">
             <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Tagihan</div>
             <div id="paymentTotalAmount" style="font-size: 24px; color: var(--orange); font-weight: 900; margin-top: 4px;">Rp 0</div>
         </div>
@@ -1888,7 +1242,7 @@ html, body, .summary-card {
 
         <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
             <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Pindai Kode QRIS Resmi HoopBall</div>
-            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); animation: fadeInUp 0.5s ease-out;">
                 <img id="qrisImage" src="" alt="QRIS Code" style="display: block; width: 170px; height: 180px; object-fit: contain;">
             </div>
             <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%;">
@@ -1906,7 +1260,7 @@ html, body, .summary-card {
     </div>
 </div>
 
-<!-- FOOTER (Sekarang berada di luar container dan akan melebar penuh secara normal) -->
+<!-- FOOTER -->
 <footer>
     <div class="footer-grid">
         <div>
@@ -1969,31 +1323,47 @@ html, body, .summary-card {
 </footer>
 
 <script>
+    // Scroll Progress Bar
+    window.addEventListener('scroll', () => {
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = scrollTop / scrollHeight;
+        document.getElementById('scrollProgress').style.transform = `scaleX(${scrolled})`;
+    });
+
+    // Intersection Observer for reveal animations
+    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+        observer.observe(el);
+    });
+
     // State management
     let selectedCourtId = null;
     let selectedCourtPrice = 0;
     let selectedCourtName = '';
     let selectedCourtImg = '';
-    
     let isMember = <?php echo $has_member ? 'true' : 'false'; ?>;
     let memberDiscount = <?php echo $member_discount; ?>;
-    
     let selectedSlotId = null;
     let selectedSlotDuration = 0; 
     let selectedSlotDateFormatted = '';
     let selectedSlotTimeFormatted = '';
-    
     let selectedPaymentMethod = 'Transfer Bank';
 
-    // Elements
-    let currentCourtSlots = [];
     const courts = document.querySelectorAll('.court-card');
     const dateSelect = document.getElementById('dateSelect');
     const timeSelect = document.getElementById('timeSelect');
     const promoSelect = document.getElementById('promoSelect');
     const payments = document.querySelectorAll('.payment-card');
     
-    // UI Recalculation Targets
     const availabilityBox = document.getElementById('availabilityBox');
     const availTitle = document.getElementById('availTitle');
     const availIcon = document.getElementById('availIcon');
@@ -2008,15 +1378,12 @@ html, body, .summary-card {
     const lblTotalPrice = document.getElementById('lblTotalPrice');
     const btnSubmit = document.getElementById('btnSubmit');
 
-    // Pop-up Trigger Elements
     const scheduleModal = document.getElementById('scheduleModal');
     const btnCloseSchedule = document.getElementById('btnCloseSchedule');
-    
     const btnGoToSummary = document.getElementById('btnGoToSummary');
     const bookingModal = document.getElementById('bookingModal');
     const btnCloseSummary = document.getElementById('btnCloseSummary');
 
-    // Formatter Rupiah
     function formatRupiah(number) {
         return 'Rp ' + Math.max(0, number).toLocaleString('id-ID');
     }
@@ -2025,7 +1392,6 @@ html, body, .summary-card {
         scheduleModal.style.display = 'none';
     });
 
-    // Modal 2 (Ringkasan) Trigger Events
     btnGoToSummary.addEventListener('click', function() {
         scheduleModal.style.display = 'none';
         bookingModal.style.display = 'flex';
@@ -2035,17 +1401,11 @@ html, body, .summary-card {
         bookingModal.style.display = 'none';
     });
 
-    // Tutup modal jika user klik di area luar modal
     window.addEventListener('click', function(e) {
-        if (e.target === scheduleModal) {
-            scheduleModal.style.display = 'none';
-        }
-        if (e.target === bookingModal) {
-            bookingModal.style.display = 'none';
-        }
+        if (e.target === scheduleModal) scheduleModal.style.display = 'none';
+        if (e.target === bookingModal) bookingModal.style.display = 'none';
     });
 
-    // Load available slots dynamically using PHP AJAX Handler
     function loadSlots(courtId) {
         dateSelect.innerHTML = '<option value="">Memuat tanggal...</option>';
         timeSelect.innerHTML = '<option value="">Menunggu tanggal...</option>';
@@ -2068,9 +1428,7 @@ html, body, .summary-card {
 
                 const uniqueDates = [];
                 slots.forEach(slot => {
-                    if (!uniqueDates.includes(slot.Tanggal_Formatted)) {
-                        uniqueDates.push(slot.Tanggal_Formatted);
-                    }
+                    if (!uniqueDates.includes(slot.Tanggal_Formatted)) uniqueDates.push(slot.Tanggal_Formatted);
                 });
 
                 const defaultOpt = document.createElement('option');
@@ -2112,7 +1470,6 @@ html, body, .summary-card {
         }
     }
 
-    // Recalculate price breakdown & UI elements
     function calculatePrices() {
         if (!selectedSlotId) {
             lblNormalPrice.innerText = 'Rp 0';
@@ -2126,27 +1483,19 @@ html, body, .summary-card {
         let discount = 0;
 
         if (isMember) {
-            discount = memberDiscount; // Flat discount
+            discount = memberDiscount;
         } else if (promoSelect) {
             const selectedPromoOpt = promoSelect.options[promoSelect.selectedIndex];
-            if (selectedPromoOpt) {
-                discount = parseFloat(selectedPromoOpt.getAttribute('data-discount') || 0);
-            }
+            if (selectedPromoOpt) discount = parseFloat(selectedPromoOpt.getAttribute('data-discount') || 0);
         }
 
         const totalPayable = Math.max(0, basePrice - discount);
 
-        // Update UI
         lblNormalPriceLabel.innerText = `Harga Sewa (${selectedSlotDuration} jam)`;
         lblNormalPrice.innerText = formatRupiah(basePrice);
-        if (isMember) {
-            // Member UI has statically linked element
-        } else if (lblPromoBreakdown) {
-            lblPromoBreakdown.innerText = `-Rp ${discount.toLocaleString('id-ID')}`;
-        }
+        if (!isMember && lblPromoBreakdown) lblPromoBreakdown.innerText = `-Rp ${discount.toLocaleString('id-ID')}`;
         lblTotalPrice.innerText = formatRupiah(totalPayable);
 
-        // Update Sidebar Right Summaries
         sumCourtName.innerText = selectedCourtName;
         sumImg.src = selectedCourtImg;
         sumPlayDate.innerText = selectedSlotDateFormatted;
@@ -2156,41 +1505,29 @@ html, body, .summary-card {
         btnGoToSummary.disabled = false;
     }
 
-    // Court selection event (2 Klik untuk Melanjutkan)
-      if (courts && courts.length > 0) {
+    if (courts && courts.length > 0) {
         courts.forEach(court => {
             court.addEventListener('click', function(e) {
-                // Mencegah konflik klik pada element gambar/teks di dalam kartu
                 e.preventDefault();
-                
                 const isAlreadySelected = this.classList.contains('selected');
 
                 if (!isAlreadySelected) {
-                    // 1. Ubah tampilan visual kartu terpilih secara instan terlebih dahulu
                     courts.forEach(c => c.classList.remove('selected'));
                     this.classList.add('selected');
 
-                    // 2. Ambil data atribut kartu safely
                     selectedCourtId = this.getAttribute('data-id') || null;
                     selectedCourtPrice = parseFloat(this.getAttribute('data-price') || 0);
                     selectedCourtName = this.getAttribute('data-name') || '';
                     selectedCourtImg = this.getAttribute('data-img') || '';
 
-                    // 3. Muat slot jadwal di latar belakang
-                    if (selectedCourtId) {
-                        loadSlots(selectedCourtId);
-                    }
+                    if (selectedCourtId) loadSlots(selectedCourtId);
                 } else {
-                    // KLIK KEDUA: Jika diklik lagi pada kartu yang sudah aktif, langsung buka modal jadwal bermain
-                    if (selectedCourtId && scheduleModal) {
-                        scheduleModal.style.display = 'flex';
-                    }
+                    if (selectedCourtId && scheduleModal) scheduleModal.style.display = 'flex';
                 }
             });
         });
     }
 
-    // Event filter jam berdasarkan tanggal yang dipilih
     dateSelect.addEventListener('change', function() {
         const selectedDate = this.value;
         timeSelect.innerHTML = '';
@@ -2229,7 +1566,6 @@ html, body, .summary-card {
         }
     });
 
-    // Event ketika opsi jam dipilih
     timeSelect.addEventListener('change', function() {
         const opt = this.options[this.selectedIndex];
         if (!opt || !opt.value) {
@@ -2252,12 +1588,8 @@ html, body, .summary-card {
         calculatePrices();
     });
 
-    // Promo selector event
-    if (promoSelect) {
-        promoSelect.addEventListener('change', calculatePrices);
-    }
+    if (promoSelect) promoSelect.addEventListener('change', calculatePrices);
 
-    // Payment Selection
     payments.forEach(payment => {
         payment.addEventListener('click', function() {
             payments.forEach(p => p.classList.remove('selected'));
@@ -2266,7 +1598,6 @@ html, body, .summary-card {
         });
     });
 
-    // Submit Checkout
     btnSubmit.addEventListener('click', function() {
         if (!selectedSlotId) return;
 
@@ -2298,30 +1629,18 @@ html, body, .summary-card {
 
         fetch('booking_customer.php?action=checkout', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(checkoutData)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(checkdownData)
         })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                 // 1. Tutup modal ringkasan terlebih dahulu
                 bookingModal.style.display = 'none';
-
-                // 2. Set nominal bayar pada petunjuk pembayaran
                 document.getElementById('paymentTotalAmount').innerText = formatRupiah(finalAmount);
-
-                // 3. Tampilkan instruksi pembayaran sesuai pilihan awal kustomer secara otomatis
                 showPaymentMethodInstructions(selectedPaymentMethod);
-
-                // 4. Tampilkan Modal Instruksi Pembayaran
                 document.getElementById('paymentInstructionModal').style.display = 'flex';
-                
-                // 5. Jalankan timer hitung mundur 15 menit
                 startPaymentCountdown(15 * 60); 
             } else {
-                // GANTI DENGAN SWEETALERT2 YANG RAMAH CUSTOMER
                 Swal.fire({
                     icon: 'warning',
                     title: 'Jadwal Tidak Tersedia',
@@ -2329,15 +1648,12 @@ html, body, .summary-card {
                     confirmButtonColor: 'var(--orange)',
                     confirmButtonText: 'Pilih Jadwal Lain'
                 });
-                
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
             }
         })
         .catch(err => {
             console.error("Kesalahan checkout:", err);
-            
-            // GANTI DENGAN SWEETALERT2 UNTUK ERROR KONEKSI
             Swal.fire({
                 icon: 'error',
                 title: 'Koneksi Terputus',
@@ -2345,17 +1661,14 @@ html, body, .summary-card {
                 confirmButtonColor: 'var(--orange)',
                 confirmButtonText: 'Coba Lagi'
             });
-            
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
-             }); 
         });
+    });
 
-    // Initialize first court selection load
     document.addEventListener("DOMContentLoaded", function() {
         const activeCourt = document.querySelector('.court-card.selected');
         if (activeCourt) {
-            // Pada awal load halaman, setup data internal lapangan pertama
             selectedCourtId = activeCourt.getAttribute('data-id');
             selectedCourtPrice = parseFloat(activeCourt.getAttribute('data-price'));
             selectedCourtName = activeCourt.getAttribute('data-name');
@@ -2364,16 +1677,11 @@ html, body, .summary-card {
         }
     });
 
-    // ============================================================================
-    // HARD DELETE AKUN CONFIRMATION
-    // ============================================================================
     function confirmHapusAkun(e) {
         e.preventDefault();
         Swal.fire({
             title: 'Hapus Akun Permanen?',
-            html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
-                  'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
-                  '<span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
+            html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br><span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#FF3B30',
@@ -2400,9 +1708,7 @@ html, body, .summary-card {
                             timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
                         }, 100);
                     },
-                    willClose: () => {
-                        clearInterval(timerInterval);
-                    }
+                    willClose: () => clearInterval(timerInterval)
                 }).then(() => {
                     window.location.href = '?hapus_akun=1';
                 });
@@ -2410,9 +1716,6 @@ html, body, .summary-card {
         });
     }
 
-    // ============================================================================
-    // URL PARAMETER NOTIFICATION (TOAST STYLE)
-    // ============================================================================
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');
@@ -2437,7 +1740,6 @@ html, body, .summary-card {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // Fungsionalitas Timer Hitung Mundur Pembayaran
     let countdownInterval;
     function startPaymentCountdown(duration) {
         let timer = duration, minutes, seconds;
@@ -2447,12 +1749,9 @@ html, body, .summary-card {
         countdownInterval = setInterval(function () {
             minutes = parseInt(timer / 60, 10);
             seconds = parseInt(timer % 60, 10);
-
             minutes = minutes < 10 ? "0" + minutes : minutes;
             seconds = seconds < 10 ? "0" + seconds : seconds;
-
             display.textContent = minutes + ":" + seconds;
-
             if (--timer < 0) {
                 clearInterval(countdownInterval);
                 display.textContent = "Waktu Pembayaran Habis";
@@ -2461,7 +1760,6 @@ html, body, .summary-card {
         }, 1000);
     }
 
-    // Salin Nomor Virtual Account ke Clipboard
     document.getElementById('btnCopyVA').addEventListener('click', function() {
         const vaInput = document.getElementById('vaNumber');
         vaInput.select();
@@ -2480,63 +1778,47 @@ html, body, .summary-card {
         });
     });
 
-    // Event ketika pengguna menekan tombol "Saya Sudah Bayar"
     document.getElementById('btnDonePayment').addEventListener('click', function() {
         clearInterval(countdownInterval);
         document.getElementById('paymentInstructionModal').style.display = 'none';
-        
         Swal.fire({
             icon: 'success',
             title: 'Pembayaran Diterima!',
             text: 'Terima kasih, kami sedang memverifikasi transaksi pembayaran anda harap ditunggu.',
             confirmButtonColor: 'var(--orange)',
             confirmButtonText: 'Selesai'
-        }).then(() => {
-            location.reload();
-        });
+        }).then(() => location.reload());
     });
 
-
-    // Fungsi Pengubah Metode Pembayaran Dinamis pada Modal 3
     const btnSwitchVA = document.getElementById('btnSwitchVA');
     const btnSwitchQRIS = document.getElementById('btnSwitchQRIS');
 
     function showPaymentMethodInstructions(method) {
-        selectedPaymentMethod = method; // Perbarui state metode pembayaran terpilih
-
+        selectedPaymentMethod = method;
         if (method === 'Transfer Bank') {
-            // Aktifkan tab VA, matikan QRIS
             btnSwitchVA.style.backgroundColor = '#fff';
             btnSwitchVA.style.color = 'var(--orange)';
             btnSwitchVA.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
-            
             btnSwitchQRIS.style.backgroundColor = 'transparent';
             btnSwitchQRIS.style.color = 'var(--text-secondary)';
             btnSwitchQRIS.style.boxShadow = 'none';
-
             document.getElementById('instruksiTransfer').style.display = 'block';
             document.getElementById('instruksiQRIS').style.display = 'none';
         } else {
-            // Aktifkan tab QRIS, matikan VA
             btnSwitchQRIS.style.backgroundColor = '#fff';
             btnSwitchQRIS.style.color = 'var(--orange)';
             btnSwitchQRIS.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
-            
             btnSwitchVA.style.backgroundColor = 'transparent';
             btnSwitchVA.style.color = 'var(--text-secondary)';
             btnSwitchVA.style.boxShadow = 'none';
-
             document.getElementById('instruksiTransfer').style.display = 'none';
             document.getElementById('instruksiQRIS').style.display = 'flex';
-
-            // Generate ulang QR Code jika beralih ke QRIS
             const currentTotal = parseFloat(document.getElementById('paymentTotalAmount').innerText.replace(/[^0-9]/g, ''));
             const qrPayload = `HOOPBALL-PAYMENT-${selectedSlotId}-${currentTotal}`;
             document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}`;
         }
     }
 
-    // Event Listener Klik Tab
     btnSwitchVA.addEventListener('click', () => showPaymentMethodInstructions('Transfer Bank'));
     btnSwitchQRIS.addEventListener('click', () => showPaymentMethodInstructions('QRIS'));
 </script>

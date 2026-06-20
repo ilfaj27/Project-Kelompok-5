@@ -1,15 +1,8 @@
 <?php
-// ============================================================================
-// BUFFER OUTPUT
-// ============================================================================
 ob_start();
-
 session_start();
 include '../includes/config.php';
 
-// ============================================================================
-// CEK AKSES
-// ============================================================================
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
     header("Location: ../login/login.php");
     exit();
@@ -18,15 +11,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 $nama_customer = $_SESSION['nama'] ?? 'Pelanggan';
 
-// ============================================================================
-// AMBIL DATA CUSTOMER
-// ============================================================================
 $customer_data = null;
 if (!empty($id_customer)) {
     $stmt = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($id_customer));
-    if ($stmt) {
-        $customer_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    }
+    if ($stmt) $customer_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
 if (!$customer_data) {
@@ -34,9 +22,6 @@ if (!$customer_data) {
     exit();
 }
 
-// ============================================================================
-// CEK STATUS MEMBER AKTIF
-// ============================================================================
 $member_aktif = null;
 $member_check = sqlsrv_query($conn, 
     "SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
@@ -47,16 +32,11 @@ $member_check = sqlsrv_query($conn,
      ORDER BY L.Tanggal_Selesai DESC", 
     array($id_customer)
 );
-if ($member_check) {
-    $member_aktif = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
-}
+if ($member_check) $member_aktif = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
 
 $has_member = !empty($member_aktif);
 $member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
 
-// ============================================================================
-// AMBIL DATA TIPE MEMBER (yang aktif)
-// ============================================================================
 $tipe_member_list = [];
 $query_tipe = sqlsrv_query($conn, 
     "SELECT ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status 
@@ -70,9 +50,6 @@ if ($query_tipe) {
     }
 }
 
-// ============================================================================
-// AMBIL RIWAYAT LANGGANAN CUSTOMER
-// ============================================================================
 $riwayat_langganan = [];
 $query_riwayat = sqlsrv_query($conn, 
     "SELECT L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
@@ -88,111 +65,14 @@ if ($query_riwayat) {
     }
 }
 
-// ============================================================================
-// PROSES PEMBELIAN LANGGANAN
-// ============================================================================
-// ============================================================================
-// PROSES PEMBELIAN LANGGANAN
-// ============================================================================
-$pembelian_msg = '';
-$pembelian_error = '';
-$show_payment_modal = false;
-$payment_total = 0;
-$payment_method = '';
-$last_inserted_id = 0;
-
-if (isset($_POST['beli_langganan'])) {
-    $id_tipe = $_POST['id_tipe'] ?? '';
-    $metode_pembayaran = $_POST['metode_pembayaran'] ?? '';
-    
-    // Validasi
-    if (empty($id_tipe) || empty($metode_pembayaran)) {
-        $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
-    } else {
-        // Ambil data tipe member
-        $stmt_tipe = sqlsrv_query($conn, 
-            "SELECT * FROM Tipe_Member WHERE ID_Tipe = ? AND Status = 1 AND Is_Deleted = 0", 
-            array($id_tipe)
-        );
-        $tipe_data = sqlsrv_fetch_array($stmt_tipe, SQLSRV_FETCH_ASSOC);
-        
-        if (!$tipe_data) {
-            $pembelian_error = 'Tipe member tidak valid!';
-        } else {
-            // Cek apakah sudah ada langganan aktif
-            $cek_aktif = sqlsrv_query($conn,
-                "SELECT COUNT(*) as total FROM Langganan 
-                 WHERE ID_Customer = ? AND Status = 1 
-                 AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai",
-                array($id_customer)
-            );
-            $row_aktif = sqlsrv_fetch_array($cek_aktif, SQLSRV_FETCH_ASSOC);
-            
-            if ($row_aktif['total'] > 0) {
-                $pembelian_error = 'Anda masih memiliki langganan member aktif. Tidak dapat mendaftar lagi.';
-            } else {
-                // Cek juga apakah ada yang menunggu konfirmasi
-                $cek_pending = sqlsrv_query($conn,
-                    "SELECT COUNT(*) as total FROM Langganan 
-                     WHERE ID_Customer = ? AND Status = 0",
-                    array($id_customer)
-                );
-                $row_pending = sqlsrv_fetch_array($cek_pending, SQLSRV_FETCH_ASSOC);
-                
-                if ($row_pending['total'] > 0) {
-                    $pembelian_error = 'Anda memiliki pendaftaran member yang sedang menunggu konfirmasi. Silakan tunggu verifikasi dari admin.';
-                } else {
-                    // Hitung tanggal
-                    $tanggal_mulai = date('Y-m-d');
-                    $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
-                    $total_bayar = $tipe_data['Harga_Member'];
-                    
-                    // Simpan ke database - Status 0 = Menunggu Konfirmasi
-                    // FIX: Gunakan OUTPUT INSERTED.ID_Langganan untuk mendapatkan ID
-                    $stmt_insert = sqlsrv_query($conn,
-                        "INSERT INTO Langganan 
-                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, 
-                          Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
-                         OUTPUT INSERTED.ID_Langganan
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
-                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai, 
-                              $total_bayar, $metode_pembayaran, $nama_customer)
-                    );
-                    
-                    if ($stmt_insert) {
-                        // Get the last inserted ID
-                        $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
-                        $last_inserted_id = $id_row['ID_Langganan'] ?? 0;
-                        
-                        // Set flags to show payment modal instead of redirect
-                        $show_payment_modal = true;
-                        $payment_total = $total_bayar;
-                        $payment_method = $metode_pembayaran;
-                    } else {
-                        $errors = sqlsrv_errors();
-                        $pembelian_error = 'Gagal mendaftar member. Error: ' . ($errors[0]['message'] ?? 'Unknown error');
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// URL PARAMETER NOTIFICATION
-// ============================================================================
 $notif_status = $_GET['status'] ?? '';
 $notif_msg = $_GET['msg'] ?? '';
 
-function rupiahFormat($n) { 
-    return 'Rp ' . number_format($n, 0, ',', '.'); 
-}
+function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 
 function formatTanggal($tanggal) {
     if (empty($tanggal)) return '-';
-    if (is_object($tanggal) && method_exists($tanggal, 'format')) {
-        return $tanggal->format('d M Y');
-    }
+    if (is_object($tanggal) && method_exists($tanggal, 'format')) return $tanggal->format('d M Y');
     return date('d M Y', strtotime($tanggal));
 }
 
@@ -204,6 +84,84 @@ $status_labels = [
 ];
 
 $photo_profile = $customer_data['Photo_Profile'] ?? '';
+
+
+// ============================================================================
+// PROSES PEMBELIAN LANGGANAN (POST)
+// ============================================================================
+$pembelian_msg = '';
+$pembelian_error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['beli_langganan'])) {
+    $id_tipe = $_POST['id_tipe'] ?? '';
+    $metode_pembayaran = $_POST['metode_pembayaran'] ?? '';
+
+    if (empty($id_tipe) || empty($metode_pembayaran)) {
+        $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
+    } else {
+        $stmt_tipe = sqlsrv_query($conn, 
+            "SELECT * FROM Tipe_Member WHERE ID_Tipe = ? AND Status = 1 AND Is_Deleted = 0", 
+            array($id_tipe)
+        );
+        $tipe_data = sqlsrv_fetch_array($stmt_tipe, SQLSRV_FETCH_ASSOC);
+
+        if (!$tipe_data) {
+            $pembelian_error = 'Tipe member tidak valid!';
+        } else {
+            $cek_aktif = sqlsrv_query($conn,
+                "SELECT COUNT(*) as total FROM Langganan 
+                 WHERE ID_Customer = ? AND Status = 1 
+                 AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai",
+                array($id_customer)
+            );
+            $row_aktif = sqlsrv_fetch_array($cek_aktif, SQLSRV_FETCH_ASSOC);
+
+            if ($row_aktif['total'] > 0) {
+                $pembelian_error = 'Anda masih memiliki langganan member aktif. Tidak dapat mendaftar lagi.';
+            } else {
+                $cek_pending = sqlsrv_query($conn,
+                    "SELECT COUNT(*) as total FROM Langganan 
+                     WHERE ID_Customer = ? AND Status = 0",
+                    array($id_customer)
+                );
+                $row_pending = sqlsrv_fetch_array($cek_pending, SQLSRV_FETCH_ASSOC);
+
+                if ($row_pending['total'] > 0) {
+                    $pembelian_error = 'Anda memiliki pendaftaran member yang sedang menunggu konfirmasi. Silakan tunggu verifikasi dari admin.';
+                } else {
+                    $tanggal_mulai = date('Y-m-d');
+                    $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
+                    $total_bayar = $tipe_data['Harga_Member'];
+
+                    $stmt_insert = sqlsrv_query($conn,
+                        "INSERT INTO Langganan 
+                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, 
+                          Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
+                         OUTPUT INSERTED.ID_Langganan
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
+                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai, 
+                              $total_bayar, $metode_pembayaran, $nama_customer)
+                    );
+
+                    if ($stmt_insert) {
+                        $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
+                        $last_inserted_id = $id_row['ID_Langganan'] ?? 0;
+                        header("Location: langganan_customer.php?status=success&msg=Pembelian member berhasil! Silakan tunggu konfirmasi dari admin.");
+                        exit();
+                    } else {
+                        $errors = sqlsrv_errors();
+                        $pembelian_error = 'Gagal mendaftar member. Error: ' . ($errors[0]['message'] ?? 'Unknown error');
+                    }
+                }
+            }
+        }
+    }
+
+    if (!empty($pembelian_error)) {
+        header("Location: langganan_customer.php?status=error&msg=" . urlencode($pembelian_error));
+        exit();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -211,7 +169,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Langganan Member | HoopBall</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -243,686 +201,272 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             --text-secondary: #475569;
             --muted: #94A3B8;
             --bg: #F8FAFC;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light-bg); color: #111; overflow-x: hidden; }
 
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: var(--light-bg); 
-            color: #111; 
-            overflow-x: hidden; 
-        }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+        @keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes drawLine { from{width:0} to{width:60px} }
 
-        /* ---- NAVBAR ---- */
-        nav {
-            background: var(--white);
-            padding: 0 80px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 76px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid #E5E5EA;
-        }
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            gap: 10px;
-        }
-        .nav-logo img {
-            height: 70px;
-            width: auto;
-        }
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .nav-links a {
-            color: #636366;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 20px;
-            transition: all 0.2s ease;
-        }
-        .nav-links a:hover { color: #1C1C1E; }
-        .nav-links a.active { color: var(--primary); font-weight: 600; }
+        .reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .reveal.active { opacity:1; transform:translateY(0); }
+        .reveal-stagger .stagger-item { opacity:0; transform:translateY(30px); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .reveal-stagger.active .stagger-item { opacity:1; transform:translateY(0); }
+        .reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
+        .reveal-stagger.active .stagger-item:nth-child(2){transition-delay:0.1s}
+        .reveal-stagger.active .stagger-item:nth-child(3){transition-delay:0.2s}
+        .reveal-stagger.active .stagger-item:nth-child(4){transition-delay:0.3s}
+        .reveal-stagger.active .stagger-item:nth-child(5){transition-delay:0.4s}
 
-        .nav-user-container {
-            position: relative;
-            height: 76px;
-            display: flex;
-            align-items: center;
-        }
-        .nav-user {
-            background: #F2F2F7;
-            border: 1px solid #E5E5EA;
-            padding: 8px 16px;
-            border-radius: 50px;
-            color: #1C1C1E;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: 0.2s;
-        }
-        .nav-user:hover { background: #E5E5EA; border-color: var(--primary); }
-        .nav-user img.user-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        .nav-user i.user-icon {
-            font-size: 16px;
-            color: var(--primary);
-        }
-        .nav-user i.arrow { 
-            font-size: 11px; 
-            color: #8E8E93; 
-            transition: 0.3s; 
-        }
-        .nav-user-container:hover i.arrow { 
-            transform: rotate(180deg); 
-            color: var(--primary); 
-        }
-        .dropdown-menu {
-            position: absolute;
-            top: 85%;
-            right: 0;
-            background: #16161a;
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            padding: 8px 0;
-            display: none; 
-            z-index: 1001;
-            animation: fadeIn 0.2s ease-out;
-        }
-        .nav-user-container:hover .dropdown-menu {
-            display: block;
-        }
-        .dropdown-menu .user-info-header {
-            padding: 12px 20px;
-            border-bottom: 1px solid #2d2d33;
-            margin-bottom: 6px;
-        }
-        .dropdown-menu .user-info-header span {
-            display: block;
-        }
-        .dropdown-menu .user-info-header .u-name {
-            color: var(--white);
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .dropdown-menu .user-info-header .u-role {
-            color: var(--text-gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-        .dropdown-menu a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            color: #c5c5ca;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            transition: 0.2s;
-        }
-        .dropdown-menu a i { 
-            font-size: 14px; 
-            width: 16px; 
-            text-align: center; 
-        }
-        .dropdown-menu a:hover {
-            background: #222227;
-            color: var(--primary);
-        }
-        .dropdown-divider {
-            height: 1px;
-            background: #2d2d33;
-            margin: 6px 0;
-        }
-        .dropdown-menu a.logout:hover { 
-            color: #ff3b30; 
-        }
+        /* NAVBAR */
+        nav { background:var(--white); padding:0 80px; display:flex; justify-content:space-between; align-items:center; height:76px; position:sticky; top:0; z-index:1000; border-bottom:1px solid #E5E5EA; animation:fadeInDown 0.6s ease-out forwards; }
+        .nav-logo { display:flex; align-items:center; text-decoration:none; gap:10px; transition:transform 0.3s ease; }
+        .nav-logo:hover { transform:scale(1.05); }
+        .nav-logo img { height:70px; width:auto; transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-logo:hover img { transform:rotate(5deg) scale(1.1); }
+        .nav-logo span { color:#1C1C1E; font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+        .nav-links { display:flex; align-items:center; gap:8px; }
+        .nav-links a { color:#636366; text-decoration:none; font-size:14px; font-weight:500; padding:8px 16px; border-radius:20px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
+        .nav-links a::before { content:''; position:absolute; bottom:0; left:50%; width:0; height:2px; background:var(--primary); transition:all 0.3s cubic-bezier(0.16,1,0.3,1); transform:translateX(-50%); }
+        .nav-links a:hover { color:#1C1C1E; transform:translateY(-2px); }
+        .nav-links a:hover::before { width:60%; }
+        .nav-links a.active { color:var(--primary); font-weight:600; }
+        .nav-links a.active::before { width:60%; }
 
-        /* ---- MEMBER BADGE ---- */
-        .member-badge-nav {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--green-lt);
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 4px 12px;
-            border-radius: 50px;
-            font-size: 11px;
-            font-weight: 700;
-            margin-left: 8px;
-        }
+        .nav-user-container { position:relative; height:76px; display:flex; align-items:center; }
+        .nav-user { background:#F2F2F7; border:1px solid #E5E5EA; padding:8px 16px; border-radius:50px; color:#1C1C1E; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .nav-user:hover { background:#E5E5EA; border-color:var(--primary); transform:scale(1.02); box-shadow:0 4px 12px rgba(255,82,0,0.15); }
+        .nav-user img.user-avatar { width:24px; height:24px; border-radius:50%; object-fit:cover; transition:transform 0.3s ease; }
+        .nav-user:hover img.user-avatar { transform:scale(1.15); }
+        .nav-user i.user-icon { font-size:16px; color:var(--primary); transition:transform 0.3s ease; }
+        .nav-user:hover i.user-icon { transform:scale(1.2); }
+        .nav-user i.arrow { font-size:11px; color:#8E8E93; transition:0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-user-container:hover i.arrow { transform:rotate(180deg); color:var(--primary); }
+        .dropdown-menu { position:absolute; top:85%; right:0; background:#16161a; min-width:220px; border-radius:12px; border:1px solid #2d2d33; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; display:none; z-index:1001; transform-origin:top right; }
+        .nav-user-container:hover .dropdown-menu { display:block; animation:fadeInUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .dropdown-menu .user-info-header { padding:12px 20px; border-bottom:1px solid #2d2d33; margin-bottom:6px; animation:fadeInDown 0.3s ease-out; }
+        .dropdown-menu .user-info-header span { display:block; }
+        .dropdown-menu .user-info-header .u-name { color:var(--white); font-size:14px; font-weight:700; }
+        .dropdown-menu .user-info-header .u-role { color:var(--text-gray); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+        .dropdown-menu a { display:flex; align-items:center; gap:12px; padding:10px 20px; color:#c5c5ca; text-decoration:none; font-size:13px; font-weight:500; transition:all 0.25s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
+        .dropdown-menu a::after { content:''; position:absolute; left:0; top:0; width:3px; height:100%; background:var(--primary); transform:scaleY(0); transition:transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+        .dropdown-menu a i { font-size:14px; width:16px; text-align:center; transition:transform 0.3s ease; }
+        .dropdown-menu a:hover { background:#222227; color:var(--primary); padding-left:28px; }
+        .dropdown-menu a:hover::after { transform:scaleY(1); }
+        .dropdown-menu a:hover i { transform:scale(1.2); }
+        .dropdown-divider { height:1px; background:#2d2d33; margin:6px 0; }
+        .dropdown-menu a.logout:hover { color:#ff3b30; }
+        .dropdown-menu a.logout:hover::after { background:#ff3b30; }
 
-        /* ---- HERO SECTION ---- */
-        .hero {
-            background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 100%);
-            padding: 60px 80px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 40px;
-            position: relative;
-            overflow: hidden;
-        }
-        .hero::before {
-            content: '';
-            position: absolute;
-            right: -100px;
-            top: -100px;
-            width: 400px;
-            height: 400px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,82,0,.15) 0%, transparent 70%);
-        }
-        .hero-left {
-            max-width: 600px;
-            position: relative;
-            z-index: 1;
-        }
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--primary);
-            color: var(--white);
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .hero-title {
-            font-size: 42px;
-            font-weight: 800;
-            color: var(--white);
-            line-height: 1.2;
-            margin-bottom: 16px;
-        }
-        .hero-title span {
-            color: var(--primary);
-        }
-        .hero-desc {
-            color: #A0A0A5;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-        }
+        .member-badge-nav { display:inline-flex; align-items:center; gap:6px; background:var(--green-lt); border:1px solid var(--green); color:var(--green); padding:4px 12px; border-radius:50px; font-size:11px; font-weight:700; margin-left:8px; animation:pulse 2s ease-in-out infinite; }
 
-        /* ---- MEMBER STATUS CARD ---- */
-        .member-status-card {
-            background: var(--white);
-            border-radius: 16px;
-            padding: 28px;
-            border: 1px solid #E5E5EA;
-            position: relative;
-            z-index: 1;
-            min-width: 340px;
-        }
-        .member-status-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #F2F2F7;
-        }
-        .member-status-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-        .member-status-icon.active {
-            background: var(--green-lt);
-            color: var(--green);
-        }
-        .member-status-icon.inactive {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-        .member-status-icon.pending {
-            background: var(--yellow-lt);
-            color: #D97706;
-        }
-        .member-status-text h3 {
-            font-size: 18px;
-            font-weight: 800;
-            color: #1C1C1E;
-        }
-        .member-status-text p {
-            font-size: 13px;
-            color: #8E8E93;
-            margin-top: 2px;
-        }
-        .member-detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #F2F2F7;
-        }
-        .member-detail-row:last-child {
-            border-bottom: none;
-        }
-        .member-detail-label {
-            font-size: 13px;
-            color: #8E8E93;
-            font-weight: 500;
-        }
-        .member-detail-value {
-            font-size: 14px;
-            font-weight: 700;
-            color: #1C1C1E;
-        }
+        /* HERO */
+        .hero { background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 100%); padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; animation: fadeIn 0.8s ease-out; }
+        .hero::before { content: ''; position: absolute; right: -100px; top: -100px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(255,82,0,.15) 0%, transparent 70%); animation: float 6s ease-in-out infinite; }
+        .hero-left { max-width: 600px; position: relative; z-index: 1; }
+        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: var(--white); padding: 8px 16px; border-radius: 50px; font-size: 13px; font-weight: 700; margin-bottom: 20px; animation: fadeInDown 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
+        .hero-badge i { animation: float 2s ease-in-out infinite; }
+        .hero-title { font-size: 42px; font-weight: 800; color: var(--white); line-height: 1.2; margin-bottom: 16px; animation: fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s forwards; opacity: 0; }
+        .hero-title span { color: var(--primary); display: inline-block; position: relative; }
+        .hero-title span::after { content: ''; position: absolute; bottom: 5px; left: 0; width: 0; height: 6px; background: rgba(255,82,0,0.3); border-radius: 3px; z-index: -1; animation: drawLine 0.8s ease-out 0.8s forwards; }
+        .hero-desc { color: #A0A0A5; font-size: 16px; line-height: 1.6; margin-bottom: 24px; animation: fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s forwards; opacity: 0; }
+
+        .member-status-card { background: var(--white); border-radius: 16px; padding: 28px; border: 1px solid #E5E5EA; position: relative; z-index: 1; min-width: 340px; animation: slideInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.3s forwards; opacity: 0; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .member-status-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .member-status-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #F2F2F7; }
+        .member-status-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+        .member-status-icon.active { background: var(--green-lt); color: var(--green); }
+        .member-status-icon.inactive { background: var(--red-lt); color: var(--red); }
+        .member-status-icon.pending { background: var(--yellow-lt); color: #D97706; }
+        .member-status-icon:hover { transform: scale(1.1) rotate(5deg); }
+        .member-status-text h3 { font-size: 18px; font-weight: 800; color: #1C1C1E; }
+        .member-status-text p { font-size: 13px; color: #8E8E93; margin-top: 2px; }
+        .member-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F2F2F7; transition: all 0.3s ease; }
+        .member-detail-row:hover { background: rgba(255,82,0,0.03); padding-left: 8px; padding-right: 8px; border-radius: 6px; transform: translateX(5px); }
+        .member-detail-row:last-child { border-bottom: none; }
+        .member-detail-label { font-size: 13px; color: #8E8E93; font-weight: 500; }
+        .member-detail-value { font-size: 14px; font-weight: 700; color: #1C1C1E; transition: color 0.3s ease; }
         .member-detail-value.green { color: var(--green); }
         .member-detail-value.primary { color: var(--primary); }
         .member-detail-value.yellow { color: #D97706; }
 
-        /* ---- MAIN CONTAINER ---- */
-        .main-container {
-            padding: 60px 80px;
-            max-width: 1440px;
-            margin: 0 auto;
-        }
+        .main-container { padding: 60px 80px; max-width: 1440px; margin: 0 auto; }
+        .section-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; }
+        .section-title { font-size: 24px; font-weight: 800; color: #111; position: relative; display: inline-block; }
+        .section-title::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 40px; height: 3px; background: var(--primary); border-radius: 2px; transition: width 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .section-header:hover .section-title::after { width: 100%; }
+        .section-subtitle { font-size: 14px; color: #636366; margin-top: 4px; }
 
-        /* ---- SECTION HEADER ---- */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 28px;
-        }
-        .section-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: #111;
-        }
-        .section-subtitle {
-            font-size: 14px;
-            color: #636366;
-            margin-top: 4px;
-        }
-
-        /* ---- TIPE MEMBER CARDS ---- */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            margin-bottom: 60px;
-        }
-        .pricing-card {
-            background: var(--white);
-            border: 2px solid #E5E5EA;
-            border-radius: 16px;
-            padding: 32px;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        .pricing-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-        }
-        .pricing-card.recommended {
-            border-color: var(--primary);
-            box-shadow: 0 4px 20px rgba(255,82,0,.1);
-        }
-        .pricing-card.recommended::before {
-            content: 'POPULER';
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: var(--white);
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 1px;
-        }
-        .pricing-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 60px; }
+        .pricing-card { background: var(--white); border: 2px solid #E5E5EA; border-radius: 16px; padding: 32px; position: relative; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); opacity: 0; transform: translateY(30px); }
+        .pricing-card.reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+        .pricing-card.reveal.active { opacity: 1; transform: translateY(0); }
+        .pricing-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); border-color: rgba(255,82,0,0.2); }
+        .pricing-card.recommended { border-color: var(--primary); box-shadow: 0 4px 20px rgba(255,82,0,.1); }
+        .pricing-card.recommended::before { content: 'POPULER'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: var(--white); padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 1px; animation: pulse 2s ease-in-out infinite; }
+        .pricing-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+        .pricing-card:hover .pricing-icon { transform: scale(1.1) rotate(5deg); }
         .pricing-icon.silver { background: var(--blue-lt); color: var(--blue); }
         .pricing-icon.gold { background: var(--orange-lt); color: var(--orange); }
         .pricing-icon.platinum { background: var(--purple-lt); color: var(--purple); }
-        
-        .pricing-name {
-            font-size: 22px;
-            font-weight: 800;
-            color: #1C1C1E;
-            margin-bottom: 4px;
-        }
-        .pricing-desc {
-            font-size: 13px;
-            color: #8E8E93;
-            margin-bottom: 20px;
-        }
-        .pricing-price {
-            font-size: 36px;
-            font-weight: 800;
-            color: var(--primary);
-            margin-bottom: 4px;
-        }
-        .pricing-price span {
-            font-size: 14px;
-            color: #8E8E93;
-            font-weight: 500;
-        }
-        .pricing-potongan {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--green-lt);
-            color: var(--green);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            margin-bottom: 24px;
-        }
-        .pricing-features {
-            list-style: none;
-            margin-bottom: 24px;
-        }
-        .pricing-features li {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            font-size: 14px;
-            color: #1C1C1E;
-            border-bottom: 1px solid #F2F2F7;
-        }
-        .pricing-features li:last-child {
-            border-bottom: none;
-        }
-        .pricing-features li i {
-            color: var(--green);
-            font-size: 14px;
-        }
-        .btn-pilih {
-            width: 100%;
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .btn-pilih:hover {
-            background: var(--primary-hover);
-        }
-        .btn-pilih:disabled {
-            background: #C7C7CC;
-            cursor: not-allowed;
-        }
+        .pricing-name { font-size: 22px; font-weight: 800; color: #1C1C1E; margin-bottom: 4px; transition: color 0.3s ease; }
+        .pricing-card:hover .pricing-name { color: var(--primary); }
+        .pricing-desc { font-size: 13px; color: #8E8E93; margin-bottom: 20px; }
+        .pricing-price { font-size: 36px; font-weight: 800; color: var(--primary); margin-bottom: 4px; transition: all 0.3s ease; }
+        .pricing-card:hover .pricing-price { transform: scale(1.05); }
+        .pricing-price span { font-size: 14px; color: #8E8E93; font-weight: 500; }
+        .pricing-potongan { display: inline-flex; align-items: center; gap: 6px; background: var(--green-lt); color: var(--green); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 24px; animation: pulse 2s ease-in-out infinite; }
+        .pricing-features { list-style: none; margin-bottom: 24px; }
+        .pricing-features li { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; color: #1C1C1E; border-bottom: 1px solid #F2F2F7; transition: all 0.3s ease; }
+        .pricing-features li:hover { transform: translateX(5px); }
+        .pricing-features li:last-child { border-bottom: none; }
+        .pricing-features li i { color: var(--green); font-size: 14px; transition: transform 0.3s ease; }
+        .pricing-features li:hover i { transform: scale(1.2); }
+        .btn-pilih { width: 100%; background: var(--primary); color: var(--white); border: none; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; overflow: hidden; }
+        .btn-pilih::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+        .btn-pilih:hover::before { width: 300px; height: 300px; }
+        .btn-pilih:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,82,0,0.4); }
+        .btn-pilih:disabled { background: #C7C7CC; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        /* ---- MODAL PEMBAYARAN ---- */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(4px);
-        }
-        .modal-overlay.active {
-            display: flex;
-        }
-        .modal-box {
-            background: var(--white);
-            border-radius: 20px;
-            width: 480px;
-            max-width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 32px;
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-        }
-        .modal-header h3 {
-            font-size: 20px;
-            font-weight: 800;
-            color: #1C1C1E;
-        }
-        .modal-close {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #F2F2F7;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #8E8E93;
-            font-size: 14px;
-            transition: 0.2s;
-        }
-        .modal-close:hover {
-            background: #E5E5EA;
-            color: #1C1C1E;
-        }
-        .modal-summary {
-            background: #F8F9FA;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-        .modal-summary-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            font-size: 14px;
-        }
-        .modal-summary-row.total {
-            border-top: 2px solid #E5E5EA;
-            padding-top: 12px;
-            margin-top: 8px;
-            font-weight: 800;
-            font-size: 18px;
-            color: var(--primary);
-        }
-        .metode-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 24px;
-        }
-        .metode-item {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 16px;
-            border: 2px solid #E5E5EA;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .metode-item:hover {
-            border-color: var(--primary);
-        }
-        .metode-item.selected {
-            border-color: var(--primary);
-            background: var(--orange-lt);
-        }
-        .metode-item i {
-            font-size: 24px;
-            color: var(--primary);
-            width: 32px;
-            text-align: center;
-        }
-        .metode-item span {
-            font-size: 14px;
-            font-weight: 700;
-            color: #1C1C1E;
-        }
-        .btn-bayar {
-            width: 100%;
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .btn-bayar:hover {
-            background: var(--primary-hover);
-        }
+        /* MODAL PEMBAYARAN - SAMA DENGAN BOOKING */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); animation: fadeInModal 0.25s ease-out forwards; }
+        .modal-overlay.active { display: flex; }
+        @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+        .modal-box { background: var(--white); border-radius: 20px; width: 480px; max-width: 90%; max-height: 90vh; overflow-y: auto; padding: 32px; animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; position: relative; }
+        @keyframes slideInModal { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .modal-header h3 { font-size: 20px; font-weight: 800; color: #1C1C1E; }
+        .modal-close { width: 36px; height: 36px; border-radius: 50%; background: #F2F2F7; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #8E8E93; font-size: 14px; transition: all 0.3s ease; }
+        .modal-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
+        .modal-summary { background: #F8F9FA; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .modal-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; transition: all 0.3s ease; }
+        .modal-summary-row:hover { transform: translateX(5px); }
+        .modal-summary-row.total { border-top: 2px solid #E5E5EA; padding-top: 12px; margin-top: 8px; font-weight: 800; font-size: 18px; color: var(--primary); }
 
-        /* ---- RIWAYAT LANGGANAN ---- */
-        .riwayat-section {
-            margin-bottom: 60px;
-        }
-        .riwayat-card {
-            background: var(--white);
-            border: 1px solid #E5E5EA;
-            border-radius: 16px;
-            overflow: hidden;
-        }
-        .riwayat-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .riwayat-table th {
-            padding: 14px 20px;
-            font-size: 11px;
-            font-weight: 800;
-            color: #8E8E93;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #F2F2F7;
-            text-align: left;
-            background: #FAFAFA;
-        }
-        .riwayat-table td {
-            padding: 16px 20px;
-            font-size: 14px;
-            border-bottom: 1px solid #F2F2F7;
-            vertical-align: middle;
-        }
-        .riwayat-table tr:last-child td {
-            border-bottom: none;
-        }
-        .riwayat-table tbody tr:hover {
-            background: #FAFAFA;
-        }
-        .status-pill {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
+        .payment-section { border-top: 1px solid var(--border-lt); padding: 20px 0 10px; margin-top: 16px; }
+        .payment-header { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .payment-header i { color: var(--muted); }
+        .payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .payment-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); user-select: none; position: relative; overflow: hidden; }
+        .payment-card::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,90,31,0.1); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.4s, height 0.4s; }
+        .payment-card:hover::before { width: 200px; height: 200px; }
+        .payment-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,90,31,0.1); }
+        .payment-card.selected { border-color: var(--primary); background: var(--orange-lt); }
+        .custom-radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; }
+        .payment-card.selected .custom-radio { border-color: var(--primary); }
+        .custom-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); display: none; }
+        .payment-card.selected .custom-radio::after { display: block; animation: scaleIn 0.2s ease-out; }
+        .payment-card-content { display: flex; flex-direction: column; justify-content: center; }
+        .payment-name { font-size: 11px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+        .payment-sub { font-size: 9px; color: var(--muted); margin-top: 1px; font-weight: 500; }
+        .qris-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 14px; color: #000; letter-spacing: -0.5px; }
+
+        .btn-bayar { width: 100%; background: var(--primary); color: var(--white); border: none; padding: 16px; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; overflow: hidden; margin-top: 16px; }
+        .btn-bayar::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+        .btn-bayar:hover::before { width: 400px; height: 400px; }
+        .btn-bayar:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,82,0,0.4); }
+        .btn-bayar:disabled { background: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .booking-disclaimer { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 10px; font-weight: 500; }
+        .booking-disclaimer i { color: var(--green); animation: pulse 2s ease-in-out infinite; }
+
+        /* INSTRUKSI PEMBAYARAN MODAL */
+        .payment-instruction-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeInModal 0.25s ease-out forwards; }
+        .payment-instruction-overlay.active { display: flex; }
+        .instruction-card { background: #fff; border-radius: 20px !important; border: none !important; padding: 30px !important; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important; animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; text-align: center; }
+        .instruction-close { position: absolute; top: 20px; right: 20px; background: var(--border-lt); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+        .instruction-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
+        .switch-tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--border-lt); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+        .switch-tab { flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary); }
+        .switch-tab.active { background: #fff; color: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .countdown-box { background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; animation: fadeInUp 0.5s ease-out; }
+        .countdown-box i { color: var(--orange); animation: pulse 2s ease-in-out infinite; }
+        .countdown-text { color: var(--primary-hover); font-weight: 700; font-size: 12px; }
+        .total-box { background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); animation: fadeInUp 0.5s ease-out; }
+        .total-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; }
+        .total-amount { font-size: 24px; color: var(--primary); font-weight: 900; margin-top: 4px; }
+        .va-box { text-align: left; display: none; }
+        .va-box.active { display: block; }
+        .va-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .va-input-group { display: flex; gap: 8px; margin-bottom: 16px; }
+        .va-input { flex: 1; padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border: 1px solid var(--border); border-radius: 10px; background: #fff; font-family: inherit; }
+        .btn-copy { padding: 10px 14px; border-radius: 10px; font-size: 12px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; font-weight: 600; color: var(--text-secondary); transition: all 0.3s ease; }
+        .btn-copy:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .va-steps { text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; }
+        .qris-box { display: none; align-items: center; flex-direction: column; }
+        .qris-box.active { display: flex; }
+        .qris-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+        .qris-image-wrapper { background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); animation: fadeInUp 0.5s ease-out; }
+        .qris-image { display: block; width: 170px; height: 180px; object-fit: contain; }
+        .qris-steps { text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .btn-done { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); position: relative; overflow: hidden; }
+        .btn-done::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+        .btn-done:hover::before { width: 400px; height: 400px; }
+        .btn-done:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,82,0,0.4); }
+
+        /* RIWAYAT */
+        .riwayat-section { margin-bottom: 60px; }
+        .riwayat-card { background: var(--white); border: 1px solid #E5E5EA; border-radius: 16px; overflow: hidden; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .riwayat-card:hover { box-shadow: 0 15px 40px rgba(0,0,0,0.06); }
+        .riwayat-table { width: 100%; border-collapse: collapse; }
+        .riwayat-table th { padding: 14px 20px; font-size: 11px; font-weight: 800; color: #8E8E93; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #F2F2F7; text-align: left; background: #FAFAFA; }
+        .riwayat-table td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid #F2F2F7; vertical-align: middle; transition: all 0.3s ease; }
+        .riwayat-table tr:hover td { background: #FAFAFA; transform: translateX(5px); }
+        .riwayat-table tr:last-child td { border-bottom: none; }
+        .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s ease; }
+        .riwayat-table tr:hover .status-pill { transform: scale(1.05); }
         .sp-active { background: var(--green-lt); color: var(--green); }
         .sp-pending { background: var(--yellow-lt); color: #D97706; }
         .sp-inactive { background: var(--red-lt); color: var(--red); }
         .sp-success { background: var(--blue-lt); color: var(--blue); }
 
-        /* ============ FOOTER ============ */
-footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; }
-footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
-.footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; }
-.footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform 0.3s ease; }
-.footer-logo:hover { transform:scale(1.05); }
-.footer-logo img { height:70px; transition:transform 0.5s ease; }
-.footer-logo:hover img { transform:rotate(5deg); }
-.footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
-.footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
-.social-links { display:flex; gap:12px; }
-.social-btn { width:36px; height:36px; border-radius:50%; background:#1C1C1E; color:var(--white); display:flex; align-items:center; justify-content:center; text-decoration:none; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.social-btn:hover { background:var(--primary); transform:translateY(-3px) scale(1.1); box-shadow:0 8px 20px rgba(255,82,0,0.3); }
-.social-btn:active { transform:scale(0.95); }
-.footer-col h4 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:20px; position:relative; display:inline-block; }
-.footer-col h4::after { content:''; position:absolute; bottom:-4px; left:0; width:30px; height:2px; background:var(--primary); transition:width 0.3s ease; }
-.footer-col:hover h4::after { width:100%; }
-.footer-col ul { list-style:none; }
-.footer-col ul li { margin-bottom:12px; }
-.footer-col ul li a { color:#8E8E93; text-decoration:none; font-size:13px; transition:all 0.3s ease; display:inline-block; position:relative; }
-.footer-col ul li a::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:1px; background:var(--primary); transition:width 0.3s ease; }
-.footer-col ul li a:hover { color:var(--white); transform:translateX(5px); }
-.footer-col ul li a:hover::after { width:100%; }
-.contact-item { display:flex; gap:12px; font-size:13px; line-height:1.5; margin-bottom:16px; transition:all 0.3s ease; padding:4px; border-radius:6px; }
-.contact-item:hover { background:rgba(255,82,0,0.05); transform:translateX(5px); }
-.contact-item i { color:var(--primary); font-size:14px; margin-top:3px; transition:transform 0.3s ease; }
-.contact-item:hover i { transform:scale(1.2); }
-.footer-bottom { border-top:1px solid #1C1C1E; padding-top:30px; text-align:center; font-size:13px; position:relative; }
+        /* FOOTER */
+        footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; }
+        footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
+        .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; }
+        .footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform 0.3s ease; }
+        .footer-logo:hover { transform:scale(1.05); }
+        .footer-logo img { height:70px; transition:transform 0.5s ease; }
+        .footer-logo:hover img { transform:rotate(5deg); }
+        .footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
+        .footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
+        .social-links { display:flex; gap:12px; }
+        .social-btn { width:36px; height:36px; border-radius:50%; background:#1C1C1E; color:var(--white); display:flex; align-items:center; justify-content:center; text-decoration:none; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .social-btn:hover { background:var(--primary); transform:translateY(-3px) scale(1.1); box-shadow:0 8px 20px rgba(255,82,0,0.3); }
+        .social-btn:active { transform:scale(0.95); }
+        .footer-col h4 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:20px; position:relative; display:inline-block; }
+        .footer-col h4::after { content:''; position:absolute; bottom:-4px; left:0; width:30px; height:2px; background:var(--primary); transition:width 0.3s ease; }
+        .footer-col:hover h4::after { width:100%; }
+        .footer-col ul { list-style:none; }
+        .footer-col ul li { margin-bottom:12px; }
+        .footer-col ul li a { color:#8E8E93; text-decoration:none; font-size:13px; transition:all 0.3s ease; display:inline-block; position:relative; }
+        .footer-col ul li a::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:1px; background:var(--primary); transition:width 0.3s ease; }
+        .footer-col ul li a:hover { color:var(--white); transform:translateX(5px); }
+        .footer-col ul li a:hover::after { width:100%; }
+        .contact-item { display:flex; gap:12px; font-size:13px; line-height:1.5; margin-bottom:16px; transition:all 0.3s ease; padding:4px; border-radius:6px; }
+        .contact-item:hover { background:rgba(255,82,0,0.05); transform:translateX(5px); }
+        .contact-item i { color:var(--primary); font-size:14px; margin-top:3px; transition:transform 0.3s ease; }
+        .contact-item:hover i { transform:scale(1.2); }
+        .footer-bottom { border-top:1px solid #1C1C1E; padding-top:30px; text-align:center; font-size:13px; position:relative; }
 
-.swal-toast { border-radius:12px !important; font-family:'Plus Jakarta Sans',sans-serif !important; }
+        .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
 
-/* ---- RESPONSIVE ---- */
         @media(max-width: 1100px) {
             .pricing-grid { grid-template-columns: 1fr; }
             .hero { flex-direction: column; padding: 40px; }
             .member-status-card { min-width: auto; width: 100%; }
             .main-container { padding: 40px; }
             nav { padding: 0 40px; }
+            .footer-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media(max-width: 768px) {
             .nav-links { display: none; }
@@ -930,159 +474,21 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
             nav { padding: 0 20px; }
             .hero { padding: 30px 20px; }
             .hero-title { font-size: 28px; }
+            .footer-grid { grid-template-columns: 1fr; }
+            .payment-grid { grid-template-columns: 1fr; }
         }
 
-        .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
-
-        /* ---- PAYMENT INSTRUCTION MODAL (FROM BOOKING) ---- */
-        .booking-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(4px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 20px;
-            animation: fadeInModal 0.25s ease-out forwards;
-        }
-        .booking-modal-overlay.active {
-            display: flex;
-        }
-        @keyframes fadeInModal {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .summary-card {
-            background: #fff;
-            border-radius: 20px !important;
-            border: none !important;
-            padding: 30px !important;
-            width: 100%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
-            animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes slideInModal {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .booking-modal-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: var(--border-lt);
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--text-secondary);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 10;
-        }
-        .booking-modal-close:hover {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-        .btn-toast-action {
-            background: var(--orange);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font-family: inherit;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            white-space: nowrap;
-        }
-        .btn-toast-action:hover {
-            background: var(--orange-hover);
-        }
-        .divider {
-            height: 1px;
-            background: var(--border-lt);
-            margin: 25px 0;
-        }
-        .btn-booking {
-            width: 100%;
-            background: var(--orange);
-            color: #fff;
-            border: none;
-            border-radius: 12px;
-            padding: 14px;
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 16px;
-            transition: background 0.2s ease;
-        }
-        .btn-booking:hover:not(:disabled) {
-            background: var(--orange-hover);
-        }
-        .btn-booking:disabled {
-            background: var(--muted);
-            cursor: not-allowed;
-        }
-        .alert-banner {
-            background: #EFF6FF;
-            border: 1px solid rgba(0, 122, 255, 0.15);
-            border-radius: 10px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        .alert-banner i {
-            color: var(--blue);
-            font-size: 16px;
-        }
-        .alert-banner-text {
-            font-size: 11.5px;
-            color: #1E40AF;
-            line-height: 1.5;
-        }
-        .form-control {
-            width: 100%;
-            padding: 11px 40px 11px 40px; 
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-family: inherit;
-            font-size: 13px;
-            color: var(--text-primary);
-            background-color: #fff;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            background-size: 14px;
-            outline: none;
-            appearance: none;
-        }
-        .form-control:focus {
-            border-color: var(--orange);
-            box-shadow: 0 0 0 3px var(--orange-glow);
+        .scroll-progress { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--primary),#FF8C42); z-index:9999; transform-origin:left; transform:scaleX(0); transition:transform 0.1s ease-out; }
+        html { scroll-behavior:smooth; }
+        ::selection { background:rgba(255,82,0,0.3); color:#1C1C1E; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
         }
     </style>
 </head>
 <body>
+<!-- SCROLL PROGRESS BAR -->
+<div class="scroll-progress" id="scrollProgress"></div>
 
 <!-- NAVBAR -->
 <nav>
@@ -1145,29 +551,21 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
             <div class="member-status-text">
                 <h3>
                     <?php 
-                    if ($has_member) {
-                        echo 'Member ' . htmlspecialchars($member_tipe) . ' Aktif';
-                    } elseif ($member_aktif) {
-                        echo 'Menunggu Konfirmasi';
-                    } else {
-                        echo 'Belum Berlangganan';
-                    }
+                    if ($has_member) echo 'Member ' . htmlspecialchars($member_tipe) . ' Aktif';
+                    elseif ($member_aktif) echo 'Menunggu Konfirmasi';
+                    else echo 'Belum Berlangganan';
                     ?>
                 </h3>
                 <p>
                     <?php 
-                    if ($has_member) {
-                        echo 'Nikmati keuntungan member Anda';
-                    } elseif ($member_aktif) {
-                        echo 'Pendaftaran member sedang diproses oleh admin';
-                    } else {
-                        echo 'Daftar sekarang untuk mendapatkan keuntungan';
-                    }
+                    if ($has_member) echo 'Nikmati keuntungan member Anda';
+                    elseif ($member_aktif) echo 'Pendaftaran member sedang diproses oleh admin';
+                    else echo 'Daftar sekarang untuk mendapatkan keuntungan';
                     ?>
                 </p>
             </div>
         </div>
-        
+
         <?php if ($has_member): ?>
         <div class="member-detail-row">
             <span class="member-detail-label">Tipe Member</span>
@@ -1242,14 +640,14 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
 
     <!-- PILIH PAKET MEMBER -->
     <section>
-        <div class="section-header">
+        <div class="section-header reveal">
             <div>
                 <h2 class="section-title">Pilih Paket Member</h2>
                 <p class="section-subtitle">Pilih tipe member yang sesuai dengan kebutuhan Anda.</p>
             </div>
         </div>
 
-        <div class="pricing-grid">
+        <div class="pricing-grid reveal-stagger">
             <?php 
             $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
             $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
@@ -1259,7 +657,7 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
                 $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
                 $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
             ?>
-            <div class="pricing-card <?php echo $is_recommended ? 'recommended' : ''; ?>">
+            <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>">
                 <div class="pricing-icon <?php echo $cls; ?>">
                     <i class="fa-solid <?php echo $icon; ?>"></i>
                 </div>
@@ -1285,13 +683,9 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
                         onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
                         <?php echo ($has_member || $member_aktif) ? 'disabled' : ''; ?>>
                     <?php 
-                    if ($has_member) {
-                        echo 'Sudah Aktif';
-                    } elseif ($member_aktif) {
-                        echo 'Menunggu Konfirmasi';
-                    } else {
-                        echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
-                    }
+                    if ($has_member) echo 'Sudah Aktif';
+                    elseif ($member_aktif) echo 'Menunggu Konfirmasi';
+                    else echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
                     ?>
                 </button>
             </div>
@@ -1299,55 +693,137 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
         </div>
     </section>
 
-    <!-- RIWAYAT LANGGANAN -->
-    <?php if (!empty($riwayat_langganan)): ?>
-    <section class="riwayat-section">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">Riwayat Langganan</h2>
-                <p class="section-subtitle">Daftar langganan member yang pernah Anda lakukan.</p>
+<!-- MODAL PEMBAYARAN (STYLE BARU - SAMA DENGAN BOOKING) -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-crown" style="color: var(--primary); margin-right: 8px;"></i>Ringkasan Pembelian Member</h3>
+            <button class="modal-close" onclick="tutupModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="modal-summary">
+            <div class="modal-summary-row">
+                <span>Tipe Member</span>
+                <span id="modalTipeName" style="font-weight: 700;">-</span>
+            </div>
+            <div class="modal-summary-row">
+                <span>Durasi</span>
+                <span>30 hari</span>
+            </div>
+            <div class="modal-summary-row">
+                <span>Tanggal Mulai</span>
+                <span id="modalTanggalMulai">-</span>
+            </div>
+            <div class="modal-summary-row">
+                <span>Tanggal Selesai</span>
+                <span id="modalTanggalSelesai">-</span>
+            </div>
+            <div class="modal-summary-row total">
+                <span>Total Pembayaran</span>
+                <span id="modalTotal">Rp 0</span>
             </div>
         </div>
-        <div class="riwayat-card">
-            <table class="riwayat-table">
-                <thead>
-                    <tr>
-                        <th>Tipe Member</th>
-                        <th>Tanggal Mulai</th>
-                        <th>Tanggal Selesai</th>
-                        <th>Total Bayar</th>
-                        <th>Metode</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($riwayat_langganan as $rl): 
-                        $status = $status_labels[$rl['Status']] ?? $status_labels[0];
-                    ?>
-                    <tr>
-                        <td>
-                            <strong><?php echo htmlspecialchars($rl['Nama_Tipe']); ?></strong>
-                            <div style="font-size: 12px; color: #8E8E93; margin-top: 2px;">
-                                Potongan <?php echo rupiahFormat($rl['Potongan_Harga']); ?>
-                            </div>
-                        </td>
-                        <td><?php echo formatTanggal($rl['Tanggal_Mulai']); ?></td>
-                        <td><?php echo formatTanggal($rl['Tanggal_Selesai']); ?></td>
-                        <td><strong style="color: var(--primary);"><?php echo rupiahFormat($rl['Total_Bayar']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($rl['Metode_Pembayaran']); ?></td>
-                        <td>
-                            <span class="status-pill <?php echo $status['class']; ?>">
-                                <i class="fa-solid <?php echo $status['icon']; ?>"></i> <?php echo $status['label']; ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-    <?php endif; ?>
 
+        <div class="payment-section">
+            <div class="payment-header">
+                <i class="fa-solid fa-wallet"></i> Metode Pembayaran
+            </div>
+            <div class="payment-grid">
+                <div class="payment-card selected" data-method="Transfer Bank" onclick="pilihMetode(this)">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name">Transfer Bank</span>
+                        <span class="payment-sub">Virtual Account</span>
+                    </div>
+                </div>
+                <div class="payment-card" data-method="QRIS" onclick="pilihMetode(this)">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name qris-logo">QRIS</span>
+                        <span class="payment-sub">Scan & Bayar Instan</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form id="formPembelian" method="POST" action="">
+            <input type="hidden" name="id_tipe" id="inputIdTipe" value="">
+            <input type="hidden" name="metode_pembayaran" id="inputMetode" value="Transfer Bank">
+            <button type="submit" name="beli_langganan" class="btn-bayar" id="btnBayar">
+                <i class="fa-solid fa-lock"></i> Bayar Sekarang
+            </button>
+        </form>
+
+        <div class="booking-disclaimer">
+            <i class="fa-solid fa-circle-check"></i> Enkripsi data aman terverifikasi
+        </div>
+    </div>
+</div>
+
+<!-- MODAL INSTRUKSI PEMBAYARAN -->
+<div class="payment-instruction-overlay" id="instructionModal">
+    <div class="instruction-card">
+        <button class="instruction-close" onclick="tutupInstructionModal()">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <h2 style="font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 20px; text-transform: uppercase; text-align: center;">Instruksi Pembayaran</h2>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 16px; background: var(--border-lt); padding: 4px; border-radius: 10px; border: 1px solid var(--border);">
+            <button id="btnSwitchVA" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary);">
+                <i class="fa-solid fa-university" style="margin-right: 4px;"></i> Virtual Account
+            </button>
+            <button id="btnSwitchQRIS" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary);">
+                <i class="fa-solid fa-qrcode" style="margin-right: 4px;"></i> QRIS Scan
+            </button>
+        </div>
+
+        <div class="countdown-box">
+            <i class="fa-solid fa-clock"></i>
+            <p class="countdown-text">
+                Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
+            </p>
+        </div>
+
+        <div class="total-box">
+            <div class="total-label">Total Tagihan</div>
+            <div class="total-amount" id="instructionTotal">Rp 0</div>
+        </div>
+
+        <div id="instruksiTransfer" style="display: none;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-align: left;">Nomor Virtual Account (Mandiri / BCA)</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <input type="text" id="vaNumber" value="8801281234567890" class="form-control" style="padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border-color: var(--border);" readonly>
+                <button class="btn-copy" id="btnCopyVA" style="border-radius: 10px; font-size: 12px;"><i class="fa-regular fa-copy"></i> Salin</button>
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>Pilih menu <strong>Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</li>
+                <li>Masukkan nomor Virtual Account kustom di atas.</li>
+                <li>Nominal pembayaran akan otomatis muncul sesuai total tagihan.</li>
+            </ul>
+        </div>
+
+        <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Pindai Kode QRIS Resmi HoopBall</div>
+            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); animation: fadeInUp 0.5s ease-out;">
+                <img id="qrisImage" src="" alt="QRIS Code" style="display: block; width: 170px; height: 180px; object-fit: contain;">
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                <li>Buka aplikasi e-wallet Anda (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
+                <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
+                <li>Arahkan kamera smartphone ke kode QR di atas, lalu selesaikan pembayaran.</li>
+            </ul>
+        </div>
+
+        <hr style="border: none; height: 1px; background: var(--border-lt); margin: 20px 0;">
+
+        <button class="btn-done" id="btnDonePayment" style="margin-top: 0;">
+            Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
+        </button>
+    </div>
+</div>
 </main>
 
 <!-- FOOTER -->
@@ -1372,7 +848,7 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
                 <li><a href="#">Jadwal</a></li>
-                <li><a href="../customer/langganan_customer.php">Member</a></li>
+                <li><a href="langganan_customer.php">Member</a></li>
                 <li><a href="#">Pembelian</a></li>
             </ul>
         </div>
@@ -1413,71 +889,223 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
 </footer>
 
 <script>
-// ============================================================================
-// FILTER JADWAL (Hero Widget)
-// ============================================================================
-function filterJadwal() {
-    // This is a visual filter - in real implementation, 
-    // it would filter the displayed jadwal or redirect to booking page with params
-    const lapangan = document.getElementById('heroLapangan').value;
-    const tanggal = document.getElementById('heroTanggal').value;
-    const jam = document.getElementById('heroJam').value;
+// Scroll Progress Bar
+window.addEventListener('scroll', () => {
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const scrolled = scrollTop / scrollHeight;
+    document.getElementById('scrollProgress').style.transform = `scaleX(${scrolled})`;
+});
 
-    // Store in session/localStorage for booking page to pick up
-    localStorage.setItem('booking_filter_lapangan', lapangan);
-    localStorage.setItem('booking_filter_tanggal', tanggal);
-    localStorage.setItem('booking_filter_jam', jam);
+// Intersection Observer for reveal animations
+const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('active');
+    });
+}, observerOptions);
+
+document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+    observer.observe(el);
+});
+
+// ==================== MODAL PEMBAYARAN ====================
+let selectedIdTipe = 0;
+let selectedTipeName = '';
+let selectedHarga = 0;
+let selectedMetode = 'Transfer Bank';
+let countdownInterval;
+
+function bukaModal(idTipe, namaTipe, harga) {
+    selectedIdTipe = idTipe;
+    selectedTipeName = namaTipe;
+    selectedHarga = harga;
+
+    const today = new Date();
+    const selesai = new Date();
+    selesai.setDate(today.getDate() + 30);
+
+    document.getElementById('modalTipeName').textContent = namaTipe;
+    document.getElementById('modalTanggalMulai').textContent = formatTanggal(today);
+    document.getElementById('modalTanggalSelesai').textContent = formatTanggal(selesai);
+    document.getElementById('modalTotal').textContent = formatRupiah(harga);
+    document.getElementById('inputIdTipe').value = idTipe;
+    document.getElementById('instructionTotal').textContent = formatRupiah(harga);
+
+    document.getElementById('paymentModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
-// ============================================================================
-// HARD DELETE AKUN CONFIRMATION
-// ============================================================================
-function confirmHapusAkun(e) {
+function tutupModal() {
+    document.getElementById('paymentModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function tutupInstructionModal() {
+    document.getElementById('instructionModal').classList.remove('active');
+    document.body.style.overflow = '';
+    clearInterval(countdownInterval);
+}
+
+function pilihMetode(el) {
+    document.querySelectorAll('.payment-card').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMetode = el.getAttribute('data-method');
+    document.getElementById('inputMetode').value = selectedMetode;
+}
+
+function formatRupiah(number) {
+    return 'Rp ' + number.toLocaleString('id-ID');
+}
+
+function formatTanggal(date) {
+    const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return date.getDate() + ' ' + bulan[date.getMonth()] + ' ' + date.getFullYear();
+}
+
+// Form submit handler - tampilkan modal instruksi pembayaran
+// JANGAN gunakan event listener untuk form submit karena akan mengganggu PHP POST
+// Sebagai gantinya, gunakan tombol Bayar yang memanggil fungsi ini
+
+document.getElementById('btnBayar').addEventListener('click', function(e) {
     e.preventDefault();
-    Swal.fire({
-        title: 'Hapus Akun Permanen?',
-        html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
-              'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
-              '<span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#FF3B30',
-        cancelButtonColor: '#8E8E93',
-        confirmButtonText: 'Ya, Hapus Akun Saya!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false
-    }).then((result) => {
-        if (result.isConfirmed) {
-            let timerInterval;
-            Swal.fire({
-                title: 'Menghapus Akun...',
-                html: 'Mohon tunggu, akun Anda sedang diproses.<br><b></b>',
-                timer: 2000,
-                timerProgressBar: true,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    const timer = Swal.getHtmlContainer().querySelector('b');
-                    timerInterval = setInterval(() => {
-                        timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
-                    }, 100);
-                },
-                willClose: () => {
-                    clearInterval(timerInterval);
-                }
-            }).then(() => {
-                window.location.href = '?hapus_akun=1';
-            });
+
+    if (!selectedIdTipe) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Pilih paket member terlebih dahulu!',
+            confirmButtonColor: '#FF5200'
+        });
+        return;
+    }
+
+    tutupModal();
+    document.getElementById('instructionModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    showPaymentMethodInstructions('Transfer Bank');
+    startPaymentCountdown(15 * 60);
+});
+
+function showPaymentMethodInstructions(method) {
+    selectedMetode = method;
+    const btnSwitchVA = document.getElementById('btnSwitchVA');
+    const btnSwitchQRIS = document.getElementById('btnSwitchQRIS');
+
+    if (method === 'Transfer Bank') {
+        btnSwitchVA.style.backgroundColor = '#fff';
+        btnSwitchVA.style.color = 'var(--primary)';
+        btnSwitchVA.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+        btnSwitchQRIS.style.backgroundColor = 'transparent';
+        btnSwitchQRIS.style.color = 'var(--text-secondary)';
+        btnSwitchQRIS.style.boxShadow = 'none';
+        document.getElementById('instruksiTransfer').style.display = 'block';
+        document.getElementById('instruksiQRIS').style.display = 'none';
+    } else {
+        btnSwitchQRIS.style.backgroundColor = '#fff';
+        btnSwitchQRIS.style.color = 'var(--primary)';
+        btnSwitchQRIS.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+        btnSwitchVA.style.backgroundColor = 'transparent';
+        btnSwitchVA.style.color = 'var(--text-secondary)';
+        btnSwitchVA.style.boxShadow = 'none';
+        document.getElementById('instruksiTransfer').style.display = 'none';
+        document.getElementById('instruksiQRIS').style.display = 'flex';
+
+        const qrPayload = 'HOOPBALL-MEMBER-' + selectedIdTipe + '-' + selectedHarga + '-' + Date.now();
+        document.getElementById('qrisImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrPayload);
+    }
+}
+
+document.getElementById('btnSwitchVA').addEventListener('click', function() {
+    showPaymentMethodInstructions('Transfer Bank');
+});
+
+document.getElementById('btnSwitchQRIS').addEventListener('click', function() {
+    showPaymentMethodInstructions('QRIS');
+});
+
+function startPaymentCountdown(duration) {
+    let timer = duration, minutes, seconds;
+    const display = document.getElementById('paymentCountdown');
+    clearInterval(countdownInterval);
+
+    countdownInterval = setInterval(function () {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+        display.textContent = minutes + ":" + seconds;
+        if (--timer < 0) {
+            clearInterval(countdownInterval);
+            display.textContent = "Waktu Habis";
+            document.getElementById('btnDonePayment').disabled = true;
         }
+    }, 1000);
+}
+
+function salinVA() {
+    const vaInput = document.getElementById('vaNumber');
+    vaInput.select();
+    vaInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(vaInput.value).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil Disalin!',
+            text: 'Nomor Virtual Account disalin ke papan klip.',
+            timer: 1500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            customClass: { popup: 'swal-toast' }
+        });
     });
 }
 
-// ============================================================================
-// URL PARAMETER NOTIFICATION (TOAST STYLE)
-// ============================================================================
+document.getElementById('btnCopyVA').addEventListener('click', salinVA);
+
+function selesaiBayar() {
+    clearInterval(countdownInterval);
+    tutupInstructionModal();
+
+    const formData = new FormData();
+    formData.append('beli_langganan', '1');
+    formData.append('id_tipe', selectedIdTipe);
+    formData.append('metode_pembayaran', selectedMetode);
+
+    fetch('langganan_customer.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Pembayaran Diterima!',
+            text: 'Pembelian member berhasil. Silakan tunggu konfirmasi dari admin.',
+            confirmButtonColor: '#FF5200',
+            confirmButtonText: 'OK'
+        }).then(() => {
+            window.location.reload();
+        });
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        window.location.reload();
+    });
+}
+
+document.getElementById('btnDonePayment').addEventListener('click', selesaiBayar);
+
+window.addEventListener('click', function(e) {
+    if (e.target === document.getElementById('paymentModal')) {
+        tutupModal();
+    }
+    if (e.target === document.getElementById('instructionModal')) {
+        tutupInstructionModal();
+    }
+});
+
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
