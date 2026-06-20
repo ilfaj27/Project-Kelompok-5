@@ -81,6 +81,25 @@ if (isset($_POST['save_jadwal'])) {
         header("Location: jadwal.php?page=1&status=error&msg=Tanggal tidak boleh kurang dari hari ini.");
         exit();
     }
+    // ===== VALIDASI JAM REAL-TIME (SERVER-SIDE) =====
+    if ($tanggal == $hari_ini) {
+        $jam_sekarang = date('H:i');
+        if ($jam_mulai <= $jam_sekarang) {
+            header("Location: jadwal.php?page=1&status=error&msg=Jam mulai harus lebih besar dari jam sekarang (" . $jam_sekarang . " WIB).");
+            exit();
+        }
+    }
+    // =================================================
+    // ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
+    if ($jam_mulai < '08:30') {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam operasional dimulai pukul 08:30 WIB.");
+        exit();
+    }
+    if ($jam_selesai > '00:00' && $jam_selesai < '08:30') {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam operasional berakhir pukul 00:00 WIB.");
+        exit();
+    }
+    // =====================================================
     if (empty($jam_mulai)) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam mulai wajib diisi.");
         exit();
@@ -89,7 +108,26 @@ if (isset($_POST['save_jadwal'])) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam selesai wajib diisi.");
         exit();
     }
-    if ($jam_selesai <= $jam_mulai) {
+    // ===== VALIDASI JAM SELESAI MAKSIMAL 00:00 =====
+    if ($jam_selesai > '00:00' && $jam_mulai > $jam_selesai) {
+        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai maksimal 00:00 WIB. Penyewaan tutup setelah tengah malam.");
+        exit();
+    }
+    // ================================================
+    // ===== VALIDASI MINIMAL 1 JAM (SERVER-SIDE) =====
+    $mulai_ts = strtotime($tanggal . ' ' . $jam_mulai);
+    if ($jam_selesai == '00:00') {
+        $selesai_ts = strtotime($tanggal . ' ' . $jam_selesai . ' +1 day');
+    } else {
+        $selesai_ts = strtotime($tanggal . ' ' . $jam_selesai);
+    }
+    $selisih_jam = ($selesai_ts - $mulai_ts) / 3600;
+    if ($selisih_jam < 1) {
+        header("Location: jadwal.php?page=1&status=error&msg=Durasi jadwal minimal 1 jam.");
+        exit();
+    }
+    // ================================================
+    if ($jam_selesai != '00:00' && $jam_selesai <= $jam_mulai) {
         header("Location: jadwal.php?page=1&status=error&msg=Jam selesai harus lebih besar dari jam mulai.");
         exit();
     }
@@ -383,6 +421,53 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
+/* ===== INFO BOX ===== */
+.jam-info-box {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--blue-lt);
+    border: 1px solid rgba(59,130,246,.2);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+}
+.jam-info-box.show { display: flex; }
+.jam-info-box i { font-size: 14px; }
+
+.durasi-info-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--green-lt);
+    border: 1px solid rgba(16,185,129,.2);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--green);
+}
+.durasi-info-box i { font-size: 14px; }
+
+.batas-info-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.2);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+}
+.batas-info-box i { font-size: 14px; }
+
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
 .pagination-info strong { color: var(--text); font-weight: 800; }
@@ -491,6 +576,12 @@ input[type="time"].modal-input {
                 <input type="date" name="tanggal" id="tanggal" class="modal-input" value="<?= isset($edit_data['Tanggal']) ? formatInputDate($edit_data['Tanggal']) : '' ?>" required>
                 <div class="val-msg" id="val-tanggal"></div>
 
+                <!-- INFO JAM REAL-TIME -->
+                <div class="jam-info-box" id="jamInfoBox">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span id="jamInfoText">Jam mulai harus lebih besar dari jam sekarang</span>
+                </div>
+
                 <div class="modal-grid-2">
                     <div>
                         <label class="modal-label">Jam Mulai <span class="required">*</span></label>
@@ -502,6 +593,12 @@ input[type="time"].modal-input {
                         <input type="time" name="jam_selesai" id="jam_selesai" class="modal-input" value="<?= isset($edit_data['Jam_Selesai']) ? formatInputTime($edit_data['Jam_Selesai']) : '' ?>" required>
                         <div class="val-msg" id="val-jam_selesai"></div>
                     </div>
+                </div>
+
+                <!-- INFO JAM OPERASIONAL -->
+                <div class="durasi-info-box" id="durasiInfoBox">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Jam operasional: <strong>08:30 - 00:00 WIB</strong> | Durasi minimal <strong>1 jam</strong></span>
                 </div>
 
                 <button type="submit" name="save_jadwal" class="btn-submit">
@@ -646,7 +743,7 @@ input[type="time"].modal-input {
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Jadwal</div>
-            <div class="topbar-breadcrumb">Operasional / Kelola Jadwal</div>
+            <div class="topbar-breadcrumb">Operasional / Jadwal</div>
         </div>
         <div class="topbar-right">
             <div id="clock-display">
@@ -742,7 +839,7 @@ input[type="time"].modal-input {
                         </form>
                     </div>
                 </div>
-                <a href="jadwal.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Jadwal</a>
+                <a href="jadwal.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 
@@ -892,6 +989,139 @@ function validateField(fieldId, valId, rules) {
     return true;
 }
 
+// ===== VALIDASI JAM REAL-TIME (CLIENT-SIDE) =====
+function getTodayDate() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+}
+
+function getCurrentTime() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return h + ':' + min;
+}
+
+function checkJamRealTime() {
+    const tanggalField = document.getElementById('tanggal');
+    const jamMulaiField = document.getElementById('jam_mulai');
+    const jamInfoBox = document.getElementById('jamInfoBox');
+    const jamInfoText = document.getElementById('jamInfoText');
+    
+    if (!tanggalField || !jamMulaiField || !jamInfoBox) return;
+    
+    const selectedDate = tanggalField.value;
+    const today = getTodayDate();
+    const currentTime = getCurrentTime();
+    
+    if (selectedDate === today) {
+        jamInfoBox.classList.add('show');
+        jamInfoText.innerText = 'Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB)';
+        
+        jamMulaiField.setAttribute('min', currentTime);
+        
+        if (jamMulaiField.value && jamMulaiField.value <= currentTime) {
+            jamMulaiField.classList.add('error');
+            const valMsg = document.getElementById('val-jam_mulai');
+            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB).';
+            valMsg.classList.add('show');
+            return false;
+        }
+    } else {
+        jamInfoBox.classList.remove('show');
+        jamMulaiField.removeAttribute('min');
+    }
+    return true;
+}
+
+// ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
+function checkJamOperasional() {
+    const jamMulaiField = document.getElementById('jam_mulai');
+    const jamSelesaiField = document.getElementById('jam_selesai');
+    const valMulai = document.getElementById('val-jam_mulai');
+    const valSelesai = document.getElementById('val-jam_selesai');
+
+    if (!jamMulaiField || !jamSelesaiField) return true;
+
+    let valid = true;
+
+    // Jam mulai minimal 08:30
+    if (jamMulaiField.value && jamMulaiField.value < '08:30') {
+        jamMulaiField.classList.add('error');
+        valMulai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional dimulai pukul 08:30 WIB.';
+        valMulai.classList.add('show');
+        valid = false;
+    }
+
+    // Jam selesai maksimal 00:00 (tengah malam), tidak boleh di antara 00:00-08:30
+    if (jamSelesaiField.value && jamSelesaiField.value > '00:00' && jamSelesaiField.value < '08:30') {
+        jamSelesaiField.classList.add('error');
+        valSelesai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional berakhir pukul 00:00 WIB.';
+        valSelesai.classList.add('show');
+        valid = false;
+    }
+
+    return valid;
+}
+// =====================================================
+
+// ===== VALIDASI DURASI MINIMAL 1 JAM =====
+function checkDurasiMinimal() {
+    const jamMulaiField = document.getElementById('jam_mulai');
+    const jamSelesaiField = document.getElementById('jam_selesai');
+    const valMsg = document.getElementById('val-jam_selesai');
+    
+    if (!jamMulaiField || !jamSelesaiField || !jamMulaiField.value || !jamSelesaiField.value) return true;
+    
+    const mulai = jamMulaiField.value;
+    const selesai = jamSelesaiField.value;
+    
+    const [h1, m1] = mulai.split(':').map(Number);
+    const [h2, m2] = selesai.split(':').map(Number);
+    
+    let selesaiMenit = h2 * 60 + m2;
+    if (selesai === '00:00') {
+        selesaiMenit = 24 * 60;
+    }
+    
+    const mulaiMenit = h1 * 60 + m1;
+    const selisihMenit = selesaiMenit - mulaiMenit;
+    const selisihJam = selisihMenit / 60;
+    
+    if (selisihJam < 1) {
+        jamSelesaiField.classList.add('error');
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Durasi minimal 1 jam.';
+        valMsg.classList.add('show');
+        return false;
+    }
+    return true;
+}
+
+// ===== VALIDASI BATAS JAM 00:00 =====
+function checkBatasJam() {
+    const jamMulaiField = document.getElementById('jam_mulai');
+    const jamSelesaiField = document.getElementById('jam_selesai');
+    const valMsg = document.getElementById('val-jam_selesai');
+    
+    if (!jamMulaiField || !jamSelesaiField || !jamMulaiField.value || !jamSelesaiField.value) return true;
+    
+    const mulai = jamMulaiField.value;
+    const selesai = jamSelesaiField.value;
+    
+    // Jika selesai !== '00:00' dan mulai > selesai → melewati tengah malam
+    if (selesai !== '00:00' && mulai > selesai) {
+        jamSelesaiField.classList.add('error');
+        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam selesai maksimal 00:00 WIB. Penyewaan tutup setelah tengah malam.';
+        valMsg.classList.add('show');
+        return false;
+    }
+    
+    return true;
+}
+
 function validateForm() {
     let valid = true;
     document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
@@ -911,15 +1141,74 @@ function validateForm() {
             valMsg.classList.add('show');
             valid = false;
         }
+        // ===== VALIDASI JAM REAL-TIME =====
+        if (tanggalVal === hariIni) {
+            const currentTime = getCurrentTime();
+            const mulai = document.getElementById('jam_mulai').value;
+            if (mulai <= currentTime) {
+                document.getElementById('jam_mulai').classList.add('error');
+                const valMsg = document.getElementById('val-jam_mulai');
+                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB).';
+                valMsg.classList.add('show');
+                valid = false;
+            }
+        }
+        // ====================================
         const mulai = document.getElementById('jam_mulai').value;
         const selesai = document.getElementById('jam_selesai').value;
-        if (selesai <= mulai) {
+        
+        // ===== VALIDASI BATAS JAM 00:00 =====
+        if (!checkBatasJam()) {
+            valid = false;
+        }
+        // ====================================
+        
+        // ===== VALIDASI JAM SELESAI > JAM MULAI (kecuali 00:00) =====
+        if (selesai !== '00:00' && selesai <= mulai) {
             document.getElementById('jam_selesai').classList.add('error');
             const valMsg = document.getElementById('val-jam_selesai');
             valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam selesai harus lebih besar dari jam mulai.';
             valMsg.classList.add('show');
             valid = false;
         }
+        // ====================================
+        
+        // ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
+function checkJamOperasional() {
+    const jamMulaiField = document.getElementById('jam_mulai');
+    const jamSelesaiField = document.getElementById('jam_selesai');
+    const valMulai = document.getElementById('val-jam_mulai');
+    const valSelesai = document.getElementById('val-jam_selesai');
+
+    if (!jamMulaiField || !jamSelesaiField) return true;
+
+    let valid = true;
+
+    // Jam mulai minimal 08:30
+    if (jamMulaiField.value && jamMulaiField.value < '08:30') {
+        jamMulaiField.classList.add('error');
+        valMulai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional dimulai pukul 08:30 WIB.';
+        valMulai.classList.add('show');
+        valid = false;
+    }
+
+    // Jam selesai maksimal 00:00 (tengah malam), tidak boleh di antara 00:00-08:30
+    if (jamSelesaiField.value && jamSelesaiField.value > '00:00' && jamSelesaiField.value < '08:30') {
+        jamSelesaiField.classList.add('error');
+        valSelesai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional berakhir pukul 00:00 WIB.';
+        valSelesai.classList.add('show');
+        valid = false;
+    }
+
+    return valid;
+}
+// =====================================================
+
+// ===== VALIDASI DURASI MINIMAL 1 JAM =====
+        if (!checkDurasiMinimal()) {
+            valid = false;
+        }
+        // =========================================
     }
     return valid;
 }
@@ -1031,20 +1320,30 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tanggal) {
         tanggal.addEventListener('change', function() {
             validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' });
+            checkJamRealTime();
         });
     }
     const jamMulai = document.getElementById('jam_mulai');
     if (jamMulai) {
         jamMulai.addEventListener('change', function() {
             validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' });
+            checkJamRealTime();
+            checkJamOperasional();
+            checkDurasiMinimal();
+            checkBatasJam();
         });
     }
     const jamSelesai = document.getElementById('jam_selesai');
     if (jamSelesai) {
         jamSelesai.addEventListener('change', function() {
             validateField('jam_selesai', 'val-jam_selesai', { required: true, label: 'Jam selesai' });
+            checkJamOperasional();
+            checkDurasiMinimal();
+            checkBatasJam();
         });
     }
+    
+    checkJamRealTime();
 });
 </script>
 </body>

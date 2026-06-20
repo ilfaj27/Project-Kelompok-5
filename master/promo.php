@@ -1094,7 +1094,7 @@ html.swal2-height-auto {
                         </form>
                     </div>
                 </div>
-                <a href="promo.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Promo</a>
+                <a href="promo.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 

@@ -70,11 +70,9 @@ function getUploadDirectory() {
 function processPhotoUpload($file, $edit_data = null) {
     $upload_dir = getUploadDirectory();
     if (!isset($file) || empty($file['name'])) {
-        // Jika mode edit dan sudah ada foto sebelumnya, gunakan foto lama
         if ($edit_data && !empty($edit_data['Photo_Alat'])) {
             return $edit_data['Photo_Alat'];
         }
-        // Jika mode tambah atau edit tanpa foto lama, return false sebagai penanda error
         return false;
     }
     if (!is_dir($upload_dir)) {
@@ -136,7 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
 
-        // Validasi: foto wajib diisi untuk data baru
         if ($photo_alat === false) {
             $errors[] = 'Foto alat wajib diupload.';
         }
@@ -365,35 +362,119 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
+/* ===== CARD GRID - KONSISTEN DENGAN FASILITAS ===== */
 .alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.alat-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; transition: all .25s ease; cursor: pointer; position: relative; }
-.alat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.12); border-color: var(--orange); }
+.alat-card { 
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    overflow: hidden; 
+    transition: all .25s ease; 
+    cursor: pointer; 
+    position: relative; 
+}
+.alat-card:hover { 
+    transform: translateY(-4px); 
+    box-shadow: 0 12px 32px rgba(0,0,0,.12); 
+    border-color: var(--orange); 
+}
+.alat-card:nth-child(odd) { background-color: #FFF7ED; }
+.alat-card:nth-child(even) { background-color: #FFFFFF; }
+.alat-card:hover { background-color: #FFEDD5 !important; }
+
 .alat-card-photo-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: var(--border-lt); overflow: hidden; }
 .alat-card-photo-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; display: block; }
 .alat-card:hover .alat-card-photo-wrap img { transform: scale(1.05); }
 .alat-card-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); position: absolute; top: 0; left: 0; }
 .alat-card-photo-placeholder i { font-size: 48px; color: var(--orange); opacity: .5; }
-.alat-card-badge { position: absolute; top: 8px; left: 8px; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; z-index: 2; }
-.badge-aktif { background: var(--green); color: #fff; }
-.badge-nonaktif { background: var(--red); color: #fff; }
+
+/* ===== STATUS BADGE - KONSISTEN DENGAN FASILITAS ===== */
+.alat-card-badge { 
+    position: absolute; 
+    top: 8px; 
+    left: 8px; 
+    padding: 7px 16px; 
+    border-radius: 20px; 
+    font-size: 12px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    letter-spacing: .3px; 
+    z-index: 2; 
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.badge-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
+.badge-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
+.badge-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.badge-aktif .badge-dot { background: var(--green); }
+.badge-nonaktif .badge-dot { background: var(--red); }
+
+/* ===== CARD ACTIONS - KONSISTEN DENGAN FASILITAS ===== */
 .alat-card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity .2s ease; z-index: 3; }
 .alat-card:hover .alat-card-actions { opacity: 1; }
-.alat-card-action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .2s ease; backdrop-filter: blur(4px); text-decoration: none; }
-.ac-btn-view { background: rgba(59,130,246,.9); color: #fff; }
-.ac-btn-view:hover { background: #2563EB; }
-.ac-btn-edit { background: rgba(16,185,129,.9); color: #fff; }
-.ac-btn-edit:hover { background: #059669; }
-.ac-btn-delete { background: rgba(239,68,68,.9); color: #fff; }
-.ac-btn-delete:hover { background: #DC2626; }
-.alat-card-info { padding: 12px; }
-.alat-card-name { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 36px; }
-.alat-card-price { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 6px; }
+.alat-card-action-btn { 
+    width: 38px; 
+    height: 38px; 
+    border-radius: 10px; 
+    border: 1.5px solid transparent; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    font-size: 14px; 
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    backdrop-filter: blur(4px); 
+    text-decoration: none; 
+    font-weight: 700;
+}
+.ac-btn-view { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE;
+}
+.ac-btn-view:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.ac-btn-edit { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE;
+}
+.ac-btn-edit:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35);
+}
+.ac-btn-delete { 
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); 
+    color: #DC2626; 
+    border-color: #FECACA;
+}
+.ac-btn-delete:hover { 
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
+    color: #fff; 
+    border-color: #EF4444;
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(239,68,68,.35);
+}
+
+.alat-card-info { padding: 16px 20px; }
+.alat-card-name { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 36px; }
+.alat-card-price { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: var(--shopee-orange); margin-bottom: 8px; }
 .alat-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .alat-card-stok { font-size: 12px; color: var(--muted); font-weight: 600; }
 .alat-card-stok i { color: var(--orange); margin-right: 4px; }
 .alat-card-toggle { display: flex; align-items: center; gap: 6px; }
 .alat-card-toggle-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-/* TOGGLE SWITCH - SAMA PERSIS LAPANGAN.PHP */
+
+/* ===== TOGGLE SWITCH - KONSISTEN DENGAN FASILITAS ===== */
 .toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
@@ -401,6 +482,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
+
 .empty-grid { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
 .empty-grid i { font-size: 64px; margin-bottom: 20px; opacity: .3; display: block; }
 .empty-grid div { font-size: 16px; font-weight: 700; }
@@ -426,7 +508,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; z-index: 10; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* ===== SAMA PERSIS LAPANGAN.PHP - 140px ===== */
+/* ===== PHOTO UPLOAD AREA ===== */
 .photo-upload-area { width: 100%; height: 140px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s ease; margin-bottom: 16px; position: relative; overflow: hidden; background: var(--border-lt); }
 .photo-upload-area:hover { border-color: var(--orange); background: var(--orange-lt); }
 .photo-upload-area.error { border-color: var(--red); background: var(--red-lt); }
@@ -443,7 +525,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-/* ===== SAMA PERSIS LAPANGAN.PHP - DETAIL FOTO BULAT ===== */
+/* ===== DETAIL MODAL - FOTO BULAT SEPERTI LAPANGAN ===== */
 .detail-modal-box { width: 460px; border-radius: 24px; border: 1px solid var(--border); overflow-y: auto; }
 .detail-photo-wrap { width: 120px; height: 120px; margin: 0 auto 16px auto; background: #ffffff; border-radius: 50%; overflow: hidden; position: relative; border: 3px solid var(--orange); box-shadow: 0 4px 16px rgba(255,69,0,.2); }
 .detail-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -455,12 +537,18 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-info-item { background: #FAFBFD; border: 1px solid var(--border-lt); border-radius: 14px; padding: 14px; transition: all .2s ease; }
 .detail-info-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .detail-info-value { font-size: 18px; font-weight: 800; color: var(--text); }
-.detail-status-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
-.detail-status-aktif { background: var(--green-lt); color: var(--green); }
-.detail-status-nonaktif { background: var(--red-lt); color: var(--red); }
-.detail-status-text { font-size: 14px; font-weight: 800; text-transform: uppercase; }
-
-.detail-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-bottom: 14px; text-transform: uppercase; }
+.detail-status-badge { 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px; 
+    padding: 7px 16px; 
+    border-radius: 20px; 
+    font-size: 12px; 
+    font-weight: 800; 
+    letter-spacing: .3px; 
+    margin-bottom: 14px; 
+    text-transform: uppercase; 
+}
 .badge-status-aktif { background: var(--green-lt); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
 .badge-status-nonaktif { background: var(--red-lt); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
 .detail-status-badge i { font-size: 8px; }
@@ -468,32 +556,176 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-info-item:hover { background: #ffffff; border-color: var(--orange); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.02); }
 .detail-info-label i { color: var(--orange); font-size: 12px; }
 
-.pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+/* ===== PAGINATION - KONSISTEN DENGAN FASILITAS ===== */
+.pagination-wrap { 
+    background: var(--card-bg); 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    padding: 16px 24px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    margin-bottom: 32px; 
+}
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
 .pagination-info strong { color: var(--text); font-weight: 800; }
 .pagination-nav { display: flex; align-items: center; gap: 4px; }
-.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .2s ease; border: 1.5px solid var(--border); color: var(--text-md); background: #fff; }
-.page-btn:hover:not(.disabled):not(.active) { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
+.page-btn { 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    min-width: 36px; 
+    height: 36px; 
+    padding: 0 10px; 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-weight: 700; 
+    font-family: 'Barlow', sans-serif; 
+    text-decoration: none; 
+    cursor: pointer; 
+    transition: all .2s ease; 
+    border: 1.5px solid var(--border); 
+    color: var(--text-md); 
+    background: #fff; 
+}
+.page-btn:hover:not(.disabled):not(.active) { 
+    border-color: var(--orange); 
+    color: var(--orange); 
+    background: var(--orange-lt); 
+    transform: translateY(-1px); 
+}
+.page-btn.active { 
+    background: var(--orange); 
+    color: #fff; 
+    border-color: var(--orange); 
+    box-shadow: 0 4px 12px rgba(255,69,0,.3); 
+    font-weight: 800; 
+}
 .page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
 
+/* ===== FILTER - KONSISTEN DENGAN FASILITAS ===== */
 .filter-dropdown-wrap { position: relative; display: inline-block; }
-.btn-filter { display: inline-flex; align-items: center; gap: 8px; background-color: var(--orange); color: #ffffff; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.2s; }
-.btn-filter:hover { background-color: var(--orange-dk); transform: translateY(-2px); }
-.filter-card { position: absolute; top: calc(100% + 10px); right: 0; background: #ffffff; border-radius: 16px; border: 1px solid var(--border); padding: 24px; width: 300px; box-shadow: 0 15px 35px rgba(0,0,0,.12); z-index: 50; display: none; }
-.filter-card.open { display: block; }
-.filter-card h4 { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 20px; }
-.filter-group { margin-bottom: 16px; }
+.btn-filter { 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 8px; 
+    background-color: var(--orange); 
+    color: #ffffff; 
+    padding: 11px 20px; 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    border: none; 
+    cursor: pointer; 
+    transition: all 0.2s; 
+    box-shadow: 0 4px 12px rgba(255,69,0,0.2); 
+}
+.btn-filter:hover { 
+    background-color: var(--orange-dk); 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 16px rgba(255,69,0,0.35); 
+}
+.btn-filter i.arrow-icon { font-size: 10px; transition: transform 0.3s; }
+.filter-card { 
+    position: absolute; 
+    top: calc(100% + 10px); 
+    right: 0; 
+    background: #ffffff; 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    padding: 24px; 
+    width: 300px; 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); 
+    z-index: 50; 
+    display: none; 
+}
+.filter-card.open { display: block; animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideFilter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.filter-card h4 { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 20px; text-align: left; }
+.filter-group { margin-bottom: 16px; text-align: left; }
 .filter-group label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-.filter-input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; outline: none; color: var(--text); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+.filter-input { 
+    width: 100%; 
+    padding: 10px 14px; 
+    border: 1.5px solid var(--border); 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-family: 'Barlow', sans-serif; 
+    outline: none; 
+    transition: all .2s; 
+    color: var(--text); 
+    cursor: pointer; 
+    appearance: none; 
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); 
+    background-repeat: no-repeat; 
+    background-position: right 14px center; 
+    padding-right: 40px; 
+}
 .filter-input:focus { border-color: var(--orange); }
 .filter-buttons { display: flex; gap: 10px; margin-top: 24px; }
-.btn-filter-apply { flex: 1.2; background: var(--orange); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-filter-apply { 
+    flex: 1.2; 
+    background: var(--orange); 
+    color: white; 
+    border: none; 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
 .btn-filter-apply:hover { background: var(--orange-dk); }
-.btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-filter-reset { 
+    flex: 1; 
+    background: var(--border-lt); 
+    color: var(--text-md); 
+    border: 1px solid var(--border); 
+    padding: 12px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    transition: all .2s; 
+}
 .btn-filter-reset:hover { background: #E5E7EB; }
-.btn-add { display: inline-flex; align-items: center; gap: 8px; background-color: var(--text); color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 13px; font-weight: 800; text-decoration: none; text-transform: uppercase; transition: all .2s ease; border: none; cursor: pointer; }
-.btn-add:hover { background-color: var(--orange); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
+
+/* ===== TOMBOL TAMBAH - KONSISTEN DENGAN FASILITAS ===== */
+.btn-add { 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 8px; 
+    background-color: var(--text); 
+    color: #fff; 
+    padding: 11px 22px; 
+    border-radius: 10px; 
+    font-size: 13px; 
+    font-weight: 800; 
+    text-decoration: none; 
+    text-transform: uppercase; 
+    transition: all .2s ease; 
+    border: none; 
+    cursor: pointer; 
+}
+.btn-add:hover { 
+    background-color: var(--orange); 
+    transform: translateY(-2px); 
+    box-shadow: 0 8px 20px rgba(255,69,0,.3); 
+}
+.btn-add i { font-size: 14px; }
 
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
@@ -510,7 +742,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
-
 .modal-box::-webkit-scrollbar {
     display: none;
 }
@@ -523,7 +754,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     .modal-box{width:90%;margin:20px;}
     .search-box{width:100%;}
     .action-bar{flex-direction:column;align-items:stretch;}
-    .detail-photo-wrap { width: 100px; height: 100px; }
 }
 @media(max-width:480px){.alat-grid{grid-template-columns:1fr;}}
 </style>
@@ -582,7 +812,6 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="val-msg" id="val-nama_alat"></div>
 
                 <label class="modal-label">Stok <span class="required">*</span></label>
-                <!-- min="1" agar tidak bisa input 0 -->
                 <input type="number" name="stok" id="stok" class="modal-input"
                        value="<?= htmlspecialchars($edit_data['Stok'] ?? '') ?>"
                        placeholder="Contoh: 10" max="9999" autocomplete="off">
@@ -604,7 +833,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- MODAL DETAIL ALAT - SAMA PERSIS LAPANGAN.PHP -->
+<!-- MODAL DETAIL ALAT - FOTO BULAT SEPERTI LAPANGAN -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
@@ -627,7 +856,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <div class="detail-photo-placeholder"><i class="fa-solid fa-toolbox"></i></div>
                     <?php endif; ?>
                 </div>
-                
+
                 <div style="text-align: center;">
                     <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
                         <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
@@ -636,7 +865,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
                 <div class="detail-price"><?= rupiah($detail_data['Harga_Alat']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
-                
+
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
                         <div class="detail-info-label"><i class="fa-solid fa-boxes-stacked"></i> Stok Tersedia</div>
@@ -657,7 +886,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </div>
 
 <!-- SIDEBAR -->
-<<aside class="sidebar">
+<aside class="sidebar">
     <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
@@ -704,11 +933,11 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </aside>
 
 <!-- MAIN CONTENT -->
-<<main class="main">
+<main class="main">
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Alat</div>
-            <div class="topbar-breadcrumb">Operasional / Kelola Alat</div>
+            <div class="topbar-breadcrumb">Operasional / Alat</div>
         </div>
         <div class="topbar-right">
             <div id="clock-display">
@@ -770,7 +999,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
             <div style="display:flex;gap:12px;align-items:center;">
                 <div class="filter-dropdown-wrap">
                     <button class="btn-filter" id="btnFilterToggle">
-                        <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i>
+                        <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
                     <div class="filter-card" id="filterCard">
                         <h4><i class="fa-solid fa-sliders" style="margin-right:8px;color:var(--orange);"></i>Filter Data</h4>
@@ -799,7 +1028,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         </form>
                     </div>
                 </div>
-                <a href="alat.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Alat</a>
+                <a href="alat.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 
@@ -826,7 +1055,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                              onerror="this.style.display='none';">
                     <?php endif; ?>
                     <span class="alat-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>" style="z-index:2;">
-                        <?= $is_aktif ? 'AKTIF' : 'NONAKTIF' ?>
+                        <span class="badge-dot"></span> <?= $is_aktif ? 'AKTIF' : 'NONAKTIF' ?>
                     </span>
                     <div class="alat-card-actions" style="z-index:3;">
                         <a href="?detail_id=<?= intval($row['ID_Alat']) ?>"
@@ -926,7 +1155,6 @@ function closeModal() {
 function handlePhotoUpload(input) {
     if (!input.files || !input.files[0]) return;
 
-    // Clear photo validation error
     var uploadArea = document.getElementById('uploadArea');
     var valPhoto = document.getElementById('val-photo_alat');
     if (uploadArea) uploadArea.classList.remove('error');
@@ -968,33 +1196,24 @@ function removePhoto() {
     var removeBtn = document.getElementById('removeBtn');
     var valPhoto = document.getElementById('val-photo_alat');
 
-    // Clear file input
     if (fileInput) fileInput.value = '';
-
-    // Clear preview
     if (previewImg) {
         previewImg.src = '';
         previewImg.style.display = 'none';
     }
-
-    // Reset upload area styling
     if (uploadArea) {
         uploadArea.classList.remove('has-image');
-        // Show error immediately if this was an existing photo in edit mode
         var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
         var editPhotoPath = document.querySelector('input[name="edit_photo_path"]');
         if (isEditMode && editPhotoPath && editPhotoPath.value) {
-            // User removed existing photo but hasn't uploaded new one
             uploadArea.classList.add('error');
             if (valPhoto) {
                 valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Foto alat wajib diupload.';
                 valPhoto.classList.add('show');
             }
-            // Clear the hidden edit_photo_path so backend knows photo was removed
             editPhotoPath.value = '';
         }
     }
-
     if (uploadPlaceholder) uploadPlaceholder.style.display = 'flex';
     if (removeBtn) removeBtn.style.display = 'none';
 }
@@ -1038,7 +1257,6 @@ function validateForm() {
         var errStok = '';
         if (vs === '') errStok = 'Stok wajib diisi.';
         else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus di atas 0.';
-        // ===== STOK HARUS LEBIH DARI 0 =====
         else if (parseInt(vs) <= 0) errStok = 'Stok tidak boleh 0 atau kurang dari 0.';
         else if (parseInt(vs) > 9999) errStok = 'Stok maksimal 9999.';
         if (errStok) {
@@ -1066,7 +1284,6 @@ function validateForm() {
         }
     }
 
-    // Validasi foto wajib — sama seperti field lain (border merah + pesan error)
     var photoInput = document.getElementById('photo_alat');
     var previewImg = document.getElementById('previewImg');
     var uploadArea = document.getElementById('uploadArea');
@@ -1129,7 +1346,6 @@ document.addEventListener('DOMContentLoaded', function() {
             var v = this.value.trim();
             this.classList.remove('error'); valStok.classList.remove('show');
             if (v !== '' && /^[0-9]+$/.test(v)) {
-                // ===== STOK HARUS LEBIH DARI 0 (real-time) =====
                 if (parseInt(v) <= 0) {
                     this.classList.add('error');
                     valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok tidak boleh 0 atau kurang dari 0.';

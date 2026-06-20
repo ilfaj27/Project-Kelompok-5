@@ -883,7 +883,7 @@ select.modal-input {
                         </form>
                     </div>
                 </div>
-                <a href="fasilitas_lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i> Tambah Fasilitas</a>
+                <a href="fasilitas_lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
 

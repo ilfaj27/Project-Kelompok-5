@@ -914,7 +914,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         </div>
                     </div>
                 </div>
-                <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i> Tambah Karyawan</button>
+                <button class="btn-add" onclick="openModal()"><i class="fa-solid fa-plus"></i>Tambah</button>
             </div>
         </div>
 
