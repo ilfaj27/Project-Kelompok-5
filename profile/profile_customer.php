@@ -1024,8 +1024,7 @@ function format_date_display($date)
             display: grid;
             grid-template-columns: 280px 1fr;
             gap: 30px;
-            align-items: stretch;
-            /* Memaksa kolom kiri & kanan memiliki tinggi yang sama */
+            align-items: start; /* Mengubah stretch menjadi start agar tinggi menu kiri menyesuaikan kontennya sendiri */
         }
 
         /* SIDEBAR WRAPPER */
@@ -1033,7 +1032,7 @@ function format_date_display($date)
             display: flex;
             flex-direction: column;
             gap: 20px;
-            height: 100%;
+            height: auto; /* Mengubah dari 100% menjadi auto agar tidak mulur */
         }
 
         /* MENU AKUN SIDEBAR */
@@ -1043,11 +1042,9 @@ function format_date_display($date)
             border: 1px solid var(--border-color);
             padding: 24px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
-            flex: 1;
-            /* Fleksibel membagi ruang */
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 16px; /* Memberikan jarak antar menu yang konsisten dan stabil */
         }
 
         .sidebar-menu-card h3 {
@@ -2003,9 +2000,9 @@ function format_date_display($date)
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
-    <a href="../customer/view_customer.php">Beranda</a>
-    <a href="../customer/booking_customer.php">Booking</a>
-    <a href="../customer/jadwal_customer.php">Jadwal</a>
+    <a href="../dashboard/view_customer.php">Beranda</a>
+    <a href="#">Booking</a>
+    <a href="#">Jadwal</a>
     <a href="../customer/langganan_customer.php">Member</a>
     <a href="#">Pembelian</a>
     <a href="#">Tentang</a>

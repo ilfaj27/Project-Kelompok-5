@@ -110,6 +110,69 @@ $member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
 $member_discount = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
 
 // ============================================================================
+// GENERATOR JADWAL OTOMATIS (Durasi Bermain: 1 JAM PER SLOT | Operasional 07:00 - 23:00)
+// ============================================================================
+function generateJadwalOtomatis($conn) {
+    // 1. Ambil semua ID_Lapangan aktif yang tidak dihapus
+    $q_lap = sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0");
+    if ($q_lap === false) return;
+
+    $daftar_lapangan = [];
+    while ($row = sqlsrv_fetch_array($q_lap, SQLSRV_FETCH_ASSOC)) {
+        $daftar_lapangan[] = $row['ID_Lapangan'];
+    }
+
+    // 2. Definisi Template Jam Operasional (Durasi Bermain: 1 JAM PER SLOT)
+    $template_jam = [
+        ['07:00:00', '08:00:00'],
+        ['08:00:00', '09:00:00'],
+        ['09:00:00', '10:00:00'],
+        ['10:00:00', '11:00:00'],
+        ['11:00:00', '12:00:00'],
+        ['12:00:00', '13:00:00'],
+        ['13:00:00', '14:00:00'],
+        ['14:00:00', '15:00:00'],
+        ['15:00:00', '16:00:00'],
+        ['16:00:00', '17:00:00'],
+        ['17:00:00', '18:00:00'],
+        ['18:00:00', '19:00:00'],
+        ['19:00:00', '20:00:00'],
+        ['20:00:00', '21:00:00'],
+        ['21:00:00', '22:00:00'],
+        ['22:00:00', '23:00:00']
+    ];
+
+    // 3. Loop Tanggal: Buat slot otomatis untuk hari ini sampai 7 hari ke depan
+    for ($i = 0; $i < 7; $i++) {
+        $target_date = date('Y-m-d', strtotime("+$i days"));
+
+        foreach ($daftar_lapangan as $id_lapangan) {
+            foreach ($template_jam as $jam) {
+                $mulai = $jam[0];
+                $selesai = $jam[1];
+
+                // Cek apakah kombinasi Lapangan, Tanggal, dan Jam ini sudah ada di DB?
+                $cek_query = "SELECT ID_Jadwal FROM Jadwal 
+                              WHERE ID_Lapangan = ? AND Tanggal = ? AND Jam_Mulai = ? AND Jam_Selesai = ?";
+                $cek_stmt = sqlsrv_query($conn, $cek_query, array($id_lapangan, $target_date, $mulai, $selesai));
+
+                // Jika belum ada, lakukan INSERT otomatis
+                if ($cek_stmt && !sqlsrv_fetch_array($cek_stmt, SQLSRV_FETCH_ASSOC)) {
+                    $insert_query = "INSERT INTO Jadwal 
+                                     (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) 
+                                     VALUES (?, ?, ?, ?, 1, 0, 'SYSTEM_AUTO', GETDATE())";
+                    sqlsrv_query($conn, $insert_query, array($id_lapangan, $target_date, $mulai, $selesai));
+                }
+            }
+        }
+    }
+}
+
+// Jalankan fungsi otomatisasi pembuat jadwal agar selalu terisi ke depan
+generateJadwalOtomatis($conn);
+
+
+// ============================================================================
 // AJAX REQUEST HANDLERS (Untuk interaktivitas pemilihan slot dan proses checkout)
 // ============================================================================
 if (isset($_GET['action'])) {
@@ -118,9 +181,18 @@ if (isset($_GET['action'])) {
     // Ambil Slot Jadwal Berdasarkan Lapangan
     if ($_GET['action'] == 'get_slots' && isset($_GET['court_id'])) {
         $court_id = intval($_GET['court_id']);
+       // Query ini membuang jadwal hari-hari kemarin, serta jam-jam yang sudah lewat khusus untuk hari ini
         $queryJadwal = "SELECT ID_Jadwal, Tanggal, Jam_Mulai, Jam_Selesai 
                         FROM Jadwal 
-                        WHERE ID_Lapangan = ? AND Status = 1 AND Is_Deleted = 0
+                        WHERE ID_Lapangan = ? 
+                          AND Status = 1 
+                          AND Is_Deleted = 0
+                          AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking)
+                          AND (
+                              Tanggal > CAST(GETDATE() AS DATE) 
+                              OR 
+                              (Tanggal = CAST(GETDATE() AS DATE) AND Jam_Mulai > CAST(GETDATE() AS TIME))
+                          )
                         ORDER BY Tanggal ASC, Jam_Mulai ASC";
         $stmtJadwal = sqlsrv_query($conn, $queryJadwal, array($court_id));
         $slots = [];
@@ -182,7 +254,7 @@ if (isset($_GET['action'])) {
 
             // 2. Pilih karyawan penanggung jawab transaksi secara acak/berurutan
             $queryKaryawan = "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY ID_Karyawan ASC";
-            $stmtKary = sqlsrv_query($conn, $queryKaryawan);
+            $stmtKary = sqlsrv_query($conn, $queryKaryawan, array());
             $id_karyawan = 1;
             if ($stmtKary) {
                 $kary = sqlsrv_fetch_array($stmtKary, SQLSRV_FETCH_ASSOC);
@@ -212,15 +284,8 @@ if (isset($_GET['action'])) {
                 $customer_friendly_error = "Terjadi kendala sistem saat membuat pesanan Anda. Silakan coba beberapa saat lagi.";
                 
                 if (!empty($db_errors)) {
-                    $sqlState = $db_errors[0]['SQLSTATE'] ?? '';
                     $sqlCode = $db_errors[0]['code'] ?? 0;
-                    
-                    // Kode 2601 & 2627 di SQL Server adalah tanda bentrokan data / Double Booking
-                    if ($sqlCode == 2601 || $sqlCode == 2627) {
-                        $customer_friendly_error = "Maaf, slot jadwal yang Anda pilih baru saja dipesan oleh pelanggan lain. Silakan pilih tanggal atau jam bermain yang berbeda.";
-                    } else {
-                        $customer_friendly_error = "Terjadi kendala koneksi database (Kode: " . $sqlCode . "). Silakan hubungi operator kami untuk bantuan.";
-                    }
+                    $customer_friendly_error = "Terjadi kendala koneksi database (Kode: " . $sqlCode . "). Silakan hubungi operator kami untuk bantuan.";
                 }
                 throw new Exception($customer_friendly_error);
             }
@@ -339,7 +404,7 @@ if (!$has_member) {
             overflow-x: hidden;
         }
 
-        /* ---- NAVBAR (PUTIH) ---- */
+        /* ============ NAVBAR (View Customer Style) ============ */
         nav {
             background: var(--white);
             padding: 0 80px;
@@ -352,27 +417,42 @@ if (!$has_member) {
             z-index: 1000;
             border-bottom: 1px solid #E5E5EA;
         }
+
         .nav-logo {
             display: flex;
             align-items: center;
             text-decoration: none;
             gap: 10px;
+            transition: transform 0.3s ease;
         }
+
+        .nav-logo:hover {
+            transform: scale(1.05);
+        }
+
         .nav-logo img {
             height: 70px;
             width: auto;
+            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        .nav-logo:hover img {
+            transform: rotate(5deg) scale(1.1);
+        }
+
         .nav-logo span {
             color: #1C1C1E;
             font-size: 20px;
             font-weight: 800;
             letter-spacing: -0.5px;
         }
+
         .nav-links {
             display: flex;
             align-items: center;
             gap: 8px;
         }
+
         .nav-links a {
             color: #636366;
             text-decoration: none;
@@ -380,18 +460,48 @@ if (!$has_member) {
             font-weight: 500;
             padding: 8px 16px;
             border-radius: 20px;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .nav-links a:hover { color: #1C1C1E; }
-        .nav-links a.active { color: var(--primary); font-weight: 600; background: var(--primary-light); }
 
-        /* ---- USER DROPDOWN ---- */
+        .nav-links a::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--primary);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%);
+        }
+
+        .nav-links a:hover {
+            color: #1C1C1E;
+            transform: translateY(-2px);
+        }
+
+        .nav-links a:hover::before {
+            width: 60%;
+        }
+
+        .nav-links a.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .nav-links a.active::before {
+            width: 60%;
+        }
+
         .nav-user-container {
             position: relative;
             height: 76px;
             display: flex;
             align-items: center;
         }
+
         .nav-user {
             background: #F2F2F7;
             border: 1px solid #E5E5EA;
@@ -404,28 +514,49 @@ if (!$has_member) {
             display: flex;
             align-items: center;
             gap: 10px;
-            transition: 0.2s;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .nav-user:hover { background: #E5E5EA; border-color: var(--primary); }
+
+        .nav-user:hover {
+            background: #E5E5EA;
+            border-color: var(--primary);
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 82, 0, 0.15);
+        }
+
         .nav-user img.user-avatar {
             width: 24px;
             height: 24px;
             border-radius: 50%;
             object-fit: cover;
+            transition: transform 0.3s ease;
         }
+
+        .nav-user:hover img.user-avatar {
+            transform: scale(1.15);
+        }
+
         .nav-user i.user-icon {
             font-size: 16px;
             color: var(--primary);
+            transition: transform 0.3s ease;
         }
-        .nav-user i.arrow { 
-            font-size: 11px; 
-            color: #8E8E93; 
-            transition: 0.3s; 
+
+        .nav-user:hover i.user-icon {
+            transform: scale(1.2);
         }
-        .nav-user-container:hover i.arrow { 
-            transform: rotate(180deg); 
-            color: var(--primary); 
+
+        .nav-user i.arrow {
+            font-size: 11px;
+            color: #8E8E93;
+            transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        .nav-user-container:hover i.arrow {
+            transform: rotate(180deg);
+            color: var(--primary);
+        }
+
         .dropdown-menu {
             position: absolute;
             top: 85%;
@@ -434,28 +565,35 @@ if (!$has_member) {
             min-width: 220px;
             border-radius: 12px;
             border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             padding: 8px 0;
-            display: none; 
+            display: none;
             z-index: 1001;
-            animation: fadeIn 0.2s ease-out;
+            transform-origin: top right;
         }
+
         .nav-user-container:hover .dropdown-menu {
             display: block;
+            animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
         .dropdown-menu .user-info-header {
             padding: 12px 20px;
             border-bottom: 1px solid #2d2d33;
             margin-bottom: 6px;
+            animation: fadeInDown 0.3s ease-out;
         }
+
         .dropdown-menu .user-info-header span {
             display: block;
         }
+
         .dropdown-menu .user-info-header .u-name {
             color: var(--white);
             font-size: 14px;
             font-weight: 700;
         }
+
         .dropdown-menu .user-info-header .u-role {
             color: var(--text-gray);
             font-size: 11px;
@@ -463,6 +601,7 @@ if (!$has_member) {
             letter-spacing: 0.5px;
             margin-top: 2px;
         }
+
         .dropdown-menu a {
             display: flex;
             align-items: center;
@@ -472,25 +611,80 @@ if (!$has_member) {
             text-decoration: none;
             font-size: 13px;
             font-weight: 500;
-            transition: 0.2s;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .dropdown-menu a i { 
-            font-size: 14px; 
-            width: 16px; 
-            text-align: center; 
+
+        .dropdown-menu a::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        .dropdown-menu a i {
+            font-size: 14px;
+            width: 16px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
         .dropdown-menu a:hover {
             background: #222227;
             color: var(--primary);
+            padding-left: 28px;
         }
+
+        .dropdown-menu a:hover::after {
+            transform: scaleY(1);
+        }
+
+        .dropdown-menu a:hover i {
+            transform: scale(1.2);
+        }
+
         .dropdown-divider {
             height: 1px;
             background: #2d2d33;
             margin: 6px 0;
         }
-        .dropdown-menu a.logout:hover { 
-            color: #ff3b30; 
+
+        .dropdown-menu a.logout:hover {
+            color: #ff3b30;
         }
+
+        .dropdown-menu a.logout:hover::after {
+            background: #ff3b30;
+        }
+
+        .member-badge-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--primary);
+            color: var(--white);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 4px;
+        }
+
+        /* Animasi Transisi Halus */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }       
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
@@ -1231,105 +1425,9 @@ if (!$has_member) {
             color: var(--green);
         }
 
-        /* Success Toast */
-        .success-toast {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
-            border: 1px solid var(--border);
-            padding: 16px 20px;
-            display: none;
-            align-items: center;
-            gap: 16px;
-            z-index: 1000;
-            max-width: 600px;
-            animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
         @keyframes slideInUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
-        }
-
-        .toast-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--green-lt);
-            color: var(--green);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-
-        .toast-body {
-            flex: 1;
-        }
-
-        .toast-title {
-            font-size: 13.5px;
-            font-weight: 800;
-            color: var(--text-primary);
-        }
-
-        .toast-subtitle {
-            font-size: 11px;
-            color: var(--muted);
-            margin-top: 2px;
-            font-weight: 500;
-        }
-
-        .toast-meta-pills {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-        }
-
-        .toast-pill {
-            background: var(--border-lt);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 10px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 6px;
-        }
-
-        .btn-toast-action {
-            background: var(--orange);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font-family: inherit;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            white-space: nowrap;
-        }
-
-        .btn-toast-action:hover {
-            background: var(--orange-hover);
-        }
-
-        .toast-close {
-            background: none;
-            border: none;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 14px;
-            padding: 4px;
-            align-self: flex-start;
-        }
-
-        .toast-close:hover {
-            color: var(--red);
         }
 
         .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
@@ -1467,6 +1565,7 @@ html, body, .summary-card {
 <body>
 
 <!-- NAVBAR -->
+<!-- NAVBAR -->
 <nav>
     <a href="view_customer.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
@@ -1474,8 +1573,8 @@ html, body, .summary-card {
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
-        <a href="#">Jadwal</a>
-        <a href="langganan_customer.php">Member</a>
+        <a href="#">Lapangan</a>
+        <a href="#">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
@@ -1490,16 +1589,19 @@ html, body, .summary-card {
                 <i class="fa-solid fa-circle-user user-icon"></i>
             <?php endif; ?>
             <span><?php echo htmlspecialchars($nama_customer); ?></span>
+            <?php if ($has_member): ?>
+                <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?php echo htmlspecialchars($member_tipe); ?></span>
+            <?php endif; ?>
             <i class="fa-solid fa-chevron-down arrow"></i>
         </div>
         <div class="dropdown-menu">
             <div class="user-info-header">
                 <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
-                <span class="u-role">Customer</span>
+                <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
+            <a href="../customer/langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -1749,6 +1851,15 @@ html, body, .summary-card {
 <div class="booking-modal-overlay" id="paymentInstructionModal">
     <div class="summary-card" style="max-width: 460px; text-align: center;">
         <h2 class="summary-title" style="margin-bottom: 12px; text-align: center;">Instruksi Pembayaran</h2>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 16px; background: var(--border-lt); padding: 4px; border-radius: 10px; border: 1px solid var(--border);">
+            <button id="btnSwitchVA" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary);">
+                <i class="fa-solid fa-university" style="margin-right: 4px;"></i> Virtual Account
+            </button>
+            <button id="btnSwitchQRIS" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary);">
+                <i class="fa-solid fa-qrcode" style="margin-right: 4px;"></i> QRIS Scan
+            </button>
+        </div>
         
         <div class="alert-banner" style="background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); margin-top: 0; margin-bottom: 20px; justify-content: center;">
             <i class="fa-solid fa-clock" style="color: var(--orange);"></i>
@@ -1857,24 +1968,6 @@ html, body, .summary-card {
     </div>
 </footer>
 
-<!-- SUCCESS TOAST POPUP (BOTTOM LEFT) -->
-<div class="success-toast" id="successToast">
-    <div class="toast-icon">
-        <i class="fa-solid fa-circle-check"></i>
-    </div>
-    <div class="toast-body">
-        <div class="toast-title">Booking Berhasil Dibuat!</div>
-        <div class="toast-subtitle">Silakan lakukan konfirmasi pembayaran secepatnya.</div>
-        <div class="toast-meta-pills">
-            <span class="toast-pill" id="pillCourt">-</span>
-            <span class="toast-pill" id="pillDate">-</span>
-            <span class="toast-pill" id="pillTime">-</span>
-        </div>
-    </div>
-    <button class="btn-toast-action" onclick="location.reload();">Selesai</button>
-    <button class="toast-close" id="btnCloseToast"><i class="fa-solid fa-xmark"></i></button>
-</div>
-
 <script>
     // State management
     let selectedCourtId = null;
@@ -1922,13 +2015,6 @@ html, body, .summary-card {
     const btnGoToSummary = document.getElementById('btnGoToSummary');
     const bookingModal = document.getElementById('bookingModal');
     const btnCloseSummary = document.getElementById('btnCloseSummary');
-
-    // Toast Elements
-    const successToast = document.getElementById('successToast');
-    const btnCloseToast = document.getElementById('btnCloseToast');
-    const pillCourt = document.getElementById('pillCourt');
-    const pillDate = document.getElementById('pillDate');
-    const pillTime = document.getElementById('pillTime');
 
     // Formatter Rupiah
     function formatRupiah(number) {
@@ -2071,29 +2157,38 @@ html, body, .summary-card {
     }
 
     // Court selection event (2 Klik untuk Melanjutkan)
-    courts.forEach(court => {
-        court.addEventListener('click', function() {
-            const isAlreadySelected = this.classList.contains('selected');
+      if (courts && courts.length > 0) {
+        courts.forEach(court => {
+            court.addEventListener('click', function(e) {
+                // Mencegah konflik klik pada element gambar/teks di dalam kartu
+                e.preventDefault();
+                
+                const isAlreadySelected = this.classList.contains('selected');
 
-            if (!isAlreadySelected) {
-                // KLIK PERTAMA: Pilih lapangan dan muat data jadwal di background
-                courts.forEach(c => c.classList.remove('selected'));
-                this.classList.add('selected');
+                if (!isAlreadySelected) {
+                    // 1. Ubah tampilan visual kartu terpilih secara instan terlebih dahulu
+                    courts.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
 
-                selectedCourtId = this.getAttribute('data-id');
-                selectedCourtPrice = parseFloat(this.getAttribute('data-price'));
-                selectedCourtName = this.getAttribute('data-name');
-                selectedCourtImg = this.getAttribute('data-img');
+                    // 2. Ambil data atribut kartu safely
+                    selectedCourtId = this.getAttribute('data-id') || null;
+                    selectedCourtPrice = parseFloat(this.getAttribute('data-price') || 0);
+                    selectedCourtName = this.getAttribute('data-name') || '';
+                    selectedCourtImg = this.getAttribute('data-img') || '';
 
-                loadSlots(selectedCourtId);
-            } else {
-                // KLIK KEDUA: Jika lapangan yang diklik sudah berstatus selected, langsung buka modal jadwal
-                if (selectedCourtId) {
-                    scheduleModal.style.display = 'flex';
+                    // 3. Muat slot jadwal di latar belakang
+                    if (selectedCourtId) {
+                        loadSlots(selectedCourtId);
+                    }
+                } else {
+                    // KLIK KEDUA: Jika diklik lagi pada kartu yang sudah aktif, langsung buka modal jadwal bermain
+                    if (selectedCourtId && scheduleModal) {
+                        scheduleModal.style.display = 'flex';
+                    }
                 }
-            }
+            });
         });
-    });
+    }
 
     // Event filter jam berdasarkan tanggal yang dipilih
     dateSelect.addEventListener('change', function() {
@@ -2211,23 +2306,19 @@ html, body, .summary-card {
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                // Tutup modal ringkasan terlebih dahulu
+                 // 1. Tutup modal ringkasan terlebih dahulu
                 bookingModal.style.display = 'none';
 
+                // 2. Set nominal bayar pada petunjuk pembayaran
                 document.getElementById('paymentTotalAmount').innerText = formatRupiah(finalAmount);
 
-                if (selectedPaymentMethod === 'Transfer Bank') {
-                    document.getElementById('instruksiTransfer').style.display = 'block';
-                    document.getElementById('instruksiQRIS').style.display = 'none';
-                } else if (selectedPaymentMethod === 'QRIS') {
-                    document.getElementById('instruksiTransfer').style.display = 'none';
-                    document.getElementById('instruksiQRIS').style.display = 'flex';
-                    
-                    const qrPayload = `HOOPBALL-PAYMENT-${selectedSlotId}-${finalAmount}`;
-                    document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}`;
-                }
+                // 3. Tampilkan instruksi pembayaran sesuai pilihan awal kustomer secara otomatis
+                showPaymentMethodInstructions(selectedPaymentMethod);
 
+                // 4. Tampilkan Modal Instruksi Pembayaran
                 document.getElementById('paymentInstructionModal').style.display = 'flex';
+                
+                // 5. Jalankan timer hitung mundur 15 menit
                 startPaymentCountdown(15 * 60); 
             } else {
                 // GANTI DENGAN SWEETALERT2 YANG RAMAH CUSTOMER
@@ -2257,13 +2348,8 @@ html, body, .summary-card {
             
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
+             }); 
         });
-
-
-    btnCloseToast.addEventListener('click', function() {
-        successToast.style.display = 'none';
-        location.reload();
-    });
 
     // Initialize first court selection load
     document.addEventListener("DOMContentLoaded", function() {
@@ -2402,13 +2488,57 @@ html, body, .summary-card {
         Swal.fire({
             icon: 'success',
             title: 'Pembayaran Diterima!',
-            text: 'Terima kasih, sistem kami sedang memverifikasi transaksi pembayaran Anda secara otomatis.',
+            text: 'Terima kasih, kami sedang memverifikasi transaksi pembayaran anda harap ditunggu.',
             confirmButtonColor: 'var(--orange)',
             confirmButtonText: 'Selesai'
         }).then(() => {
             location.reload();
         });
     });
+
+
+    // Fungsi Pengubah Metode Pembayaran Dinamis pada Modal 3
+    const btnSwitchVA = document.getElementById('btnSwitchVA');
+    const btnSwitchQRIS = document.getElementById('btnSwitchQRIS');
+
+    function showPaymentMethodInstructions(method) {
+        selectedPaymentMethod = method; // Perbarui state metode pembayaran terpilih
+
+        if (method === 'Transfer Bank') {
+            // Aktifkan tab VA, matikan QRIS
+            btnSwitchVA.style.backgroundColor = '#fff';
+            btnSwitchVA.style.color = 'var(--orange)';
+            btnSwitchVA.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+            
+            btnSwitchQRIS.style.backgroundColor = 'transparent';
+            btnSwitchQRIS.style.color = 'var(--text-secondary)';
+            btnSwitchQRIS.style.boxShadow = 'none';
+
+            document.getElementById('instruksiTransfer').style.display = 'block';
+            document.getElementById('instruksiQRIS').style.display = 'none';
+        } else {
+            // Aktifkan tab QRIS, matikan VA
+            btnSwitchQRIS.style.backgroundColor = '#fff';
+            btnSwitchQRIS.style.color = 'var(--orange)';
+            btnSwitchQRIS.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+            
+            btnSwitchVA.style.backgroundColor = 'transparent';
+            btnSwitchVA.style.color = 'var(--text-secondary)';
+            btnSwitchVA.style.boxShadow = 'none';
+
+            document.getElementById('instruksiTransfer').style.display = 'none';
+            document.getElementById('instruksiQRIS').style.display = 'flex';
+
+            // Generate ulang QR Code jika beralih ke QRIS
+            const currentTotal = parseFloat(document.getElementById('paymentTotalAmount').innerText.replace(/[^0-9]/g, ''));
+            const qrPayload = `HOOPBALL-PAYMENT-${selectedSlotId}-${currentTotal}`;
+            document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}`;
+        }
+    }
+
+    // Event Listener Klik Tab
+    btnSwitchVA.addEventListener('click', () => showPaymentMethodInstructions('Transfer Bank'));
+    btnSwitchQRIS.addEventListener('click', () => showPaymentMethodInstructions('QRIS'));
 </script>
 
 </body>
