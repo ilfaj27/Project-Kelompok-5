@@ -448,14 +448,14 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 <body>
 
 <aside class="sidebar">
-    <a href="view_admin.php" class="sb-brand">
+    <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
     </a>
 
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="view_admin.php" class="sb-link">
+        <a href="../dashboard/view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
         </a>
         <a href="../master/customer.php" class="sb-link">
