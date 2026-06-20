@@ -91,8 +91,15 @@ if ($query_riwayat) {
 // ============================================================================
 // PROSES PEMBELIAN LANGGANAN
 // ============================================================================
+// ============================================================================
+// PROSES PEMBELIAN LANGGANAN
+// ============================================================================
 $pembelian_msg = '';
 $pembelian_error = '';
+$show_payment_modal = false;
+$payment_total = 0;
+$payment_method = '';
+$last_inserted_id = 0;
 
 if (isset($_POST['beli_langganan'])) {
     $id_tipe = $_POST['id_tipe'] ?? '';
@@ -124,28 +131,47 @@ if (isset($_POST['beli_langganan'])) {
             if ($row_aktif['total'] > 0) {
                 $pembelian_error = 'Anda masih memiliki langganan member aktif. Tidak dapat mendaftar lagi.';
             } else {
-                // Hitung tanggal
-                $tanggal_mulai = date('Y-m-d');
-                $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
-                $total_bayar = $tipe_data['Harga_Member'];
-                
-                // Simpan ke database - Status 0 = Menunggu Konfirmasi
-                $stmt_insert = sqlsrv_query($conn,
-                    "INSERT INTO Langganan 
-                     (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, 
-                      Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
-                    array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai, 
-                          $total_bayar, $metode_pembayaran, $nama_customer)
+                // Cek juga apakah ada yang menunggu konfirmasi
+                $cek_pending = sqlsrv_query($conn,
+                    "SELECT COUNT(*) as total FROM Langganan 
+                     WHERE ID_Customer = ? AND Status = 0",
+                    array($id_customer)
                 );
+                $row_pending = sqlsrv_fetch_array($cek_pending, SQLSRV_FETCH_ASSOC);
                 
-                if ($stmt_insert) {
-                    $pembelian_msg = 'success';
-                    // Refresh halaman
-                    header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Silakan lakukan pembayaran.");
-                    exit();
+                if ($row_pending['total'] > 0) {
+                    $pembelian_error = 'Anda memiliki pendaftaran member yang sedang menunggu konfirmasi. Silakan tunggu verifikasi dari admin.';
                 } else {
-                    $pembelian_error = 'Gagal mendaftar member. Silakan coba lagi.';
+                    // Hitung tanggal
+                    $tanggal_mulai = date('Y-m-d');
+                    $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
+                    $total_bayar = $tipe_data['Harga_Member'];
+                    
+                    // Simpan ke database - Status 0 = Menunggu Konfirmasi
+                    // FIX: Gunakan OUTPUT INSERTED.ID_Langganan untuk mendapatkan ID
+                    $stmt_insert = sqlsrv_query($conn,
+                        "INSERT INTO Langganan 
+                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, 
+                          Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
+                         OUTPUT INSERTED.ID_Langganan
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
+                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai, 
+                              $total_bayar, $metode_pembayaran, $nama_customer)
+                    );
+                    
+                    if ($stmt_insert) {
+                        // Get the last inserted ID
+                        $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
+                        $last_inserted_id = $id_row['ID_Langganan'] ?? 0;
+                        
+                        // Set flags to show payment modal instead of redirect
+                        $show_payment_modal = true;
+                        $payment_total = $total_bayar;
+                        $payment_method = $metode_pembayaran;
+                    } else {
+                        $errors = sqlsrv_errors();
+                        $pembelian_error = 'Gagal mendaftar member. Error: ' . ($errors[0]['message'] ?? 'Unknown error');
+                    }
                 }
             }
         }
@@ -210,6 +236,13 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             --purple-lt: rgba(175,82,222,.10);
             --orange: #FF9500;
             --orange-lt: rgba(255,149,0,.10);
+            --orange-glow: rgba(255, 90, 31, 0.15);
+            --border: #E2E8F0;
+            --border-lt: #F1F5F9;
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --muted: #94A3B8;
+            --bg: #F8FAFC;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -472,6 +505,10 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             background: var(--red-lt);
             color: var(--red);
         }
+        .member-status-icon.pending {
+            background: var(--yellow-lt);
+            color: #D97706;
+        }
         .member-status-text h3 {
             font-size: 18px;
             font-weight: 800;
@@ -504,6 +541,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         }
         .member-detail-value.green { color: var(--green); }
         .member-detail-value.primary { color: var(--primary); }
+        .member-detail-value.yellow { color: #D97706; }
 
         /* ---- MAIN CONTAINER ---- */
         .main-container {
@@ -878,6 +916,153 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         }
 
         .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+
+        /* ---- PAYMENT INSTRUCTION MODAL (FROM BOOKING) ---- */
+        .booking-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+            animation: fadeInModal 0.25s ease-out forwards;
+        }
+        .booking-modal-overlay.active {
+            display: flex;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .summary-card {
+            background: #fff;
+            border-radius: 20px !important;
+            border: none !important;
+            padding: 30px !important;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+            animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideInModal {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .booking-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--border-lt);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+        }
+        .booking-modal-close:hover {
+            background: var(--red-lt);
+            color: var(--red);
+        }
+        .btn-toast-action {
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            white-space: nowrap;
+        }
+        .btn-toast-action:hover {
+            background: var(--orange-hover);
+        }
+        .divider {
+            height: 1px;
+            background: var(--border-lt);
+            margin: 25px 0;
+        }
+        .btn-booking {
+            width: 100%;
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            transition: background 0.2s ease;
+        }
+        .btn-booking:hover:not(:disabled) {
+            background: var(--orange-hover);
+        }
+        .btn-booking:disabled {
+            background: var(--muted);
+            cursor: not-allowed;
+        }
+        .alert-banner {
+            background: #EFF6FF;
+            border: 1px solid rgba(0, 122, 255, 0.15);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .alert-banner i {
+            color: var(--blue);
+            font-size: 16px;
+        }
+        .alert-banner-text {
+            font-size: 11.5px;
+            color: #1E40AF;
+            line-height: 1.5;
+        }
+        .form-control {
+            width: 100%;
+            padding: 11px 40px 11px 40px; 
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-primary);
+            background-color: #fff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 14px;
+            outline: none;
+            appearance: none;
+        }
+        .form-control:focus {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px var(--orange-glow);
+        }
     </style>
 </head>
 <body>
@@ -890,7 +1075,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
-        <a href="#">Lapangan</a>
+        <a href="#">Jadwal</a>
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
@@ -936,12 +1121,32 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     <!-- MEMBER STATUS CARD -->
     <div class="member-status-card">
         <div class="member-status-header">
-            <div class="member-status-icon <?php echo $has_member ? 'active' : 'inactive'; ?>">
-                <i class="fa-solid <?php echo $has_member ? 'fa-crown' : 'fa-user'; ?>"></i>
+            <div class="member-status-icon <?php echo $has_member ? 'active' : ($member_aktif ? 'pending' : 'inactive'); ?>">
+                <i class="fa-solid <?php echo $has_member ? 'fa-crown' : ($member_aktif ? 'fa-clock' : 'fa-user'); ?>"></i>
             </div>
             <div class="member-status-text">
-                <h3><?php echo $has_member ? 'Member ' . htmlspecialchars($member_tipe) . ' Aktif' : 'Belum Berlangganan'; ?></h3>
-                <p><?php echo $has_member ? 'Nikmati keuntungan member Anda' : 'Daftar sekarang untuk mendapatkan keuntungan'; ?></p>
+                <h3>
+                    <?php 
+                    if ($has_member) {
+                        echo 'Member ' . htmlspecialchars($member_tipe) . ' Aktif';
+                    } elseif ($member_aktif) {
+                        echo 'Menunggu Konfirmasi';
+                    } else {
+                        echo 'Belum Berlangganan';
+                    }
+                    ?>
+                </h3>
+                <p>
+                    <?php 
+                    if ($has_member) {
+                        echo 'Nikmati keuntungan member Anda';
+                    } elseif ($member_aktif) {
+                        echo 'Pendaftaran member sedang diproses oleh admin';
+                    } else {
+                        echo 'Daftar sekarang untuk mendapatkan keuntungan';
+                    }
+                    ?>
+                </p>
             </div>
         </div>
         
@@ -965,11 +1170,34 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         <div class="member-detail-row">
             <span class="member-detail-label">Sisa Hari</span>
             <span class="member-detail-value green">
-                <?php 
-                $sisa = ceil((strtotime($member_aktif['Tanggal_Selesai']) - time()) / 86400);
-                echo $sisa > 0 ? $sisa . ' hari' : 'Hari ini berakhir';
+               <?php 
+                    $tgl_selesai = $member_aktif['Tanggal_Selesai'];
+                    if (is_object($tgl_selesai) && method_exists($tgl_selesai, 'format')) {
+                        $timestamp_selesai = $tgl_selesai->getTimestamp();
+                    } else {
+                        $timestamp_selesai = strtotime($tgl_selesai);
+                    }
+                    $sisa = ceil(($timestamp_selesai - time()) / 86400);
+                    echo $sisa > 0 ? $sisa . ' hari' : 'Hari ini berakhir';
                 ?>
             </span>
+        </div>
+        <?php elseif ($member_aktif): ?>
+        <div class="member-detail-row">
+            <span class="member-detail-label">Tipe Member</span>
+            <span class="member-detail-value primary"><?php echo htmlspecialchars($member_aktif['Nama_Tipe']); ?></span>
+        </div>
+        <div class="member-detail-row">
+            <span class="member-detail-label">Total Bayar</span>
+            <span class="member-detail-value"><?php echo rupiahFormat($member_aktif['Total_Bayar']); ?></span>
+        </div>
+        <div class="member-detail-row">
+            <span class="member-detail-label">Tanggal Daftar</span>
+            <span class="member-detail-value"><?php echo formatTanggal($member_aktif['Created_Date']); ?></span>
+        </div>
+        <div class="member-detail-row">
+            <span class="member-detail-label">Status</span>
+            <span class="member-detail-value yellow">Menunggu Konfirmasi Admin</span>
         </div>
         <?php else: ?>
         <div class="member-detail-row">
@@ -1037,8 +1265,16 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
                 </ul>
                 <button class="btn-pilih" 
                         onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
-                        <?php echo $has_member ? 'disabled' : ''; ?>>
-                    <?php echo $has_member ? 'Sudah Aktif' : '<i class="fa-solid fa-crown"></i> Pilih Paket Ini'; ?>
+                        <?php echo ($has_member || $member_aktif) ? 'disabled' : ''; ?>>
+                    <?php 
+                    if ($has_member) {
+                        echo 'Sudah Aktif';
+                    } elseif ($member_aktif) {
+                        echo 'Menunggu Konfirmasi';
+                    } else {
+                        echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
+                    }
+                    ?>
                 </button>
             </div>
             <?php endforeach; ?>
@@ -1138,7 +1374,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             <div class="metode-list">
                 <div class="metode-item" onclick="pilihMetode(this, 'Transfer Bank')">
                     <i class="fa-solid fa-building-columns"></i>
-                    <span>Transfer Bank (BCA/Mandiri/BNI)</span>
+                    <span>Virtual Account (BCA/Mandiri/BNI)</span>
                 </div>
                 <div class="metode-item" onclick="pilihMetode(this, 'QRIS')">
                     <i class="fa-solid fa-qrcode"></i>
@@ -1153,16 +1389,70 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     </div>
 </div>
 
+<!-- PAYMENT INSTRUCTION MODAL (SAMA SEPERTI BOOKING) -->
+<div class="booking-modal-overlay" id="paymentInstructionModal">
+    <div class="summary-card" style="max-width: 460px; text-align: center;">
+        <button class="booking-modal-close" onclick="tutupPaymentModal()">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <h2 class="summary-title" style="margin-bottom: 12px; text-align: center;">Instruksi Pembayaran</h2>
+        
+        <div class="alert-banner" style="background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); margin-top: 0; margin-bottom: 20px; justify-content: center;">
+            <i class="fa-solid fa-clock" style="color: var(--orange);"></i>
+            <p class="alert-banner-text" style="color: var(--orange-hover); font-weight: 700; font-size: 12px;">
+                Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
+            </p>
+        </div>
+
+        <div style="background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Tagihan</div>
+            <div id="paymentTotalAmount" style="font-size: 24px; color: var(--orange); font-weight: 900; margin-top: 4px;">Rp 0</div>
+        </div>
+
+        <div id="instruksiTransfer" style="display: none;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-align: left;">Nomor Virtual Account (Mandiri / BCA)</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <input type="text" id="vaNumber" value="8801281234567890" class="form-control" style="padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border-color: var(--border);" readonly>
+                <button class="btn-toast-action" id="btnCopyVA" style="border-radius: 10px; font-size: 12px;" onclick="salinVA()"><i class="fa-regular fa-copy"></i> Salin</button>
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+                <li>Pilih menu <strong>Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</li>
+                <li>Masukkan nomor Virtual Account kustom di atas.</li>
+                <li>Nominal pembayaran akan otomatis muncul sesuai total tagihan.</li>
+            </ul>
+        </div>
+
+        <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
+            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Pindai Kode QRIS Resmi HoopBall</div>
+            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <img id="qrisImage" src="" alt="QRIS Code" style="display: block; width: 170px; height: 180px; object-fit: contain;">
+            </div>
+            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                <li>Buka aplikasi e-wallet Anda (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
+                <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
+                <li>Arahkan kamera smartphone ke kode QR di atas, lalu selesaikan pembayaran.</li>
+            </ul>
+        </div>
+
+        <hr class="divider" style="margin: 20px 0;">
+        
+        <button class="btn-booking" id="btnDonePayment" style="margin-top: 0;" onclick="selesaiBayar()">
+            Selesai <i class="fa-solid fa-circle-check"></i>
+        </button>
+    </div>
+</div>
+
 <script>
 // ============================================================================
 // MODAL PEMBAYARAN
 // ============================================================================
 function bukaModal(idTipe, namaTipe, harga) {
-    <?php if ($has_member): ?>
+    <?php if ($has_member || $member_aktif): ?>
     Swal.fire({
         icon: 'info',
-        title: 'Member Aktif',
-        text: 'Anda masih memiliki langganan member aktif. Tidak dapat mendaftar lagi.',
+        title: '<?php echo $has_member ? 'Member Aktif' : 'Menunggu Konfirmasi'; ?>',
+        text: '<?php echo $has_member ? 'Anda masih memiliki langganan member aktif.' : 'Anda memiliki pendaftaran member yang sedang menunggu konfirmasi admin.'; ?>',
         confirmButtonColor: '#FF5200'
     });
     return;
@@ -1223,6 +1513,100 @@ if (status && msg) {
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
+
+// ============================================================================
+// PAYMENT INSTRUCTION MODAL (SAMA SEPERTI BOOKING)
+// ============================================================================
+let countdownInterval;
+let selectedPaymentMethod = '';
+
+function startPaymentCountdown(duration) {
+    let timer = duration, minutes, seconds;
+    const display = document.getElementById('paymentCountdown');
+    clearInterval(countdownInterval);
+    
+    countdownInterval = setInterval(function () {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        display.textContent = minutes + ":" + seconds;
+
+        if (--timer < 0) {
+            clearInterval(countdownInterval);
+            display.textContent = "Waktu Pembayaran Habis";
+            document.getElementById('btnDonePayment').disabled = true;
+        }
+    }, 1000);
+}
+
+function tutupPaymentModal() {
+    document.getElementById('paymentInstructionModal').classList.remove('active');
+    clearInterval(countdownInterval);
+}
+
+function salinVA() {
+    const vaInput = document.getElementById('vaNumber');
+    vaInput.select();
+    vaInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(vaInput.value).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil Disalin!',
+            text: 'Nomor Virtual Account disalin ke papan klip Anda.',
+            timer: 1500,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            customClass: { popup: 'swal-toast' }
+        });
+    });
+}
+
+function selesaiBayar() {
+    clearInterval(countdownInterval);
+    tutupPaymentModal();
+    
+    // Status tetap 0 (Menunggu Konfirmasi) di database
+    // Hanya tampilkan notifikasi dan refresh halaman
+    Swal.fire({
+        icon: 'info',
+        title: 'Pembayaran Sedang Diproses!',
+        text: 'Terima kasih telah melakukan pembayaran. Status langganan Anda akan segera diverifikasi oleh admin. Anda akan menerima notifikasi setelah verifikasi selesai.',
+        confirmButtonColor: '#FF5200',
+        confirmButtonText: 'Mengerti'
+    }).then(() => {
+        location.reload();
+    });
+}
+
+// ============================================================================
+// AUTO SHOW PAYMENT MODAL AFTER FORM SUBMISSION
+// ============================================================================
+<?php if ($show_payment_modal): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    const totalAmount = <?php echo $payment_total; ?>;
+    const metode = '<?php echo htmlspecialchars($payment_method); ?>';
+    
+    document.getElementById('paymentTotalAmount').innerText = 'Rp ' + totalAmount.toLocaleString('id-ID');
+    
+    if (metode === 'Transfer Bank') {
+        document.getElementById('instruksiTransfer').style.display = 'block';
+        document.getElementById('instruksiQRIS').style.display = 'none';
+    } else if (metode === 'QRIS') {
+        document.getElementById('instruksiTransfer').style.display = 'none';
+        document.getElementById('instruksiQRIS').style.display = 'flex';
+        
+        const qrPayload = 'HOOPBALL-MEMBER-<?php echo $last_inserted_id; ?>-' + totalAmount;
+        document.getElementById('qrisImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrPayload);
+    }
+    
+    document.getElementById('paymentInstructionModal').classList.add('active');
+    startPaymentCountdown(15 * 60);
+});
+<?php endif; ?>
 </script>
 
 </body>

@@ -703,7 +703,7 @@ input[type="time"].modal-input {
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Kelola Booking
         </a>
-        <a href="../transaksilangganan.php" class="sb-link">
+        <a href="../transaksi/langganan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
             Kelola Langganan
         </a>
