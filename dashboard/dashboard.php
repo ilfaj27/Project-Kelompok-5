@@ -17,7 +17,7 @@ switch ($role) {
         header("Location: view_admin.php");
         break;
     case 'customer':
-        header("Location: view_customer.php");
+        header("Location: ../customerview_customer.php");
         break;
     default:
         header("Location: ../login/login.php");
