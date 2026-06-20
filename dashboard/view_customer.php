@@ -631,7 +631,6 @@ html { scroll-behavior:smooth; }
     <a href="view_customer.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
-   <!-- Di bagian nav-links, ganti link Member -->
     <div class="nav-links">
         <a href="view_customer.php" class="active">Beranda</a>
         <a href="booking_customer.php">Booking</a>
@@ -643,6 +642,7 @@ html { scroll-behavior:smooth; }
     </div>
 
     <!-- User Dropdown -->
+    <div class="nav-user-container">
         <div class="nav-user">
             <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
                 <img src="<?php echo htmlspecialchars($photo_profile); ?>" alt="Avatar" class="user-avatar">
@@ -655,7 +655,6 @@ html { scroll-behavior:smooth; }
             <?php endif; ?>
             <i class="fa-solid fa-chevron-down arrow"></i>
         </div>
-        <!-- Di bagian dropdown-menu -->
         <div class="dropdown-menu">
             <div class="user-info-header">
                 <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
@@ -670,7 +669,6 @@ html { scroll-behavior:smooth; }
         </div>
     </div>
 </nav>
-
 <!-- HERO SECTION -->
 <header class="hero">
     <div class="hero-left">
