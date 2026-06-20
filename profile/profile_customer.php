@@ -830,7 +830,7 @@ function format_date_display($date)
         }
 
         .hero-left p {
-            color: #E5E5EA;
+            color: #ffff;
             font-size: 14px;
             margin-top: 15px;
             max-width: 500px;
