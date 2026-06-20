@@ -1,354 +1,290 @@
 <?php
 // ============================================================================
-// BUFFER OUTPUT
+// BUFFER OUTPUT — Agar header() bisa dipanggil kapan saja tanpa error
 // ============================================================================
 ob_start();
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 include '../includes/auth_helper.php';
-include '../includes/config.php';
+include '../includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
+
+// ============================================================================
+// HARD DELETE AKUN CUSTOMER — Soft Delete di DB, Hard Delete di Program
+// ============================================================================
+if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
+    $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
+
+    if (!empty($id_customer)) {
+        $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
+
+        $stmt = sqlsrv_query($conn, 
+            "UPDATE Customer SET 
+                Is_Deleted = 1, 
+                Status = 0, 
+                Deleted_By = ?, 
+                Deleted_Date = GETDATE() 
+             WHERE ID_Customer = ? AND Is_Deleted = 0", 
+            array($modified_by, $id_customer)
+        );
+
+        if ($stmt) {
+            $_SESSION = array();
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params['path'], $params['domain'],
+                    $params['secure'], $params['httponly']
+                );
+            }
+            session_destroy();
+            setcookie('remember_me', '', time() - 3600, "/");
+            ob_end_clean();
+            header("Location: ../login/login.php?status=success&msg=Akun Anda telah dihapus permanen. Anda harus mendaftar ulang untuk menggunakan layanan kami.");
+            exit();
+        } else {
+            ob_end_clean();
+            header("Location: booking_customer.php?status=error&msg=Gagal menghapus akun. Silakan coba lagi.");
+            exit();
+        }
+    } else {
+        ob_end_clean();
+        header("Location: ../login/login.php?status=error&msg=Sesi tidak valid. Silakan login kembali.");
+        exit();
+    }
+}
 
 // ============================================================================
 // CEK AKSES
 // ============================================================================
 cek_akses('customer');
 
+// ============================================================================
+// AMBIL DATA CUSTOMER DARI DATABASE SECARA DINAMIS
+// ============================================================================
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
-if (empty($id_customer)) {
-    ob_end_clean();
-    header("Location: ../login/login.php");
-    exit();
-}
-
-// ============================================================================
-// VALIDASI CUSTOMER AKTIF
-// ============================================================================
-$cek_cust = sqlsrv_query($conn,
-    "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?",
-    array($id_customer)
-);
 $nama_customer = 'Pelanggan';
 $photo_profile = '';
-if ($cek_cust) {
-    $row_c = sqlsrv_fetch_array($cek_cust, SQLSRV_FETCH_ASSOC);
-    if ($row_c) {
-        if ($row_c['Is_Deleted'] == 1 || $row_c['Status'] == 0) {
-            $_SESSION = array();
-            session_destroy();
-            ob_end_clean();
-            header("Location: ../login/login.php?status=error&msg=Akun Anda dinonaktifkan.");
-            exit();
+
+if (!empty($id_customer)) {
+    $cek_deleted = sqlsrv_query($conn, 
+        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
+        array($id_customer)
+    );
+    if ($cek_deleted) {
+        $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
+        if ($row_cust) {
+            if ($row_cust['Is_Deleted'] == 1 || $row_cust['Status'] == 0) {
+                $_SESSION = array();
+                session_destroy();
+                setcookie('remember_me', '', time() - 3600, "/");
+                ob_end_clean();
+                header("Location: ../login/login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
+                exit();
+            }
+            $nama_customer = $row_cust['Nama_Customer'] ?? 'Pelanggan';
+            $photo_profile = $row_cust['Photo_Profile'] ?? '';
         }
-        $nama_customer = $row_c['Nama_Customer'];
-        $photo_profile = $row_c['Photo_Profile'];
     }
 }
 
 // ============================================================================
-// CEK MEMBER AKTIF
+// CHECK MEMBER STATUS
 // ============================================================================
 $member_data = null;
-$member_check = sqlsrv_query($conn,
-    "SELECT TOP 1 L.ID_Langganan, T.Nama_Tipe, T.Potongan_Harga
-     FROM Langganan L
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-     WHERE L.ID_Customer = ? AND L.Status = 1
-       AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
-     ORDER BY L.Tanggal_Selesai DESC",
+$member_check = sqlsrv_query($conn, 
+    "SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
+     FROM Langganan L 
+     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
+     WHERE L.ID_Customer = ? AND L.Status = 1 
+     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
+     ORDER BY L.Tanggal_Selesai DESC", 
     array($id_customer)
 );
 if ($member_check) {
     $member_data = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
 }
-$has_member    = !empty($member_data);
-$member_tipe   = $has_member ? $member_data['Nama_Tipe'] : '';
-$member_potong = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
+$has_member = !empty($member_data);
+$member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
+$member_discount = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
 
 // ============================================================================
-// AMBIL SEMUA LAPANGAN AKTIF
+// AJAX REQUEST HANDLERS (Untuk interaktivitas pemilihan slot dan proses checkout)
 // ============================================================================
-$lapangan_list = [];
-$q_lap = sqlsrv_query($conn,
-    "SELECT ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan
-     FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY Nama_Lapangan ASC"
-);
-if ($q_lap) {
-    while ($r = sqlsrv_fetch_array($q_lap, SQLSRV_FETCH_ASSOC)) {
-        $lapangan_list[] = $r;
+if (isset($_GET['action'])) {
+    header('Content-Type: application/json');
+
+    // Ambil Slot Jadwal Berdasarkan Lapangan
+    if ($_GET['action'] == 'get_slots' && isset($_GET['court_id'])) {
+        $court_id = intval($_GET['court_id']);
+        $queryJadwal = "SELECT ID_Jadwal, Tanggal, Jam_Mulai, Jam_Selesai 
+                        FROM Jadwal 
+                        WHERE ID_Lapangan = ? AND Status = 1 AND Is_Deleted = 0
+                        ORDER BY Tanggal ASC, Jam_Mulai ASC";
+        $stmtJadwal = sqlsrv_query($conn, $queryJadwal, array($court_id));
+        $slots = [];
+
+        if ($stmtJadwal) {
+            while ($row = sqlsrv_fetch_array($stmtJadwal, SQLSRV_FETCH_ASSOC)) {
+                $tanggal_str = ($row['Tanggal'] instanceof DateTime) ? $row['Tanggal']->format('Y-m-d') : $row['Tanggal'];
+                $jam_mulai = ($row['Jam_Mulai'] instanceof DateTime) ? $row['Jam_Mulai']->format('H:i') : substr($row['Jam_Mulai'], 0, 5);
+                $jam_selesai = ($row['Jam_Selesai'] instanceof DateTime) ? $row['Jam_Selesai']->format('H:i') : substr($row['Jam_Selesai'], 0, 5);
+
+                $slots[] = [
+                    'ID_Jadwal' => $row['ID_Jadwal'],
+                    'Tanggal' => $tanggal_str,
+                    'Jam_Mulai' => $jam_mulai,
+                    'Jam_Selesai' => $jam_selesai,
+                    'Tanggal_Formatted' => date('d M Y', strtotime($tanggal_str))
+                ];
+            }
+        }
+        echo json_encode($slots);
+        exit();
+    }
+
+    // Proses Transaksi Booking Baru
+    if ($_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input) {
+            $input = $_POST;
+        }
+
+        $id_jadwal = intval($input['id_jadwal'] ?? 0);
+        $id_promo = !empty($input['id_promo']) ? intval($input['id_promo']) : null;
+        $metode_pembayaran = htmlspecialchars($input['metode_pembayaran'] ?? '');
+        $total_bayar = floatval($input['total_bayar'] ?? 0);
+
+        if ($id_jadwal <= 0 || empty($metode_pembayaran) || $total_bayar <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Parameter input tidak valid.']);
+            exit();
+        }
+
+        // Mulai transaksi SQL Server
+        if (sqlsrv_begin_transaction($conn) === false) {
+            echo json_encode(['success' => false, 'message' => 'Gagal menginisiasi sesi transaksi database.']);
+            exit();
+        }
+
+        try {
+            // 1. Verifikasi ketersediaan jadwal
+            $queryCheck = "SELECT Status, ID_Lapangan FROM Jadwal WHERE ID_Jadwal = ?";
+            $stmtCheck = sqlsrv_query($conn, $queryCheck, array($id_jadwal));
+            $jadwal = null;
+            if ($stmtCheck) {
+                $jadwal = sqlsrv_fetch_array($stmtCheck, SQLSRV_FETCH_ASSOC);
+            }
+
+            if (!$jadwal || $jadwal['Status'] != 1) {
+                throw new Exception("Maaf, slot jadwal ini sudah terbooking atau tidak tersedia.");
+            }
+
+            // 2. Pilih karyawan penanggung jawab transaksi secara acak/berurutan
+            $queryKaryawan = "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0 ORDER BY ID_Karyawan ASC";
+            $stmtKary = sqlsrv_query($conn, $queryKaryawan);
+            $id_karyawan = 1;
+            if ($stmtKary) {
+                $kary = sqlsrv_fetch_array($stmtKary, SQLSRV_FETCH_ASSOC);
+                if ($kary) {
+                    $id_karyawan = $kary['ID_Karyawan'];
+                }
+            }
+
+            // 3. Simpan data ke tabel Booking
+            $created_by = $_SESSION['nama'] ?? 'CUSTOMER';
+            $queryInsert = "INSERT INTO Booking 
+                            (ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date) 
+                            VALUES (?, ?, ?, ?, CAST(GETDATE() AS DATE), ?, ?, 0, ?, GETDATE())";
+            
+            $stmtInsert = sqlsrv_query($conn, $queryInsert, array(
+                $id_customer,
+                $id_karyawan,
+                $id_jadwal,
+                $id_promo,
+                $metode_pembayaran,
+                $total_bayar,
+                $created_by
+            ));
+
+            if ($stmtInsert === false) {
+                throw new Exception("Kesalahan sistem saat membuat entri transaksi.");
+            }
+
+            // 4. Ubah status ketersediaan Jadwal menjadi tidak tersedia
+            $queryUpdateJadwal = "UPDATE Jadwal SET Status = 0, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Jadwal = ?";
+            $stmtUpdate = sqlsrv_query($conn, $queryUpdateJadwal, array($created_by, $id_jadwal));
+
+            if ($stmtUpdate === false) {
+                throw new Exception("Gagal merubah status jadwal sewa.");
+            }
+
+            sqlsrv_commit($conn);
+            echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
+        } catch (Exception $e) {
+            sqlsrv_rollback($conn);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit();
     }
 }
 
 // ============================================================================
-// AMBIL PROMO AKTIF (hanya jika tidak member)
+// LOAD DATA MASTER (Lapangan, Fasilitas, & Promo)
 // ============================================================================
-$promo_list = [];
+
+// 1. Data Lapangan
+$lapanganList = [];
+$queryLapangan = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0");
+if ($queryLapangan) {
+    while ($row = sqlsrv_fetch_array($queryLapangan, SQLSRV_FETCH_ASSOC)) {
+        $lapanganList[] = $row;
+    }
+}
+
+// 2. Mapping Fasilitas per Lapangan
+$lapanganFasilitas = [];
+$queryFasilitas = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Fasilitas FROM Fasilitas_Lapangan WHERE Status = 1 AND Is_Deleted = 0");
+if ($queryFasilitas) {
+    while ($row = sqlsrv_fetch_array($queryFasilitas, SQLSRV_FETCH_ASSOC)) {
+        $lapanganFasilitas[$row['ID_Lapangan']][] = $row['Nama_Fasilitas'];
+    }
+}
+
+// 3. Data Promo Aktif (Hanya untuk non-member)
+$promos = [];
 if (!$has_member) {
-    $q_promo = sqlsrv_query($conn,
-        "SELECT ID_Promo, Nama_Promo, Diskon
-         FROM Promo
-         WHERE Status = 1 AND Is_Deleted = 0
-           AND CAST(GETDATE() AS DATE) BETWEEN Tanggal_Mulai AND Tanggal_Selesai
-         ORDER BY Diskon DESC"
-    );
-    if ($q_promo) {
-        while ($r = sqlsrv_fetch_array($q_promo, SQLSRV_FETCH_ASSOC)) {
-            $promo_list[] = $r;
+    $queryPromo = sqlsrv_query($conn, "SELECT ID_Promo, Nama_Promo, Diskon FROM Promo WHERE Status = 1 AND Is_Deleted = 0 AND CAST(GETDATE() AS DATE) BETWEEN Tanggal_Mulai AND Tanggal_Selesai");
+    if ($queryPromo) {
+        while ($row = sqlsrv_fetch_array($queryPromo, SQLSRV_FETCH_ASSOC)) {
+            $promos[] = $row;
         }
     }
 }
-
-// ============================================================================
-// AMBIL JADWAL TERSEDIA (Status=1 / Tersedia, belum di-booking aktif)
-// ============================================================================
-$jadwal_list = [];
-$q_jadwal = sqlsrv_query($conn,
-    "SELECT J.ID_Jadwal, J.ID_Lapangan, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
-            L.Nama_Lapangan, L.Harga_Sewa
-     FROM Jadwal J
-     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-     WHERE J.Status = 1 AND J.Is_Deleted = 0
-       AND L.Status = 1 AND L.Is_Deleted = 0
-       AND J.ID_Jadwal NOT IN (
-           SELECT ID_Jadwal FROM Booking WHERE Status IN (0,1,2)
-       )
-     ORDER BY J.Tanggal ASC, J.Jam_Mulai ASC"
-);
-if ($q_jadwal) {
-    while ($r = sqlsrv_fetch_array($q_jadwal, SQLSRV_FETCH_ASSOC)) {
-        $jadwal_list[] = $r;
-    }
-}
-
-// ============================================================================
-// RIWAYAT BOOKING CUSTOMER
-// ============================================================================
-$riwayat_list = [];
-$q_riwayat = sqlsrv_query($conn,
-    "SELECT B.ID_Booking, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
-            L.Nama_Lapangan, L.Harga_Sewa,
-            J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
-            P.Nama_Promo, P.Diskon,
-            T.Nama_Tipe, TM.Potongan_Harga AS Potong_Member
-     FROM Booking B
-     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-     LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
-     LEFT JOIN Langganan LG ON LG.ID_Customer = B.ID_Customer
-         AND LG.Status = 1
-         AND B.Tanggal_Booking BETWEEN CAST(LG.Tanggal_Mulai AS DATE) AND CAST(LG.Tanggal_Selesai AS DATE)
-     LEFT JOIN Tipe_Member TM ON LG.ID_Tipe = TM.ID_Tipe
-     LEFT JOIN Tipe_Member T ON LG.ID_Tipe = T.ID_Tipe
-     WHERE B.ID_Customer = ?
-     ORDER BY B.Created_Date DESC",
-    array($id_customer)
-);
-if ($q_riwayat) {
-    while ($r = sqlsrv_fetch_array($q_riwayat, SQLSRV_FETCH_ASSOC)) {
-        $riwayat_list[] = $r;
-    }
-}
-
-// ============================================================================
-// AJAX: AMBIL JADWAL PER LAPANGAN
-// ============================================================================
-if (isset($_GET['ajax_jadwal'])) {
-    header('Content-Type: application/json');
-    $id_lap = intval($_GET['id_lapangan'] ?? 0);
-    $result = [];
-    $q = sqlsrv_query($conn,
-        "SELECT J.ID_Jadwal, J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, L.Harga_Sewa, L.Nama_Lapangan
-         FROM Jadwal J
-         INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-         WHERE J.Status = 1 AND J.Is_Deleted = 0 AND L.Status = 1 AND L.Is_Deleted = 0
-           AND J.ID_Lapangan = ?
-           AND J.ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking WHERE Status IN (0,1,2))
-         ORDER BY J.Tanggal ASC, J.Jam_Mulai ASC",
-        array($id_lap)
-    );
-    if ($q) {
-        while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-            $result[] = [
-                'id'        => $r['ID_Jadwal'],
-                'tanggal'   => ($r['Tanggal'] instanceof DateTime) ? $r['Tanggal']->format('Y-m-d') : $r['Tanggal'],
-                'jam_mulai' => ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i') : substr($r['Jam_Mulai'], 0, 5),
-                'jam_selesai' => ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i') : substr($r['Jam_Selesai'], 0, 5),
-                'harga'     => floatval($r['Harga_Sewa']),
-                'nama_lapangan' => $r['Nama_Lapangan'],
-            ];
-        }
-    }
-    ob_end_clean();
-    echo json_encode($result);
-    exit();
-}
-
-// ============================================================================
-// AJAX: SUBMIT BOOKING → INSERT & RETURN STATUS
-// ============================================================================
-if (isset($_POST['ajax_booking'])) {
-    header('Content-Type: application/json');
-
-    $id_jadwal   = intval($_POST['id_jadwal'] ?? 0);
-    $id_promo    = intval($_POST['id_promo'] ?? 0);
-    $metode      = trim($_POST['metode'] ?? '');
-    $total_bayar = floatval($_POST['total_bayar'] ?? 0);
-
-    // Validasi dasar
-    if (!$id_jadwal || !$metode || $total_bayar <= 0) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Data tidak lengkap.']);
-        exit();
-    }
-
-    // Validasi metode
-    $allowed_methods = ['Transfer Bank', 'QRIS'];
-    if (!in_array($metode, $allowed_methods)) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Metode pembayaran tidak valid.']);
-        exit();
-    }
-
-    // Cek jadwal masih tersedia
-    $cek_jadwal = sqlsrv_query($conn,
-        "SELECT ID_Jadwal FROM Jadwal WHERE ID_Jadwal = ? AND Status = 1 AND Is_Deleted = 0",
-        array($id_jadwal)
-    );
-    if (!$cek_jadwal || !sqlsrv_fetch_array($cek_jadwal, SQLSRV_FETCH_ASSOC)) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Jadwal tidak tersedia atau sudah dipesan.']);
-        exit();
-    }
-
-    // Cek jadwal belum dibooking aktif
-    $cek_conflict = sqlsrv_query($conn,
-        "SELECT ID_Booking FROM Booking WHERE ID_Jadwal = ? AND Status IN (0,1,2)",
-        array($id_jadwal)
-    );
-    if ($cek_conflict && sqlsrv_fetch_array($cek_conflict, SQLSRV_FETCH_ASSOC)) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Jadwal sudah dipesan oleh customer lain.']);
-        exit();
-    }
-
-    // Ambil karyawan aktif secara random untuk assign (karena customer booking mandiri)
-    $cek_kary = sqlsrv_query($conn,
-        "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0 AND Jabatan = 1 ORDER BY NEWID()"
-    );
-    $id_karyawan = 0;
-    if ($cek_kary) {
-        $rk = sqlsrv_fetch_array($cek_kary, SQLSRV_FETCH_ASSOC);
-        $id_karyawan = $rk ? intval($rk['ID_Karyawan']) : 0;
-    }
-    if (!$id_karyawan) {
-        // Fallback ke karyawan mana saja
-        $cek_kary2 = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0");
-        if ($cek_kary2) {
-            $rk2 = sqlsrv_fetch_array($cek_kary2, SQLSRV_FETCH_ASSOC);
-            $id_karyawan = $rk2 ? intval($rk2['ID_Karyawan']) : 1;
-        }
-    }
-
-    $id_promo_val = ($id_promo > 0 && !$has_member) ? $id_promo : null;
-    $tanggal_booking = date('Y-m-d');
-    $created_by = strval($id_customer);
-
-    $params = array(
-        $id_customer,
-        $id_karyawan,
-        $id_jadwal,
-        $id_promo_val,
-        $tanggal_booking,
-        $metode,
-        $total_bayar,
-        0, // Status 0 = Menunggu Konfirmasi
-        $created_by
-    );
-
-    $stmt = sqlsrv_query($conn,
-        "INSERT INTO Booking
-         (ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking,
-          Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date)
-         OUTPUT INSERTED.ID_Booking
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())",
-        $params
-    );
-
-    if ($stmt) {
-        $row_insert = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        $id_booking = $row_insert ? $row_insert['ID_Booking'] : 0;
-        ob_end_clean();
-        echo json_encode(['success' => true, 'id_booking' => $id_booking, 'msg' => 'Booking berhasil dibuat.']);
-    } else {
-        $errors = sqlsrv_errors();
-        $err_msg = $errors ? $errors[0]['message'] : 'Unknown error';
-        ob_end_clean();
-        echo json_encode(['success' => false, 'msg' => 'Gagal menyimpan booking: ' . $err_msg]);
-    }
-    exit();
-}
-
-// ============================================================================
-// AJAX: CEK STATUS BOOKING (polling untuk transfer bank)
-// ============================================================================
-if (isset($_GET['ajax_cek_status'])) {
-    header('Content-Type: application/json');
-    $id_booking = intval($_GET['id_booking'] ?? 0);
-    $q = sqlsrv_query($conn,
-        "SELECT Status FROM Booking WHERE ID_Booking = ? AND ID_Customer = ?",
-        array($id_booking, $id_customer)
-    );
-    $status = -1;
-    if ($q) {
-        $r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC);
-        if ($r) $status = intval($r['Status']);
-    }
-    ob_end_clean();
-    echo json_encode(['status' => $status]);
-    exit();
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-function formatTanggal($tanggal) {
-    if (empty($tanggal)) return '-';
-    if ($tanggal instanceof DateTime) return $tanggal->format('d M Y');
-    return date('d M Y', strtotime($tanggal));
-}
-function formatJam($jam) {
-    if (empty($jam)) return '-';
-    if ($jam instanceof DateTime) return $jam->format('H:i');
-    return substr($jam, 0, 5);
-}
-function rupiahFormat($n) {
-    return 'Rp ' . number_format($n, 0, ',', '.');
-}
-
-$status_labels = [
-    0 => ['label' => 'Menunggu Konfirmasi', 'class' => 'sp-pending',  'icon' => 'fa-clock'],
-    1 => ['label' => 'Berhasil',            'class' => 'sp-active',   'icon' => 'fa-check-circle'],
-    2 => ['label' => 'Selesai',             'class' => 'sp-success',  'icon' => 'fa-flag-checkered'],
-    3 => ['label' => 'Dibatalkan',          'class' => 'sp-inactive', 'icon' => 'fa-ban'],
-];
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Lapangan | HoopBall</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Booking Lapangan | HoopBall Arena</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- QRCode library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <style>
         :root {
+            /* Palette Design System */
             --primary: #FF5200;
             --primary-hover: #E04800;
+            --primary-light: rgba(255, 82, 0, 0.1);
             --dark-bg: #0B0B0C;
             --card-dark: #121214;
             --text-gray: #8E8E93;
+            --text-dark: #1C1C1E;
             --border-color: #E5E5EA;
             --white: #FFFFFF;
             --light-bg: #F8F9FA;
@@ -360,16 +296,36 @@ $status_labels = [
             --red-lt: rgba(255,59,48,.10);
             --blue: #007AFF;
             --blue-lt: rgba(0,122,255,.10);
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* Interface Builder */
+            --orange: #FF5A1F;
+            --orange-hover: #E0440E;
+            --orange-lt: rgba(255, 90, 31, 0.06);
+            --orange-glow: rgba(255, 90, 31, 0.15);
+            --border: #E2E8F0;
+            --border-lt: #F1F5F9;
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --muted: #94A3B8;
+            --bg: #F8FAFC;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--light-bg);
-            color: #111;
+            background: var(--bg);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
         }
 
-        /* ---- NAVBAR ---- */
+        /* ---- NAVBAR (PUTIH) ---- */
         nav {
             background: var(--white);
             padding: 0 80px;
@@ -382,524 +338,1192 @@ $status_labels = [
             z-index: 1000;
             border-bottom: 1px solid #E5E5EA;
         }
-        .nav-logo { display: flex; align-items: center; text-decoration: none; gap: 10px; }
-        .nav-logo img { height: 70px; width: auto; }
-        .nav-links { display: flex; align-items: center; gap: 8px; }
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            gap: 10px;
+        }
+        .nav-logo img {
+            height: 70px;
+            width: auto;
+        }
+        .nav-logo span {
+            color: #1C1C1E;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .nav-links a {
-            color: #636366; text-decoration: none; font-size: 14px; font-weight: 500;
-            padding: 8px 16px; border-radius: 20px; transition: all 0.2s ease;
+            color: #636366;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
         }
         .nav-links a:hover { color: #1C1C1E; }
-        .nav-links a.active { color: var(--primary); font-weight: 600; }
+        .nav-links a.active { color: var(--primary); font-weight: 600; background: var(--primary-light); }
 
-        /* USER DROPDOWN */
-        .nav-user-container { position: relative; height: 76px; display: flex; align-items: center; }
+        /* ---- USER DROPDOWN ---- */
+        .nav-user-container {
+            position: relative;
+            height: 76px;
+            display: flex;
+            align-items: center;
+        }
         .nav-user {
-            background: #F2F2F7; border: 1px solid #E5E5EA; padding: 8px 16px; border-radius: 50px;
-            color: #1C1C1E; font-size: 14px; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; gap: 10px; transition: 0.2s;
+            background: #F2F2F7;
+            border: 1px solid #E5E5EA;
+            padding: 8px 16px;
+            border-radius: 50px;
+            color: #1C1C1E;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
         }
         .nav-user:hover { background: #E5E5EA; border-color: var(--primary); }
-        .nav-user img.user-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-        .nav-user i.user-icon { font-size: 16px; color: var(--primary); }
-        .nav-user i.arrow { font-size: 11px; color: #8E8E93; transition: 0.3s; }
-        .nav-user-container:hover i.arrow { transform: rotate(180deg); color: var(--primary); }
+        .nav-user img.user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .nav-user i.user-icon {
+            font-size: 16px;
+            color: var(--primary);
+        }
+        .nav-user i.arrow { 
+            font-size: 11px; 
+            color: #8E8E93; 
+            transition: 0.3s; 
+        }
+        .nav-user-container:hover i.arrow { 
+            transform: rotate(180deg); 
+            color: var(--primary); 
+        }
         .dropdown-menu {
-            position: absolute; top: 85%; right: 0; background: #16161a;
-            min-width: 220px; border-radius: 12px; border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 8px 0; display: none; z-index: 1001;
+            position: absolute;
+            top: 85%;
+            right: 0;
+            background: #16161a;
+            min-width: 220px;
+            border-radius: 12px;
+            border: 1px solid #2d2d33;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 8px 0;
+            display: none; 
+            z-index: 1001;
             animation: fadeIn 0.2s ease-out;
         }
-        .nav-user-container:hover .dropdown-menu { display: block; }
-        .dropdown-menu .user-info-header { padding: 12px 20px; border-bottom: 1px solid #2d2d33; margin-bottom: 6px; }
-        .dropdown-menu .user-info-header .u-name { color: var(--white); font-size: 14px; font-weight: 700; display: block; }
-        .dropdown-menu .user-info-header .u-role { color: var(--text-gray); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; display: block; }
-        .dropdown-menu a { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: #c5c5ca; text-decoration: none; font-size: 13px; font-weight: 500; transition: 0.2s; }
-        .dropdown-menu a i { font-size: 14px; width: 16px; text-align: center; }
-        .dropdown-menu a:hover { background: #222227; color: var(--primary); }
-        .dropdown-divider { height: 1px; background: #2d2d33; margin: 6px 0; }
-        .dropdown-menu a.logout:hover { color: #ff3b30; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* ---- PAGE HERO ---- */
-        .page-hero {
-            background: linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.85)),
-                        url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=1500');
-            background-size: cover; background-position: center;
-            padding: 50px 80px;
+        .nav-user-container:hover .dropdown-menu {
+            display: block;
+        }
+        .dropdown-menu .user-info-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #2d2d33;
+            margin-bottom: 6px;
+        }
+        .dropdown-menu .user-info-header span {
+            display: block;
+        }
+        .dropdown-menu .user-info-header .u-name {
             color: var(--white);
+            font-size: 14px;
+            font-weight: 700;
         }
-        .page-hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 8px; }
-        .page-hero p { color: #AEAEB2; font-size: 15px; }
-        .page-hero .breadcrumb {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 13px; color: #8E8E93; margin-bottom: 16px;
+        .dropdown-menu .user-info-header .u-role {
+            color: var(--text-gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
         }
-        .page-hero .breadcrumb a { color: #8E8E93; text-decoration: none; }
-        .page-hero .breadcrumb a:hover { color: var(--primary); }
-        .page-hero .breadcrumb i { font-size: 10px; }
-
-        /* ---- MAIN LAYOUT ---- */
-        .main-wrapper {
-            max-width: 1440px;
-            margin: 0 auto;
-            padding: 40px 80px 60px;
-            display: grid;
-            grid-template-columns: 1fr 420px;
-            gap: 30px;
-            align-items: start;
-        }
-
-        /* ---- BOOKING FORM CARD ---- */
-        .booking-card {
-            background: var(--white);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            padding: 32px;
-        }
-        .booking-card-title {
-            font-size: 18px;
-            font-weight: 800;
-            color: #1C1C1E;
-            margin-bottom: 28px;
+        .dropdown-menu a {
             display: flex;
             align-items: center;
             gap: 12px;
+            padding: 10px 20px;
+            color: #c5c5ca;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: 0.2s;
         }
-        .booking-card-title i { color: var(--primary); font-size: 20px; }
+        .dropdown-menu a i { 
+            font-size: 14px; 
+            width: 16px; 
+            text-align: center; 
+        }
+        .dropdown-menu a:hover {
+            background: #222227;
+            color: var(--primary);
+        }
+        .dropdown-divider {
+            height: 1px;
+            background: #2d2d33;
+            margin: 6px 0;
+        }
+        .dropdown-menu a.logout:hover { 
+            color: #ff3b30; 
+        }
 
-        /* STEP INDICATOR */
-        .step-indicator {
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---- CONTAINER (Kini Melebar Dinamis Sesuai Resolusi Layar) ---- */
+        .container {
+            width: 100%;
+            max-width: 95%; /* Mengurangi ruang kosong margin kiri & kanan */
+            margin: 40px auto;
+            padding: 0 20px;
             display: flex;
-            gap: 0;
-            margin-bottom: 32px;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Wizard & Form */
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* ---- WIZARD (Panduan Statis Tanpa Animasi / Warna Melompat) ---- */
+        .steps-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 24px;
             position: relative;
         }
-        .step-indicator::before {
-            content: '';
-            position: absolute;
-            top: 18px;
-            left: 18px;
-            right: 18px;
-            height: 2px;
-            background: #E5E5EA;
-            z-index: 0;
+
+        .steps-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
         }
+
+        .steps-line {
+            position: absolute;
+            top: 16px;
+            left: 8%;
+            right: 8%;
+            height: 2px;
+            background: #E2E8F0;
+            z-index: 1;
+        }
+
         .step-item {
-            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            text-align: center;
             position: relative;
-            z-index: 1;
+            z-index: 3;
+            flex: 1;
         }
-        .step-circle {
-            width: 36px; height: 36px;
+
+        .step-num {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            background: #E5E5EA;
-            color: #8E8E93;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 800;
-            transition: 0.3s;
-        }
-        .step-circle.active { background: var(--primary); color: var(--white); }
-        .step-circle.done { background: var(--green); color: var(--white); }
-        .step-label { font-size: 11px; font-weight: 700; color: #8E8E93; text-align: center; }
-        .step-label.active { color: var(--primary); }
-        .step-label.done { color: var(--green); }
-
-        /* FORM SECTION */
-        .form-section { display: none; }
-        .form-section.visible { display: block; }
-
-        .form-group { margin-bottom: 20px; }
-        .form-label {
-            display: block; font-size: 12px; font-weight: 700;
-            color: #1C1C1E; margin-bottom: 8px;
-        }
-        .form-select, .form-input-field {
-            width: 100%;
-            background: #FAFAFA;
-            border: 1.5px solid var(--border-color);
-            border-radius: 10px;
-            padding: 13px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
             font-size: 14px;
+            margin-bottom: 8px;
+            background: #F1F5F9;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .step-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .step-desc {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .form-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 30px;
+        }
+
+        .section-header {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-subtitle {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        /* Court Selection Grid */
+        .court-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Ukuran kartu diperlebar */
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+
+        .court-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .court-card:hover {
+            border-color: var(--orange);
+            box-shadow: 0 4px 12px var(--orange-glow);
+        }
+
+        .court-card.selected {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 2px var(--orange);
+        }
+
+        .court-img-wrapper {
+            position: relative;
+            height: 200px; /* Rasio tinggi gambar ditingkatkan */
+            background: #cbd5e1;
+            overflow: hidden;
+        }
+
+        .court-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .badge-available {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: var(--green-lt);
+            color: #34C759;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(52, 199, 89, 0.2);
+        }
+
+        .badge-selected-check {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--orange);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 10px;
+            z-index: 5;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .court-card.selected .badge-selected-check {
+            display: flex;
+        }
+
+        .court-info {
+            padding: 16px;
+        }
+
+        .court-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .court-price {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--orange);
+            margin: 6px 0 12px;
+        }
+
+        .court-perk-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .court-perk-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: var(--text-secondary);
+        }
+
+        .court-perk-item i {
+            color: var(--muted);
+            width: 14px;
+            text-align: center;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border-lt);
+            margin: 25px 0;
+        }
+
+        /* Schedule slot select */
+        .schedule-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: stretch;
+            margin-bottom: 16px;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            color: var(--muted);
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 11px 14px 11px 40px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
             font-family: inherit;
-            color: #1C1C1E;
+            font-size: 13px;
+            color: var(--text-primary);
+            background: #white;
             outline: none;
-            transition: 0.2s;
             appearance: none;
         }
-        .form-select:focus, .form-input-field:focus {
-            border-color: var(--primary);
-            background: var(--white);
-            box-shadow: 0 0 0 3px rgba(255,82,0,0.08);
-        }
-        .select-wrapper { position: relative; }
-        .select-wrapper i {
-            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-            color: #8E8E93; font-size: 13px; pointer-events: none;
+
+        .form-control:focus {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px var(--orange-glow);
         }
 
-        /* LAPANGAN CARD GRID */
-        .lapangan-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
-            margin-top: 8px;
-        }
-        .lapangan-option {
-            border: 2px solid var(--border-color);
+        /* Status Availability */
+        .status-availability-box {
+            background: var(--green-lt);
+            border: 1px solid rgba(52, 199, 89, 0.15);
             border-radius: 12px;
-            padding: 16px;
-            cursor: pointer;
-            transition: 0.2s;
-            position: relative;
-        }
-        .lapangan-option:hover { border-color: var(--primary); background: #FFF9F6; }
-        .lapangan-option.selected { border-color: var(--primary); background: #FFF0E6; }
-        .lapangan-option input[type="radio"] { display: none; }
-        .lap-name { font-size: 14px; font-weight: 800; color: #1C1C1E; margin-bottom: 4px; }
-        .lap-price { font-size: 13px; color: var(--primary); font-weight: 700; }
-        .lap-check {
-            position: absolute; top: 12px; right: 12px;
-            width: 20px; height: 20px; border-radius: 50%;
-            background: var(--border-color); border: none;
-            display: flex; align-items: center; justify-content: center;
-            transition: 0.2s;
-        }
-        .lapangan-option.selected .lap-check { background: var(--primary); }
-        .lapangan-option.selected .lap-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 800; }
-
-        /* JADWAL SLOT */
-        .jadwal-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 8px;
-        }
-        .jadwal-slot {
-            border: 2px solid #E5E5EA;
-            border-radius: 10px;
-            padding: 12px;
-            cursor: pointer;
-            text-align: center;
-            transition: 0.2s;
-        }
-        .jadwal-slot:hover { border-color: var(--primary); background: #FFF9F6; }
-        .jadwal-slot.selected { border-color: var(--primary); background: #FFF0E6; }
-        .slot-tanggal { font-size: 11px; color: #8E8E93; font-weight: 600; }
-        .slot-jam { font-size: 14px; font-weight: 800; color: #1C1C1E; margin: 2px 0; }
-        .slot-status { font-size: 10px; color: var(--green); font-weight: 700; }
-        .jadwal-empty { text-align: center; padding: 30px; color: #8E8E93; grid-column: span 3; }
-        .jadwal-empty i { font-size: 28px; margin-bottom: 8px; color: #AEAEB2; display: block; }
-
-        /* METODE PEMBAYARAN */
-        .metode-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-top: 8px;
-        }
-        .metode-card {
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px 16px;
-            cursor: pointer;
-            text-align: center;
-            transition: 0.2s;
-        }
-        .metode-card:hover { border-color: var(--primary); background: #FFF9F6; }
-        .metode-card.selected { border-color: var(--primary); background: #FFF0E6; }
-        .metode-card input[type="radio"] { display: none; }
-        .metode-icon { font-size: 28px; margin-bottom: 8px; display: block; }
-        .metode-name { font-size: 14px; font-weight: 800; color: #1C1C1E; }
-        .metode-desc { font-size: 11px; color: #8E8E93; margin-top: 4px; }
-
-        /* PROMO SELECT */
-        .promo-option {
+            padding: 10px 20px;
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 14px 16px;
-            border: 1.5px solid var(--border-color);
+            min-height: 48px;
+        }
+
+        .status-availability-box.empty {
+            background: var(--red-lt);
+            border-color: rgba(255, 59, 48, 0.15);
+        }
+
+        .status-avail-icon {
+            color: var(--green);
+            font-size: 18px;
+        }
+
+        .status-availability-box.empty .status-avail-icon {
+            color: var(--red);
+        }
+
+        .status-avail-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #065F46;
+        }
+
+        .status-availability-box.empty .status-avail-title {
+            color: #991B1B;
+        }
+
+        .status-avail-desc {
+            font-size: 10px;
+            color: #047857;
+            margin-top: 2px;
+        }
+
+        .status-availability-box.empty .status-avail-desc {
+            color: #B91C1C;
+        }
+
+        .alert-banner {
+            background: #EFF6FF;
+            border: 1px solid rgba(0, 122, 255, 0.15);
             border-radius: 10px;
-            cursor: pointer;
-            margin-bottom: 10px;
-            transition: 0.2s;
-        }
-        .promo-option:hover { border-color: var(--primary); }
-        .promo-option.selected { border-color: var(--primary); background: #FFF0E6; }
-        .promo-option input[type="radio"] { accent-color: var(--primary); }
-        .promo-detail { flex: 1; }
-        .promo-name { font-size: 13px; font-weight: 700; color: #1C1C1E; }
-        .promo-disc { font-size: 12px; color: var(--green); font-weight: 700; }
-
-        /* NAVIGATION BUTTONS */
-        .btn-row {
+            padding: 12px 16px;
             display: flex;
+            align-items: center;
             gap: 12px;
-            margin-top: 24px;
+            margin-top: 16px;
         }
-        .btn-back {
-            background: var(--white); color: #1C1C1E;
-            border: 1.5px solid var(--border-color);
-            padding: 13px 28px; border-radius: 10px;
-            font-size: 14px; font-weight: 700; cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-back:hover { background: #F2F2F7; }
-        .btn-next {
-            flex: 1;
-            background: var(--primary); color: var(--white);
-            border: none; padding: 13px 28px; border-radius: 10px;
-            font-size: 14px; font-weight: 700; cursor: pointer;
-            transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .btn-next:hover { background: var(--primary-hover); }
-        .btn-next:disabled { background: #AEAEB2; cursor: not-allowed; }
 
-        /* ---- SUMMARY SIDEBAR ---- */
+        .alert-banner i {
+            color: var(--blue);
+            font-size: 16px;
+        }
+
+        .alert-banner-text {
+            font-size: 11.5px;
+            color: #1E40AF;
+            line-height: 1.5;
+        }
+
+        /* ---- POP-UP MODAL STYLE (PENGGANTI SIDEBAR) ---- */
+        .booking-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: none; /* Dikontrol via JS */
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+            animation: fadeInModal 0.25s ease-out forwards;
+        }
+
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         .summary-card {
-            background: var(--white);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 28px;
-            position: sticky;
-            top: 96px;
+            background: #fff;
+            border-radius: 20px !important;
+            border: none !important;
+            padding: 30px !important;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+            animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
+        @keyframes slideInModal {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .booking-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--border-lt);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: var(--transition-smooth);
+            z-index: 10;
+        }
+
+        .booking-modal-close:hover {
+            background: var(--red-lt);
+            color: var(--red);
+        }
+
+        /* Tombol Utama untuk membuka Modal */
+        .btn-trigger-modal {
+            display: flex;
+            width: 100%;
+            max-width: 320px;    /* Membatasi lebar tombol agar proporsional */
+            margin: 30px 0 0 auto; /* Menggunakan 'auto' di sisi kiri agar tombol terdorong ke kanan */
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background 0.2s ease;
+        }
+
+        .btn-trigger-modal:hover:not(:disabled) {
+            background: var(--orange-hover);
+        }
+
+        .btn-trigger-modal:disabled {
+            background: var(--muted);
+            cursor: not-allowed;
+        }
+
         .summary-title {
-            font-size: 16px; font-weight: 800; color: #1C1C1E; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 10px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            margin-bottom: 20px;
+            text-transform: uppercase;
         }
-        .summary-title i { color: var(--primary); }
-        .summary-row {
-            display: flex; justify-content: space-between; align-items: flex-start;
-            padding: 12px 0; border-bottom: 1px solid #F2F2F7; font-size: 13px;
+
+        .summary-item-info {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
         }
-        .summary-row:last-child { border-bottom: none; }
-        .s-label { color: #636366; font-weight: 600; }
-        .s-value { color: #1C1C1E; font-weight: 700; text-align: right; max-width: 55%; }
-        .s-value.discount { color: var(--green); }
-        .s-total { font-size: 18px; font-weight: 800; color: var(--primary); }
-        .summary-divider { height: 1px; background: var(--border-color); margin: 8px 0; }
-        .member-badge-summary {
-            background: var(--green-lt); border: 1px solid var(--green);
-            color: var(--green); padding: 8px 14px; border-radius: 8px;
-            font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+
+        .summary-thumb {
+            width: 70px;
+            height: 70px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .summary-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .summary-details {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .summary-court-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .summary-venue {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .summary-meta {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        .summary-meta i {
+            font-size: 11px;
+            color: var(--muted);
+            width: 14px;
+        }
+
+        /* Member Discount Area */
+        .member-block {
+            border-top: 1px solid var(--border-lt);
+            padding: 16px 0;
+        }
+
+        .member-status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .member-status-label {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .badge-member-active {
+            background: var(--green-lt);
+            color: var(--green);
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-member-inactive {
+            background: #FFF3CD;
+            color: #D97706;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .member-text-congratulations {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .discount-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12.5px;
+        }
+
+        .discount-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .discount-val {
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        /* Promo Styles */
+        .promo-warning-box {
+            background: #FFF3CD;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 16px;
         }
-        .summary-empty {
-            text-align: center; padding: 30px 0; color: #AEAEB2;
-        }
-        .summary-empty i { font-size: 40px; margin-bottom: 12px; display: block; }
 
-        /* ---- QRIS MODAL ---- */
-        .modal-overlay {
+        .promo-warning-box i {
+            color: #D97706;
+            font-size: 14px;
+        }
+
+        .promo-warning-text {
+            font-size: 11px;
+            color: #B45309;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .promo-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 20px;
+        }
+
+        .promo-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .promo-input-wrapper i.prefix-icon {
+            position: absolute;
+            left: 14px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .promo-input-wrapper i.lock-icon {
+            position: absolute;
+            right: 14px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .promo-input {
+            width: 100%;
+            padding: 10px 36px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: var(--text-primary);
+            outline: none;
+            font-weight: 500;
+        }
+
+        .promo-input:disabled {
+            background: #F8FAFC;
+            color: var(--muted);
+            cursor: not-allowed;
+        }
+
+        /* Price Breakdown */
+        .pricing-breakdown {
+            border-top: 1px solid var(--border-lt);
+            padding: 16px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .price-row.total-row {
+            margin-top: 6px;
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 800;
+            align-items: center;
+        }
+
+        .price-row.total-row .total-amount {
+            font-size: 20px;
+            color: var(--orange);
+            font-weight: 900;
+        }
+
+        /* Payment Methods */
+        .payment-section {
+            border-top: 1px solid var(--border-lt);
+            padding: 20px 0 10px;
+        }
+
+        .payment-header {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .payment-header i {
+            color: var(--muted);
+        }
+
+        .payment-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .payment-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .payment-card:hover {
+            border-color: var(--orange);
+        }
+
+        .payment-card.selected {
+            border-color: var(--orange);
+            background: var(--orange-lt);
+        }
+
+        .custom-radio {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1.5px solid var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: 0.2s;
+        }
+
+        .payment-card.selected .custom-radio {
+            border-color: var(--orange);
+        }
+
+        .custom-radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--orange);
             display: none;
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 9999;
-            align-items: center; justify-content: center;
-        }
-        .modal-overlay.show { display: flex; }
-        .modal-box {
-            background: var(--white);
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 440px;
-            width: 90%;
-            text-align: center;
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-title { font-size: 20px; font-weight: 800; color: #1C1C1E; margin-bottom: 6px; }
-        .modal-subtitle { font-size: 13px; color: #636366; margin-bottom: 24px; }
-        .qris-container {
-            background: #FAFAFA;
-            border: 2px dashed var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-        }
-        #qrcode-canvas { margin: 0 auto; }
-        .qris-amount {
-            font-size: 22px; font-weight: 800; color: var(--primary); margin-top: 16px;
-        }
-        .qris-note { font-size: 12px; color: #8E8E93; margin-top: 8px; }
-        .qris-timer {
-            background: #FFF0E6; border: 1px solid #FFD2BC;
-            border-radius: 10px; padding: 12px;
-            font-size: 14px; font-weight: 700; color: var(--primary);
-            margin-bottom: 20px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .btn-confirm-paid {
-            background: var(--green); color: var(--white);
-            border: none; width: 100%; padding: 14px;
-            border-radius: 10px; font-size: 15px; font-weight: 800;
-            cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .btn-confirm-paid:hover { background: #28A745; }
-        .btn-cancel-modal {
-            background: none; border: none;
-            color: #8E8E93; font-size: 13px; cursor: pointer;
-            margin-top: 12px; display: block; width: 100%;
-            font-family: inherit; padding: 8px; transition: 0.2s;
-        }
-        .btn-cancel-modal:hover { color: var(--red); }
-
-        /* TRANSFER MODAL */
-        .transfer-info-box {
-            background: #F8F9FA; border: 1px solid var(--border-color);
-            border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: left;
-        }
-        .transfer-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 0; border-bottom: 1px solid #EEEEEE; font-size: 13px;
-        }
-        .transfer-row:last-child { border-bottom: none; }
-        .tr-label { color: #636366; font-weight: 600; }
-        .tr-value { color: #1C1C1E; font-weight: 800; }
-        .tr-value.highlight { color: var(--primary); font-size: 18px; }
-        .copy-btn {
-            background: #F2F2F7; border: none; border-radius: 6px;
-            padding: 4px 10px; font-size: 11px; font-weight: 700;
-            cursor: pointer; color: #636366; transition: 0.2s;
-        }
-        .copy-btn:hover { background: var(--primary); color: white; }
-        .btn-sudah-transfer {
-            background: var(--primary); color: var(--white);
-            border: none; width: 100%; padding: 14px;
-            border-radius: 10px; font-size: 15px; font-weight: 800;
-            cursor: pointer; transition: 0.2s;
-        }
-        .btn-sudah-transfer:hover { background: var(--primary-hover); }
-
-        /* WAITING MODAL */
-        .waiting-box { text-align: center; padding: 20px 0; }
-        .waiting-spinner {
-            width: 64px; height: 64px; border-radius: 50%;
-            border: 4px solid #E5E5EA; border-top-color: var(--primary);
-            animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .waiting-text { font-size: 16px; font-weight: 700; color: #1C1C1E; margin-bottom: 8px; }
-        .waiting-sub { font-size: 13px; color: #8E8E93; }
-
-        /* SUCCESS MODAL */
-        .success-icon-big {
-            width: 72px; height: 72px; border-radius: 50%;
-            background: var(--green-lt); border: 2px solid var(--green);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 20px; font-size: 32px; color: var(--green);
         }
 
-        /* ---- RIWAYAT SECTION ---- */
-        .riwayat-section {
-            margin-top: 40px;
-            background: var(--white);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            padding: 32px;
-            grid-column: 1 / -1;
+        .payment-card.selected .custom-radio::after {
+            display: block;
         }
-        .riwayat-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 24px;
-        }
-        .riwayat-title { font-size: 18px; font-weight: 800; color: #1C1C1E; }
-        .tab-filters { display: flex; gap: 8px; }
-        .tab-filter-btn {
-            background: none; border: 1.5px solid var(--border-color);
-            border-radius: 20px; padding: 6px 16px;
-            font-size: 13px; font-weight: 700; color: #636366; cursor: pointer; transition: 0.2s;
-        }
-        .tab-filter-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
-        .tab-filter-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
-        /* RIWAYAT TABLE */
-        .riwayat-table { width: 100%; border-collapse: collapse; }
-        .riwayat-table th {
-            font-size: 11px; font-weight: 700; color: #8E8E93;
-            text-transform: uppercase; letter-spacing: 0.5px;
-            padding: 10px 16px; text-align: left;
-            background: #F8F9FA; border-bottom: 1px solid var(--border-color);
+        .payment-card-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .riwayat-table th:first-child { border-radius: 8px 0 0 8px; }
-        .riwayat-table th:last-child { border-radius: 0 8px 8px 0; }
-        .riwayat-table td {
-            padding: 16px; border-bottom: 1px solid #F2F2F7;
-            font-size: 13px; vertical-align: middle;
-        }
-        .riwayat-table tr:last-child td { border-bottom: none; }
-        .riwayat-table tr:hover td { background: #FAFAFA; }
-        .r-court { font-size: 14px; font-weight: 800; color: #1C1C1E; }
-        .r-meta { font-size: 12px; color: #636366; margin-top: 3px; }
-        .r-price { font-size: 15px; font-weight: 800; color: var(--primary); }
 
-        /* STATUS PILLS */
-        .status-pill {
-            padding: 5px 12px; border-radius: 20px;
-            font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
-            display: inline-flex; align-items: center; gap: 5px;
+        .payment-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.3;
         }
-        .sp-active  { background: var(--green-lt);  color: var(--green); }
-        .sp-success { background: var(--blue-lt);   color: var(--blue); }
-        .sp-pending { background: var(--yellow-lt); color: #D97706; }
-        .sp-inactive{ background: var(--red-lt);    color: var(--red); }
 
-        .riwayat-empty { text-align: center; padding: 50px 20px; color: #AEAEB2; }
-        .riwayat-empty i { font-size: 40px; margin-bottom: 12px; display: block; }
+        .payment-sub {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 1px;
+            font-weight: 500;
+        }
+
+        .qris-logo {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 900;
+            font-size: 14px;
+            color: #000;
+            letter-spacing: -0.5px;
+        }
+
+        .btn-booking {
+            width: 100%;
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            transition: background 0.2s ease;
+        }
+
+        .btn-booking:hover:not(:disabled) {
+            background: var(--orange-hover);
+        }
+
+        .btn-booking:disabled {
+            background: var(--muted);
+            cursor: not-allowed;
+        }
+
+        .booking-disclaimer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .booking-disclaimer i {
+            color: var(--green);
+        }
+
+        /* Success Toast */
+        .success-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            display: none;
+            align-items: center;
+            gap: 16px;
+            z-index: 1000;
+            max-width: 600px;
+            animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--green-lt);
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .toast-body {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .toast-subtitle {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        .toast-meta-pills {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .toast-pill {
+            background: var(--border-lt);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .btn-toast-action {
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-toast-action:hover {
+            background: var(--orange-hover);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            align-self: flex-start;
+        }
+
+        .toast-close:hover {
+            color: var(--red);
+        }
+
+        .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
 
         /* ---- FOOTER ---- */
         footer {
-            background: var(--dark-bg); color: #8E8E93;
-            padding: 60px 80px 30px; border-top: 1px solid #1C1C1E;
+            background: var(--dark-bg);
+            color: #8E8E93;
+            padding: 80px 80px 40px;
+            border-top: 1px solid #1C1C1E;
         }
-        .footer-inner {
-            max-width: 1440px; margin: 0 auto;
-            display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px;
-            margin-bottom: 40px;
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+            gap: 40px;
+            margin-bottom: 60px;
         }
-        .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-        .footer-logo img { height: 60px; }
-        .footer-desc { font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
-        .social-links { display: flex; gap: 10px; }
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .footer-logo img {
+            height: 70px;
+        }
+        .footer-logo span {
+            color: var(--white);
+            font-size: 20px;
+            font-weight: 800;
+        }
+        .footer-desc {
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .social-links {
+            display: flex;
+            gap: 12px;
+        }
         .social-btn {
-            width: 34px; height: 34px; border-radius: 50%; background: #1C1C1E;
-            color: var(--white); display: flex; align-items: center; justify-content: center;
-            text-decoration: none; transition: 0.2s; font-size: 13px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1C1C1E;
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: 0.2s;
         }
-        .social-btn:hover { background: var(--primary); }
-        .footer-col h4 { color: var(--white); font-size: 14px; font-weight: 700; margin-bottom: 16px; }
-        .footer-col ul { list-style: none; }
-        .footer-col ul li { margin-bottom: 10px; }
-        .footer-col ul li a { color: #8E8E93; text-decoration: none; font-size: 13px; transition: 0.2s; }
-        .footer-col ul li a:hover { color: var(--white); }
-        .contact-item { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
-        .contact-item i { color: var(--primary); font-size: 13px; margin-top: 3px; }
-        .footer-bottom { border-top: 1px solid #1C1C1E; padding-top: 24px; text-align: center; font-size: 12px; }
+        .social-btn:hover {
+            background: var(--primary);
+        }
+        .footer-col h4 {
+            color: var(--white);
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .footer-col ul {
+            list-style: none;
+        }
+        .footer-col ul li {
+            margin-bottom: 12px;
+        }
+        .footer-col ul li a {
+            color: #8E8E93;
+            text-decoration: none;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        .footer-col ul li a:hover {
+            color: var(--white);
+        }
+        .contact-item {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        .contact-item i {
+            color: var(--primary);
+            font-size: 14px;
+            margin-top: 3px;
+        }
+        .footer-bottom {
+            border-top: 1px solid #1C1C1E;
+            padding-top: 30px;
+            text-align: center;
+            font-size: 13px;
+        }
 
-        /* RESPONSIVE */
-        @media(max-width: 1024px) {
-            .main-wrapper { grid-template-columns: 1fr; padding: 30px 30px 50px; }
-            .summary-card { position: static; }
+        /* Media queries responsive navbar */
+        @media (max-width: 1200px) {
+            nav { padding: 0 40px; }
         }
-        @media(max-width: 768px) {
-            nav { padding: 0 20px; }
-            .page-hero { padding: 40px 20px; }
-            .lapangan-grid { grid-template-columns: 1fr; }
-            .jadwal-grid { grid-template-columns: repeat(2, 1fr); }
-            .riwayat-section { padding: 20px; }
-            footer { padding: 40px 20px 20px; }
-            .footer-inner { grid-template-columns: 1fr 1fr; }
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                height: auto;
+                padding: 15px 20px;
+                gap: 15px;
+            }
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 4px;
+            }
+            .nav-user-container {
+                height: auto;
+            }
+            .dropdown-menu {
+                top: 50px;
+                right: 50%;
+                transform: translateX(50%);
+            }
         }
     </style>
 </head>
@@ -907,11 +1531,11 @@ $status_labels = [
 
 <!-- NAVBAR -->
 <nav>
-    <a href="../dashboard/view_customer.php" class="nav-logo">
+    <a href="view_customer.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
-        <a href="../dashboard/view_customer.php">Beranda</a>
+        <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
         <a href="#">Lapangan</a>
         <a href="#">Member</a>
@@ -919,456 +1543,322 @@ $status_labels = [
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
+
+    <!-- User Dropdown -->
     <div class="nav-user-container">
         <div class="nav-user">
             <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
-                <img src="<?= htmlspecialchars($photo_profile) ?>" alt="Avatar" class="user-avatar">
+                <img src="<?php echo htmlspecialchars($photo_profile); ?>" alt="Avatar" class="user-avatar">
             <?php else: ?>
                 <i class="fa-solid fa-circle-user user-icon"></i>
             <?php endif; ?>
-            <span><?= htmlspecialchars($nama_customer) ?></span>
+            <span><?php echo htmlspecialchars($nama_customer); ?></span>
             <i class="fa-solid fa-chevron-down arrow"></i>
         </div>
         <div class="dropdown-menu">
             <div class="user-info-header">
-                <span class="u-name"><?= htmlspecialchars($nama_customer) ?></span>
+                <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
                 <span class="u-role">Customer</span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
+            <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
 </nav>
 
-<!-- PAGE HERO -->
-<section class="page-hero">
-    <div class="breadcrumb">
-        <a href="../dashboard/view_customer.php">Beranda</a>
-        <i class="fa-solid fa-chevron-right"></i>
-        <span style="color: var(--primary);">Booking Lapangan</span>
-    </div>
-    <h1>Booking Lapangan Basket</h1>
-    <p>Pilih lapangan, jadwal, dan metode pembayaran untuk melengkapi reservasi Anda.</p>
-</section>
-
-<!-- MAIN CONTENT -->
-<div class="main-wrapper">
-
-    <!-- LEFT: BOOKING FORM -->
-    <div>
-        <div class="booking-card">
-            <div class="booking-card-title">
-                <i class="fa-solid fa-basketball"></i>
-                Form Booking Lapangan
+<div class="container">
+    
+    <!-- STEP WIZARD (Panduan Statis Tanpa Animasi / Warna Melompat) -->
+    <div class="steps-card">
+        <div class="steps-line"></div>
+        <div class="steps-container">
+            <div class="step-item">
+                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
+                <div class="step-title">Pilih Lapangan</div>
+                <div class="step-desc">Pilih lapangan favoritmu</div>
             </div>
-
-            <!-- STEP INDICATOR -->
-            <div class="step-indicator">
-                <div class="step-item">
-                    <div class="step-circle active" id="step-circle-1">1</div>
-                    <div class="step-label active" id="step-label-1">Pilih Lapangan</div>
-                </div>
-                <div class="step-item">
-                    <div class="step-circle" id="step-circle-2">2</div>
-                    <div class="step-label" id="step-label-2">Pilih Jadwal</div>
-                </div>
-                <div class="step-item">
-                    <div class="step-circle" id="step-circle-3">3</div>
-                    <div class="step-label" id="step-label-3">Promo</div>
-                </div>
-                <div class="step-item">
-                    <div class="step-circle" id="step-circle-4">4</div>
-                    <div class="step-label" id="step-label-4">Pembayaran</div>
-                </div>
+            <div class="step-item">
+                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
+                <div class="step-title">Pilih Jadwal</div>
+                <div class="step-desc">Tentukan tanggal & waktu</div>
             </div>
-
-            <!-- STEP 1: PILIH LAPANGAN -->
-            <div class="form-section visible" id="step-1">
-                <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Pilih lapangan basket yang ingin Anda sewa.</p>
-                <div class="lapangan-grid">
-                    <?php foreach ($lapangan_list as $lap): ?>
-                    <label class="lapangan-option" onclick="pilihLapangan(<?= $lap['ID_Lapangan'] ?>, '<?= htmlspecialchars($lap['Nama_Lapangan']) ?>', <?= $lap['Harga_Sewa'] ?>)">
-                        <input type="radio" name="lapangan" value="<?= $lap['ID_Lapangan'] ?>">
-                        <span class="lap-check" id="check-lap-<?= $lap['ID_Lapangan'] ?>"></span>
-                        <div class="lap-name"><?= htmlspecialchars($lap['Nama_Lapangan']) ?></div>
-                        <div class="lap-price"><?= rupiahFormat($lap['Harga_Sewa']) ?> / jam</div>
-                    </label>
-                    <?php endforeach; ?>
-                    <?php if (empty($lapangan_list)): ?>
-                    <div style="grid-column: span 2; text-align: center; padding: 30px; color: #8E8E93;">
-                        <i class="fa-solid fa-circle-info" style="font-size: 24px; margin-bottom: 8px; color: var(--primary);"></i>
-                        <p>Tidak ada lapangan aktif saat ini.</p>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <div class="btn-row" style="margin-top: 28px;">
-                    <button class="btn-next" id="btn-next-1" onclick="goStep(2)" disabled>
-                        Pilih Jadwal <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>
+            <div class="step-item">
+                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
+                <div class="step-title">Pembayaran</div>
+                <div class="step-desc">Pilih metode pembayaran</div>
             </div>
-
-            <!-- STEP 2: PILIH JADWAL -->
-            <div class="form-section" id="step-2">
-                <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Pilih jadwal yang tersedia untuk lapangan yang dipilih.</p>
-                <div class="jadwal-grid" id="jadwal-grid-container">
-                    <div class="jadwal-empty">
-                        <i class="fa-regular fa-calendar-xmark"></i>
-                        Memuat jadwal...
-                    </div>
-                </div>
-                <div class="btn-row">
-                    <button class="btn-back" onclick="goStep(1)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                    <button class="btn-next" id="btn-next-2" onclick="goStep(3)" disabled>
-                        <?php if (!$has_member): ?>Pilih Promo<?php else: ?>Pilih Pembayaran<?php endif; ?> <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- STEP 3: PROMO / LANGSUNG LANJUT JIKA MEMBER -->
-            <div class="form-section" id="step-3">
-                <?php if ($has_member): ?>
-                    <!-- Member langsung skip promo -->
-                    <div style="text-align: center; padding: 30px 0;">
-                        <div style="background: var(--green-lt); border: 1px solid var(--green); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                            <i class="fa-solid fa-crown" style="color: var(--green); font-size: 28px; margin-bottom: 10px; display: block;"></i>
-                            <div style="font-weight: 800; color: var(--green); font-size: 15px;">Potongan Member <?= htmlspecialchars($member_tipe) ?> Aktif!</div>
-                            <div style="font-size: 13px; color: #636366; margin-top: 6px;">Anda mendapatkan potongan <strong><?= rupiahFormat($member_potong) ?></strong> secara otomatis.</div>
-                        </div>
-                        <p style="font-size: 13px; color: #8E8E93;">Promo tidak dapat digunakan bersamaan dengan keuntungan member.</p>
-                    </div>
-                <?php else: ?>
-                    <p style="font-size: 13px; color: #636366; margin-bottom: 16px;">Gunakan promo untuk mendapatkan potongan harga (opsional).</p>
-                    <?php if (!empty($promo_list)): ?>
-                        <label class="promo-option" id="promo-none" onclick="pilihPromo(0, 0, 'Tanpa Promo')">
-                            <input type="radio" name="promo" value="0" checked>
-                            <div class="promo-detail">
-                                <div class="promo-name">Tanpa Promo</div>
-                                <div style="font-size: 12px; color: #8E8E93;">Bayar dengan harga normal</div>
-                            </div>
-                        </label>
-                        <?php foreach ($promo_list as $pr): ?>
-                        <label class="promo-option" id="promo-<?= $pr['ID_Promo'] ?>" onclick="pilihPromo(<?= $pr['ID_Promo'] ?>, <?= $pr['Diskon'] ?>, '<?= htmlspecialchars($pr['Nama_Promo']) ?>')">
-                            <input type="radio" name="promo" value="<?= $pr['ID_Promo'] ?>">
-                            <div class="promo-detail">
-                                <div class="promo-name"><?= htmlspecialchars($pr['Nama_Promo']) ?></div>
-                                <div class="promo-disc"><i class="fa-solid fa-tags"></i> Hemat <?= rupiahFormat($pr['Diskon']) ?></div>
-                            </div>
-                            <span style="font-size: 18px; font-weight: 800; color: var(--primary);">-<?= rupiahFormat($pr['Diskon']) ?></span>
-                        </label>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="text-align: center; padding: 30px; background: #F8F9FA; border-radius: 12px; color: #8E8E93;">
-                            <i class="fa-solid fa-tag" style="font-size: 28px; margin-bottom: 10px; display: block;"></i>
-                            Tidak ada promo aktif saat ini. Harga normal akan diterapkan.
-                        </div>
-                    <?php endif; ?>
-                <?php endif; ?>
-                <div class="btn-row">
-                    <button class="btn-back" onclick="goStep(2)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                    <button class="btn-next" onclick="goStep(4)">
-                        Pilih Pembayaran <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- STEP 4: METODE PEMBAYARAN -->
-            <div class="form-section" id="step-4">
-                <p style="font-size: 13px; color: #636366; margin-bottom: 20px;">Pilih metode pembayaran online untuk menyelesaikan booking.</p>
-                <div class="metode-grid">
-                    <label class="metode-card" id="card-qris" onclick="pilihMetode('QRIS')">
-                        <input type="radio" name="metode" value="QRIS">
-                        <span class="metode-icon">📱</span>
-                        <div class="metode-name">QRIS</div>
-                        <div class="metode-desc">Scan & bayar langsung</div>
-                    </label>
-                    <label class="metode-card" id="card-transfer" onclick="pilihMetode('Transfer Bank')">
-                        <input type="radio" name="metode" value="Transfer Bank">
-                        <span class="metode-icon">🏦</span>
-                        <div class="metode-name">Transfer Bank</div>
-                        <div class="metode-desc">Transfer ke rekening tujuan</div>
-                    </label>
-                </div>
-
-                <!-- RINGKASAN SEBELUM BAYAR -->
-                <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; margin-top: 20px;" id="final-summary-box">
-                    <div style="font-size: 13px; font-weight: 700; color: #1C1C1E; margin-bottom: 12px;">Ringkasan Pesanan</div>
-                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
-                        <span style="color: #636366;">Lapangan</span><span id="fs-lapangan" style="font-weight: 700;">-</span>
-                    </div>
-                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
-                        <span style="color: #636366;">Jadwal</span><span id="fs-jadwal" style="font-weight: 700;">-</span>
-                    </div>
-                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
-                        <span style="color: #636366;">Harga Sewa</span><span id="fs-harga" style="font-weight: 700;">-</span>
-                    </div>
-                    <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;" id="fs-potongan-row">
-                        <span style="color: #636366;" id="fs-potongan-label">Potongan</span>
-                        <span id="fs-potongan" style="font-weight: 700; color: var(--green);">-</span>
-                    </div>
-                    <div style="height: 1px; background: #E5E5EA; margin: 12px 0;"></div>
-                    <div style="display:flex; justify-content: space-between; font-size: 16px;">
-                        <span style="font-weight: 800; color: #1C1C1E;">Total Bayar</span>
-                        <span id="fs-total" style="font-weight: 800; color: var(--primary);">-</span>
-                    </div>
-                </div>
-
-                <div class="btn-row">
-                    <button class="btn-back" onclick="goStep(3)"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
-                    <button class="btn-next" id="btn-bayar" onclick="prosesBooking()" disabled>
-                        <i class="fa-solid fa-lock"></i> Bayar Sekarang
-                    </button>
-                </div>
+            <div class="step-item">
+                <div class="step-num" style="background: var(--orange); color: #fff; border-color: var(--orange);"></div>
+                <div class="step-title">Konfirmasi</div>
+                <div class="step-desc">Menunggu konfirmasi</div>
             </div>
         </div>
+    </div>
 
-        <!-- RIWAYAT BOOKING -->
-        <div class="riwayat-section">
-            <div class="riwayat-header">
-                <div class="riwayat-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i> Riwayat Booking Saya</div>
-                <div class="tab-filters">
-                    <button class="tab-filter-btn active" onclick="filterRiwayat('semua', this)">Semua</button>
-                    <button class="tab-filter-btn" onclick="filterRiwayat('0', this)">Menunggu</button>
-                    <button class="tab-filter-btn" onclick="filterRiwayat('1', this)">Berhasil</button>
-                    <button class="tab-filter-btn" onclick="filterRiwayat('2', this)">Selesai</button>
-                    <button class="tab-filter-btn" onclick="filterRiwayat('3', this)">Dibatalkan</button>
-                </div>
-            </div>
-            <?php if (!empty($riwayat_list)): ?>
-            <table class="riwayat-table" id="riwayat-tbl">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Lapangan & Jadwal</th>
-                        <th>Tgl Booking</th>
-                        <th>Metode</th>
-                        <th>Diskon</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($riwayat_list as $i => $r):
-                        $sl = $status_labels[$r['Status']] ?? $status_labels[0];
-                        $potongan_info = '';
-                        if ($r['Nama_Promo']) {
-                            $potongan_info = '<span style="color: var(--green); font-size:11px; font-weight:700;">🏷️ '
-                                . htmlspecialchars($r['Nama_Promo']) . '<br>-' . rupiahFormat($r['Diskon']) . '</span>';
-                        } elseif ($r['Nama_Tipe']) {
-                            $potongan_info = '<span style="color: var(--green); font-size:11px; font-weight:700;">👑 Member '
-                                . htmlspecialchars($r['Nama_Tipe']) . '<br>-' . rupiahFormat($r['Potong_Member']) . '</span>';
-                        } else {
-                            $potongan_info = '<span style="color:#8E8E93; font-size:12px;">-</span>';
-                        }
-                    ?>
-                    <tr data-status="<?= $r['Status'] ?>">
-                        <td style="font-size: 12px; color: #8E8E93; font-weight: 700;">#<?= str_pad($r['ID_Booking'], 4, '0', STR_PAD_LEFT) ?></td>
-                        <td>
-                            <div class="r-court"><?= htmlspecialchars($r['Nama_Lapangan']) ?></div>
-                            <div class="r-meta">
-                                <i class="fa-regular fa-calendar"></i> <?= formatTanggal($r['Tanggal']) ?>
-                                &nbsp;|&nbsp;
-                                <i class="fa-regular fa-clock"></i> <?= formatJam($r['Jam_Mulai']) ?> - <?= formatJam($r['Jam_Selesai']) ?>
-                            </div>
-                        </td>
-                        <td style="font-size: 13px; color: #636366;"><?= formatTanggal($r['Tanggal_Booking']) ?></td>
-                        <td>
-                            <span style="font-size: 13px; font-weight: 600;">
-                                <?= $r['Metode_Pembayaran'] === 'QRIS' ? '📱 QRIS' : '🏦 ' . htmlspecialchars($r['Metode_Pembayaran']) ?>
-                            </span>
-                        </td>
-                        <td><?= $potongan_info ?></td>
-                        <td class="r-price"><?= rupiahFormat($r['Total_Bayar']) ?></td>
-                        <td>
-                            <span class="status-pill <?= $sl['class'] ?>">
-                                <i class="fa-solid <?= $sl['icon'] ?>"></i> <?= $sl['label'] ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+    <!-- MAIN FORM CARD -->
+    <div class="form-card">
+        
+        <!-- 1. Pilih Lapangan -->
+        <div class="section-header">
+            <h2 class="section-title">1. Pilih Lapangan</h2>
+            <p class="section-subtitle">Pilih lapangan basket yang aktif dan tersedia</p>
+        </div>
+
+        <div class="court-grid">
+            <?php if (!empty($lapanganList)): ?>
+                <?php foreach ($lapanganList as $index => $lap): 
+                    $courtId = $lap['ID_Lapangan'];
+                    $courtName = htmlspecialchars($lap['Nama_Lapangan']);
+                    $courtPrice = floatval($lap['Harga_Sewa']);
+                    $isSelected = ($index === 0) ? 'selected' : '';
+                    $imgUrl = !empty($lap['Photo_Lapangan']) ? htmlspecialchars($lap['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                ?>
+                    <div class="court-card <?= $isSelected ?>" 
+                         data-id="<?= $courtId ?>" 
+                         data-price="<?= $courtPrice ?>" 
+                         data-name="<?= $courtName ?>" 
+                         data-img="<?= $imgUrl ?>">
+                        <div class="badge-selected-check"><i class="fa-solid fa-check"></i></div>
+                        <div class="court-img-wrapper">
+                            <img src="<?= $imgUrl ?>" alt="<?= $courtName ?>" class="court-img">
+                            <span class="badge-available">Tersedia</span>
+                        </div>
+                        <div class="court-info">
+                            <h3 class="court-name"><?= $courtName ?></h3>
+                            <p class="court-price">Rp <?= number_format($courtPrice, 0, ',', '.') ?> / jam</p>
+                            <ul class="court-perk-list">
+                                <?php if (isset($lapanganFasilitas[$courtId])): ?>
+                                    <?php foreach ($lapanganFasilitas[$courtId] as $fas): ?>
+                                        <li class="court-perk-item">
+                                            <i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($fas) ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <li class="court-perk-item"><i class="fa-solid fa-basketball"></i> Bola Basket Standar</li>
+                                    <li class="court-perk-item"><i class="fa-solid fa-lightbulb"></i> Pencahayaan Terang</li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             <?php else: ?>
-            <div class="riwayat-empty">
-                <i class="fa-regular fa-calendar-xmark"></i>
-                <p style="font-size: 14px; font-weight: 700; color: #636366; margin-bottom: 6px;">Belum ada riwayat booking</p>
-                <p style="font-size: 13px;">Mulai booking lapangan pertama Anda sekarang!</p>
-            </div>
+                <p>Tidak ada lapangan aktif yang tersedia saat ini.</p>
             <?php endif; ?>
         </div>
-    </div>
 
-    <!-- RIGHT: SUMMARY SIDEBAR -->
-    <div class="summary-card">
-        <div class="summary-title"><i class="fa-solid fa-receipt"></i> Ringkasan Pesanan</div>
-
-        <?php if ($has_member): ?>
-        <div class="member-badge-summary">
-            <i class="fa-solid fa-crown"></i> Member <?= htmlspecialchars($member_tipe) ?> — Potongan <?= rupiahFormat($member_potong) ?>
-        </div>
-        <?php endif; ?>
-
-        <div id="summary-content">
-            <div class="summary-empty">
-                <i class="fa-regular fa-calendar-plus"></i>
-                <p style="font-size: 14px; font-weight: 700; color: #636366; margin-bottom: 6px;">Belum ada pilihan</p>
-                <p style="font-size: 12px; color: #AEAEB2;">Pilih lapangan dan jadwal terlebih dahulu</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ==============================
-     MODAL: QRIS PAYMENT
-============================== -->
-<div class="modal-overlay" id="modal-qris">
-    <div class="modal-box">
-        <div class="modal-title">Pembayaran QRIS</div>
-        <div class="modal-subtitle">Scan QR code di bawah untuk melakukan pembayaran</div>
-
-        <div class="qris-container">
-            <div id="qrcode-canvas"></div>
-            <div class="qris-amount" id="qris-amount-display">Rp 0</div>
-            <div class="qris-note">Merchant: <strong>HoopBall Indonesia</strong></div>
-        </div>
-
-        <div class="qris-timer" id="qris-timer-box">
-            <i class="fa-solid fa-clock"></i>
-            Batas waktu: <strong id="qris-timer-text">15:00</strong>
-        </div>
-
-        <button class="btn-confirm-paid" onclick="konfirmasiSudahBayarQRIS()">
-            <i class="fa-solid fa-check-circle"></i> Saya Sudah Bayar
+        <!-- TOMBOL STRATEGIS UNTUK MEMBUKA POP-UP JADWAL (MODAL 1) -->
+        <button class="btn-trigger-modal" id="btnOpenSchedule" disabled>
+            <i class="fa-solid fa-calendar-days"></i> Pilih Jadwal Bermain
         </button>
-        <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
     </div>
 </div>
 
-<!-- ==============================
-     MODAL: TRANSFER BANK
-============================== -->
-<div class="modal-overlay" id="modal-transfer">
-    <div class="modal-box">
-        <div class="modal-title">Transfer Bank</div>
-        <div class="modal-subtitle">Lakukan transfer ke rekening berikut dalam 1x24 jam</div>
+<!-- POP-UP MODAL 1: PILIH JADWAL -->
+<div class="booking-modal-overlay" id="scheduleModal">
+    <div class="summary-card" style="max-width: 600px;">
+        <button class="booking-modal-close" id="btnCloseSchedule">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <div class="section-header">
+            <h2 class="section-title">2. Pilih Jadwal Bermain</h2>
+            <p class="section-subtitle">Tentukan waktu bermain berdasarkan ketersediaan jadwal lapangan</p>
+        </div>
 
-        <div class="transfer-info-box">
-            <div class="transfer-row">
-                <span class="tr-label">Bank Tujuan</span>
-                <span class="tr-value">BCA</span>
-            </div>
-            <div class="transfer-row">
-                <span class="tr-label">Nomor Rekening</span>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="tr-value" id="rek-number">1234567890</span>
-                    <button class="copy-btn" onclick="copyToClipboard('1234567890')">Salin</button>
+        <div class="schedule-controls">
+            <div class="input-group">
+                <label class="input-label">Pilih Slot Jadwal Tersedia</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <select id="slotSelect" class="form-control">
+                        <!-- Diisi secara dinamis dengan JS AJAX -->
+                    </select>
                 </div>
             </div>
-            <div class="transfer-row">
-                <span class="tr-label">Atas Nama</span>
-                <span class="tr-value">HoopBall Indonesia</span>
-            </div>
-            <div class="transfer-row">
-                <span class="tr-label">Total Transfer</span>
-                <span class="tr-value highlight" id="transfer-amount-display">Rp 0</span>
-            </div>
-        </div>
 
-        <div style="background: #FFF0E6; border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 12px; color: #D97706; display: flex; gap: 10px; align-items: flex-start;">
-            <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px;"></i>
-            <span>Transfer sesuai nominal <strong>tepat</strong> untuk mempercepat konfirmasi. Booking akan dikonfirmasi oleh tim kami dalam 1×24 jam setelah pembayaran diterima.</span>
-        </div>
-
-        <button class="btn-sudah-transfer" onclick="konfirmasiSudahTransfer()">
-            <i class="fa-solid fa-paper-plane"></i> Saya Sudah Transfer — Tunggu Konfirmasi
-        </button>
-        <button class="btn-cancel-modal" onclick="batalBooking()">Batalkan Booking</button>
-    </div>
-</div>
-
-<!-- ==============================
-     MODAL: WAITING KONFIRMASI
-============================== -->
-<div class="modal-overlay" id="modal-waiting">
-    <div class="modal-box">
-        <div class="waiting-box">
-            <div class="waiting-spinner"></div>
-            <div class="waiting-text">Menunggu Konfirmasi Pembayaran</div>
-            <div class="waiting-sub" id="waiting-sub-text">Kami sedang memverifikasi pembayaran Anda.<br>Harap tunggu atau hubungi admin HoopBall.</div>
-
-            <div style="background: #F8F9FA; border-radius: 12px; padding: 16px; margin-top: 20px; font-size: 13px; text-align: left;">
-                <div style="font-weight: 700; color: #1C1C1E; margin-bottom: 8px;">Detail Booking</div>
-                <div style="color: #636366; margin-bottom: 4px;">Lapangan: <strong id="w-lapangan" style="color: #1C1C1E;">-</strong></div>
-                <div style="color: #636366; margin-bottom: 4px;">Jadwal: <strong id="w-jadwal" style="color: #1C1C1E;">-</strong></div>
-                <div style="color: #636366;">Total: <strong id="w-total" style="color: var(--primary);">-</strong></div>
-            </div>
-
-            <div style="margin-top: 20px; padding: 12px; background: var(--yellow-lt); border-radius: 10px; font-size: 12px; color: #D97706;">
-                <i class="fa-solid fa-info-circle"></i>
-                Status booking Anda saat ini: <strong>Menunggu Konfirmasi Karyawan</strong>
-            </div>
-
-            <button onclick="selesaiMenunggu()" style="margin-top: 20px; background: var(--primary); color: white; border: none; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%;">
-                <i class="fa-solid fa-home"></i> Kembali ke Beranda
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- ==============================
-     MODAL: BOOKING SUCCESS
-============================== -->
-<div class="modal-overlay" id="modal-success">
-    <div class="modal-box">
-        <div class="success-icon-big"><i class="fa-solid fa-check"></i></div>
-        <div class="modal-title">Booking Terkonfirmasi!</div>
-        <div class="modal-subtitle" style="margin-bottom: 24px;">Pembayaran Anda telah dikonfirmasi. Lapangan sudah siap untuk Anda!</div>
-
-        <div style="background: #F8F9FA; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 24px;">
-            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom: 8px;">
-                <span style="color: #636366;">Lapangan</span><strong id="suc-lapangan">-</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom: 8px;">
-                <span style="color: #636366;">Jadwal</span><strong id="suc-jadwal">-</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:13px;">
-                <span style="color: #636366;">Total Bayar</span><strong style="color: var(--primary);" id="suc-total">-</strong>
+            <!-- Status Box -->
+            <div class="status-availability-box" id="availabilityBox">
+                <div class="status-avail-icon" id="availIcon"><i class="fa-solid fa-circle-check"></i></div>
+                <div>
+                    <div class="status-avail-title" id="availTitle">Memuat slot...</div>
+                    <div class="status-avail-desc" id="lblDuration">Durasi: - jam</div>
+                </div>
             </div>
         </div>
 
-        <button onclick="window.location.href='booking_customer.php'" style="background: var(--primary); color: white; border: none; padding: 13px; width: 100%; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer;">
-            Lihat Riwayat Booking
+        <div class="alert-banner" style="margin-top: 20px; margin-bottom: 24px;">
+            <i class="fa-solid fa-circle-info"></i>
+            <p class="alert-banner-text">Semua transaksi sewa disesuaikan dengan daftar slot jadwal yang dibuat oleh pihak operator HoopBall Arena.</p>
+        </div>
+
+        <!-- TOMBOL STRATEGIS UNTUK MELANJUTKAN KE MODAL RINGKASAN & BAYAR (MODAL 2) -->
+        <button class="btn-trigger-modal" id="btnGoToSummary" disabled>
+            Lanjut ke Tinjau & Pembayaran <i class="fa-solid fa-arrow-right"></i>
         </button>
     </div>
 </div>
 
+<!-- POP-UP MODAL 2: KONTEN RINGKASAN BOOKING & METODE PEMBAYARAN -->
+<div class="booking-modal-overlay" id="bookingModal">
+    <div class="summary-card">
+        <button class="booking-modal-close" id="btnCloseSummary">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <h2 class="summary-title">Ringkasan Booking</h2>
+        
+        <div class="summary-item-info">
+            <div class="summary-thumb">
+                <img id="sumImg" src="" alt="Thumbnail">
+            </div>
+            <div class="summary-details">
+                <div class="summary-court-name" id="sumCourtName">-</div>
+                <div class="summary-venue">HoopBall Arena</div>
+                <div class="summary-meta"><i class="fa-solid fa-calendar"></i> <span id="sumPlayDate">-</span></div>
+                <div class="summary-meta"><i class="fa-solid fa-clock"></i> <span id="sumTimeLabel">-</span></div>
+            </div>
+        </div>
+
+        <!-- Status Member -->
+        <div class="member-block">
+            <div class="member-status-header">
+                <span class="member-status-label">Status Member</span>
+                <?php if ($has_member): ?>
+                    <span class="badge-member-active">Member <?php echo htmlspecialchars($member_tipe); ?> <i class="fa-solid fa-crown"></i></span>
+                <?php else: ?>
+                    <span class="badge-member-inactive">Bukan Member <i class="fa-solid fa-user"></i></span>
+                <?php endif; ?>
+            </div>
+            
+            <?php if ($has_member): ?>
+                <p class="member-text-congratulations">Selamat! Anda berhak mendapatkan potongan harga member aktif.</p>
+                <div class="discount-row">
+                    <span class="discount-label">Diskon Member (<?php echo htmlspecialchars($member_tipe); ?>)</span>
+                    <span class="discount-val" id="lblDiscountPercent">-Rp <?php echo number_format($member_discount, 0, ',', '.'); ?></span>
+                </div>
+            <?php else: ?>
+                <p class="member-text-congratulations">Gunakan kode promo aktif jika Anda bukan member.</p>
+            <?php endif; ?>
+        </div>
+
+        <!-- Promo Segment -->
+        <?php if ($has_member): ?>
+            <div class="promo-warning-box">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div class="promo-warning-text">Promo dinonaktifkan.<br>Potongan member otomatis diterapkan.</div>
+            </div>
+            <div class="promo-input-group">
+                <label class="input-label">Promo</label>
+                <div class="promo-input-wrapper">
+                    <i class="fa-solid fa-ticket prefix-icon"></i>
+                    <input type="text" class="promo-input" value="Tidak dapat digunakan" readonly disabled>
+                    <i class="fa-solid fa-lock lock-icon"></i>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="promo-input-group">
+                <label class="input-label">Gunakan Promo Aktif</label>
+                <div class="promo-input-wrapper">
+                    <i class="fa-solid fa-ticket prefix-icon"></i>
+                    <select id="promoSelect" class="form-control" style="padding-left: 36px; padding-right: 14px;">
+                        <option value="0" data-discount="0">-- Pilih Promo Tersedia --</option>
+                        <?php foreach ($promos as $pro): ?>
+                            <option value="<?php echo $pro['ID_Promo']; ?>" data-discount="<?php echo floatval($pro['Diskon']); ?>">
+                                <?php echo htmlspecialchars($pro['Nama_Promo']); ?> (-Rp <?php echo number_format($pro['Diskon'], 0, ',', '.'); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Price Breakdown -->
+        <div class="pricing-breakdown">
+            <div class="price-row">
+                <span id="lblNormalPriceLabel">Harga Sewa</span>
+                <span id="lblNormalPrice">Rp 0</span>
+            </div>
+            <?php if ($has_member): ?>
+                <div class="price-row">
+                    <span>Potongan Member</span>
+                    <span class="discount-val" id="lblDiscountBreakdown">-Rp <?php echo number_format($member_discount, 0, ',', '.'); ?></span>
+                </div>
+            <?php else: ?>
+                <div class="price-row">
+                    <span>Potongan Promo</span>
+                    <span class="discount-val" id="lblPromoBreakdown">-Rp 0</span>
+                </div>
+            <?php endif; ?>
+            <div class="price-row total-row">
+                <span>Total Pembayaran</span>
+                <span class="total-amount" id="lblTotalPrice">Rp 0</span>
+            </div>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="payment-section">
+            <div class="payment-header">
+                <i class="fa-solid fa-wallet"></i> Metode Pembayaran
+            </div>
+            <div class="payment-grid">
+                <div class="payment-card selected" data-method="Transfer Bank">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name">Transfer Bank</span>
+                        <span class="payment-sub">Virtual Account</span>
+                    </div>
+                </div>
+                <div class="payment-card" data-method="QRIS">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name qris-logo">QRIS</span>
+                        <span class="payment-sub">Scan & Bayar Instan</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button class="btn-booking" id="btnSubmit" disabled>
+            <i class="fa-solid fa-lock"></i> Selesaikan Booking
+        </button>
+        <div class="booking-disclaimer">
+            <i class="fa-solid fa-circle-check"></i> Enkripsi data aman terverifikasi
+        </div>
+    </div>
+</div>
 
 <!-- FOOTER -->
 <footer>
-    <div class="footer-inner">
+    <div class="footer-grid">
         <div>
             <div class="footer-logo">
                 <img src="../asset/image/logo.png" alt="HoopBall">
             </div>
-            <p class="footer-desc">Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
             <div class="social-links">
                 <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
                 <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
                 <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
             </div>
         </div>
+
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul>
-                <li><a href="../dashboard/view_customer.php">Beranda</a></li>
+                <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
                 <li><a href="#">Lapangan</a></li>
                 <li><a href="#">Member</a></li>
+                <li><a href="#">Pembelian</a></li>
             </ul>
         </div>
+
         <div class="footer-col">
             <h4>Informasi</h4>
             <ul>
@@ -1378,494 +1868,434 @@ $status_labels = [
                 <li><a href="#">FAQ</a></li>
             </ul>
         </div>
+
         <div class="footer-col">
             <h4>Hubungi Kami</h4>
-            <div class="contact-item"><i class="fa-solid fa-location-dot"></i> Jl. Olahraga No. 10, Jakarta Selatan 12190</div>
-            <div class="contact-item"><i class="fa-solid fa-phone"></i> +62 812-3456-7890</div>
-            <div class="contact-item"><i class="fa-solid fa-envelope"></i> info@hoopball.id</div>
-            <div class="contact-item"><i class="fa-solid fa-clock"></i> Setiap hari 07:00 – 23:00 WIB</div>
+            <div class="contact-item">
+                <i class="fa-solid fa-location-dot"></i>
+                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-phone"></i>
+                +62 812-3456-7890
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-envelope"></i>
+                info@hoopball.id
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-clock"></i>
+                Setiap hari 07:00 - 23:00 WIB
+            </div>
         </div>
     </div>
-    <div class="footer-bottom">&copy; 2025 HoopBall. All rights reserved.</div>
+    <div class="footer-bottom">
+        <p>&copy; 2025 HoopBall. All rights reserved.</p>
+    </div>
 </footer>
 
+<!-- SUCCESS TOAST POPUP (BOTTOM LEFT) -->
+<div class="success-toast" id="successToast">
+    <div class="toast-icon">
+        <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <div class="toast-body">
+        <div class="toast-title">Booking Berhasil Dibuat!</div>
+        <div class="toast-subtitle">Silakan lakukan konfirmasi pembayaran secepatnya.</div>
+        <div class="toast-meta-pills">
+            <span class="toast-pill" id="pillCourt">-</span>
+            <span class="toast-pill" id="pillDate">-</span>
+            <span class="toast-pill" id="pillTime">-</span>
+        </div>
+    </div>
+    <button class="btn-toast-action" onclick="location.reload();">Selesai</button>
+    <button class="toast-close" id="btnCloseToast"><i class="fa-solid fa-xmark"></i></button>
+</div>
 
 <script>
-// ============================================================================
-// STATE BOOKING
-// ============================================================================
-let state = {
-    lapanganId: 0,
-    lapanganNama: '',
-    lapanganHarga: 0,
-    jadwalId: 0,
-    jadwalDisplay: '',
-    jadwalTanggal: '',
-    jadwalJam: '',
-    promoId: 0,
-    promoDiskon: 0,
-    promoPilihan: 'Tanpa Promo',
-    metode: '',
-    totalBayar: 0,
-    idBooking: 0,
-};
+    // State management
+    let selectedCourtId = null;
+    let selectedCourtPrice = 0;
+    let selectedCourtName = '';
+    let selectedCourtImg = '';
+    
+    let isMember = <?php echo $has_member ? 'true' : 'false'; ?>;
+    let memberDiscount = <?php echo $member_discount; ?>;
+    
+    let selectedSlotId = null;
+    let selectedSlotDuration = 0; 
+    let selectedSlotDateFormatted = '';
+    let selectedSlotTimeFormatted = '';
+    
+    let selectedPaymentMethod = 'Transfer Bank';
 
-const hasMember   = <?= $has_member ? 'true' : 'false' ?>;
-const memberTipe  = "<?= htmlspecialchars($member_tipe) ?>";
-const memberPotong = <?= $member_potong ?>;
+    // Elements
+    const courts = document.querySelectorAll('.court-card');
+    const slotSelect = document.getElementById('slotSelect');
+    const promoSelect = document.getElementById('promoSelect');
+    const payments = document.querySelectorAll('.payment-card');
+    
+    // UI Recalculation Targets
+    const availabilityBox = document.getElementById('availabilityBox');
+    const availTitle = document.getElementById('availTitle');
+    const availIcon = document.getElementById('availIcon');
+    const lblDuration = document.getElementById('lblDuration');
+    const sumCourtName = document.getElementById('sumCourtName');
+    const sumImg = document.getElementById('sumImg');
+    const sumPlayDate = document.getElementById('sumPlayDate');
+    const sumTimeLabel = document.getElementById('sumTimeLabel');
+    const lblNormalPriceLabel = document.getElementById('lblNormalPriceLabel');
+    const lblNormalPrice = document.getElementById('lblNormalPrice');
+    const lblPromoBreakdown = document.getElementById('lblPromoBreakdown');
+    const lblTotalPrice = document.getElementById('lblTotalPrice');
+    const btnSubmit = document.getElementById('btnSubmit');
 
-// ============================================================================
-// STEP NAVIGATION
-// ============================================================================
-function goStep(step) {
-    // Validasi sebelum pindah step
-    if (step === 2 && !state.lapanganId) {
-        showToast('error', 'Pilih lapangan terlebih dahulu.');
-        return;
-    }
-    if (step === 3 && !state.jadwalId) {
-        showToast('error', 'Pilih jadwal terlebih dahulu.');
-        return;
-    }
-    if (step === 4) {
-        hitungTotal();
-        updateFinalSummary();
+    // Pop-up Trigger Elements
+    const btnOpenSchedule = document.getElementById('btnOpenSchedule');
+    const scheduleModal = document.getElementById('scheduleModal');
+    const btnCloseSchedule = document.getElementById('btnCloseSchedule');
+    
+    const btnGoToSummary = document.getElementById('btnGoToSummary');
+    const bookingModal = document.getElementById('bookingModal');
+    const btnCloseSummary = document.getElementById('btnCloseSummary');
+
+    // Toast Elements
+    const successToast = document.getElementById('successToast');
+    const btnCloseToast = document.getElementById('btnCloseToast');
+    const pillCourt = document.getElementById('pillCourt');
+    const pillDate = document.getElementById('pillDate');
+    const pillTime = document.getElementById('pillTime');
+
+    // Formatter Rupiah
+    function formatRupiah(number) {
+        return 'Rp ' + Math.max(0, number).toLocaleString('id-ID');
     }
 
-    [1, 2, 3, 4].forEach(s => {
-        document.getElementById('step-' + s).classList.remove('visible');
-        const circle = document.getElementById('step-circle-' + s);
-        const label  = document.getElementById('step-label-' + s);
-        if (s < step) {
-            circle.className = 'step-circle done';
-            circle.innerHTML = '<i class="fa-solid fa-check" style="font-size:12px;"></i>';
-            label.className  = 'step-label done';
-        } else if (s === step) {
-            circle.className = 'step-circle active';
-            circle.textContent = s;
-            label.className  = 'step-label active';
-        } else {
-            circle.className = 'step-circle';
-            circle.textContent = s;
-            label.className  = 'step-label';
+    // Modal 1 (Pilih Jadwal) Trigger Events
+    btnOpenSchedule.addEventListener('click', function() {
+        scheduleModal.style.display = 'flex';
+    });
+
+    btnCloseSchedule.addEventListener('click', function() {
+        scheduleModal.style.display = 'none';
+    });
+
+    // Modal 2 (Ringkasan) Trigger Events
+    btnGoToSummary.addEventListener('click', function() {
+        scheduleModal.style.display = 'none';
+        bookingModal.style.display = 'flex';
+    });
+
+    btnCloseSummary.addEventListener('click', function() {
+        bookingModal.style.display = 'none';
+    });
+
+    // Tutup modal jika user klik di area luar modal
+    window.addEventListener('click', function(e) {
+        if (e.target === scheduleModal) {
+            scheduleModal.style.display = 'none';
+        }
+        if (e.target === bookingModal) {
+            bookingModal.style.display = 'none';
         }
     });
-    document.getElementById('step-' + step).classList.add('visible');
-}
 
-// ============================================================================
-// STEP 1: PILIH LAPANGAN
-// ============================================================================
-function pilihLapangan(id, nama, harga) {
-    state.lapanganId    = id;
-    state.lapanganNama  = nama;
-    state.lapanganHarga = parseFloat(harga);
-    state.jadwalId      = 0;
-    state.jadwalDisplay = '';
+    // Load available slots dynamically using PHP AJAX Handler
+    function loadSlots(courtId) {
+        slotSelect.innerHTML = '<option value="">Memuat slot waktu...</option>';
+        btnSubmit.disabled = true;
+        btnOpenSchedule.disabled = true;
+        btnGoToSummary.disabled = true;
+        
+        fetch(`booking_customer.php?action=get_slots&court_id=${courtId}`)
+            .then(response => response.json())
+            .then(slots => {
+                slotSelect.innerHTML = '';
+                if (slots.length === 0) {
+                    slotSelect.innerHTML = '<option value="">Tidak ada jadwal kosong</option>';
+                    showSlotStatus(false, 'Tidak ada jadwal', 'Semua slot terbooking');
+                    return;
+                }
 
-    document.querySelectorAll('.lapangan-option').forEach(el => el.classList.remove('selected'));
-    event.currentTarget.classList.add('selected');
+                slots.forEach((slot, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = slot.ID_Jadwal;
+                    opt.setAttribute('data-tanggal', slot.Tanggal_Formatted);
+                    opt.setAttribute('data-mulai', slot.Jam_Mulai);
+                    opt.setAttribute('data-selesai', slot.Jam_Selesai);
+                    opt.innerText = `${slot.Tanggal_Formatted} [${slot.Jam_Mulai} - ${slot.Jam_Selesai}]`;
+                    slotSelect.appendChild(opt);
+                });
 
-    document.getElementById('btn-next-1').disabled = false;
-    updateSummary();
-
-    // Muat jadwal
-    loadJadwal(id);
-}
-
-// ============================================================================
-// STEP 2: JADWAL PER LAPANGAN (AJAX)
-// ============================================================================
-function loadJadwal(idLapangan) {
-    const grid = document.getElementById('jadwal-grid-container');
-    grid.innerHTML = '<div class="jadwal-empty"><i class="fa-solid fa-spinner fa-spin"></i><br>Memuat jadwal...</div>';
-
-    fetch('booking_customer.php?ajax_jadwal=1&id_lapangan=' + idLapangan)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.length) {
-                grid.innerHTML = '<div class="jadwal-empty"><i class="fa-regular fa-calendar-xmark"></i>Tidak ada jadwal tersedia untuk lapangan ini.</div>';
-                return;
-            }
-            let html = '';
-            data.forEach(j => {
-                const tglFormatted = formatTanggalJS(j.tanggal);
-                html += `
-                    <div class="jadwal-slot" id="slot-${j.id}"
-                         onclick="pilihJadwal(${j.id}, '${j.tanggal}', '${j.jam_mulai}', '${j.jam_selesai}', '${tglFormatted}', this)">
-                        <div class="slot-tanggal">${tglFormatted}</div>
-                        <div class="slot-jam">${j.jam_mulai} – ${j.jam_selesai}</div>
-                        <div class="slot-status"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Tersedia</div>
-                    </div>`;
+                // Select first slot by default
+                slotSelect.dispatchEvent(new Event('change'));
+                btnOpenSchedule.disabled = false;
+            })
+            .catch(err => {
+                console.error("Gagal memuat jadwal:", err);
+                slotSelect.innerHTML = '<option value="">Gagal memuat jadwal</option>';
             });
-            grid.innerHTML = html;
-        })
-        .catch(() => {
-            grid.innerHTML = '<div class="jadwal-empty"><i class="fa-solid fa-circle-exclamation"></i>Gagal memuat jadwal. Coba refresh halaman.</div>';
+    }
+
+    function showSlotStatus(isAvailable, title, desc) {
+        if (isAvailable) {
+            availabilityBox.classList.remove('empty');
+            availIcon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            availTitle.innerText = title;
+            lblDuration.innerText = desc;
+        } else {
+            availabilityBox.classList.add('empty');
+            availIcon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+            availTitle.innerText = title;
+            lblDuration.innerText = desc;
+        }
+    }
+
+    // Recalculate price breakdown & UI elements
+    function calculatePrices() {
+        if (!selectedSlotId) {
+            lblNormalPrice.innerText = 'Rp 0';
+            lblTotalPrice.innerText = 'Rp 0';
+            btnSubmit.disabled = true;
+            btnGoToSummary.disabled = true;
+            return;
+        }
+
+        const basePrice = selectedCourtPrice * selectedSlotDuration;
+        let discount = 0;
+
+        if (isMember) {
+            discount = memberDiscount; // Flat discount
+        } else if (promoSelect) {
+            const selectedPromoOpt = promoSelect.options[promoSelect.selectedIndex];
+            if (selectedPromoOpt) {
+                discount = parseFloat(selectedPromoOpt.getAttribute('data-discount') || 0);
+            }
+        }
+
+        const totalPayable = Math.max(0, basePrice - discount);
+
+        // Update UI
+        lblNormalPriceLabel.innerText = `Harga Sewa (${selectedSlotDuration} jam)`;
+        lblNormalPrice.innerText = formatRupiah(basePrice);
+        if (isMember) {
+            // Member UI has statically linked element
+        } else if (lblPromoBreakdown) {
+            lblPromoBreakdown.innerText = `-Rp ${discount.toLocaleString('id-ID')}`;
+        }
+        lblTotalPrice.innerText = formatRupiah(totalPayable);
+
+        // Update Sidebar Right Summaries
+        sumCourtName.innerText = selectedCourtName;
+        sumImg.src = selectedCourtImg;
+        sumPlayDate.innerText = selectedSlotDateFormatted;
+        sumTimeLabel.innerText = `${selectedSlotTimeFormatted} (${selectedSlotDuration} jam)`;
+
+        btnSubmit.disabled = false;
+        btnGoToSummary.disabled = false;
+    }
+
+    // Court selection event
+    courts.forEach(court => {
+        court.addEventListener('click', function() {
+            courts.forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+
+            selectedCourtId = this.getAttribute('data-id');
+            selectedCourtPrice = parseFloat(this.getAttribute('data-price'));
+            selectedCourtName = this.getAttribute('data-name');
+            selectedCourtImg = this.getAttribute('data-img');
+
+            loadSlots(selectedCourtId);
         });
-}
+    });
 
-function pilihJadwal(id, tanggal, jamMulai, jamSelesai, tanggalDisplay, el) {
-    state.jadwalId      = id;
-    state.jadwalTanggal = tanggal;
-    state.jadwalJam     = jamMulai + ' – ' + jamSelesai;
-    state.jadwalDisplay = tanggalDisplay + ', ' + jamMulai + ' – ' + jamSelesai;
+    // Slot select trigger
+    slotSelect.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        if (!opt || !opt.value) {
+            selectedSlotId = null;
+            showSlotStatus(false, 'Jadwal belum dipilih', 'Pilih slot waktu terlebih dahulu');
+            calculatePrices();
+            return;
+        }
 
-    document.querySelectorAll('.jadwal-slot').forEach(s => s.classList.remove('selected'));
-    el.classList.add('selected');
+        selectedSlotId = opt.value;
+        const startHour = parseInt(opt.getAttribute('data-mulai').split(':')[0]);
+        const endHour = parseInt(opt.getAttribute('data-selesai').split(':')[0]);
+        selectedSlotDuration = endHour - startHour;
+        if (selectedSlotDuration <= 0) selectedSlotDuration = 1;
 
-    document.getElementById('btn-next-2').disabled = false;
-    updateSummary();
-}
+        selectedSlotDateFormatted = opt.getAttribute('data-tanggal');
+        selectedSlotTimeFormatted = `${opt.getAttribute('data-mulai')} - ${opt.getAttribute('data-selesai')}`;
 
-// ============================================================================
-// STEP 3: PROMO
-// ============================================================================
-function pilihPromo(id, diskon, nama) {
-    state.promoId      = id;
-    state.promoDiskon  = parseFloat(diskon);
-    state.promoPilihan = nama;
+        showSlotStatus(true, 'Slot Terkonfirmasi', `Durasi: ${selectedSlotDuration} jam`);
+        calculatePrices();
+    });
 
-    document.querySelectorAll('.promo-option').forEach(el => el.classList.remove('selected'));
-    const el = document.getElementById(id === 0 ? 'promo-none' : 'promo-' + id);
-    if (el) el.classList.add('selected');
-
-    hitungTotal();
-    updateSummary();
-}
-
-// Default: promo none aktif
-<?php if (!$has_member): ?>
-pilihPromo(0, 0, 'Tanpa Promo');
-<?php endif; ?>
-
-// ============================================================================
-// STEP 4: METODE PEMBAYARAN
-// ============================================================================
-function pilihMetode(metode) {
-    state.metode = metode;
-    document.querySelectorAll('.metode-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('card-' + (metode === 'QRIS' ? 'qris' : 'transfer')).classList.add('selected');
-    document.getElementById('btn-bayar').disabled = false;
-}
-
-function updateFinalSummary() {
-    document.getElementById('fs-lapangan').textContent = state.lapanganNama || '-';
-    document.getElementById('fs-jadwal').textContent   = state.jadwalDisplay || '-';
-    document.getElementById('fs-harga').textContent    = formatRupiah(state.lapanganHarga);
-    document.getElementById('fs-total').textContent    = formatRupiah(state.totalBayar);
-
-    const potRow = document.getElementById('fs-potongan-row');
-    if ((hasMember && memberPotong > 0) || state.promoDiskon > 0) {
-        potRow.style.display = 'flex';
-        const potongan = hasMember ? memberPotong : state.promoDiskon;
-        const label    = hasMember ? 'Potongan Member ' + memberTipe : state.promoPilihan;
-        document.getElementById('fs-potongan-label').textContent = label;
-        document.getElementById('fs-potongan').textContent = '- ' + formatRupiah(potongan);
-    } else {
-        potRow.style.display = 'none';
-    }
-}
-
-// ============================================================================
-// HITUNG TOTAL
-// ============================================================================
-function hitungTotal() {
-    let total = state.lapanganHarga;
-    if (hasMember && memberPotong > 0) {
-        total -= memberPotong;
-    } else if (!hasMember && state.promoDiskon > 0) {
-        total -= state.promoDiskon;
-    }
-    state.totalBayar = Math.max(0, total);
-    return state.totalBayar;
-}
-
-// ============================================================================
-// UPDATE SIDEBAR SUMMARY
-// ============================================================================
-function updateSummary() {
-    hitungTotal();
-    const box = document.getElementById('summary-content');
-
-    if (!state.lapanganId) {
-        box.innerHTML = `<div class="summary-empty"><i class="fa-regular fa-calendar-plus"></i><p style="font-size:14px;font-weight:700;color:#636366;margin-bottom:6px;">Belum ada pilihan</p><p style="font-size:12px;color:#AEAEB2;">Pilih lapangan dan jadwal terlebih dahulu</p></div>`;
-        return;
+    // Promo selector event
+    if (promoSelect) {
+        promoSelect.addEventListener('change', calculatePrices);
     }
 
-    let potonganHTML = '';
-    if (hasMember && memberPotong > 0) {
-        potonganHTML = `
-            <div class="summary-row">
-                <span class="s-label">Potongan Member ${memberTipe}</span>
-                <span class="s-value discount">- ${formatRupiah(memberPotong)}</span>
-            </div>`;
-    } else if (!hasMember && state.promoDiskon > 0) {
-        potonganHTML = `
-            <div class="summary-row">
-                <span class="s-label">${state.promoPilihan}</span>
-                <span class="s-value discount">- ${formatRupiah(state.promoDiskon)}</span>
-            </div>`;
-    }
+    // Payment Selection
+    payments.forEach(payment => {
+        payment.addEventListener('click', function() {
+            payments.forEach(p => p.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedPaymentMethod = this.getAttribute('data-method');
+        });
+    });
 
-    box.innerHTML = `
-        <div class="summary-row">
-            <span class="s-label">Lapangan</span>
-            <span class="s-value">${state.lapanganNama}</span>
-        </div>
-        ${state.jadwalDisplay ? `<div class="summary-row"><span class="s-label">Jadwal</span><span class="s-value">${state.jadwalDisplay}</span></div>` : ''}
-        <div class="summary-row">
-            <span class="s-label">Harga Sewa</span>
-            <span class="s-value">${formatRupiah(state.lapanganHarga)}</span>
-        </div>
-        ${potonganHTML}
-        <div class="summary-divider"></div>
-        <div class="summary-row" style="padding-top:16px;">
-            <span class="s-label" style="font-weight:800; font-size:15px; color:#1C1C1E;">Total Bayar</span>
-            <span class="s-value s-total">${formatRupiah(state.totalBayar)}</span>
-        </div>`;
-}
+    // Submit Checkout
+    btnSubmit.addEventListener('click', function() {
+        if (!selectedSlotId) return;
 
-// ============================================================================
-// PROSES BOOKING → AJAX POST
-// ============================================================================
-function prosesBooking() {
-    if (!state.lapanganId || !state.jadwalId || !state.metode) {
-        showToast('error', 'Lengkapi semua data terlebih dahulu.');
-        return;
-    }
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
 
-    hitungTotal();
+        const basePrice = selectedCourtPrice * selectedSlotDuration;
+        let discount = 0;
+        let idPromo = null;
 
-    const formData = new FormData();
-    formData.append('ajax_booking', '1');
-    formData.append('id_jadwal', state.jadwalId);
-    formData.append('id_promo', hasMember ? 0 : state.promoId);
-    formData.append('metode', state.metode);
-    formData.append('total_bayar', state.totalBayar);
+        if (isMember) {
+            discount = memberDiscount;
+        } else if (promoSelect) {
+            const selectedPromoOpt = promoSelect.options[promoSelect.selectedIndex];
+            if (selectedPromoOpt && selectedPromoOpt.value !== '0') {
+                discount = parseFloat(selectedPromoOpt.getAttribute('data-discount') || 0);
+                idPromo = selectedPromoOpt.value;
+            }
+        }
 
-    fetch('booking_customer.php', { method: 'POST', body: formData })
-        .then(r => r.json())
-        .then(res => {
-            if (res.success) {
-                state.idBooking = res.id_booking;
-                if (state.metode === 'QRIS') {
-                    tampilModalQRIS();
-                } else {
-                    tampilModalTransfer();
-                }
+        const finalAmount = Math.max(0, basePrice - discount);
+
+        const checkoutData = {
+            id_jadwal: selectedSlotId,
+            id_promo: idPromo,
+            metode_pembayaran: selectedPaymentMethod,
+            total_bayar: finalAmount
+        };
+
+        fetch('booking_customer.php?action=checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(checkoutData)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Tutup modal terlebih dahulu sebelum menampilkan animasi sukses
+                bookingModal.style.display = 'none';
+
+                // Update Toast meta-information
+                pillCourt.innerText = selectedCourtName;
+                pillDate.innerText = selectedSlotDateFormatted;
+                pillTime.innerText = selectedSlotTimeFormatted;
+
+                // Show success toast
+                successToast.style.display = 'flex';
             } else {
-                showToast('error', res.msg || 'Gagal membuat booking.');
+                alert(result.message || "Gagal melakukan pemesanan sewa.");
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
             }
         })
-        .catch(() => showToast('error', 'Terjadi kesalahan. Coba lagi.'));
-}
-
-// ============================================================================
-// MODAL QRIS
-// ============================================================================
-let qrisTimerInterval = null;
-
-function tampilModalQRIS() {
-    // Generate QR code
-    const qrContainer = document.getElementById('qrcode-canvas');
-    qrContainer.innerHTML = '';
-    const qrData = `hoopball://pay?booking=${state.idBooking}&amount=${state.totalBayar}&merchant=HoopBall`;
-    new QRCode(qrContainer, {
-        text: qrData,
-        width: 200,
-        height: 200,
-        colorDark: '#0B0B0C',
-        colorLight: '#FFFFFF',
-        correctLevel: QRCode.CorrectLevel.M
+        .catch(err => {
+            console.error("Kesalahan checkout:", err);
+            alert("Kesalahan koneksi ke server database.");
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
+        });
     });
-    document.getElementById('qris-amount-display').textContent = formatRupiah(state.totalBayar);
-    document.getElementById('modal-qris').classList.add('show');
 
-    // Timer 15 menit
-    let seconds = 15 * 60;
-    updateQrisTimer(seconds);
-    qrisTimerInterval = setInterval(() => {
-        seconds--;
-        updateQrisTimer(seconds);
-        if (seconds <= 0) {
-            clearInterval(qrisTimerInterval);
-            // Expired → masih bisa di-handle manual
-            document.getElementById('qris-timer-box').style.background = '#FFF5F5';
-            document.getElementById('qris-timer-box').style.borderColor = '#FFD1D1';
-            document.getElementById('qris-timer-box').style.color = '#FF3B30';
-            document.getElementById('qris-timer-text').textContent = 'Waktu habis';
+    btnCloseToast.addEventListener('click', function() {
+        successToast.style.display = 'none';
+        location.reload();
+    });
+
+    // Initialize first court selection load
+    document.addEventListener("DOMContentLoaded", function() {
+        const activeCourt = document.querySelector('.court-card.selected');
+        if (activeCourt) {
+            activeCourt.click();
         }
-    }, 1000);
-}
-
-function updateQrisTimer(s) {
-    const m = Math.floor(s / 60).toString().padStart(2, '0');
-    const sec = (s % 60).toString().padStart(2, '0');
-    document.getElementById('qris-timer-text').textContent = m + ':' + sec;
-}
-
-function konfirmasiSudahBayarQRIS() {
-    clearInterval(qrisTimerInterval);
-    document.getElementById('modal-qris').classList.remove('show');
-    tampilModalMenunggu();
-}
-
-// ============================================================================
-// MODAL TRANSFER BANK
-// ============================================================================
-function tampilModalTransfer() {
-    document.getElementById('transfer-amount-display').textContent = formatRupiah(state.totalBayar);
-    document.getElementById('modal-transfer').classList.add('show');
-}
-
-function konfirmasiSudahTransfer() {
-    document.getElementById('modal-transfer').classList.remove('show');
-    tampilModalMenunggu();
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('success', 'Nomor rekening disalin!');
     });
-}
 
-// ============================================================================
-// MODAL MENUNGGU KONFIRMASI KARYAWAN
-// ============================================================================
-function tampilModalMenunggu() {
-    document.getElementById('w-lapangan').textContent = state.lapanganNama;
-    document.getElementById('w-jadwal').textContent   = state.jadwalDisplay;
-    document.getElementById('w-total').textContent    = formatRupiah(state.totalBayar);
-
-    if (state.metode === 'Transfer Bank') {
-        document.getElementById('waiting-sub-text').innerHTML =
-            'Booking berhasil dicatat. Karyawan akan mengkonfirmasi setelah menerima bukti transfer Anda.<br><small style="color:#AEAEB2;">Estimasi: 1×24 jam</small>';
-    } else {
-        document.getElementById('waiting-sub-text').innerHTML =
-            'Pembayaran QRIS sedang diverifikasi oleh sistem. Karyawan akan mengkonfirmasi segera.<br><small style="color:#AEAEB2;">Estimasi: beberapa menit</small>';
+    // ============================================================================
+    // HARD DELETE AKUN CONFIRMATION
+    // ============================================================================
+    function confirmHapusAkun(e) {
+        e.preventDefault();
+        Swal.fire({
+            title: 'Hapus Akun Permanen?',
+            html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
+                  'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
+                  '<span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#FF3B30',
+            cancelButtonColor: '#8E8E93',
+            confirmButtonText: 'Ya, Hapus Akun Saya',
+            cancelButtonText: 'Batal',
+            reverseButtons: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let timerInterval;
+                Swal.fire({
+                    title: 'Menghapus Akun...',
+                    html: 'Mohon tunggu, proses penghapusan data sedang berlangsung.<br><b></b>',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                        const timer = Swal.getHtmlContainer().querySelector('b');
+                        timerInterval = setInterval(() => {
+                            timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
+                        }, 100);
+                    },
+                    willClose: () => {
+                        clearInterval(timerInterval);
+                    }
+                }).then(() => {
+                    window.location.href = '?hapus_akun=1';
+                });
+            }
+        });
     }
-    document.getElementById('modal-waiting').classList.add('show');
 
-    // Polling status setiap 5 detik (opsional, untuk kasus demo)
-    // Dalam produksi, karyawan konfirmasi manual lewat dashboard mereka
-    startPollingStatus();
-}
+    // ============================================================================
+    // URL PARAMETER NOTIFICATION (TOAST STYLE)
+    // ============================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const msg = urlParams.get('msg');
 
-let pollingInterval = null;
-function startPollingStatus() {
-    pollingInterval = setInterval(() => {
-        if (!state.idBooking) return;
-        fetch('booking_customer.php?ajax_cek_status=1&id_booking=' + state.idBooking)
-            .then(r => r.json())
-            .then(res => {
-                if (res.status === 1) {
-                    // Karyawan sudah konfirmasi!
-                    clearInterval(pollingInterval);
-                    document.getElementById('modal-waiting').classList.remove('show');
-                    tampilModalSuccess();
-                }
-            });
-    }, 5000);
-}
-
-function selesaiMenunggu() {
-    clearInterval(pollingInterval);
-    document.getElementById('modal-waiting').classList.remove('show');
-    window.location.href = 'booking_customer.php';
-}
-
-// ============================================================================
-// MODAL SUCCESS
-// ============================================================================
-function tampilModalSuccess() {
-    document.getElementById('suc-lapangan').textContent = state.lapanganNama;
-    document.getElementById('suc-jadwal').textContent   = state.jadwalDisplay;
-    document.getElementById('suc-total').textContent    = formatRupiah(state.totalBayar);
-    document.getElementById('modal-success').classList.add('show');
-}
-
-// ============================================================================
-// BATALKAN BOOKING (hapus dari DB jika status masih 0)
-// ============================================================================
-function batalBooking() {
-    Swal.fire({
-        title: 'Batalkan Booking?',
-        text: 'Data booking akan dihapus. Anda perlu membooking ulang.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#FF3B30',
-        cancelButtonColor: '#8E8E93',
-        confirmButtonText: 'Ya, Batalkan',
-        cancelButtonText: 'Tidak',
-    }).then(res => {
-        if (res.isConfirmed) {
-            clearInterval(qrisTimerInterval);
-            clearInterval(pollingInterval);
-            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
-            // Reload page untuk refresh jadwal
-            window.location.href = 'booking_customer.php';
-        }
-    });
-}
-
-// ============================================================================
-// FILTER RIWAYAT TABLE
-// ============================================================================
-function filterRiwayat(status, btn) {
-    document.querySelectorAll('.tab-filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    document.querySelectorAll('#riwayat-tbl tbody tr').forEach(tr => {
-        if (status === 'semua' || tr.dataset.status === status) {
-            tr.style.display = '';
-        } else {
-            tr.style.display = 'none';
-        }
-    });
-}
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-function formatRupiah(n) {
-    return 'Rp ' + parseFloat(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-function formatTanggalJS(dateStr) {
-    if (!dateStr) return '-';
-    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
-    const d = new Date(dateStr);
-    // Handle timezone offset
-    const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
-    return utc.getDate() + ' ' + months[utc.getMonth()] + ' ' + utc.getFullYear();
-}
-
-function showToast(icon, msg) {
-    Swal.fire({
-        icon: icon,
-        text: msg,
-        toast: true,
-        position: 'top-end',
-        timer: 3500,
-        showConfirmButton: false,
-        timerProgressBar: true,
-        background: '#ffffff',
-        color: '#1C1C1E',
-        iconColor: icon === 'success' ? '#34C759' : '#FF3B30',
-    });
-}
-
-// ============================================================================
-// URL PARAMS NOTIFICATION
-// ============================================================================
-const urlParams = new URLSearchParams(window.location.search);
-const statusParam = urlParams.get('status');
-const msgParam    = urlParams.get('msg');
-if (statusParam && msgParam) {
-    showToast(statusParam, msgParam);
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
+    if (status && msg) {
+        const isSuccess = status === 'success';
+        Swal.fire({
+            icon: isSuccess ? 'success' : 'error',
+            title: isSuccess ? 'Berhasil' : 'Kendala Sistem',
+            text: msg,
+            timer: 5000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end',
+            timerProgressBar: true,
+            showCloseButton: true,
+            background: '#ffffff',
+            color: '#1c1c1e',
+            iconColor: isSuccess ? '#34C759' : '#FF3B30',
+            customClass: { popup: 'swal-toast' }
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 </script>
 
 </body>
