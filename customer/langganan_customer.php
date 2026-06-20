@@ -885,21 +885,38 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .sp-inactive { background: var(--red-lt); color: var(--red); }
         .sp-success { background: var(--blue-lt); color: var(--blue); }
 
-        /* ---- FOOTER ---- */
-        footer {
-            background: var(--dark-bg);
-            color: #8E8E93;
-            padding: 60px 80px 30px;
-            border-top: 1px solid #1C1C1E;
-        }
-        .footer-bottom {
-            border-top: 1px solid #1C1C1E;
-            padding-top: 24px;
-            text-align: center;
-            font-size: 13px;
-        }
+        /* ============ FOOTER ============ */
+footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; }
+footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
+.footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; }
+.footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform 0.3s ease; }
+.footer-logo:hover { transform:scale(1.05); }
+.footer-logo img { height:70px; transition:transform 0.5s ease; }
+.footer-logo:hover img { transform:rotate(5deg); }
+.footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
+.footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
+.social-links { display:flex; gap:12px; }
+.social-btn { width:36px; height:36px; border-radius:50%; background:#1C1C1E; color:var(--white); display:flex; align-items:center; justify-content:center; text-decoration:none; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.social-btn:hover { background:var(--primary); transform:translateY(-3px) scale(1.1); box-shadow:0 8px 20px rgba(255,82,0,0.3); }
+.social-btn:active { transform:scale(0.95); }
+.footer-col h4 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:20px; position:relative; display:inline-block; }
+.footer-col h4::after { content:''; position:absolute; bottom:-4px; left:0; width:30px; height:2px; background:var(--primary); transition:width 0.3s ease; }
+.footer-col:hover h4::after { width:100%; }
+.footer-col ul { list-style:none; }
+.footer-col ul li { margin-bottom:12px; }
+.footer-col ul li a { color:#8E8E93; text-decoration:none; font-size:13px; transition:all 0.3s ease; display:inline-block; position:relative; }
+.footer-col ul li a::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:1px; background:var(--primary); transition:width 0.3s ease; }
+.footer-col ul li a:hover { color:var(--white); transform:translateX(5px); }
+.footer-col ul li a:hover::after { width:100%; }
+.contact-item { display:flex; gap:12px; font-size:13px; line-height:1.5; margin-bottom:16px; transition:all 0.3s ease; padding:4px; border-radius:6px; }
+.contact-item:hover { background:rgba(255,82,0,0.05); transform:translateX(5px); }
+.contact-item i { color:var(--primary); font-size:14px; margin-top:3px; transition:transform 0.3s ease; }
+.contact-item:hover i { transform:scale(1.2); }
+.footer-bottom { border-top:1px solid #1C1C1E; padding-top:30px; text-align:center; font-size:13px; position:relative; }
 
-        /* ---- RESPONSIVE ---- */
+.swal-toast { border-radius:12px !important; font-family:'Plus Jakarta Sans',sans-serif !important; }
+
+/* ---- RESPONSIVE ---- */
         @media(max-width: 1100px) {
             .pricing-grid { grid-template-columns: 1fr; }
             .hero { flex-direction: column; padding: 40px; }
@@ -1334,161 +1351,131 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
 <!-- FOOTER -->
 <footer>
+    <div class="footer-grid">
+        <div>
+            <div class="footer-logo">
+                <img src="../asset/image/logo.png" alt="HoopBall">
+            </div>
+            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <div class="social-links">
+                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+            </div>
+        </div>
+
+        <div class="footer-col">
+            <h4>Navigasi</h4>
+            <ul>
+                <li><a href="view_customer.php">Beranda</a></li>
+                <li><a href="booking_customer.php">Booking</a></li>
+                <li><a href="#">Jadwal</a></li>
+                <li><a href="../customer/langganan_customer.php">Member</a></li>
+                <li><a href="#">Pembelian</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Informasi</h4>
+            <ul>
+                <li><a href="#">Cara Booking</a></li>
+                <li><a href="#">Syarat & Ketentuan</a></li>
+                <li><a href="#">Kebijakan Privasi</a></li>
+                <li><a href="#">FAQ</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Hubungi Kami</h4>
+            <div class="contact-item">
+                <i class="fa-solid fa-location-dot"></i>
+                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-phone"></i>
+                +62 812-3456-7890
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-envelope"></i>
+                info@hoopball.id
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-clock"></i>
+                Setiap hari 07:00 - 23:00 WIB
+            </div>
+        </div>
+    </div>
     <div class="footer-bottom">
         <p>&copy; 2025 HoopBall. All rights reserved.</p>
     </div>
 </footer>
 
-<!-- MODAL PEMBAYARAN -->
-<div class="modal-overlay" id="modalPembayaran">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-credit-card" style="color: var(--primary);"></i> Pembayaran Langganan</h3>
-            <button class="modal-close" onclick="tutupModal()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        
-        <div class="modal-summary">
-            <div class="modal-summary-row">
-                <span style="color: #8E8E93;">Paket Member</span>
-                <strong id="modalTipe">-</strong>
-            </div>
-            <div class="modal-summary-row">
-                <span style="color: #8E8E93;">Masa Aktif</span>
-                <strong>30 Hari</strong>
-            </div>
-            <div class="modal-summary-row">
-                <span style="color: #8E8E93;">Tanggal Mulai</span>
-                <strong><?php echo date('d M Y'); ?></strong>
-            </div>
-            <div class="modal-summary-row total">
-                <span>Total Bayar</span>
-                <span id="modalTotal">-</span>
-            </div>
-        </div>
-
-        <form method="POST" id="formPembayaran">
-            <input type="hidden" name="id_tipe" id="inputIdTipe">
-            <input type="hidden" name="metode_pembayaran" id="inputMetode" value="">
-            
-            <p style="font-size: 13px; font-weight: 700; color: #1C1C1E; margin-bottom: 12px;">Pilih Metode Pembayaran</p>
-            <div class="metode-list">
-                <div class="metode-item" onclick="pilihMetode(this, 'Transfer Bank')">
-                    <i class="fa-solid fa-building-columns"></i>
-                    <span>Virtual Account (BCA/Mandiri/BNI)</span>
-                </div>
-                <div class="metode-item" onclick="pilihMetode(this, 'QRIS')">
-                    <i class="fa-solid fa-qrcode"></i>
-                    <span>QRIS (GoPay/OVO/Dana)</span>
-                </div>
-            </div>
-
-            <button type="submit" name="beli_langganan" class="btn-bayar" id="btnBayar" disabled>
-                <i class="fa-solid fa-lock"></i> Konfirmasi Pembayaran
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- PAYMENT INSTRUCTION MODAL (SAMA SEPERTI BOOKING) -->
-<div class="booking-modal-overlay" id="paymentInstructionModal">
-    <div class="summary-card" style="max-width: 460px; text-align: center;">
-        <button class="booking-modal-close" onclick="tutupPaymentModal()">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
-        
-        <h2 class="summary-title" style="margin-bottom: 12px; text-align: center;">Instruksi Pembayaran</h2>
-        
-        <div class="alert-banner" style="background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); margin-top: 0; margin-bottom: 20px; justify-content: center;">
-            <i class="fa-solid fa-clock" style="color: var(--orange);"></i>
-            <p class="alert-banner-text" style="color: var(--orange-hover); font-weight: 700; font-size: 12px;">
-                Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
-            </p>
-        </div>
-
-        <div style="background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border);">
-            <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Tagihan</div>
-            <div id="paymentTotalAmount" style="font-size: 24px; color: var(--orange); font-weight: 900; margin-top: 4px;">Rp 0</div>
-        </div>
-
-        <div id="instruksiTransfer" style="display: none;">
-            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-align: left;">Nomor Virtual Account (Mandiri / BCA)</div>
-            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <input type="text" id="vaNumber" value="8801281234567890" class="form-control" style="padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border-color: var(--border);" readonly>
-                <button class="btn-toast-action" id="btnCopyVA" style="border-radius: 10px; font-size: 12px;" onclick="salinVA()"><i class="fa-regular fa-copy"></i> Salin</button>
-            </div>
-            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
-                <li>Pilih menu <strong>Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</li>
-                <li>Masukkan nomor Virtual Account kustom di atas.</li>
-                <li>Nominal pembayaran akan otomatis muncul sesuai total tagihan.</li>
-            </ul>
-        </div>
-
-        <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
-            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">Pindai Kode QRIS Resmi HoopBall</div>
-            <div style="background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <img id="qrisImage" src="" alt="QRIS Code" style="display: block; width: 170px; height: 180px; object-fit: contain;">
-            </div>
-            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%;">
-                <li>Buka aplikasi e-wallet Anda (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
-                <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
-                <li>Arahkan kamera smartphone ke kode QR di atas, lalu selesaikan pembayaran.</li>
-            </ul>
-        </div>
-
-        <hr class="divider" style="margin: 20px 0;">
-        
-        <button class="btn-booking" id="btnDonePayment" style="margin-top: 0;" onclick="selesaiBayar()">
-            Selesai <i class="fa-solid fa-circle-check"></i>
-        </button>
-    </div>
-</div>
-
 <script>
 // ============================================================================
-// MODAL PEMBAYARAN
+// FILTER JADWAL (Hero Widget)
 // ============================================================================
-function bukaModal(idTipe, namaTipe, harga) {
-    <?php if ($has_member || $member_aktif): ?>
+function filterJadwal() {
+    // This is a visual filter - in real implementation, 
+    // it would filter the displayed jadwal or redirect to booking page with params
+    const lapangan = document.getElementById('heroLapangan').value;
+    const tanggal = document.getElementById('heroTanggal').value;
+    const jam = document.getElementById('heroJam').value;
+
+    // Store in session/localStorage for booking page to pick up
+    localStorage.setItem('booking_filter_lapangan', lapangan);
+    localStorage.setItem('booking_filter_tanggal', tanggal);
+    localStorage.setItem('booking_filter_jam', jam);
+}
+
+// ============================================================================
+// HARD DELETE AKUN CONFIRMATION
+// ============================================================================
+function confirmHapusAkun(e) {
+    e.preventDefault();
     Swal.fire({
-        icon: 'info',
-        title: '<?php echo $has_member ? 'Member Aktif' : 'Menunggu Konfirmasi'; ?>',
-        text: '<?php echo $has_member ? 'Anda masih memiliki langganan member aktif.' : 'Anda memiliki pendaftaran member yang sedang menunggu konfirmasi admin.'; ?>',
-        confirmButtonColor: '#FF5200'
+        title: 'Hapus Akun Permanen?',
+        html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>' +
+              'Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br>' +
+              '<span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#FF3B30',
+        cancelButtonColor: '#8E8E93',
+        confirmButtonText: 'Ya, Hapus Akun Saya!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            let timerInterval;
+            Swal.fire({
+                title: 'Menghapus Akun...',
+                html: 'Mohon tunggu, akun Anda sedang diproses.<br><b></b>',
+                timer: 2000,
+                timerProgressBar: true,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                    const timer = Swal.getHtmlContainer().querySelector('b');
+                    timerInterval = setInterval(() => {
+                        timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
+                    }, 100);
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
+                }
+            }).then(() => {
+                window.location.href = '?hapus_akun=1';
+            });
+        }
     });
-    return;
-    <?php endif; ?>
-
-    document.getElementById('modalTipe').textContent = namaTipe;
-    document.getElementById('modalTotal').textContent = 'Rp ' + harga.toLocaleString('id-ID');
-    document.getElementById('inputIdTipe').value = idTipe;
-    document.getElementById('modalPembayaran').classList.add('active');
-    document.body.style.overflow = 'hidden';
 }
-
-function tutupModal() {
-    document.getElementById('modalPembayaran').classList.remove('active');
-    document.body.style.overflow = '';
-    // Reset
-    document.querySelectorAll('.metode-item').forEach(item => item.classList.remove('selected'));
-    document.getElementById('inputMetode').value = '';
-    document.getElementById('btnBayar').disabled = true;
-}
-
-function pilihMetode(el, metode) {
-    document.querySelectorAll('.metode-item').forEach(item => item.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('inputMetode').value = metode;
-    document.getElementById('btnBayar').disabled = false;
-    document.getElementById('btnBayar').innerHTML = '<i class="fa-solid fa-check-circle"></i> Bayar Sekarang';
-}
-
-// Tutup modal klik luar
-document.getElementById('modalPembayaran').addEventListener('click', function(e) {
-    if (e.target === this) tutupModal();
-});
 
 // ============================================================================
-// URL PARAMETER NOTIFICATION
+// URL PARAMETER NOTIFICATION (TOAST STYLE)
 // ============================================================================
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
@@ -1513,100 +1500,6 @@ if (status && msg) {
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
-
-// ============================================================================
-// PAYMENT INSTRUCTION MODAL (SAMA SEPERTI BOOKING)
-// ============================================================================
-let countdownInterval;
-let selectedPaymentMethod = '';
-
-function startPaymentCountdown(duration) {
-    let timer = duration, minutes, seconds;
-    const display = document.getElementById('paymentCountdown');
-    clearInterval(countdownInterval);
-    
-    countdownInterval = setInterval(function () {
-        minutes = parseInt(timer / 60, 10);
-        seconds = parseInt(timer % 60, 10);
-
-        minutes = minutes < 10 ? "0" + minutes : minutes;
-        seconds = seconds < 10 ? "0" + seconds : seconds;
-
-        display.textContent = minutes + ":" + seconds;
-
-        if (--timer < 0) {
-            clearInterval(countdownInterval);
-            display.textContent = "Waktu Pembayaran Habis";
-            document.getElementById('btnDonePayment').disabled = true;
-        }
-    }, 1000);
-}
-
-function tutupPaymentModal() {
-    document.getElementById('paymentInstructionModal').classList.remove('active');
-    clearInterval(countdownInterval);
-}
-
-function salinVA() {
-    const vaInput = document.getElementById('vaNumber');
-    vaInput.select();
-    vaInput.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(vaInput.value).then(() => {
-        Swal.fire({
-            icon: 'success',
-            title: 'Berhasil Disalin!',
-            text: 'Nomor Virtual Account disalin ke papan klip Anda.',
-            timer: 1500,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            customClass: { popup: 'swal-toast' }
-        });
-    });
-}
-
-function selesaiBayar() {
-    clearInterval(countdownInterval);
-    tutupPaymentModal();
-    
-    // Status tetap 0 (Menunggu Konfirmasi) di database
-    // Hanya tampilkan notifikasi dan refresh halaman
-    Swal.fire({
-        icon: 'info',
-        title: 'Pembayaran Sedang Diproses!',
-        text: 'Terima kasih telah melakukan pembayaran. Status langganan Anda akan segera diverifikasi oleh admin. Anda akan menerima notifikasi setelah verifikasi selesai.',
-        confirmButtonColor: '#FF5200',
-        confirmButtonText: 'Mengerti'
-    }).then(() => {
-        location.reload();
-    });
-}
-
-// ============================================================================
-// AUTO SHOW PAYMENT MODAL AFTER FORM SUBMISSION
-// ============================================================================
-<?php if ($show_payment_modal): ?>
-document.addEventListener('DOMContentLoaded', function() {
-    const totalAmount = <?php echo $payment_total; ?>;
-    const metode = '<?php echo htmlspecialchars($payment_method); ?>';
-    
-    document.getElementById('paymentTotalAmount').innerText = 'Rp ' + totalAmount.toLocaleString('id-ID');
-    
-    if (metode === 'Transfer Bank') {
-        document.getElementById('instruksiTransfer').style.display = 'block';
-        document.getElementById('instruksiQRIS').style.display = 'none';
-    } else if (metode === 'QRIS') {
-        document.getElementById('instruksiTransfer').style.display = 'none';
-        document.getElementById('instruksiQRIS').style.display = 'flex';
-        
-        const qrPayload = 'HOOPBALL-MEMBER-<?php echo $last_inserted_id; ?>-' + totalAmount;
-        document.getElementById('qrisImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrPayload);
-    }
-    
-    document.getElementById('paymentInstructionModal').classList.add('active');
-    startPaymentCountdown(15 * 60);
-});
-<?php endif; ?>
 </script>
 
 </body>
