@@ -1574,7 +1574,7 @@ html, body, .summary-card {
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
         <a href="#">Lapangan</a>
-        <a href="../customer/langganan_customer.php">Member</a>
+        <a href="#">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>

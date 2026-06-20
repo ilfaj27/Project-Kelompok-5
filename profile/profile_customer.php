@@ -2001,7 +2001,7 @@ function format_date_display($date)
         </a>
         <div class="nav-links">
     <a href="../dashboard/view_customer.php">Beranda</a>
-    <a href="../dashboard/booking_customer.php">Booking</a>
+    <a href="#">Booking</a>
     <a href="#">Jadwal</a>
     <a href="../customer/langganan_customer.php">Member</a>
     <a href="#">Pembelian</a>

@@ -634,7 +634,7 @@ html { scroll-behavior:smooth; }
     <div class="nav-links">
         <a href="view_customer.php" class="active">Beranda</a>
         <a href="booking_customer.php">Booking</a>
-        <a href="#">Lapangan</a>
+        <a href="#">Jadwal</a>
         <a href="../customer/langganan_customer.php">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
@@ -1035,7 +1035,7 @@ html { scroll-behavior:smooth; }
             <ul>
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="#">Lapangan</a></li>
+                <li><a href="#">Jadwal</a></li>
                 <li><a href="../customer/langganan_customer.php">Member</a></li>
                 <li><a href="#">Pembelian</a></li>
             </ul>
