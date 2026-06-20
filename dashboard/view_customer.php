@@ -635,7 +635,7 @@ html { scroll-behavior:smooth; }
         <a href="view_customer.php" class="active">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="#">Lapangan</a>
-        <a href="langganan_customer.php">Member</a>
+        <a href="../customer/langganan_customer.php">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
@@ -662,7 +662,7 @@ html { scroll-behavior:smooth; }
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
+            <a href="../customer/langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -935,7 +935,7 @@ html { scroll-behavior:smooth; }
                     </strong>.
                     Nikmati potongan harga dan prioritas jadwal.
                 </p>
-                <a href="langganan.php" class="btn-join-member" style="text-decoration: none; display: inline-block;">
+                <a href="../customer/langganan_customer.php" class="btn-join-member" style="text-decoration: none; display: inline-block;">
                     <?php echo $has_member ? 'Kelola Member' : 'Gabung Member'; ?>
                 </a>
             </div>
@@ -1036,7 +1036,7 @@ html { scroll-behavior:smooth; }
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
                 <li><a href="#">Lapangan</a></li>
-                <li><a href="#">Member</a></li>
+                <li><a href="../customer/langganan_customer.php">Member</a></li>
                 <li><a href="#">Pembelian</a></li>
             </ul>
         </div>
