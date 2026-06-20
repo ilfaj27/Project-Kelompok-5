@@ -1096,6 +1096,7 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="#">Pembelian</a>
         <a href="#">Tentang</a>
+        <a href="#">Kontak</a>
     </div>
 
     <div class="nav-user-container">
