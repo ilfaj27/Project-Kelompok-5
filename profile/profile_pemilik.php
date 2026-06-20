@@ -145,15 +145,25 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
 }
 
 
+// ── SESUDAH (BENAR) ──
 $profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
+
+// FIX: Sesuaikan path foto untuk folder profile/ (naik 1 level ke root)
 if (!empty($profile_photo)) {
-    $photo_path = $profile_photo;
-    if (!file_exists($photo_path)) $photo_path = '';
+    if (strpos($profile_photo, '../') === 0) {
+        $photo_path = $profile_photo;
+    } elseif (strpos($profile_photo, 'uploads/') === 0) {
+        $photo_path = '../' . $profile_photo;  // Naik 1 level: profile/ → root
+    } else {
+        $photo_path = '../uploads/profiles/' . $profile_photo;
+    }
+    if (!file_exists($photo_path)) {
+        $photo_path = '';
+    }
 }
 
-// Ambil foto profil untuk sidebar dari session
-// Sidebar pakai foto yang sama dengan hasil query DB (sudah dicek file_exists)
+// FIX: Sidebar photo juga pakai path yang sudah disesuaikan
 $sidebar_photo = $photo_path;
 $_SESSION['Photo_Profile'] = $photo_path;
 

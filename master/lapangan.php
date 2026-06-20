@@ -940,7 +940,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Lapangan</div>
-            <div class="topbar-breadcrumb">Operasional / Kelola Lapangan</div>
+            <div class="topbar-breadcrumb">Operasional / Lapangan</div>
         </div>
         <div class="topbar-right">
             <div id="clock-display">

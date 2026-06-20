@@ -106,17 +106,36 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
 }
 
 // FIX: Use Photo_Profile column
+// FIX: Sesuaikan path foto untuk folder profile/
 $profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
+
 if (!empty($profile_photo)) {
-    $photo_path = $profile_photo;
-    if (!file_exists($photo_path)) $photo_path = '';
+    if (strpos($profile_photo, '../') === 0) {
+        $photo_path = $profile_photo;
+    } elseif (strpos($profile_photo, 'uploads/') === 0) {
+        $photo_path = '../' . $profile_photo;  // Naik 1 level dari profile/ ke root
+    } else {
+        $photo_path = '../uploads/profiles/' . $profile_photo;
+    }
+    if (!file_exists($photo_path)) {
+        $photo_path = '';
+    }
 }
 
-// FIX: Sidebar photo from session using Photo_Profile
+// FIX: Sidebar photo juga perlu disesuaikan
 $sidebar_photo = $_SESSION['Photo_Profile'] ?? '';
-if (!empty($sidebar_photo) && !file_exists($sidebar_photo)) {
-    $sidebar_photo = '';
+if (!empty($sidebar_photo)) {
+    if (strpos($sidebar_photo, '../') === 0) {
+        // sudah benar
+    } elseif (strpos($sidebar_photo, 'uploads/') === 0) {
+        $sidebar_photo = '../' . $sidebar_photo;
+    } else {
+        $sidebar_photo = '../uploads/profiles/' . $sidebar_photo;
+    }
+    if (!file_exists($sidebar_photo)) {
+        $sidebar_photo = '';
+    }
 }
 
 $last_pwd_change_raw = $user_data['Modified_Date'] ?? null;

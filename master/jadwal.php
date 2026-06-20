@@ -743,7 +743,7 @@ input[type="time"].modal-input {
     <header class="topbar">
         <div class="topbar-left">
             <div class="topbar-title">Kelola Jadwal</div>
-            <div class="topbar-breadcrumb">Operasional / Kelola Jadwal</div>
+            <div class="topbar-breadcrumb">Operasional / Jadwal</div>
         </div>
         <div class="topbar-right">
             <div id="clock-display">
