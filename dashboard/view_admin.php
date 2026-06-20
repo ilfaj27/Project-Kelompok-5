@@ -302,11 +302,177 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     .topbar { padding: 0 20px; }
     .stat-grid { grid-template-columns: 1fr 1fr; }
 }
+
+
+/* ============ ANIMATIONS (from customer homepage) ============ */
+/* ============ KEYFRAMES ============ */
+
+@keyframes fadeInUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInLeft { from{opacity:0;transform:translateX(-40px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeInRight { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+@keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+@keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)} }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes bounceIn { 0%{opacity:0;transform:scale(0.3)} 50%{opacity:1;transform:scale(1.05)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
+@keyframes rotateIn { from{opacity:0;transform:rotate(-180deg) scale(0.5)} to{opacity:1;transform:rotate(0) scale(1)} }
+@keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes ripple { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+@keyframes glow { 0%,100%{box-shadow:0 0 5px rgba(255,82,0,0.3)} 50%{box-shadow:0 0 25px rgba(255,82,0,0.6),0 0 50px rgba(255,82,0,0.2)} }
+@keyframes drawLine { from{width:0} to{width:60px} }
+@keyframes wave { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+@keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes countUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+@keyframes borderGlow { 0%,100%{border-color:rgba(255,82,0,0.1)} 50%{border-color:rgba(255,82,0,0.4)} }
+@keyframes textReveal { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
+@keyframes iconPop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+@keyframes neonPulse { 0%,100%{text-shadow:0 0 5px rgba(255,82,0,0.5),0 0 10px rgba(255,82,0,0.3)} 50%{text-shadow:0 0 10px rgba(255,82,0,0.8),0 0 20px rgba(255,82,0,0.5),0 0 30px rgba(255,82,0,0.3)} }
+@keyframes slideDown { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes zoomIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes flipX { from{transform:perspective(400px) rotateX(90deg);opacity:0} to{transform:perspective(400px) rotateX(0);opacity:1} }
+@keyframes flipY { from{transform:perspective(400px) rotateY(90deg);opacity:0} to{transform:perspective(400px) rotateY(0);opacity:1} }
+@keyframes swing { 0%{transform:rotate(0)} 20%{transform:rotate(15deg)} 40%{transform:rotate(-10deg)} 60%{transform:rotate(5deg)} 80%{transform:rotate(-5deg)} 100%{transform:rotate(0)} }
+@keyframes rubberBand { 0%{transform:scale(1)} 30%{transform:scale(1.25,0.75)} 40%{transform:scale(0.75,1.25)} 50%{transform:scale(1.15,0.85)} 65%{transform:scale(0.95,1.05)} 75%{transform:scale(1.05,0.95)} 100%{transform:scale(1)} }
+@keyframes heartBeat { 0%{transform:scale(1)} 14%{transform:scale(1.3)} 28%{transform:scale(1)} 42%{transform:scale(1.3)} 70%{transform:scale(1)} }
+@keyframes jello { 0%,100%{transform:skewX(0) skewY(0)} 22.2%{transform:skewX(-12.5deg) skewY(-12.5deg)} 33.3%{transform:skewX(6.25deg) skewY(6.25deg)} 44.4%{transform:skewX(-3.125deg) skewY(-3.125deg)} 55.5%{transform:skewX(1.5625deg) skewY(1.5625deg)} 66.6%{transform:skewX(-0.78125deg) skewY(-0.78125deg)} 77.7%{transform:skewX(0.390625deg) skewY(0.390625deg)} 88.8%{transform:skewX(-0.1953125deg) skewY(-0.1953125deg)} }
+@keyframes rollIn { from{opacity:0;transform:translateX(-100%) rotate(-120deg)} to{opacity:1;transform:translateX(0) rotate(0)} }
+@keyframes jackInTheBox { from{opacity:0;transform:scale(0.1) rotate(30deg);transform-origin:center bottom} 50%{transform:rotate(-10deg)} 70%{transform:rotate(3deg)} to{opacity:1;transform:scale(1)} }
+@keyframes lightSpeedIn { from{transform:translate3d(100%,0,0) skewX(-30deg);opacity:0} 60%{transform:skewX(20deg);opacity:1} 80%{transform:skewX(-5deg)} to{transform:translate3d(0,0,0)} }
+
+
+/* ============ ANIMATION CLASSES ============ */
+
+.anim-hidden { opacity:0; }
+.anim-fade-up { animation:fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-down { animation:fadeInDown 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-left { animation:fadeInLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-fade-right { animation:fadeInRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-scale-in { animation:scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.anim-slide-up { animation:slideInUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-bounce-in { animation:bounceIn 0.8s cubic-bezier(0.68,-0.55,0.265,1.55) forwards; }
+.anim-rotate-in { animation:rotateIn 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-card-flip { animation:cardFlip 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-text-reveal { animation:textReveal 1s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-elastic { animation:elastic 0.6s cubic-bezier(0.68,-0.55,0.265,1.55) forwards; }
+.anim-zoom-in { animation:zoomIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-flip-x { animation:flipX 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-flip-y { animation:flipY 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
+.anim-swing { animation:swing 1s ease forwards; }
+.anim-rubber { animation:rubberBand 1s ease forwards; }
+.anim-heart { animation:heartBeat 1.3s ease-in-out forwards; }
+.anim-jello { animation:jello 0.9s ease forwards; }
+.anim-roll-in { animation:rollIn 0.6s ease forwards; }
+.anim-jack-in { animation:jackInTheBox 0.8s ease forwards; }
+.anim-light-speed { animation:lightSpeedIn 0.8s ease forwards; }
+.anim-neon { animation:neonPulse 2s ease-in-out infinite; }
+
+.delay-100 { animation-delay:0.1s; }
+.delay-200 { animation-delay:0.2s; }
+.delay-300 { animation-delay:0.3s; }
+.delay-400 { animation-delay:0.4s; }
+.delay-500 { animation-delay:0.5s; }
+.delay-600 { animation-delay:0.6s; }
+.delay-700 { animation-delay:0.7s; }
+.delay-800 { animation-delay:0.8s; }
+.delay-900 { animation-delay:0.9s; }
+.delay-1000 { animation-delay:1.0s; }
+.delay-1200 { animation-delay:1.2s; }
+.delay-1500 { animation-delay:1.5s; }
+.delay-2000 { animation-delay:2.0s; }
+
+
+/* ============ INTERSECTION OBSERVER ============ */
+
+.reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal.active { opacity:1; transform:translateY(0); }
+.reveal-left { opacity:0; transform:translateX(-50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal-left.active { opacity:1; transform:translateX(0); }
+.reveal-right { opacity:0; transform:translateX(50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
+.reveal-right.active { opacity:1; transform:translateX(0); }
+.reveal-scale { opacity:0; transform:scale(0.9); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+.reveal-scale.active { opacity:1; transform:scale(1); }
+.reveal-stagger .stagger-item { opacity:0; transform:translateY(30px); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); }
+.reveal-stagger.active .stagger-item { opacity:1; transform:translateY(0); }
+.reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-stagger.active .stagger-item:nth-child(2){transition-delay:0.1s}
+.reveal-stagger.active .stagger-item:nth-child(3){transition-delay:0.2s}
+.reveal-stagger.active .stagger-item:nth-child(4){transition-delay:0.3s}
+.reveal-stagger.active .stagger-item:nth-child(5){transition-delay:0.4s}
+.reveal-flip .stagger-item { opacity:0; transform:perspective(1000px) rotateY(90deg); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
+.reveal-flip.active .stagger-item { opacity:1; transform:perspective(1000px) rotateY(0); }
+.reveal-flip.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-flip.active .stagger-item:nth-child(2){transition-delay:0.15s}
+.reveal-flip.active .stagger-item:nth-child(3){transition-delay:0.3s}
+.reveal-flip.active .stagger-item:nth-child(4){transition-delay:0.45s}
+.reveal-flip.active .stagger-item:nth-child(5){transition-delay:0.6s}
+.reveal-zoom .stagger-item { opacity:0; transform:scale(0.5); transition:all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+.reveal-zoom.active .stagger-item { opacity:1; transform:scale(1); }
+.reveal-zoom.active .stagger-item:nth-child(1){transition-delay:0s}
+.reveal-zoom.active .stagger-item:nth-child(2){transition-delay:0.1s}
+.reveal-zoom.active .stagger-item:nth-child(3){transition-delay:0.2s}
+.reveal-zoom.active .stagger-item:nth-child(4){transition-delay:0.3s}
+
+
+/* ============ SCROLL PROGRESS BAR ============ */
+
+.scroll-progress { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--primary),#FF8C42); z-index:9999; transform-origin:left; transform:scaleX(0); transition:transform 0.1s ease-out; }
+
+
+/* ============ FLOATING PARTICLES ============ */
+
+.particle { position:absolute; border-radius:50%; pointer-events:none; }
+.particle-1 { width:6px; height:6px; background:rgba(255,82,0,0.3); animation:float 4s ease-in-out infinite; }
+.particle-2 { width:8px; height:8px; background:rgba(255,82,0,0.2); animation:float 5s ease-in-out infinite 1s; }
+.particle-3 { width:4px; height:4px; background:rgba(255,82,0,0.4); animation:float 3s ease-in-out infinite 0.5s; }
+
+
+/* ============ CARD SHINE ============ */
+
+.card-shine { position:relative; overflow:hidden; }
+.card-shine::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent); transition:left 0.6s ease; z-index:10; pointer-events:none; }
+.card-shine:hover::before { left:100%; }
+
+
+/* ============ SMOOTH SCROLL ============ */
+
+html { scroll-behavior:smooth; }
+
+
+/* ============ CUSTOM SCROLLBAR ============ */
+
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:#f1f1f1; }
+::-webkit-scrollbar-thumb { background:var(--primary); border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:var(--primary-hover); }
+
+
+/* ============ SELECTION COLOR ============ */
+
+::selection { background:rgba(255,82,0,0.3); color:#1C1C1E; }
+
+
+/* ============ FOCUS STYLES ============ */
+
+:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+
+
+/* ============ REDUCED MOTION ============ */
+
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+}
+
+
+
 </style>
 </head>
 <body>
 
-<aside class="sidebar">
+<aside class="sidebar anim-fade-left">
     <a href="view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
@@ -377,7 +543,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 </aside>
 
 <main class="main">
-<header class="topbar">
+<header class="topbar anim-fade-down">
     <div class="topbar-left">
         <div class="topbar-title">Dashboard Karyawan</div>
         <div class="topbar-breadcrumb">Dashboard / Ringkasan</div>
@@ -412,33 +578,33 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 </header>
 
 <div class="content">
-    <div class="welcome-banner">
+    <div class="welcome-banner anim-fade-up delay-200">
         <div class="wb-deco"></div><div class="wb-deco2"></div>
         <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> 👋</div><div class="wb-sub">Kelola operasional dan transaksi penyewaan lapangan.</div></div>
         <div class="wb-icon"><i class="fa-solid fa-basketball"></i></div>
     </div>
 
     <div class="stat-grid">
-        <div class="stat-card sc-blue">
+        <div class="stat-card sc-blue anim-fade-up delay-300 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-users"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
             <div class="stat-value"><?= $total_customer ?></div><div class="stat-label">Total Customer</div><div class="stat-sublabel">Customer terdaftar</div>
         </div>
-        <div class="stat-card sc-green">
+        <div class="stat-card sc-green anim-fade-up delay-400 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
             <div class="stat-value"><?= $total_booking ?></div><div class="stat-label">Total Booking</div><div class="stat-sublabel">Semua transaksi</div>
         </div>
-        <div class="stat-card sc-orange">
+        <div class="stat-card sc-orange anim-fade-up delay-500 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-crown"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
             <div class="stat-value"><?= $total_langganan ?></div><div class="stat-label">Langganan Member</div><div class="stat-sublabel">Member aktif</div>
         </div>
-        <div class="stat-card sc-purple">
+        <div class="stat-card sc-purple anim-fade-up delay-600 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
             <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($total_omzet) ?></div><div class="stat-label">Total Omzet</div><div class="stat-sublabel">Pendapatan booking</div>
         </div>
     </div>
 
-    <div class="chart-section">
-        <div class="chart-card">
+    <div class="chart-section reveal">
+        <div class="chart-card hover-lift">
             <div class="chart-header">
                 <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking per Status</div>
                 <span class="chart-badge"><?= array_sum($chart_data) ?> Total</span>
@@ -471,8 +637,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="card">
+    <div class="dashboard-grid reveal">
+        <div class="card hover-lift">
             <div class="card-header"><div class="card-title"><i class="fa-solid fa-calendar-check"></i> Booking Terbaru</div><div style="display:flex; align-items:center; gap:12px;"><span class="card-badge"><?= count($recent_booking) ?> data</span><a href="../transaksi/booking.php" class="card-link">Kelola <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a></div></div>
             <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -498,7 +664,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         </div>
 
         <div style="display:flex; flex-direction:column; gap:20px;">
-            <div class="card">
+            <div class="card hover-lift">
                 <div class="card-header"><div class="card-title"><i class="fa-solid fa-bolt"></i> Akses Cepat</div></div>
                 <div class="card-body">
                     <div class="quick-grid">
@@ -510,7 +676,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card hover-lift">
                 <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
                 <div class="card-body">
                     <div style="display:flex; flex-direction:column; gap:12px;">
@@ -573,11 +739,34 @@ new Chart(ctx, {
             borderWidth: 2,
             borderRadius: 8,
             borderSkipped: false,
+            hoverBackgroundColor: [
+                '#F59E0B',
+                '#10B981',
+                '#3B82F6',
+                '#EF4444'
+            ],
+            hoverBorderWidth: 3,
+            hoverBorderColor: '#fff'
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+            duration: 1500,
+            easing: 'easeOutQuart',
+            delay: function(context) {
+                return context.dataIndex * 200;
+            }
+        },
+        transitions: {
+            active: {
+                animation: {
+                    duration: 400,
+                    easing: 'easeOutElastic'
+                }
+            }
+        },
         plugins: {
             legend: { display: false },
             tooltip: {
@@ -597,9 +786,54 @@ new Chart(ctx, {
         scales: {
             y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', stepSize: 1 } },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
+        },
+        onHover: (event, chartElement) => {
+            event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
         }
     }
 });
+
+
+// ============================================================================
+// INTERSECTION OBSERVER (Scroll Animations) - from customer homepage
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1
+    };
+
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+            }
+        });
+    }, observerOptions);
+
+    // Observe all reveal elements
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+        revealObserver.observe(el);
+    });
+});
+
+// ============================================================================
+// SCROLL PROGRESS BAR
+// ============================================================================
+(function() {
+    const progressBar = document.createElement('div');
+    progressBar.className = 'scroll-progress';
+    document.body.appendChild(progressBar);
+
+    window.addEventListener('scroll', function() {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+        progressBar.style.transform = 'scaleX(' + progress + ')';
+    });
+})();
+
 </script>
 </body>
 </html>
