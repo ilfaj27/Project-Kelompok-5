@@ -321,6 +321,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link:nth-of-type(12) { animation-delay: 0.85s; }
 .sb-section-label:nth-of-type(3) { animation-delay: 0.9s; }
 .sb-link:nth-of-type(13) { animation-delay: 0.95s; }
+.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation-delay: 0.95s; }
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -753,10 +754,12 @@ html.swal2-shown {
     </nav>
 
     <div class="sb-section-label">Akun</div>
-    <a href="../profile/profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
-    </a>
+    <nav>
+        <a href="../profile/profile.php" class="sb-link">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
+            Profil Saya
+        </a>
+    </nav>
 
     <div class="sb-bottom">
         <div class="sb-user">
