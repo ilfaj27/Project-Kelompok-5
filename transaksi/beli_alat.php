@@ -669,7 +669,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
             <table class="data-table" id="dataTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th style="width: 70px; text-align: center;">No.</th>
                         <th>Customer</th>
                         <th>Tanggal Beli</th>
                         <th>Metode</th>
@@ -682,6 +682,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <tbody>
                 <?php
                 $has_data = false;
+                $no = 1;
                 if ($query):
                     while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                         $has_data = true;
@@ -689,7 +690,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         $tgl_beli = $row['Tanggal_Beli'] instanceof DateTime ? $row['Tanggal_Beli']->format('d M Y H:i') : date('d M Y H:i', strtotime($row['Tanggal_Beli']));
                 ?>
                     <tr data-name="<?= strtolower(htmlspecialchars($row['Nama_Customer'])) ?>">
-                        <td style="font-weight:700; color:var(--text);">#<?= $row['ID_Beli'] ?></td>
+                        <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                         <td>
                             <div style="font-weight:700; color:var(--text);"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
                             <div style="font-size:11px; color:var(--muted);"><?= htmlspecialchars($row['Email'] ?? '-') ?></div>

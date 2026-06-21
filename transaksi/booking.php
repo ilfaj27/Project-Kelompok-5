@@ -560,7 +560,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th style="width: 70px; text-align: center;">No.</th>
                         <th>Customer</th>
                         <th>Lapangan & Jadwal</th>
                         <th>Tanggal Booking</th>
@@ -572,14 +572,14 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 </thead>
                 <tbody>
                     <?php if (count($bookings) > 0): ?>
-                        <?php foreach ($bookings as $b): 
+                        <?php $no = 1; foreach ($bookings as $b): 
                             $status = $status_labels[$b['Status']] ?? $status_labels[0];
                             $tanggal_jadwal = formatTanggal($b['Tanggal']);
                             $jam_mulai = formatJam($b['Jam_Mulai']);
                             $jam_selesai = formatJam($b['Jam_Selesai']);
                         ?>
                         <tr>
-                            <td><div class="cell-name">#<?= $b['ID_Booking'] ?></div></td>
+                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($b['Email']) ?></div>

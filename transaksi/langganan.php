@@ -606,7 +606,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 70px; text-align: center;">No.</th>
                             <th>Customer</th>
                             <th>Tipe Member</th>
                             <th>Total Bayar</th>
@@ -617,11 +617,11 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                     </thead>
                     <tbody>
                     <?php if(count($menunggu_list) > 0): ?>
-                        <?php foreach($menunggu_list as $m): 
+                        <?php $no = 1; foreach($menunggu_list as $m): 
                             $metode = $metode_labels[$m['Metode_Pembayaran']] ?? ['icon' => 'fa-money-bill', 'color' => '#6B7280'];
                         ?>
                         <tr>
-                            <td><span class="cell-name">#<?= $m['ID_Langganan'] ?></span></td>
+                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="cell-name"><?= htmlspecialchars($m['Nama_Customer']) ?></div>
                                 <div class="cell-email"><?= htmlspecialchars($m['Email'] ?? '-') ?></div>
@@ -679,7 +679,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 70px; text-align: center;">No.</th>
                             <th>Customer</th>
                             <th>Tipe Member</th>
                             <th>Tanggal Mulai</th>
@@ -690,14 +690,14 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                     </thead>
                     <tbody>
                     <?php if(count($aktif_list) > 0): ?>
-                        <?php foreach($aktif_list as $a): 
+                        <?php $no = 1; foreach($aktif_list as $a): 
                             $tgl_selesai = is_object($a['Tanggal_Selesai']) ? $a['Tanggal_Selesai']->format('Y-m-d') : $a['Tanggal_Selesai'];
                             $sisa_hari = ceil((strtotime($tgl_selesai) - time()) / 86400);
                             $sisa_text = $sisa_hari > 0 ? $sisa_hari . ' hari' : 'Hari ini berakhir';
                             $sisa_class = $sisa_hari <= 3 ? 'red' : 'green';
                         ?>
                         <tr>
-                            <td><span class="cell-name">#<?= $a['ID_Langganan'] ?></span></td>
+                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="cell-name"><?= htmlspecialchars($a['Nama_Customer']) ?></div>
                                 <div class="cell-email"><?= htmlspecialchars($a['Email'] ?? '-') ?></div>
@@ -738,7 +738,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 70px; text-align: center;">No.</th>
                             <th>Customer</th>
                             <th>Tipe Member</th>
                             <th>Total Bayar</th>
@@ -749,12 +749,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                     </thead>
                     <tbody>
                     <?php if(count($riwayat_list) > 0): ?>
-                        <?php foreach($riwayat_list as $r): 
+                        <?php $no = 1; foreach($riwayat_list as $r): 
                             $status = $status_labels[$r['Status']] ?? $status_labels[0];
                             $metode = $metode_labels[$r['Metode_Pembayaran']] ?? ['icon' => 'fa-money-bill', 'color' => '#6B7280'];
                         ?>
                         <tr>
-                            <td><span class="cell-name">#<?= $r['ID_Langganan'] ?></span></td>
+                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                             <td><div class="cell-name"><?= htmlspecialchars($r['Nama_Customer']) ?></div></td>
                             <td><span class="cell-name"><?= htmlspecialchars($r['Nama_Tipe']) ?></span></td>
                             <td><strong style="color: var(--orange);"><?= rupiahFormat($r['Total_Bayar']) ?></strong></td>

@@ -695,7 +695,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
             Kelola Langganan
         </a>
-        <a href="../transaksi/pembelian.php" class="sb-link">
+        <a href="../transaksi/beli_alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
             Kelola Pembelian Alat
         </a>

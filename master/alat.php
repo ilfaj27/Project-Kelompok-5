@@ -909,7 +909,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     <nav>
         <a href="../transaksi/booking.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking</a>
         <a href="../transaksi/langganan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan</a>
-        <a href="../transaksi/pembelian.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat</a>
+        <a href="../transaksi/beli_alat.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat</a>
         <a href="../transaksi/pembatalan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan</a>
     </nav>
     <div class="sb-section-label">Akun</div>
