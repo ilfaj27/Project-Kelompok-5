@@ -793,16 +793,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['beli_langganan'])) {
         </div>
 
         <div id="instruksiTransfer" style="display: none;">
-            <div style="font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; text-align: left;">Nomor Virtual Account (Mandiri / BCA)</div>
-            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <input type="text" id="vaNumber" value="8801281234567890" class="form-control" style="padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border-color: var(--border);" readonly>
-                <button class="btn-copy" id="btnCopyVA" style="border-radius: 10px; font-size: 12px;"><i class="fa-regular fa-copy"></i> Salin</button>
+            <!-- Bank Info Card -->
+            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; text-align: left; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; background: rgba(255,82,0,0.05); border-radius: 50%;"></div>
+
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 44px; height: 44px; background: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; box-shadow: 0 4px 12px rgba(255,82,0,0.3);">
+                        <i class="fa-solid fa-building-columns"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 800; color: var(--text-primary);">Virtual Account</div>
+                        <div style="font-size: 11px; color: var(--muted); font-weight: 500;">Mandiri / BCA / BNI / BRI</div>
+                    </div>
+                </div>
+
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Nomor Virtual Account</div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 0;">
+                    <div style="flex: 1; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)';this.style.boxShadow='0 4px 16px rgba(255,82,0,0.1)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
+                        <i class="fa-solid fa-hashtag" style="color: var(--primary); font-size: 14px;"></i>
+                        <input type="text" id="vaNumber" value="8801281234567890" style="border: none; background: transparent; font-weight: 800; text-align: center; font-size: 18px; letter-spacing: 2px; color: var(--text-primary); font-family: 'Plus Jakarta Sans', monospace; width: 100%; outline: none;" readonly>
+                    </div>
+                    <button class="btn-copy" id="btnCopyVA" style="border-radius: 12px; font-size: 13px; padding: 14px 18px; display: flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--primary); color: #fff; border: none; font-weight: 700; box-shadow: 0 4px 12px rgba(255,82,0,0.3); transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255,82,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(255,82,0,0.3)'">
+                        <i class="fa-regular fa-copy"></i> Salin
+                    </button>
+                </div>
             </div>
-            <ul style="text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
-                <li>Pilih menu <strong>Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</li>
-                <li>Masukkan nomor Virtual Account kustom di atas.</li>
-                <li>Nominal pembayaran akan otomatis muncul sesuai total tagihan.</li>
-            </ul>
+
+            <!-- Steps -->
+            <div style="text-align: left;">
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Cara Pembayaran</div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">1</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Buka Aplikasi Banking</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Pilih menu <strong style="color: var(--primary);">Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">2</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Masukkan Nomor VA</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Masukkan nomor Virtual Account <strong style="color: var(--primary);">8801281234567890</strong> di atas.</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">3</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Konfirmasi Pembayaran</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Nominal pembayaran akan otomatis muncul sesuai total tagihan. Konfirmasi dan selesaikan pembayaran.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="instruksiQRIS" style="display: none; align-items: center; flex-direction: column;">
@@ -984,7 +1031,8 @@ document.getElementById('btnBayar').addEventListener('click', function(e) {
     document.getElementById('instructionModal').classList.add('active');
     document.body.style.overflow = 'hidden';
 
-    showPaymentMethodInstructions('Transfer Bank');
+    // Gunakan metode yang sebenarnya dipilih user di modal pembayaran
+    showPaymentMethodInstructions(selectedMetode);
     startPaymentCountdown(15 * 60);
 });
 
