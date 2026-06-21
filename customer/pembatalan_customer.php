@@ -429,10 +429,10 @@ if ($stmtBookings) {
     </a>
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
-        <a href="booking_customer.php" class="active">Booking</a>
-        <a href="#">Lapangan</a>
+        <a href="booking_customer.php">Booking</a>
+        <a href="pembatalan_customer.php" class="active">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
-        <a href="#">Pembelian</a>
+        <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
@@ -682,9 +682,9 @@ if ($stmtBookings) {
             <ul>
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="#">Lapangan</a></li>
-                <li><a href="#">Member</a></li>
-                <li><a href="#">Pembelian</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
+                <li><a href="langganan_customer.php">Member</a></li>
+                <li><a href="pembelian_customer.php">Pembelian</a></li>
             </ul>
         </div>
 

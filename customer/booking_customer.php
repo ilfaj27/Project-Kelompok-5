@@ -938,7 +938,7 @@ if (!$has_member) {
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
-        <a href="#">Jadwal</a>
+        <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
         <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
@@ -1281,7 +1281,7 @@ if (!$has_member) {
             <ul>
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="#">Lapangan</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
                 <li><a href="#">Member</a></li>
                 <li><a href="#">Pembelian</a></li>
             </ul>

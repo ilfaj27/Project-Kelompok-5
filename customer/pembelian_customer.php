@@ -546,7 +546,7 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
-        <a href="#">Jadwal</a>
+        <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
         <a href="pembelian_customer.php" class="active">Pembelian</a>
         <a href="#">Tentang</a>
@@ -915,7 +915,8 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
             <ul>
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="pembelian_customer.php">Pembelian Alat</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
+                <li><a href="pembelian_customer.php">Pembelian</a></li>
                 <li><a href="langganan_customer.php">Member</a></li>
             </ul>
         </div>
