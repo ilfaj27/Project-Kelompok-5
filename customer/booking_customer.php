@@ -234,9 +234,9 @@ if (isset($_GET['action'])) {
     }
 }
 
-// ============================================================================
+// ===========================================================================
 // LOAD DATA MASTER
-// ============================================================================
+// ===========================================================================
 $lapanganList = [];
 $queryLapangan = sqlsrv_query($conn, "SELECT ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0");
 if ($queryLapangan) {
