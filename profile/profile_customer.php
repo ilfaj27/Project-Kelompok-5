@@ -2129,10 +2129,10 @@ function format_date_display($date)
         </a>
         <div class="nav-links">
     <a href="../customer/view_customer.php">Beranda</a>
-    <a href="#">Booking</a>
-    <a href="#">Jadwal</a>
+    <a href="../customer/booking_customer.php">Booking</a>
+    <a href="../customer/pembatalan_customer.php">Pembatalan</a>
     <a href="../customer/langganan_customer.php">Member</a>
-    <a href="#">Pembelian</a>
+    <a href="../customer/pembelian_customer.php">Pembelian</a>
     <a href="#">Tentang</a>
     <a href="#">Kontak</a>
 </div>
@@ -2938,9 +2938,9 @@ function format_date_display($date)
             <div class="footer-col">
                 <h4>Tautan</h4>
                 <ul class="footer-links">
-                    <li><a href="../index.php#lapangan">Lapangan</a></li>
-                    <li><a href="../index.php#jadwal">Jadwal</a></li>
-                    <li><a href="../index.php#alat-basket">Alat Basket</a></li>
+                    <li><a href="../customer/booking_customer.php">Booking</a></li>
+                    <li><a href="../customer/langganan_customer.php">Member</a></li>
+                    <li><a href="../customer/pembelian_customer.php">Alat Basket</a></li>
                     <li><a href="../index.php#tentang-kami">Tentang Kami</a></li>
                 </ul>
             </div>
