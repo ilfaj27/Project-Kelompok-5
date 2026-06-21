@@ -203,6 +203,22 @@ if ($stmtBookings) {
         }
     }
 }
+
+
+/* ─── HELPER: RESOLVE PHOTO PATH ─── */
+function resolvePhotoPath($photo_path) {
+    if (empty($photo_path)) return '';
+    if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '../') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '/') === 0) {
+        return '..' . $photo_path;
+    }
+    return '../' . ltrim($photo_path, '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -265,7 +281,7 @@ if ($stmtBookings) {
         @keyframes fadeInUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
         @keyframes scaleIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
-        @keyframes pulse { 0%,100%{transform:scale(1);opacity: 1;} 50%{transform:scale(1.05);opacity: 0.8;} }
+        @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(52,199,89,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(52,199,89,0)}}
 
         .anim-fade-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .anim-scale-in { animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -300,7 +316,7 @@ if ($stmtBookings) {
         .dropdown-menu a { display:flex; align-items:center; gap:12px; padding:10px 20px; color:#c5c5ca; text-decoration:none; font-size:13px; font-weight:500; transition:all 0.25s cubic-bezier(0.16,1,0.3,1); }
         .dropdown-menu a:hover { background:#222227; color:var(--primary); padding-left:28px; }
         .dropdown-divider { height:1px; background:#2d2d33; margin:6px 0; }
-        .member-badge-nav { display:inline-flex; align-items:center; gap:4px; background:var(--primary); color:var(--white); font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:4px; }
+        .member-badge-nav { display:inline-flex; align-items:center; gap:6px; background:var(--green-lt); border:1px solid var(--green); color:var(--green); padding:4px 12px; border-radius:50px; font-size:11px; font-weight:700; margin-left:8px; animation:pulse 2s ease-in-out infinite; }
 
         /* ============ CONTAINER & TABS ============ */
         .container { width: 100%; max-width: 90%; margin: 40px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 30px; min-height: 60vh; }
@@ -500,9 +516,11 @@ if ($stmtBookings) {
                 <div class="booking-card">
                     <div class="card-img-wrapper">
                         <?php 
-                        $img = !empty($b['Photo_Lapangan']) ? htmlspecialchars($b['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                        $rawPhoto = $b['Photo_Lapangan'] ?? '';
+                        $resolvedPhoto = resolvePhotoPath($rawPhoto);
+                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
                         ?>
-                        <img src="<?= $img ?>" class="card-img" alt="Lapangan">
+                        <img src="<?= $img ?>" class="card-img" alt="Lapangan" onerror="this.src='https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop'">
                         
                         <?php if ($b['StatusBooking'] == 0): ?>
                             <span class="status-badge status-waiting">Menunggu Konfirmasi</span>
@@ -558,9 +576,11 @@ if ($stmtBookings) {
                 <div class="booking-card">
                     <div class="card-img-wrapper">
                         <?php 
-                        $img = !empty($b['Photo_Lapangan']) ? htmlspecialchars($b['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                        $rawPhoto = $b['Photo_Lapangan'] ?? '';
+                        $resolvedPhoto = resolvePhotoPath($rawPhoto);
+                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
                         ?>
-                        <img src="<?= $img ?>" class="card-img" alt="Lapangan">
+                        <img src="<?= $img ?>" class="card-img" alt="Lapangan" onerror="this.src='https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop'">
                         
                         <?php if ($b['StatusBooking'] == 2): ?>
                             <span class="status-badge status-completed">Selesai</span>

@@ -70,6 +70,21 @@ $has_member    = !empty($member_data);
 $member_tipe   = $has_member ? $member_data['Nama_Tipe'] : '';
 $member_discount = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
 
+/* ─── HELPER: RESOLVE PHOTO PATH ─── */
+function resolvePhotoPath($photo_path) {
+    if (empty($photo_path)) return '';
+    if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '../') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '/') === 0) {
+        return '..' . $photo_path;
+    }
+    return '../' . ltrim($photo_path, '/');
+}
+
 /* ─── GENERATE JADWAL ─── */
 function generateJadwalOtomatis($conn) {
     $q = sqlsrv_query($conn,"SELECT ID_Lapangan FROM Lapangan WHERE Status=1 AND Is_Deleted=0");
@@ -204,7 +219,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes scaleIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)}}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(52,199,89,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(52,199,89,0)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
 @keyframes slideInModal{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes fadeInModal{from{opacity:0}to{opacity:1}}
@@ -261,7 +276,7 @@ nav{background:var(--white);padding:0 80px;display:flex;justify-content:space-be
 .dropdown-divider{height:1px;background:#2d2d33;margin:6px 0}
 .dropdown-menu a.logout:hover{color:#ff3b30}
 .dropdown-menu a.logout:hover::after{background:#ff3b30}
-.member-badge-nav{display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:var(--white);font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:4px}
+.member-badge-nav{display:inline-flex;align-items:center;gap:6px;background:var(--green-lt);border:1px solid var(--green);color:var(--green);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;margin-left:8px;animation:pulse 2s ease-in-out infinite}
 
 /* ═══ PAGE CONTAINER ═══ */
 .container{width:100%;max-width:95%;margin:40px auto;padding:0 20px;display:flex;flex-direction:column;gap:24px}
@@ -515,13 +530,15 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
                 $cName = htmlspecialchars($lap['Nama_Lapangan']);
                 $cPrice= floatval($lap['Harga_Sewa']);
                 $sel   = $idx===0 ? 'selected' : '';
-                $img   = !empty($lap['Photo_Lapangan']) ? htmlspecialchars($lap['Photo_Lapangan']) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                $rawPhoto = $lap['Photo_Lapangan'] ?? '';
+                $resolvedPhoto = resolvePhotoPath($rawPhoto);
+                $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
             ?>
             <div class="court-card stagger-item <?= $sel ?>"
                  data-id="<?= $cId ?>" data-price="<?= $cPrice ?>"
                  data-name="<?= $cName ?>" data-img="<?= $img ?>">
                 <div class="court-img-wrapper">
-                    <img src="<?= $img ?>" alt="<?= $cName ?>" class="court-img">
+                    <img src="<?= $img ?>" alt="<?= $cName ?>" class="court-img" onerror="this.src='https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop'">
                     <span class="badge-available">Tersedia</span>
                 </div>
                 <div class="court-info">

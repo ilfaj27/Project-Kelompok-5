@@ -273,7 +273,7 @@ body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--white); colo
 @keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
 @keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(52,199,89,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(52,199,89,0)}}
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 @keyframes bounceIn { 0%{opacity:0;transform:scale(0.3)} 50%{opacity:1;transform:scale(1.05)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
 
@@ -316,7 +316,7 @@ nav { background:var(--white); padding:0 80px; display:flex; justify-content:spa
 .dropdown-menu a.logout:hover { color:#ff3b30; }
 .dropdown-menu a.logout:hover::after { background:#ff3b30; }
 
-.member-badge-nav { background:var(--green-lt); color:var(--green); padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.member-badge-nav { display:inline-flex; align-items:center; gap:6px; background:var(--green-lt); border:1px solid var(--green); color:var(--green); padding:4px 12px; border-radius:50px; font-size:11px; font-weight:700; margin-left:8px; animation:pulse 2s ease-in-out infinite; }
 
 /* Hero */
 .hero { background-color:var(--dark-bg); background-image:linear-gradient(180deg,rgba(11,11,12,0.6) 0%,rgba(11,11,12,0.9) 100%),url('https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2000'); background-size:cover; background-position:center; min-height:300px; padding:60px 80px; display:flex; align-items:center; justify-content:space-between; gap:40px; position:relative; overflow:hidden; }
@@ -419,7 +419,7 @@ nav { background:var(--white); padding:0 80px; display:flex; justify-content:spa
 footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; border-top:1px solid #1C1C1E; margin-top:60px; }
 .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:40px; }
 .footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
-.footer-logo img { height:50px; }
+.footer-logo img { height:70px; }
 .footer-logo span { color:var(--white); font-size:18px; font-weight:800; }
 .footer-desc { font-size:13px; line-height:1.6; margin-bottom:20px; }
 .social-links { display:flex; gap:10px; }
@@ -901,7 +901,6 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
         <div>
             <div class="footer-logo">
                 <img src="../asset/image/logo.png" alt="HoopBall">
-                <span>HoopBall</span>
             </div>
             <p class="footer-desc">Platform penyewaan lapangan basket dan pembelian alat basket online terpercaya.</p>
             <div class="social-links">
