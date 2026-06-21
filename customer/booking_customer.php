@@ -938,9 +938,9 @@ if (!$has_member) {
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
-        <a href="#">Lapangan</a>
+        <a href="#">Jadwal</a>
         <a href="langganan_customer.php">Member</a>
-        <a href="#">Pembelian</a>
+        <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
@@ -1598,12 +1598,14 @@ if (!$has_member) {
         });
     });
 
+    // ====== PERUBAHAN: Flow sama dengan langganan ======
+    // Klik "Selesaikan Booking" → langsung muncul modal instruksi pembayaran
     btnSubmit.addEventListener('click', function() {
         if (!selectedSlotId) return;
 
-        btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
-
+        // Langsung tampilkan modal instruksi pembayaran (tanpa nunggu server)
+        bookingModal.style.display = 'none';
+        
         const basePrice = selectedCourtPrice * selectedSlotDuration;
         let discount = 0;
         let idPromo = null;
@@ -1620,50 +1622,10 @@ if (!$has_member) {
 
         const finalAmount = Math.max(0, basePrice - discount);
 
-        const checkoutData = {
-            id_jadwal: selectedSlotId,
-            id_promo: idPromo,
-            metode_pembayaran: selectedPaymentMethod,
-            total_bayar: finalAmount
-        };
-
-        fetch('booking_customer.php?action=checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(checkdownData)
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                bookingModal.style.display = 'none';
-                document.getElementById('paymentTotalAmount').innerText = formatRupiah(finalAmount);
-                showPaymentMethodInstructions(selectedPaymentMethod);
-                document.getElementById('paymentInstructionModal').style.display = 'flex';
-                startPaymentCountdown(15 * 60); 
-            } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Jadwal Tidak Tersedia',
-                    text: result.message,
-                    confirmButtonColor: 'var(--orange)',
-                    confirmButtonText: 'Pilih Jadwal Lain'
-                });
-                btnSubmit.disabled = false;
-                btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
-            }
-        })
-        .catch(err => {
-            console.error("Kesalahan checkout:", err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Koneksi Terputus',
-                text: 'Gagal terhubung ke sistem server. Pastikan koneksi internet Anda stabil lalu coba kembali.',
-                confirmButtonColor: 'var(--orange)',
-                confirmButtonText: 'Coba Lagi'
-            });
-            btnSubmit.disabled = false;
-            btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Selesaikan Booking';
-        });
+        document.getElementById('paymentTotalAmount').innerText = formatRupiah(finalAmount);
+        showPaymentMethodInstructions(selectedPaymentMethod);
+        document.getElementById('paymentInstructionModal').style.display = 'flex';
+        startPaymentCountdown(15 * 60);
     });
 
     document.addEventListener("DOMContentLoaded", function() {
@@ -1778,16 +1740,72 @@ if (!$has_member) {
         });
     });
 
+    // ====== PERUBAHAN: Klik "Saya Sudah Bayar" → baru kirim ke server ======
     document.getElementById('btnDonePayment').addEventListener('click', function() {
         clearInterval(countdownInterval);
         document.getElementById('paymentInstructionModal').style.display = 'none';
-        Swal.fire({
-            icon: 'success',
-            title: 'Pembayaran Diterima!',
-            text: 'Terima kasih, kami sedang memverifikasi transaksi pembayaran anda harap ditunggu.',
-            confirmButtonColor: 'var(--orange)',
-            confirmButtonText: 'Selesai'
-        }).then(() => location.reload());
+
+        // Kirim data ke server via fetch (sama seperti langganan)
+        const basePrice = selectedCourtPrice * selectedSlotDuration;
+        let discount = 0;
+        let idPromo = null;
+
+        if (isMember) {
+            discount = memberDiscount;
+        } else if (promoSelect) {
+            const selectedPromoOpt = promoSelect.options[promoSelect.selectedIndex];
+            if (selectedPromoOpt && selectedPromoOpt.value !== '0') {
+                discount = parseFloat(selectedPromoOpt.getAttribute('data-discount') || 0);
+                idPromo = selectedPromoOpt.value;
+            }
+        }
+
+        const finalAmount = Math.max(0, basePrice - discount);
+
+        const checkoutData = {
+            id_jadwal: selectedSlotId,
+            id_promo: idPromo,
+            metode_pembayaran: selectedPaymentMethod,
+            total_bayar: finalAmount
+        };
+
+        fetch('booking_customer.php?action=checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(checkoutData)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Booking Berhasil!',
+                    text: 'Pemesanan lapangan berhasil dibuat.',
+                    confirmButtonColor: 'var(--orange)',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Jadwal Tidak Tersedia',
+                    text: result.message,
+                    confirmButtonColor: 'var(--orange)',
+                    confirmButtonText: 'Pilih Jadwal Lain'
+                });
+            }
+        })
+        .catch(err => {
+            console.error("Kesalahan checkout:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Koneksi Terputus',
+                text: 'Gagal terhubung ke sistem server. Pastikan koneksi internet Anda stabil lalu coba kembali.',
+                confirmButtonColor: 'var(--orange)',
+                confirmButtonText: 'Coba Lagi'
+            });
+        });
     });
 
     const btnSwitchVA = document.getElementById('btnSwitchVA');

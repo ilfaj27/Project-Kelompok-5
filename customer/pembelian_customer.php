@@ -208,10 +208,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['checkout'])) {
                 [$item['id_alat'], $id_beli, $item['jumlah'], $item['subtotal']]);
         }
 
+        // Build item names string for notification
+        $item_names = [];
+        foreach ($_SESSION['cart_alat'] as $item) {
+            $item_names[] = $item['nama_alat'];
+        }
+        $item_names_str = implode(', ', $item_names);
+
         // Clear cart
         $_SESSION['cart_alat'] = [];
 
-        header("Location: pembelian_customer.php?status=success&msg=" . urlencode("Pembelian berhasil! Status: Menunggu Konfirmasi. ID Transaksi: BELI-" . $id_beli));
+        header("Location: pembelian_customer.php?status=success&msg=" . urlencode("Pembelian berhasil! Status: Menunggu Konfirmasi. Alat: " . $item_names_str));
         exit();
     } else {
         header("Location: pembelian_customer.php?tab=cart&status=error&msg=" . urlencode("Gagal memproses pembelian."));
@@ -235,17 +242,6 @@ if ($query_alat) {
     }
 }
 
-// Fetch purchase history
-$riwayat_list = [];
-$query_riwayat = safeQuery($conn, "SELECT B.ID_Beli, B.Tanggal_Beli, B.Metode_Pembayaran, B.Total_Bayar, B.Status, K.Nama_Karyawan FROM Beli_Alat B INNER JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan WHERE B.ID_Customer = ? ORDER BY B.Created_Date DESC", [$id_customer]);
-if ($query_riwayat) {
-    while ($row = sqlsrv_fetch_array($query_riwayat, SQLSRV_FETCH_ASSOC)) {
-        $riwayat_list[] = $row;
-    }
-}
-
-$status_beli = [0 => ['label'=>'Menunggu Konfirmasi','class'=>'sp-pending','icon'=>'fa-clock'], 1 => ['label'=>'Berhasil','class'=>'sp-active','icon'=>'fa-check-circle']];
-
 $cart_count = isset($_SESSION['cart_alat']) ? count($_SESSION['cart_alat']) : 0;
 $cart_total = 0;
 if (isset($_SESSION['cart_alat'])) {
@@ -266,7 +262,7 @@ $active_tab = $_GET['tab'] ?? 'alat';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-:root { --primary:#FF5200; --primary-hover:#E04800; --dark-bg:#0B0B0C; --card-dark:#121214; --text-gray:#8E8E93; --border-color:#222225; --white:#FFFFFF; --light-bg:#F8F9FA; --green:#34C759; --green-lt:rgba(52,199,89,.10); --yellow:#FFCC00; --yellow-lt:rgba(255,204,0,.10); --red:#FF3B30; --red-lt:rgba(255,59,48,.10); --blue:#007AFF; --blue-lt:rgba(0,122,255,.10); --orange:#FF4500; --orange-lt:rgba(255,69,0,.10); --shopee-orange:#EE4D2D; }
+:root { --primary:#FF5200; --primary-hover:#E04800; --dark-bg:#0B0B0C; --card-dark:#121214; --text-gray:#8E8E93; --border-color:#222225; --white:#FFFFFF; --light-bg:#F8F9FA; --green:#34C759; --green-lt:rgba(52,199,89,.10); --yellow:#FFCC00; --yellow-lt:rgba(255,204,0,.10); --red:#FF3B30; --red-lt:rgba(255,59,48,.10); --blue:#007AFF; --blue-lt:rgba(0,122,255,.10); --orange:#FF4500; --orange-lt:rgba(255,69,0,.10); --shopee-orange:#EE4D2D; --text-primary:#0F172A; --text-secondary:#475569; --muted:#94A3B8; --bg:#F8FAFC; --border:#E2E8F0; --border-lt:#F1F5F9; --transition-smooth:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); --purple:#AF52DE; --purple-lt:rgba(175,82,222,.10); --orange-glow:rgba(255, 90, 31, 0.15); }
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--white); color:#111; overflow-x:hidden; }
 
@@ -419,20 +415,6 @@ nav { background:var(--white); padding:0 80px; display:flex; justify-content:spa
 .empty-cart div { font-size:18px; font-weight:700; color:#1C1C1E; margin-bottom:8px; }
 .empty-cart p { font-size:14px; }
 
-/* Riwayat */
-.riwayat-card { border:1px solid #E5E5EA; border-radius:16px; padding:24px; background:var(--white); }
-.riwayat-item { display:flex; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid #F2F2F7; transition:all 0.3s ease; }
-.riwayat-item:hover { background:#FFF8F5; transform:translateX(8px); border-bottom-color:transparent; border-radius:8px; padding-left:12px; padding-right:12px; }
-.riwayat-item:last-child { border-bottom:none; }
-.riwayat-icon { width:48px; height:48px; border-radius:12px; background:#FFF0E6; display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:20px; flex-shrink:0; }
-.riwayat-info { flex:1; }
-.riwayat-info h4 { font-size:15px; font-weight:700; color:#1C1C1E; margin-bottom:4px; }
-.riwayat-info p { font-size:13px; color:#636366; }
-.riwayat-price { font-size:16px; font-weight:800; color:var(--shopee-orange); }
-.status-pill { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; display:inline-flex; align-items:center; gap:5px; }
-.sp-active { background:var(--green-lt); color:var(--green); }
-.sp-pending { background:var(--yellow-lt); color:#D97706; }
-
 /* Footer */
 footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; border-top:1px solid #1C1C1E; margin-top:60px; }
 .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:40px; }
@@ -473,7 +455,86 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
   .nav-links { display:none; }
   .metode-options { flex-direction:column; }
 }
+
+
+/* MODAL PEMBAYARAN */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); animation: fadeInModal 0.25s ease-out forwards; }
+.modal-overlay.active { display: flex; }
+@keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+.modal-box { background: var(--white); border-radius: 20px; width: 480px; max-width: 90%; max-height: 90vh; overflow-y: auto; padding: 32px; animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; position: relative; }
+@keyframes slideInModal { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.modal-header h3 { font-size: 20px; font-weight: 800; color: #1C1C1E; }
+.modal-close { width: 36px; height: 36px; border-radius: 50%; background: #F2F2F7; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #8E8E93; font-size: 14px; transition: all 0.3s ease; }
+.modal-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
+.modal-summary { background: #F8F9FA; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.modal-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; transition: all 0.3s ease; }
+.modal-summary-row:hover { transform: translateX(5px); }
+.modal-summary-row.total { border-top: 2px solid #E5E5EA; padding-top: 12px; margin-top: 8px; font-weight: 800; font-size: 18px; color: var(--primary); }
+
+.payment-section { border-top: 1px solid var(--border-lt); padding: 20px 0 10px; margin-top: 16px; }
+.payment-header { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.payment-header i { color: var(--muted); }
+.payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.payment-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); user-select: none; position: relative; overflow: hidden; }
+.payment-card::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,90,31,0.1); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.4s, height 0.4s; }
+.payment-card:hover::before { width: 200px; height: 200px; }
+.payment-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,90,31,0.1); }
+.payment-card.selected { border-color: var(--primary); background: var(--orange-lt); }
+.custom-radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; }
+.payment-card.selected .custom-radio { border-color: var(--primary); }
+.custom-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); display: none; }
+.payment-card.selected .custom-radio::after { display: block; animation: scaleIn 0.2s ease-out; }
+.payment-card-content { display: flex; flex-direction: column; justify-content: center; }
+.payment-name { font-size: 11px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+.payment-sub { font-size: 9px; color: var(--muted); margin-top: 1px; font-weight: 500; }
+.qris-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 14px; color: #000; letter-spacing: -0.5px; }
+
+.btn-bayar { width: 100%; background: var(--primary); color: var(--white); border: none; padding: 16px; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; overflow: hidden; margin-top: 16px; }
+.btn-bayar::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+.btn-bayar:hover::before { width: 400px; height: 400px; }
+.btn-bayar:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,82,0,0.4); }
+.btn-bayar:disabled { background: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+.booking-disclaimer { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 10px; font-weight: 500; }
+.booking-disclaimer i { color: var(--green); animation: pulse 2s ease-in-out infinite; }
+
+/* INSTRUKSI PEMBAYARAN MODAL */
+.payment-instruction-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeInModal 0.25s ease-out forwards; }
+.payment-instruction-overlay.active { display: flex; }
+.instruction-card { background: #fff; border-radius: 20px !important; border: none !important; padding: 30px !important; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important; animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; text-align: center; }
+.instruction-close { position: absolute; top: 20px; right: 20px; background: var(--border-lt); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+.instruction-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
+.switch-tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--border-lt); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+.switch-tab { flex: 1; padding: 10px; border: none; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary); }
+.switch-tab.active { background: #fff; color: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+.countdown-box { background: var(--orange-lt); border: 1px solid rgba(255, 90, 31, 0.15); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; animation: fadeInUp 0.5s ease-out; }
+.countdown-box i { color: var(--orange); animation: pulse 2s ease-in-out infinite; }
+.countdown-text { color: var(--primary-hover); font-weight: 700; font-size: 12px; }
+.total-box { background: var(--bg); padding: 14px 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); animation: fadeInUp 0.5s ease-out; }
+.total-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; }
+.total-amount { font-size: 24px; color: var(--primary); font-weight: 900; margin-top: 4px; }
+.va-box { text-align: left; display: none; }
+.va-box.active { display: block; }
+.va-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.va-input-group { display: flex; gap: 8px; margin-bottom: 16px; }
+.va-input { flex: 1; padding: 10px 14px; font-weight: 800; text-align: center; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); border: 1px solid var(--border); border-radius: 10px; background: #fff; font-family: inherit; }
+.btn-copy { padding: 10px 14px; border-radius: 10px; font-size: 12px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; font-weight: 600; color: var(--text-secondary); transition: all 0.3s ease; }
+.btn-copy:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.va-steps { text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; }
+.qris-box { display: none; align-items: center; flex-direction: column; }
+.qris-box.active { display: flex; }
+.qris-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+.qris-image-wrapper { background: #fff; padding: 12px; border: 1px solid var(--border); border-radius: 12px; width: fit-content; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); animation: fadeInUp 0.5s ease-out; }
+.qris-image { display: block; width: 170px; height: 180px; object-fit: contain; }
+.qris-steps { text-align: left; font-size: 11.5px; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.btn-done { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); position: relative; overflow: hidden; }
+.btn-done::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+.btn-done:hover::before { width: 400px; height: 400px; }
+.btn-done:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,82,0,0.4); }
+
 </style>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -535,9 +596,7 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
         <i class="fa-solid fa-cart-shopping"></i> Keranjang
         <?php if ($cart_count > 0): ?><span class="tab-badge"><?php echo $cart_count; ?></span><?php endif; ?>
     </button>
-    <button class="tab-btn <?php echo $active_tab == 'riwayat' ? 'active' : ''; ?>" onclick="switchTab('riwayat')">
-        <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Pembelian
-    </button>
+    
 </div>
 
 <!-- MAIN CONTENT -->
@@ -603,7 +662,7 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
 
         <?php if (!empty($_SESSION['cart_alat'])): ?>
         <div class="cart-container">
-            <a href="pembelian_customer.php?clear_cart=1" class="btn-clear-cart" onclick="return confirmClearCart()">
+            <a href="pembelian_customer.php?clear_cart=1" class="btn-clear-cart" onclick="confirmClearCart(); return false;">
                 <i class="fa-solid fa-trash-can"></i> Kosongkan Keranjang
             </a>
 
@@ -650,31 +709,13 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
                     <span class="summary-total"><?php echo rupiahFormat($cart_total); ?></span>
                 </div>
 
-                <form method="POST" action="pembelian_customer.php" id="checkoutForm">
+                <form method="POST" action="pembelian_customer.php" id="checkoutForm" style="display:none;">
                     <input type="hidden" name="checkout" value="1">
-                    <div class="metode-pembayaran">
-                        <span class="metode-label"><i class="fa-solid fa-wallet" style="margin-right:6px; color:var(--primary);"></i> Pilih Metode Pembayaran</span>
-                        <div class="metode-options">
-                            <div class="metode-option">
-                                <input type="radio" name="metode_pembayaran" id="qris" value="QRIS" required>
-                                <label for="qris">
-                                    <i class="fa-solid fa-qrcode"></i>
-                                    <span>QRIS</span>
-                                </label>
-                            </div>
-                            <div class="metode-option">
-                                <input type="radio" name="metode_pembayaran" id="transfer" value="Transfer Bank" required>
-                                <label for="transfer">
-                                    <i class="fa-solid fa-building-columns"></i>
-                                    <span>Transfer Bank</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-checkout" id="btnCheckout">
-                        <i class="fa-solid fa-credit-card"></i> Bayar Sekarang
-                    </button>
+                    <input type="hidden" name="metode_pembayaran" id="inputMetode" value="Transfer Bank">
                 </form>
+                <button type="button" class="btn-checkout" id="btnCheckout" onclick="bukaModalPembayaran()">
+                    <i class="fa-solid fa-credit-card"></i> Bayar Sekarang
+                </button>
             </div>
         </div>
         <?php else: ?>
@@ -686,45 +727,172 @@ footer { background:var(--dark-bg); color:#8E8E93; padding:60px 80px 30px; borde
         <?php endif; ?>
     </div>
 
-    <!-- TAB: RIWAYAT PEMBELIAN -->
-    <div id="tab-riwayat" class="tab-content" style="<?php echo $active_tab == 'riwayat' ? '' : 'display:none;'; ?>">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">Riwayat Pembelian</h2>
-                <p class="section-subtitle">Daftar transaksi pembelian alat basket Anda.</p>
+    <!-- MODAL PEMBAYARAN -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-basket-shopping" style="color: var(--primary); margin-right: 8px;"></i>Ringkasan Pembelian Alat</h3>
+            <button class="modal-close" onclick="tutupModalPembayaran()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="modal-summary">
+            <div class="modal-summary-row">
+                <span>Total Item</span>
+                <span id="modalTotalItem" style="font-weight: 700;"><?php echo $cart_count; ?> item</span>
+            </div>
+            <div class="modal-summary-row">
+                <span>Total Pembayaran</span>
+                <span id="modalTotalBayar" style="font-weight: 700; color: var(--primary);"><?php echo rupiahFormat($cart_total); ?></span>
+            </div>
+            <div class="modal-summary-row total">
+                <span>Total Tagihan</span>
+                <span id="modalTotalTagihan"><?php echo rupiahFormat($cart_total); ?></span>
             </div>
         </div>
 
-        <?php if (!empty($riwayat_list)): ?>
-        <div class="riwayat-card">
-            <?php foreach ($riwayat_list as $rb): 
-                $status = $status_beli[$rb['Status']] ?? $status_beli[0];
-                $tgl_beli = $rb['Tanggal_Beli'] instanceof DateTime ? $rb['Tanggal_Beli']->format('d M Y') : date('d M Y', strtotime($rb['Tanggal_Beli']));
-            ?>
-            <div class="riwayat-item">
-                <div class="riwayat-icon"><i class="fa-solid fa-toolbox"></i></div>
-                <div class="riwayat-info">
-                    <h4>Beli Alat #<?php echo $rb['ID_Beli']; ?></h4>
-                    <p><?php echo $tgl_beli; ?> | <?php echo htmlspecialchars($rb['Metode_Pembayaran']); ?> | Karyawan: <?php echo htmlspecialchars($rb['Nama_Karyawan']); ?></p>
+        <div class="payment-section">
+            <div class="payment-header">
+                <i class="fa-solid fa-wallet"></i> Metode Pembayaran
+            </div>
+            <div class="payment-grid">
+                <div class="payment-card selected" data-method="Transfer Bank" onclick="pilihMetode(this)">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name">Transfer Bank</span>
+                        <span class="payment-sub">Virtual Account</span>
+                    </div>
                 </div>
-                <div style="text-align:right;">
-                    <div class="riwayat-price"><?php echo rupiahFormat($rb['Total_Bayar']); ?></div>
-                    <span class="status-pill <?php echo $status['class']; ?>" style="margin-top:4px;">
-                        <i class="fa-solid <?php echo $status['icon']; ?>"></i> <?php echo $status['label']; ?>
-                    </span>
+                <div class="payment-card" data-method="QRIS" onclick="pilihMetode(this)">
+                    <div class="custom-radio"></div>
+                    <div class="payment-card-content">
+                        <span class="payment-name qris-logo">QRIS</span>
+                        <span class="payment-sub">Scan & Bayar Instan</span>
+                    </div>
                 </div>
             </div>
-            <?php endforeach; ?>
         </div>
-        <?php else: ?>
-        <div class="empty-cart">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-            <div>Belum Ada Riwayat</div>
-            <p>Anda belum melakukan pembelian alat basket.</p>
+
+        <button type="button" class="btn-bayar" id="btnBayar" onclick="prosesBayar()">
+            <i class="fa-solid fa-lock"></i> Bayar Sekarang
+        </button>
+
+        <div class="booking-disclaimer">
+            <i class="fa-solid fa-circle-check"></i> Enkripsi data aman terverifikasi
         </div>
-        <?php endif; ?>
     </div>
+</div>
 
+<!-- MODAL INSTRUKSI PEMBAYARAN -->
+<div class="payment-instruction-overlay" id="instructionModal">
+    <div class="instruction-card">
+        <button class="instruction-close" onclick="tutupInstructionModal()">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <h2 style="font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 20px; text-transform: uppercase; text-align: center;">Instruksi Pembayaran</h2>
+
+        <div class="switch-tabs">
+            <button id="btnSwitchVA" class="switch-tab active" onclick="switchPaymentMethod('Transfer Bank')">
+                <i class="fa-solid fa-university" style="margin-right: 4px;"></i> Virtual Account
+            </button>
+            <button id="btnSwitchQRIS" class="switch-tab" onclick="switchPaymentMethod('QRIS')">
+                <i class="fa-solid fa-qrcode" style="margin-right: 4px;"></i> QRIS Scan
+            </button>
+        </div>
+
+        <div class="countdown-box">
+            <i class="fa-solid fa-clock"></i>
+            <p class="countdown-text">
+                Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span>
+            </p>
+        </div>
+
+        <div class="total-box">
+            <div class="total-label">Total Tagihan</div>
+            <div class="total-amount" id="instructionTotal"><?php echo rupiahFormat($cart_total); ?></div>
+        </div>
+
+        <div id="instruksiTransfer" class="va-box active">
+            <!-- Bank Info Card -->
+            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; text-align: left; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; background: rgba(255,82,0,0.05); border-radius: 50%;"></div>
+
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 44px; height: 44px; background: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; box-shadow: 0 4px 12px rgba(255,82,0,0.3);">
+                        <i class="fa-solid fa-building-columns"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 800; color: var(--text-primary);">Virtual Account</div>
+                        <div style="font-size: 11px; color: var(--muted); font-weight: 500;">Mandiri / BCA / BNI / BRI</div>
+                    </div>
+                </div>
+
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Nomor Virtual Account</div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 0;">
+                    <div style="flex: 1; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)';this.style.boxShadow='0 4px 16px rgba(255,82,0,0.1)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
+                        <i class="fa-solid fa-hashtag" style="color: var(--primary); font-size: 14px;"></i>
+                        <input type="text" id="vaNumber" value="8801281234567890" style="border: none; background: transparent; font-weight: 800; text-align: center; font-size: 18px; letter-spacing: 2px; color: var(--text-primary); font-family: 'Plus Jakarta Sans', monospace; width: 100%; outline: none;" readonly>
+                    </div>
+                    <button class="btn-copy" id="btnCopyVA" onclick="salinVA()" style="border-radius: 12px; font-size: 13px; padding: 14px 18px; display: flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--primary); color: #fff; border: none; font-weight: 700; box-shadow: 0 4px 12px rgba(255,82,0,0.3); transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255,82,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(255,82,0,0.3)'">
+                        <i class="fa-regular fa-copy"></i> Salin
+                    </button>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div style="text-align: left;">
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Cara Pembayaran</div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">1</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Buka Aplikasi Banking</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Pilih menu <strong style="color: var(--primary);">Transfer > Virtual Account</strong> pada aplikasi M-Banking atau ATM Anda.</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">2</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Masukkan Nomor VA</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Masukkan nomor Virtual Account <strong style="color: var(--primary);">8801281234567890</strong> di atas.</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: #fafafa; border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease;" onmouseover="this.style.background='#fff';this.style.borderColor='var(--primary)';this.style.transform='translateX(4px)'" onmouseout="this.style.background='#fafafa';this.style.borderColor='var(--border-lt)';this.style.transform='translateX(0)'">
+                        <div style="width: 28px; height: 28px; background: var(--orange-lt); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; margin-top: 2px;">3</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Konfirmasi Pembayaran</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Nominal pembayaran akan otomatis muncul sesuai total tagihan. Konfirmasi dan selesaikan pembayaran.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="instruksiQRIS" class="qris-box">
+            <div class="qris-label">Pindai Kode QRIS Resmi HoopBall</div>
+            <div class="qris-image-wrapper">
+                <img id="qrisImage" src="" alt="QRIS Code" class="qris-image">
+            </div>
+            <ul class="qris-steps">
+                <li>Buka aplikasi e-wallet Anda (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
+                <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
+                <li>Arahkan kamera smartphone ke kode QR di atas, lalu selesaikan pembayaran.</li>
+            </ul>
+        </div>
+
+        <hr style="border: none; height: 1px; background: var(--border-lt); margin: 20px 0;">
+
+        <button class="btn-done" id="btnDonePayment" onclick="selesaiBayar()">
+            Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
+        </button>
+    </div>
+</div>
 </main>
 
 <!-- FOOTER -->
@@ -800,11 +968,41 @@ function validateAddToCart(form, maxStok) {
 }
 
 function confirmClearCart() {
-    return confirm('Yakin ingin mengosongkan keranjang?');
+    Swal.fire({
+        icon: 'warning',
+        title: 'Kosongkan Keranjang?',
+        text: 'Semua item di keranjang akan dihapus. Lanjutkan?',
+        showCancelButton: true,
+        confirmButtonColor: '#FF5200',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Kosongkan',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = 'pembelian_customer.php?clear_cart=1';
+        }
+    });
+    return false;
 }
 
 function confirmRemove(form) {
-    return confirm('Yakin ingin menghapus item ini dari keranjang?');
+    Swal.fire({
+        icon: 'warning',
+        title: 'Hapus Item?',
+        text: 'Item ini akan dihapus dari keranjang. Lanjutkan?',
+        showCancelButton: true,
+        confirmButtonColor: '#FF3B30',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+    });
+    return false;
 }
 
 // URL Parameter Notification (Toast Style)
@@ -818,55 +1016,122 @@ if (status && msg) {
         icon: isSuccess ? 'success' : 'error',
         title: isSuccess ? 'Berhasil!' : 'Gagal!',
         text: msg,
-        timer: 4000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end',
-        timerProgressBar: true,
-        showCloseButton: true,
-        background: '#ffffff',
-        color: '#1c1c1e',
-        iconColor: isSuccess ? '#34C759' : '#FF3B30',
-        customClass: { popup: 'swal-toast' }
+        confirmButtonColor: '#FF5200',
+        confirmButtonText: 'OK'
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// Checkout confirmation
-document.getElementById('checkoutForm')?.addEventListener('submit', function(e) {
-    const metode = document.querySelector('input[name="metode_pembayaran"]:checked');
-    if (!metode) {
-        e.preventDefault();
-        Swal.fire({
-            icon: 'warning',
-            title: 'Pilih Metode Pembayaran',
-            text: 'Silakan pilih metode pembayaran terlebih dahulu.',
-            confirmButtonColor: '#FF5200'
-        });
-        return false;
-    }
+// ==================== MODAL PEMBAYARAN ====================
+let selectedMetode = 'Transfer Bank';
+let countdownInterval;
 
-    e.preventDefault();
-    Swal.fire({
-        title: 'Konfirmasi Pembayaran',
-        html: 'Anda akan melakukan pembayaran sebesar <strong style="color:#FF5200;"><?php echo rupiahFormat($cart_total); ?></strong> menggunakan <strong>' + metode.value + '</strong>.<br><br>Status pembelian akan menjadi <strong>Menunggu Konfirmasi</strong> sampai karyawan memverifikasi pembayaran.',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonColor: '#FF5200',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Bayar Sekarang!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const btn = document.getElementById('btnCheckout');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
-            this.submit();
+function bukaModalPembayaran() {
+    document.getElementById('paymentModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function tutupModalPembayaran() {
+    document.getElementById('paymentModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function tutupInstructionModal() {
+    document.getElementById('instructionModal').classList.remove('active');
+    document.body.style.overflow = '';
+    clearInterval(countdownInterval);
+}
+
+function pilihMetode(el) {
+    document.querySelectorAll('.payment-card').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMetode = el.getAttribute('data-method');
+    document.getElementById('inputMetode').value = selectedMetode;
+}
+
+function prosesBayar() {
+    tutupModalPembayaran();
+    document.getElementById('instructionModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    showPaymentMethodInstructions(selectedMetode);
+    startPaymentCountdown(15 * 60);
+}
+
+function showPaymentMethodInstructions(method) {
+    selectedMetode = method;
+    const btnSwitchVA = document.getElementById('btnSwitchVA');
+    const btnSwitchQRIS = document.getElementById('btnSwitchQRIS');
+
+    if (method === 'Transfer Bank') {
+        btnSwitchVA.classList.add('active');
+        btnSwitchQRIS.classList.remove('active');
+        document.getElementById('instruksiTransfer').classList.add('active');
+        document.getElementById('instruksiQRIS').classList.remove('active');
+    } else {
+        btnSwitchQRIS.classList.add('active');
+        btnSwitchVA.classList.remove('active');
+        document.getElementById('instruksiTransfer').classList.remove('active');
+        document.getElementById('instruksiQRIS').classList.add('active');
+
+        const qrPayload = 'HOOPBALL-ALAT-' + Date.now();
+        document.getElementById('qrisImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrPayload);
+    }
+}
+
+function switchPaymentMethod(method) {
+    showPaymentMethodInstructions(method);
+}
+
+function startPaymentCountdown(duration) {
+    let timer = duration, minutes, seconds;
+    const display = document.getElementById('paymentCountdown');
+    clearInterval(countdownInterval);
+
+    countdownInterval = setInterval(function () {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+        display.textContent = minutes + ":" + seconds;
+        if (--timer < 0) {
+            clearInterval(countdownInterval);
+            display.textContent = "Waktu Habis";
+            document.getElementById('btnDonePayment').disabled = true;
         }
+    }, 1000);
+}
+
+function salinVA() {
+    const vaInput = document.getElementById('vaNumber');
+    vaInput.select();
+    vaInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(vaInput.value).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil Disalin!',
+            text: 'Nomor Virtual Account disalin ke papan klip.',
+            confirmButtonColor: '#FF5200',
+            confirmButtonText: 'OK',
+            timer: 2000
+        });
     });
-});
-</script>
+}
+
+function selesaiBayar() {
+    clearInterval(countdownInterval);
+    tutupInstructionModal();
+    document.getElementById('checkoutForm').submit();
+}
+
+window.addEventListener('click', function(e) {
+    if (e.target === document.getElementById('paymentModal')) {
+        tutupModalPembayaran();
+    }
+    if (e.target === document.getElementById('instructionModal')) {
+        tutupInstructionModal();
+    }
+});</script>
 
 </body>
 </html>

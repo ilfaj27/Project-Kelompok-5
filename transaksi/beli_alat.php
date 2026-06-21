@@ -83,12 +83,12 @@ if (isset($_GET['confirm_id'])) {
 
         sqlsrv_commit($conn);
         ob_end_clean();
-        header("Location: pembelian.php?status=success&msg=" . urlencode("Pembayaran berhasil dikonfirmasi! Stok alat telah dikurangi."));
+        header("Location: beli_alat.php?status=success&msg=" . urlencode("Pembayaran berhasil dikonfirmasi! Stok alat telah dikurangi."));
         exit();
     } catch (Exception $e) {
         sqlsrv_rollback($conn);
         ob_end_clean();
-        header("Location: pembelian.php?status=error&msg=" . urlencode($e->getMessage()));
+        header("Location: beli_alat.php?status=error&msg=" . urlencode($e->getMessage()));
         exit();
     }
 }
@@ -99,10 +99,10 @@ if (isset($_GET['cancel_id'])) {
     $result = safeQuery($conn, "UPDATE Beli_Alat SET Status = 0, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 1", [$nama, $cancel_id]);
     if ($result !== false) {
         ob_end_clean();
-        header("Location: pembelian.php?status=success&msg=" . urlencode("Transaksi dibatalkan."));
+        header("Location: beli_alat.php?status=success&msg=" . urlencode("Transaksi dibatalkan."));
     } else {
         ob_end_clean();
-        header("Location: pembelian.php?status=error&msg=" . urlencode('Gagal membatalkan transaksi: ' . getLastSqlError($conn)));
+        header("Location: beli_alat.php?status=error&msg=" . urlencode('Gagal membatalkan transaksi: ' . getLastSqlError($conn)));
     }
     exit();
 }
@@ -498,7 +498,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
                 <?php if ($detail_data['Status'] == 0): ?>
                 <div style="display:flex; gap:10px; margin-top:20px;">
-                    <a href="?confirm_id=<?= intval($detail_data['ID_Beli']) ?>" class="btn-filter-apply" style="flex:1; text-decoration:none;" onclick="return confirmConfirm()">
+                    <a href="?confirm_id=<?= intval($detail_data['ID_Beli']) ?>" class="btn-filter-apply" style="flex:1; text-decoration:none;" onclick="return confirmConfirm(this)">
                         <i class="fa-solid fa-check"></i> Konfirmasi Pembayaran
                     </a>
                 </div>
@@ -708,7 +708,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <div class="action-btns" style="justify-content:center;">
                                 <a href="?detail_id=<?= intval($row['ID_Beli']) ?>" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></a>
                                 <?php if ($row['Status'] == 0): ?>
-                                <a href="?confirm_id=<?= intval($row['ID_Beli']) ?>" class="btn-action btn-confirm" title="Konfirmasi Pembayaran" onclick="return confirmConfirm()"><i class="fa-solid fa-check"></i></a>
+                                <a href="?confirm_id=<?= intval($row['ID_Beli']) ?>" class="btn-action btn-confirm" title="Konfirmasi Pembayaran" onclick="return confirmConfirm(this)"><i class="fa-solid fa-check"></i></a>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -802,8 +802,29 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-function confirmConfirm() {
-    return confirm('Yakin ingin mengkonfirmasi pembayaran ini? Stok alat akan otomatis dikurangi.');
+function confirmConfirm(el) {
+    var href = el.getAttribute('href');
+    Swal.fire({
+        title: 'Konfirmasi Pembayaran?',
+        html: '<div style="text-align:center; font-size:14px;">' +
+              '<p>Customer sudah melakukan pembayaran?</p>' +
+              '<p style="margin-top:8px; color:#6B7280; font-size:12px;">Stok alat akan otomatis dikurangi.</p>' +
+              '</div>',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10B981',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: '<i class="fa-solid fa-check"></i> Ya, Konfirmasi',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = href;
+        }
+    });
+    return false;
 }
 
 function resetFilter() {
