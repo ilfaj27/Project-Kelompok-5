@@ -391,7 +391,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <a href="langganan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
         </a>
-        <a href="pembelian.php" class="sb-link">
+        <a href="beli_alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
         </a>
         <a href="pembatalan.php" class="sb-link active">

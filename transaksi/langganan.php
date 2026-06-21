@@ -483,17 +483,17 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
     <div class="sb-section-label">Transaksi</div>
     <nav>
-        <a href="../transaksi/booking.php" class="sb-link">
+        <a href="booking.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking
         </a>
-        <a href="../transaksi/langganan.php" class="sb-link active">
+        <a href="langganan.php" class="sb-link active">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
             <?php if($total_menunggu > 0): ?><span class="badge"><?= $total_menunggu ?></span><?php endif; ?>
         </a>
-        <a href="../transaksi/pembelian.php" class="sb-link">
+        <a href="beli_alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
         </a>
-        <a href="../transaksi/pembatalan.php" class="sb-link">
+        <a href="pembatalan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan
         </a>
     </nav>
