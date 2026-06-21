@@ -636,7 +636,7 @@ html { scroll-behavior:smooth; }
         <a href="booking_customer.php">Booking</a>
         <a href="#">Jadwal</a>
         <a href="../customer/langganan_customer.php">Member</a>
-        <a href="#">Pembelian</a>
+        <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
