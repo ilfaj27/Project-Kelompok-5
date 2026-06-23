@@ -1092,11 +1092,11 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
-        <a href="#">Jadwal</a>
+        <a href="jadwal_customer.php">Jadwal</a>
         <a href="langganan_customer.php" class="active">Member</a>
-        <a href="#">Pembelian</a>
-        <a href="#">Tentang</a>
-        <a href="#">Kontak</a>
+        <a href="pembelian_alat.php">Pembelian</a>
+        <a href="tentang_customer.php">Tentang</a>
+        <a href="kontak_customer.php">Kontak</a>
     </div>
 
     <div class="nav-user-container">

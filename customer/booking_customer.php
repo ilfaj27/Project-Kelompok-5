@@ -1474,11 +1474,11 @@ html, body, .summary-card {
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
-        <a href="#">Jadwal</a>
+        <a href="jadwal_customer.php">Jadwal</a>
         <a href="langganan_customer.php">Member</a>
-        <a href="#">Pembelian</a>
-        <a href="#">Tentang</a>
-        <a href="#">Kontak</a>
+        <a href="pembelian_alat.php">Pembelian</a>
+        <a href="tentang_customer.php">Tentang</a>
+        <a href="kontak_customer.php">Kontak</a>
     </div>
 
     <!-- User Dropdown -->
@@ -1499,7 +1499,7 @@ html, body, .summary-card {
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="#"><i class="fa-solid fa-gear"></i> Pengaturan</a>
+            <a href="pengaturan_customer.php"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
