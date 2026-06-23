@@ -352,7 +352,7 @@ body::-webkit-scrollbar {
             <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
             Kelola Karyawan
         </a>
-        <a href="../laporan/omzet.php" class="sb-link">
+        <a href="../laporan/laporan_omzet.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
             Laporan & Omzet
         </a>
