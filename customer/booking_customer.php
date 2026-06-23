@@ -483,11 +483,19 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php" class="active">Booking</a>
+<<<<<<< HEAD
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
         <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
+=======
+        <a href="jadwal_customer.php">Jadwal</a>
+        <a href="langganan_customer.php">Member</a>
+        <a href="pembelian_alat.php">Pembelian</a>
+        <a href="tentang_customer.php">Tentang</a>
+        <a href="kontak_customer.php">Kontak</a>
+>>>>>>> editan_vier_lagi
     </div>
     <div class="nav-user-container">
         <div class="nav-user">
@@ -509,7 +517,11 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
+<<<<<<< HEAD
             <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
+=======
+            <a href="pengaturan_customer.php"><i class="fa-solid fa-gear"></i> Pengaturan</a>
+>>>>>>> editan_vier_lagi
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color:#ff3b30"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>

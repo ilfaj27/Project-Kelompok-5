@@ -1,65 +1,31 @@
 <aside class="sidebar">
-    <a href="../dashboard_karyawan.php" class="sb-brand">
+    <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">MANAGEMENT SYSTEM</div>
+            <div class="sb-brand-sub">Sistem Managemen</div>
         </div>
     </a>
-
-    <div class="sb-section-label">Menu Utama</div>
+    <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="../view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
-        </a>
-        <a href="../booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Booking
-        </a>
-        <a href="../master/lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Lapangan
-        </a>
-        <a href="../master/customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Customer
-        </a>
-        <a href="../master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tag"></i></div>
-            Promo
-        </a>
-        <!-- Ini Menu Baru Kita -->
-        <a href="index.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-boxes-stacked"></i></div>
-            Alat
-        </a>
-        <a href="../m_Jadwal/index.php" class="sb-link"> 
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock"></i></div>
-            Jadwal
-        </a>
+        <a href="../dashboard/view_admin.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard</a>
+        <a href="index.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat</a>
+        <!-- Tambahkan menu sisanya sama persis seperti file lama -->
     </nav>
-
-    <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-            Profil Saya
-        </a>
-        <a href="../riwayat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
-            Riwayat
-        </a>
-    </nav>
-
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><i class="fa-solid fa-user"></i></div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($_SESSION['nama'] ?? 'USER')) ?></div>
-                <div class="sb-user-role">KARYAWAN</div>
+            <div class="sb-avatar">
+                <?php if (!empty($profile_photo)): ?>
+                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile">
+                <?php else: ?>
+                    <i class="fa-solid fa-user"></i>
+                <?php endif; ?>
             </div>
-            <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
+            <div>
+                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
+                <div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
+            </div>
+            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>

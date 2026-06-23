@@ -635,12 +635,21 @@ html { scroll-behavior:smooth; }
     </a>
     <div class="nav-links">
         <a href="view_customer.php" class="active">Beranda</a>
+<<<<<<< HEAD
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
         <a href="pembelian_customer.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
+=======
+        <a href="../customer/booking_customer.php">Booking</a>
+        <a href="../customer/jadwal_customer.php">Jadwal</a>
+        <a href="../customer/langganan_customer.php">Member</a>
+        <a href="../customer/pembelian_alat.php">Pembelian</a>
+        <a href="../customer/tentang_customer.php">Tentang</a>
+        <a href="../customer/kontak_customer.php">Kontak</a>
+>>>>>>> editan_vier_lagi
     </div>
 
     <!-- User Dropdown -->
@@ -663,7 +672,7 @@ html { scroll-behavior:smooth; }
                 <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
+            <a href="../customer/booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="../customer/langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>

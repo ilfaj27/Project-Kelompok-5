@@ -1,6 +1,8 @@
 <?php
 session_start();
-include '../includes/config.php'; 
+date_default_timezone_set("Asia/Jakarta");
+include '../includes/config.php';
+include 'action/helper.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
     echo "<script>window.location='../view_admin.php';</script>"; exit();
@@ -8,112 +10,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
 
 $nama = $_SESSION['nama'] ?? 'Karyawan';
 
-// ════════════════════════════════════════════════════════
-// FUNGSI ERROR CHECKER (Mencegah Layar Putih Crash)
-// ════════════════════════════════════════════════════════
-function cekSqlError($stmt) {
-    if ($stmt === false) {
-        $err = sqlsrv_errors();
-        $msg = $err[0]['message'] ?? 'Unknown DB Error';
-        die("<div style='background:#FEF2F2; border:2px solid #DC2626; padding:20px; margin:20px; border-radius:12px; font-family:sans-serif;'>
-                <h3 style='color:#DC2626; margin-top:0;'>🚨 Terjadi Kesalahan Database!</h3>
-                <p><b>Detail:</b> " . htmlspecialchars($msg) . "</p>
-                <p style='color:#7F1D1D; font-size:14px;'><i>Saran: Pastikan kolom <b>Foto_Alat</b> sudah dibuat di tabel Alat SQL Server Anda.</i></p>
-                <a href='index.php' style='display:inline-block; margin-top:10px; background:#DC2626; color:white; padding:10px 20px; text-decoration:none; border-radius:8px;'>Kembali</a>
-             </div>");
-    }
-}
-
-// ════════════════════════════════════════════════════════
-// 1. PROSES TAMBAH ALAT (ADD)
-// ════════════════════════════════════════════════════════
-if (isset($_POST['save_alat_add'])) {
-    $id_baru = $_POST['id_alat_add'];
-    $nama_alat = trim($_POST['nama_alat_add']);
-    $stok = (int)$_POST['stok_add'];
-    $harga = (float)$_POST['harga_add'];
-    $foto_name = null;
-
-    if (isset($_FILES['foto_add']) && $_FILES['foto_add']['error'] === 0) {
-        $allowed = ['jpg', 'jpeg', 'png'];
-        $ext = strtolower(pathinfo($_FILES['foto_add']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, $allowed) && $_FILES['foto_add']['size'] <= 2097152) { 
-            $foto_name = $id_baru . "_" . time() . "." . $ext;
-            move_uploaded_file($_FILES['foto_add']['tmp_name'], "uploads/" . $foto_name);
-        } else {
-            header("Location: index.php?status=error&msg=Gagal upload! Format salah atau ukuran > 2MB.");
-            exit();
-        }
-    }
-
-    $sql = "INSERT INTO Alat (ID_Alat, Nama_Alat, Stok, Harga_Alat, Status, Is_Deleted, Created_By, Created_Date, Foto_Alat) 
-            VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE(), ?)";
-    $stmt = sqlsrv_query($conn, $sql, array($id_baru, $nama_alat, $stok, $harga, $nama, $foto_name));
-    cekSqlError($stmt);
-
-    header("Location: index.php?status=success&msg=Alat baru berhasil ditambahkan!");
-    exit();
-}
-
-// ════════════════════════════════════════════════════════
-// 2. PROSES EDIT ALAT (UPDATE)
-// ════════════════════════════════════════════════════════
-if (isset($_POST['save_alat_edit'])) {
-    $id_edit = $_POST['id_alat_edit'];
-    $nama_alat = trim($_POST['nama_alat_edit']);
-    $stok = (int)$_POST['stok_edit'];
-    $harga = (float)$_POST['harga_edit'];
-    
-    // Ambil data lama secara aman
-    $q_old = sqlsrv_query($conn, "SELECT Foto_Alat FROM Alat WHERE ID_Alat = ?", array($id_edit));
-    cekSqlError($q_old);
-    
-    $d_old = sqlsrv_fetch_array($q_old, SQLSRV_FETCH_ASSOC);
-    $foto_name = $d_old['Foto_Alat'] ?? null;
-
-    if (isset($_FILES['foto_edit']) && $_FILES['foto_edit']['error'] === 0) {
-        $allowed = ['jpg', 'jpeg', 'png'];
-        $ext = strtolower(pathinfo($_FILES['foto_edit']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, $allowed) && $_FILES['foto_edit']['size'] <= 2097152) { 
-            $foto_name = $id_edit . "_" . time() . "." . $ext;
-            move_uploaded_file($_FILES['foto_edit']['tmp_name'], "uploads/" . $foto_name);
-            
-            if(!empty($d_old['Foto_Alat']) && file_exists("uploads/" . $d_old['Foto_Alat'])) {
-                unlink("uploads/" . $d_old['Foto_Alat']);
-            }
-        } else {
-            header("Location: index.php?status=error&msg=Gagal upload foto edit! Periksa format & ukuran.");
-            exit();
-        }
-    }
-
-    $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Foto_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
-    $stmt = sqlsrv_query($conn, $sql, array($nama_alat, $stok, $harga, $foto_name, $nama, $id_edit));
-    cekSqlError($stmt);
-
-    header("Location: index.php?status=success&msg=Alat berhasil diperbarui!");
-    exit();
-}
-
-// ════════════════════════════════════════════════════════
-// 3. PROSES HAPUS (SOFT DELETE) & TOGGLE STATUS
-// ════════════════════════════════════════════════════════
-if (isset($_GET['delete_id'])) {
-    $stmt = sqlsrv_query($conn, "UPDATE Alat SET Is_Deleted = 1, Deleted_By = ?, Deleted_Date = GETDATE() WHERE ID_Alat = ?", array($nama, $_GET['delete_id']));
-    cekSqlError($stmt);
-    header("Location: index.php?status=success&msg=Data alat berhasil dihapus!"); exit();
-}
-
-if (isset($_GET['toggle_id']) && isset($_GET['s'])) {
-    $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    $stmt = sqlsrv_query($conn, "UPDATE Alat SET Status = ? WHERE ID_Alat = ?", array($s_baru, $_GET['toggle_id']));
-    cekSqlError($stmt);
-    header("Location: index.php?status=success&msg=Status alat berhasil diubah!"); exit();
-}
-
-// ════════════════════════════════════════════════════════
-// 4. QUERY LIST TABEL, FILTER & SORTING
-// ════════════════════════════════════════════════════════
+// --- Query Data (Sama persis konsepnya) ---
 $where = "Is_Deleted = 0";
 $params = array();
 
@@ -128,33 +25,32 @@ if (isset($_GET['f_sort'])) {
     if ($_GET['f_sort'] == 'a_z') $order = "Nama_Alat ASC";
     if ($_GET['f_sort'] == 'z_a') $order = "Nama_Alat DESC";
 }
-$query = sqlsrv_query($conn, "SELECT * FROM Alat WHERE $where ORDER BY $order", $params);
-cekSqlError($query);
+$query = safeQuery($conn, "SELECT * FROM Alat WHERE $where ORDER BY $order", $params);
 
-// ════════════════════════════════════════════════════════
-// 5. STATISTIK CHIPS & DATA MODAL
-// ════════════════════════════════════════════════════════
-$q_tot = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted = 0");
-$tot_alat = sqlsrv_fetch_array($q_tot, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
-$q_aktif = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted = 0 AND Status = 1");
-$tot_aktif = sqlsrv_fetch_array($q_aktif, SQLSRV_FETCH_ASSOC)['t'] ?? 0;
+// --- Stats Chips ---
+$q_tot = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted = 0");
+$tot_alat = $q_tot ? safeFetch($q_tot)['t'] : 0;
+$q_aktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted = 0 AND Status = 1");
+$tot_aktif = $q_aktif ? safeFetch($q_aktif)['t'] : 0;
 $tot_habis = $tot_alat - $tot_aktif;
 
-$q_max = sqlsrv_query($conn, "SELECT MAX(ID_Alat) as max_id FROM Alat");
-$d_max = sqlsrv_fetch_array($q_max, SQLSRV_FETCH_ASSOC);
+// --- Auto ID (Untuk Modal Tambah) ---
+$q_max = safeQuery($conn, "SELECT MAX(ID_Alat) as max_id FROM Alat");
+$d_max = safeFetch($q_max);
 $num = ($d_max['max_id']) ? (int)substr($d_max['max_id'], 2) + 1 : 1;
 $next_id_alat = "AL" . str_pad($num, 4, "0", STR_PAD_LEFT);
 
+// --- Get Detail & Edit Data ---
 $detail_data = null;
 if (isset($_GET['detail_id'])) {
-    $q_det = sqlsrv_query($conn, "SELECT * FROM Alat WHERE ID_Alat = ?", array($_GET['detail_id']));
-    if ($q_det) $detail_data = sqlsrv_fetch_array($q_det, SQLSRV_FETCH_ASSOC);
+    $q_det = safeQuery($conn, "SELECT * FROM Alat WHERE ID_Alat = ?", [$_GET['detail_id']]);
+    if ($q_det) $detail_data = safeFetch($q_det);
 }
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $q_edit = sqlsrv_query($conn, "SELECT * FROM Alat WHERE ID_Alat = ?", array($_GET['edit_id']));
-    if ($q_edit) $edit_data = sqlsrv_fetch_array($q_edit, SQLSRV_FETCH_ASSOC);
+    $q_edit = safeQuery($conn, "SELECT * FROM Alat WHERE ID_Alat = ?", [$_GET['edit_id']]);
+    if ($q_edit) $edit_data = safeFetch($q_edit);
 }
 ?>
 <!DOCTYPE html>
@@ -169,7 +65,7 @@ if (isset($_GET['edit_id'])) {
 </head>
 <body>
 
-    <!-- ════════════ MODAL TAMBAH ALAT ════════════ -->
+    <!-- MODAL TAMBAH ALAT (Desain Asli) -->
     <div class="modal-overlay" id="modalAddAlat">
         <div class="modal-box">
             <button class="modal-close" onclick="closeAddModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -178,40 +74,38 @@ if (isset($_GET['edit_id'])) {
                 <div class="modal-title">Tambah Alat Baru</div>
             </div>
             <div class="modal-body">
-                <form method="POST" enctype="multipart/form-data" id="formAddAlat" onsubmit="return validateFormAdd()" novalidate>
+                <!-- Arahkan ke action/save.php -->
+                <form method="POST" action="action/save.php" enctype="multipart/form-data" id="formAddAlat">
+                    <input type="hidden" name="save_alat_add" value="1">
+                    
                     <label class="modal-label">ID Alat</label>
                     <input type="text" name="id_alat_add" class="modal-input" value="<?= $next_id_alat ?>" readonly>
 
                     <label class="modal-label">Nama Alat <span class="required">*</span></label>
-                    <input type="text" name="nama_alat_add" id="nama_alat_add" class="modal-input" placeholder="Contoh: Bola Molten BG5000">
-                    <div class="val-msg" id="val-nama_alat_add"></div>
+                    <input type="text" name="nama_alat_add" id="nama_alat_add" class="modal-input" placeholder="Contoh: Bola Molten BG5000" required>
 
                     <div class="form-grid">
                         <div>
                             <label class="modal-label">Stok Awal <span class="required">*</span></label>
-                            <input type="number" name="stok_add" id="stok_add" class="modal-input" placeholder="0" min="0">
-                            <div class="val-msg" id="val-stok_add"></div>
+                            <input type="number" name="stok_add" id="stok_add" class="modal-input" placeholder="0" min="0" required>
                         </div>
                         <div>
                             <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
-                            <input type="number" name="harga_add" id="harga_add" class="modal-input" placeholder="25000" min="5000">
-                            <div class="val-msg" id="val-harga_add"></div>
+                            <input type="number" name="harga_add" id="harga_add" class="modal-input" placeholder="25000" min="5000" required>
                         </div>
                     </div>
 
                     <label class="modal-label">Foto Alat <span style="color:var(--muted); font-weight:600; text-transform:none;">(Opsional, Max 2MB)</span></label>
                     <input type="file" name="foto_add" id="foto_add" class="modal-input" accept="image/jpeg, image/png" style="padding: 9px 14px; background:#fff;">
 
-                    <button type="submit" name="save_alat_add" class="btn-submit">
-                        <i class="fa-solid fa-plus"></i> Tambah Alat
-                    </button>
+                    <button type="submit" class="btn-submit"><i class="fa-solid fa-plus"></i> Tambah Alat</button>
                     <a onclick="closeAddModal()" class="btn-cancel">Batal</a>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- ════════════ MODAL EDIT ALAT ════════════ -->
+    <!-- MODAL EDIT ALAT (Desain Asli) -->
     <div class="modal-overlay <?= $edit_data ? 'open' : '' ?>" id="modalEditAlat">
         <div class="modal-box">
             <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -220,24 +114,24 @@ if (isset($_GET['edit_id'])) {
                 <div class="modal-title">Edit Data Alat</div>
             </div>
             <div class="modal-body">
-                <form method="POST" enctype="multipart/form-data" id="formEditAlat" onsubmit="return validateFormEdit()" novalidate>
+                <!-- Arahkan ke action/save.php -->
+                <form method="POST" action="action/save.php" enctype="multipart/form-data" id="formEditAlat">
+                    <input type="hidden" name="save_alat_edit" value="1">
+                    
                     <label class="modal-label">ID Alat</label>
                     <input type="text" name="id_alat_edit" class="modal-input" value="<?= $edit_data['ID_Alat'] ?? '' ?>" readonly>
 
                     <label class="modal-label">Nama Alat <span class="required">*</span></label>
-                    <input type="text" name="nama_alat_edit" id="nama_alat_edit" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Alat'] ?? '') ?>" placeholder="Contoh: Bola Molten BG5000">
-                    <div class="val-msg" id="val-nama_alat_edit"></div>
+                    <input type="text" name="nama_alat_edit" id="nama_alat_edit" class="modal-input" value="<?= htmlspecialchars($edit_data['Nama_Alat'] ?? '') ?>" required>
 
                     <div class="form-grid">
                         <div>
                             <label class="modal-label">Stok <span class="required">*</span></label>
-                            <input type="number" name="stok_edit" id="stok_edit" class="modal-input" value="<?= $edit_data['Stok'] ?? '' ?>" min="0">
-                            <div class="val-msg" id="val-stok_edit"></div>
+                            <input type="number" name="stok_edit" id="stok_edit" class="modal-input" value="<?= $edit_data['Stok'] ?? '' ?>" min="0" required>
                         </div>
                         <div>
                             <label class="modal-label">Harga Sewa (Rp) <span class="required">*</span></label>
-                            <input type="number" name="harga_edit" id="harga_edit" class="modal-input" value="<?= isset($edit_data['Harga_Alat']) ? round($edit_data['Harga_Alat']) : '' ?>" min="5000">
-                            <div class="val-msg" id="val-harga_edit"></div>
+                            <input type="number" name="harga_edit" id="harga_edit" class="modal-input" value="<?= isset($edit_data['Harga_Alat']) ? round($edit_data['Harga_Alat']) : '' ?>" min="5000" required>
                         </div>
                     </div>
 
@@ -247,19 +141,18 @@ if (isset($_GET['edit_id'])) {
                             <img src="uploads/<?= htmlspecialchars($edit_data['Foto_Alat']) ?>" style="height: 40px; width:40px; border-radius: 8px; border: 1px solid var(--border); object-fit:cover;">
                             <span style="font-size:11px; color:var(--orange); font-weight:700;">(Foto saat ini)</span>
                         </div>
+                        <input type="hidden" name="foto_lama" value="<?= htmlspecialchars($edit_data['Foto_Alat']) ?>">
                     <?php endif; ?>
                     <input type="file" name="foto_edit" id="foto_edit" class="modal-input" accept="image/jpeg, image/png" style="padding: 9px 14px; background:#fff;">
 
-                    <button type="submit" name="save_alat_edit" class="btn-submit">
-                        <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan
-                    </button>
+                    <button type="submit" class="btn-submit"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
                     <a onclick="closeEditModal()" class="btn-cancel">Batal</a>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- ════════════ MODAL DETAIL ALAT ════════════ -->
+    <!-- MODAL DETAIL ALAT (Desain Asli) -->
     <div class="modal-overlay <?= $detail_data ? 'open' : '' ?>">
         <div class="modal-box" style="width: 440px;">
             <button class="modal-close" onclick="window.location.href='index.php'"><i class="fa-solid fa-xmark"></i></button>
@@ -301,7 +194,6 @@ if (isset($_GET['edit_id'])) {
         </div>
     </div>
 
-    <!-- ════════════ MAIN LAYOUT ════════════ -->
     <?php include 'toggle/sidebar.php'; ?>
     <main class="main">
         <?php include 'toggle/topbar.php'; ?>
@@ -358,7 +250,7 @@ if (isset($_GET['edit_id'])) {
                 </div>
             </div>
 
-            <!-- TABEL DENGAN LEBAR PENUH (100%) -->
+            <!-- TABEL DENGAN LEBAR PENUH SEPERTI ASLI -->
             <div class="card table-wrap">
                 <table class="data-table" id="tbl">
                     <thead>
@@ -406,7 +298,7 @@ if (isset($_GET['edit_id'])) {
                                     <a href="?edit_id=<?= $row['ID_Alat'] ?>" class="btn-action btn-edit" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>
                                     
                                     <label class="toggle-switch" title="Ubah Status">
-                                        <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Alat'] ?>', <?= $row['Status'] ?>)">
+                                        <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Alat'] ?>', '<?= addslashes(htmlspecialchars($row['Nama_Alat'])) ?>', <?= $row['Status'] ?>, event)">
                                         <span class="toggle-slider"></span>
                                     </label>
 
@@ -421,11 +313,9 @@ if (isset($_GET['edit_id'])) {
         </div>
     </main>
 
-    <!-- ════════════ PANGGIL FILE JAVASCRIPT YANG SUDAH DIPISAH ════════════ -->
     <script src="function/tampilan.js"></script>
     <script src="function/togs.js"></script>
     <script src="function/delete.js"></script>
-    <script src="function/add.js"></script>
-    <script src="function/edit.js"></script>
+    <script src="function/form.js"></script>
 </body>
 </html>

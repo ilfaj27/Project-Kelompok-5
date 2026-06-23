@@ -1,26 +1,22 @@
 <?php
 session_start();
 include '../../includes/config.php';
+include 'helper.php';
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
-    exit('Akses ditolak');
-}
-
-if (isset($_GET['id'])) {
-    $id = $_GET['id'];
-    $user = $_SESSION['nama'] ?? 'Karyawan';
+if (isset($_GET['delete_id'])) {
+    // HAPUS intval() karena ID_Alat berupa String (AL0001)
+    $delete_id = $_GET['delete_id']; 
+    $nama_user = $_SESSION['nama'] ?? 'Karyawan';
     
-    // Proses Soft Delete
-    $sql = "UPDATE Alat SET Is_Deleted = 1, Deleted_By = ?, Deleted_Date = GETDATE() WHERE ID_Alat = ?";
-    $stmt = sqlsrv_query($conn, $sql, array($user, $id));
-
-    if ($stmt) {
-        header("Location: ../index.php?status=success&msg=Data berhasil disembunyikan (soft delete)!");
+    $result = safeQuery($conn, "UPDATE Alat SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Alat=?", [$nama_user, $delete_id]);
+    
+    if ($result !== false) {
+        header("Location: ../index.php?status=success&msg=" . urlencode("Alat berhasil dihapus!"));
     } else {
-        header("Location: ../index.php?status=error&msg=Gagal menghapus data.");
+        header("Location: ../index.php?status=error&msg=" . urlencode('Gagal menghapus alat.'));
     }
-    exit();
 } else {
     header("Location: ../index.php");
 }
+exit();
 ?>
