@@ -1,14 +1,16 @@
-// Mengatur SweetAlert Konfirmasi Hapus Data
-window.confirmDelete = function(id, name) {
+function confirmDelete(id, name) {
     Swal.fire({
-        title: 'Hapus Alat?',
-        html: `Anda akan menghapus data <strong style="color:red">${name}</strong>.<br>Data akan di-soft-delete!`,
-        icon: 'error',
+        title: 'Hapus Data?',
+        html: `Hapus alat <strong style="color:var(--orange);">${name}</strong>?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        confirmButtonText: 'Hapus',
-        cancelButtonText: 'Batal'
-    }).then((res) => {
-        if(res.isConfirmed) window.location.href = `?delete_id=${id}`;
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Arahkan ke folder action
+            window.location.href = 'action/delete.php?delete_id=' + id;
+        }
     });
-};
+}
