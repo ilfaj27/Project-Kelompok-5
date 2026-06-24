@@ -494,7 +494,6 @@ function resolvePhotoPath($photo_path) {
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
             <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
-            <a href="pengaturan_customer.php"><i class="fa-solid fa-gear"></i> Pengaturan</a>
             <div style="height:1px; background:#2d2d33; margin:6px 0;"></div>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
@@ -674,11 +673,10 @@ function resolvePhotoPath($photo_path) {
 
 <!-- MODAL 2: INSTRUKSI PEMBAYARAN -->
 <div class="booking-modal-overlay" id="paymentInstructionModal">
-    <div class="summary-card" style="max-width:460px; text-align:center;">
+    <div class="summary-card" style="max-width:460px;text-align:center">
         <button class="booking-modal-close" onclick="closeInstructionModal()"><i class="fa-solid fa-xmark"></i></button>
         <p class="instruction-title">Instruksi Pembayaran</p>
-
-        <div class="switch-tabs-row" id="paymentTabs">
+        <div class="switch-tabs-row">
             <button id="btnSwitchVA" class="switch-tab-btn active" onclick="showPaymentMethodInstructions('Transfer Bank')">
                 <i class="fa-solid fa-university" style="margin-right:4px"></i> Virtual Account
             </button>
@@ -686,57 +684,36 @@ function resolvePhotoPath($photo_path) {
                 <i class="fa-solid fa-qrcode" style="margin-right:4px"></i> QRIS Scan
             </button>
         </div>
-
         <div class="countdown-box">
             <i class="fa-solid fa-clock"></i>
             <p class="countdown-text">Selesaikan pembayaran dalam <span id="paymentCountdown">15:00</span></p>
         </div>
-
         <div class="total-display-box">
             <div class="total-display-label">Total Tagihan</div>
-            <div class="total-display-amount" id="finalTotalAmount">Rp 0</div>
+            <div class="total-display-amount" id="paymentTotalAmount">Rp 0</div>
         </div>
 
-        <!-- Instruksi Transfer / VA -->
         <div id="instruksiTransfer" class="instr-va-box">
             <div class="bank-info-card">
                 <div class="bank-header">
                     <div class="bank-icon"><i class="fa-solid fa-building-columns"></i></div>
-                    <div>
-                        <div class="bank-title">Virtual Account</div>
-                        <div class="bank-sub">Mandiri / BCA / BNI / BRI</div>
-                    </div>
+                    <div><div class="bank-title">Virtual Account</div><div class="bank-sub">Mandiri / BCA / BNI / BRI</div></div>
                 </div>
                 <div class="va-section-label">Nomor Virtual Account</div>
                 <div class="va-input-row">
-                    <div class="va-input-wrap">
-                        <i class="fa-solid fa-hashtag"></i>
-                        <input type="text" id="vaNumber" value="8801281234567890" readonly>
-                    </div>
-                    <button type="button" class="btn-copy-va" id="btnCopyVA" onclick="copyVA()"><i class="fa-regular fa-copy"></i> Salin</button>
+                    <div class="va-input-wrap"><i class="fa-solid fa-hashtag"></i><input type="text" id="vaNumber" value="8801281234567890" readonly></div>
+                    <button class="btn-copy-va" id="btnCopyVA" onclick="copyVA()"><i class="fa-regular fa-copy"></i> Salin</button>
                 </div>
             </div>
             <div class="steps-label">Cara Pembayaran</div>
-            <div class="step-item">
-                <div class="step-num">1</div>
-                <div><div class="step-title">Buka Aplikasi Banking</div><div class="step-desc">Pilih menu <strong style="color:var(--primary)">Transfer &gt; Virtual Account</strong> pada M-Banking atau ATM Anda.</div></div>
-            </div>
-            <div class="step-item">
-                <div class="step-num">2</div>
-                <div><div class="step-title">Masukkan Nomor VA</div><div class="step-desc">Masukkan nomor Virtual Account <strong style="color:var(--primary)">8801281234567890</strong>.</div></div>
-            </div>
-            <div class="step-item" style="margin-bottom:0">
-                <div class="step-num">3</div>
-                <div><div class="step-title">Konfirmasi Pembayaran</div><div class="step-desc">Nominal akan otomatis muncul sesuai total tagihan. Konfirmasi dan selesaikan transaksi.</div></div>
-            </div>
+            <div class="step-item"><div class="step-num">1</div><div><div class="step-title">Buka Aplikasi Banking</div><div class="step-desc">Pilih menu <strong style="color:var(--primary)">Transfer &gt; Virtual Account</strong> pada M-Banking atau ATM Anda.</div></div></div>
+            <div class="step-item"><div class="step-num">2</div><div><div class="step-title">Masukkan Nomor VA</div><div class="step-desc">Masukkan nomor Virtual Account <strong style="color:var(--primary)">8801281234567890</strong>.</div></div></div>
+            <div class="step-item" style="margin-bottom:0"><div class="step-num">3</div><div><div class="step-title">Konfirmasi Pembayaran</div><div class="step-desc">Nominal akan otomatis muncul sesuai total tagihan. Konfirmasi dan selesaikan transaksi.</div></div></div>
         </div>
 
-        <!-- Instruksi QRIS -->
         <div id="instruksiQRIS" class="instr-qris-box">
             <div class="qris-title">Pindai Kode QRIS Resmi HoopBall</div>
-            <div class="qris-img-wrap">
-                <img id="qrisImage" src="" alt="QRIS Code" class="qris-img">
-            </div>
+            <div class="qris-img-wrap"><img id="qrisImage" src="" alt="QRIS Code" class="qris-img"></div>
             <ul class="qris-steps-list">
                 <li>Buka aplikasi e-wallet (GoPay, OVO, Dana, LinkAja) atau Mobile Banking.</li>
                 <li>Pilih opsi <strong>Scan / Bayar QRIS</strong>.</li>
@@ -749,6 +726,7 @@ function resolvePhotoPath($photo_path) {
             Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
         </button>
     </div>
+</div></div>
 </div>
 
 <script>
@@ -882,7 +860,7 @@ function selectPaymentMethod(method, element) {
 // ============================================================================
 function proceedToPayment() {
     closeCheckoutModal();
-    document.getElementById('finalTotalAmount').textContent = formatRupiah(checkoutTotalValue);
+    document.getElementById('paymentTotalAmount').textContent = formatRupiah(checkoutTotalValue);
     showPaymentMethodInstructions(selectedPaymentMethod);
 
     document.getElementById('paymentInstructionModal').style.display = 'flex';
@@ -898,19 +876,18 @@ function closeInstructionModal() {
 
 function showPaymentMethodInstructions(method) {
     selectedPaymentMethod = method;
-
     const va = document.getElementById('instruksiTransfer');
     const qris = document.getElementById('instruksiQRIS');
     const btnVA = document.getElementById('btnSwitchVA');
     const btnQR = document.getElementById('btnSwitchQRIS');
-
     if(method === 'Transfer Bank'){
         btnVA.classList.add('active'); btnQR.classList.remove('active');
         va.style.display = 'block'; qris.style.display = 'none';
     } else {
         btnQR.classList.add('active'); btnVA.classList.remove('active');
         va.style.display = 'none'; qris.style.display = 'flex';
-        document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('HOOPBALL-ALAT-'+checkoutTotalValue)}`;
+        const total = document.getElementById('paymentTotalAmount').innerText.replace(/[^0-9]/g, '');
+        document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('HOOPBALL-PAYMENT-ALAT-'+total)}`;
     }
 }
 
@@ -940,7 +917,7 @@ function copyVA() {
     const v = document.getElementById('vaNumber');
     v.select(); v.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(v.value).then(() => {
-        Swal.fire({ icon: 'success', title: 'Berhasil Disalin!', text: 'Nomor VA disalin ke papan klip.', confirmButtonColor: '#FF5200', confirmButtonText: 'OK', toast:true, position:'top-end', showConfirmButton:false, timer:2000, customClass:{popup:'swal-toast'} });
+        Swal.fire({ icon: 'success', title: 'Berhasil Disalin!', text: 'Nomor VA disalin ke papan klip.', confirmButtonColor: '#FF5200', confirmButtonText: 'OK' });
     });
 }
 

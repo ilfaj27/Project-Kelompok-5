@@ -2132,7 +2132,7 @@ function format_date_display($date)
     <a href="../customer/booking_customer.php">Booking</a>
     <a href="../customer/pembatalan_customer.php">Pembatalan</a>
     <a href="../customer/langganan_customer.php">Member</a>
-    <a href="../customer/pembelian_customer.php">Pembelian</a>
+    <a href="../customer/pembelian_alat.php">Pembelian</a>
     <a href="#">Tentang</a>
     <a href="#">Kontak</a>
 </div>
