@@ -75,6 +75,11 @@ if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER
         exit();
     }
 
+    if (!preg_match("/^[a-zA-Z\s]+$/", $alasan)) {
+    echo json_encode(['success' => false, 'message' => 'Alasan pembatalan hanya boleh berisi huruf dan spasi, tidak boleh angka atau simbol.']);
+    exit();
+}
+
     // Ambil data booking untuk verifikasi kepemilikan, batas waktu 24 jam, dan ID_Karyawan
     $queryCheck = "SELECT B.ID_Booking, B.ID_Jadwal, B.ID_Karyawan, B.Total_Bayar, B.Metode_Pembayaran, B.Status AS StatusBooking,
                           J.Tanggal, J.Jam_Mulai 
@@ -232,208 +237,887 @@ function resolvePhotoPath($photo_path) {
     
     <style>
         :root {
-            --primary: #FF5200;
-            --primary-hover: #E04800;
-            --primary-light: rgba(255, 82, 0, 0.1);
-            --dark-bg: #0B0B0C;
-            --card-dark: #121214;
-            --text-gray: #8E8E93;
-            --text-dark: #1C1C1E;
-            --border-color: #E5E5EA;
-            --white: #FFFFFF;
-            --light-bg: #F8F9FA;
-            --green: #34C759;
-            --green-lt: rgba(52,199,89,.10);
-            --yellow: #FFCC00;
-            --yellow-lt: rgba(255,204,0,.10);
-            --red: #FF3B30;
-            --red-lt: rgba(255,59,48,.10);
-            --blue: #007AFF;
-            --blue-lt: rgba(0,122,255,.10);
-            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --orange: #FF5A1F;
-            --orange-hover: #E0440E;
-            --orange-lt: rgba(255, 90, 31, 0.06);
-            --orange-glow: rgba(255, 90, 31, 0.15);
-            --border: #E2E8F0;
-            --border-lt: #F1F5F9;
-            --text-primary: #0F172A;
-            --text-secondary: #475569;
-            --muted: #94A3B8;
-            --bg: #F8FAFC;
-        }
+     --primary: #FF5200;
+     --primary-hover: #E04800;
+     --primary-light: rgba(255, 82, 0, 0.1);
+     --dark-bg: #0B0B0C;
+     --card-dark: #121214;
+     --text-gray: #8E8E93;
+     --text-dark: #1C1C1E;
+     --border-color: #E5E5EA;
+     --white: #FFFFFF;
+     --light-bg: #F8F9FA;
+     --green: #34C759;
+     --green-lt: rgba(52,199,89,.10);
+     --yellow: #FFCC00;
+     --yellow-lt: rgba(255,204,0,.10);
+     --red: #FF3B30;
+     --red-lt: rgba(255,59,48,.10);
+     --blue: #007AFF;
+     --blue-lt: rgba(0,122,255,.10);
+     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+     --orange: #FF5A1F;
+     --orange-hover: #E0440E;
+     --orange-lt: rgba(255, 90, 31, 0.06);
+     --orange-glow: rgba(255, 90, 31, 0.15);
+     --border: #E2E8F0;
+     --border-lt: #F1F5F9;
+     --text-primary: #0F172A;
+     --text-secondary: #475569;
+     --muted: #94A3B8;
+     --bg: #F8FAFC;
+}
+ *, *::before, *::after {
+     box-sizing: border-box;
+     margin: 0;
+     padding: 0;
+}
+ body {
+     font-family: 'Plus Jakarta Sans', sans-serif;
+     background: var(--bg);
+     color: var(--text-primary);
+     -webkit-font-smoothing: antialiased;
+     overflow-x: hidden;
+}
+/* Menghilangkan scrollbar secara global */
+ ::-webkit-scrollbar {
+     display: none;
+}
+ html, body {
+     -ms-overflow-style: none;
+     scrollbar-width: none;
+}
+/* ============ KEYFRAMES & ANIMATIONS ============ */
+ @keyframes fadeInUp {
+     from{
+        opacity:0;
+        transform:translateY(30px)
+    }
+     to{
+        opacity:1;
+        transform:translateY(0)
+    }
+}
+ @keyframes fadeInDown {
+     from{
+        opacity:0;
+        transform:translateY(-30px)
+    }
+     to{
+        opacity:1;
+        transform:translateY(0)
+    }
+}
+ @keyframes scaleIn {
+     from{
+        opacity:0;
+        transform:scale(0.95)
+    }
+     to{
+        opacity:1;
+        transform:scale(1)
+    }
+}
+ @keyframes pulse{
+    0%,100%{
+        transform:scale(1);
+        box-shadow:0 0 0 0 rgba(52,199,89,.4)
+    }
+    50%{
+        transform:scale(1.05);
+        box-shadow:0 0 0 15px rgba(52,199,89,0)
+    }
+}
+ .anim-fade-up {
+     animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+ .anim-scale-in {
+     animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+/* ============ NAVBAR ============ */
+ nav {
+     background:var(--white);
+     padding:0 80px;
+     display:flex;
+     justify-content:space-between;
+     align-items:center;
+     height:76px;
+     position:sticky;
+     top:0;
+     z-index:1000;
+     border-bottom:1px solid #E5E5EA;
+     animation:fadeInDown 0.6s ease-out forwards;
+}
+ .nav-logo {
+     display:flex;
+     align-items:center;
+     text-decoration:none;
+     gap:10px;
+     transition:transform 0.3s ease;
+}
+ .nav-logo:hover {
+     transform:scale(1.05);
+}
+ .nav-logo img {
+     height:70px;
+     width:auto;
+     transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+ .nav-logo:hover img {
+     transform:rotate(5deg) scale(1.1);
+}
+ .nav-links {
+     display:flex;
+     align-items:center;
+     gap:8px;
+}
+ .nav-links a {
+     color:#636366;
+     text-decoration:none;
+     font-size:14px;
+     font-weight:500;
+     padding:8px 16px;
+     border-radius:20px;
+     transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+     position:relative;
+     overflow:hidden;
+}
+ .nav-links a::before {
+     content:'';
+     position:absolute;
+     bottom:0;
+     left:50%;
+     width:0;
+     height:2px;
+     background:var(--primary);
+     transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+     transform:translateX(-50%);
+}
+ .nav-links a:hover {
+     color:#1C1C1E;
+     transform:translateY(-2px);
+}
+ .nav-links a:hover::before {
+     width:60%;
+}
+ .nav-links a.active {
+     color:var(--primary);
+     font-weight:600;
+}
+ .nav-links a.active::before {
+     width:60%;
+}
+ .nav-user-container {
+     position:relative;
+     height:76px;
+     display:flex;
+     align-items:center;
+}
+ .nav-user {
+     background:#F2F2F7;
+     border:1px solid #E5E5EA;
+     padding:8px 16px;
+     border-radius:50px;
+     color:#1C1C1E;
+     font-size:14px;
+     font-weight:600;
+     cursor:pointer;
+     display:flex;
+     align-items:center;
+     gap:10px;
+     transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+ .nav-user:hover {
+     background:#E5E5EA;
+     border-color:var(--primary);
+     transform:scale(1.02);
+     box-shadow:0 4px 12px rgba(255,82,0,0.15);
+}
+ .nav-user img.user-avatar {
+     width:24px;
+     height:24px;
+     border-radius:50%;
+     object-fit:cover;
+}
+ .nav-user i.user-icon {
+     font-size:16px;
+     color:var(--primary);
+}
+ .nav-user i.arrow {
+     font-size:11px;
+     color:#8E8E93;
+     transition:0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+ .nav-user-container:hover i.arrow {
+     transform:rotate(180deg);
+     color:var(--primary);
+}
+ .dropdown-menu {
+     position:absolute;
+     top:85%;
+     right:0;
+     background:#16161a;
+     min-width:220px;
+     border-radius:12px;
+     border:1px solid #2d2d33;
+     box-shadow:0 10px 30px rgba(0,0,0,0.5);
+     padding:8px 0;
+     display:none;
+     z-index:1001;
+     transform-origin:top right;
+}
+ .nav-user-container:hover .dropdown-menu {
+     display:block;
+     animation:fadeInUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+ .dropdown-menu .user-info-header {
+     padding:12px 20px;
+     border-bottom:1px solid #2d2d33;
+     margin-bottom:6px;
+}
+ .dropdown-menu .user-info-header span {
+     display:block;
+}
+ .dropdown-menu .user-info-header .u-name {
+     color:var(--white);
+     font-size:14px;
+     font-weight:700;
+}
+ .dropdown-menu .user-info-header .u-role {
+     color:var(--text-gray);
+     font-size:11px;
+     text-transform:uppercase;
+     letter-spacing:0.5px;
+     margin-top:2px;
+}
+ .dropdown-menu a {
+     display:flex;
+     align-items:center;
+     gap:12px;
+     padding:10px 20px;
+     color:#c5c5ca;
+     text-decoration:none;
+     font-size:13px;
+     font-weight:500;
+     transition:all 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+ .dropdown-menu a:hover {
+     background:#222227;
+     color:var(--primary);
+     padding-left:28px;
+}
+ .dropdown-divider {
+     height:1px;
+     background:#2d2d33;
+     margin:6px 0;
+}
+ .member-badge-nav {
+     display:inline-flex;
+     align-items:center;
+     gap:6px;
+     background:var(--green-lt);
+     border:1px solid var(--green);
+     color:var(--green);
+     padding:4px 12px;
+     border-radius:50px;
+     font-size:11px;
+     font-weight:700;
+     margin-left:8px;
+     animation:pulse 2s ease-in-out infinite;
+}
+/* ============ CONTAINER & TABS ============ */
+ .container {
+     width: 100%;
+     max-width: 90%;
+     margin: 40px auto;
+     padding: 0 20px;
+     display: flex;
+     flex-direction: column;
+     gap: 30px;
+     min-height: 60vh;
+}
+ .section-header {
+     display: flex;
+     flex-direction: column;
+     gap: 6px;
+}
+ .section-title {
+     font-size: 22px;
+     font-weight: 800;
+     color: var(--text-primary);
+     display: flex;
+     align-items: center;
+     gap: 10px;
+}
+ .section-subtitle {
+     font-size: 13px;
+     color: var(--text-secondary);
+     font-weight: 500;
+}
+/* Tab Navigation Styling */
+ .tab-wrapper {
+     display: flex;
+     gap: 12px;
+     border-bottom: 2px solid var(--border-lt);
+     padding-bottom: 2px;
+}
+ .tab-btn {
+     background: none;
+     border: none;
+     font-family: inherit;
+     font-size: 14px;
+     font-weight: 700;
+     color: var(--text-secondary);
+     padding: 12px 24px;
+     cursor: pointer;
+     transition: var(--transition-smooth);
+     position: relative;
+}
+ .tab-btn.active {
+     color: var(--orange);
+}
+ .tab-btn.active::after {
+     content: '';
+     position: absolute;
+     bottom: -4px;
+     left: 0;
+     width: 100%;
+     height: 3px;
+     background: var(--orange);
+     border-radius: 10px;
+}
+ .tab-content {
+     display: none;
+}
+ .tab-content.active {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+     gap: 24px;
+     animation: scaleIn 0.4s ease;
+}
+/* ============ BOOKING CARDS ============ */
+ .booking-card {
+     background: #fff;
+     border: 1px solid var(--border);
+     border-radius: 16px;
+     overflow: hidden;
+     display: flex;
+     flex-direction: column;
+     transition: var(--transition-smooth);
+     position: relative;
+}
+ .booking-card:hover {
+     transform: translateY(-5px);
+     border-color: var(--orange);
+     box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+}
+ .card-img-wrapper {
+     position: relative;
+     height: 160px;
+     overflow: hidden;
+     background: #cbd5e1;
+}
+ .card-img {
+     width: 100%;
+     height: 100%;
+     object-fit: cover;
+     transition: transform 0.6s ease;
+}
+ .booking-card:hover .card-img {
+     transform: scale(1.05);
+}
+/* Badges */
+ .status-badge {
+     position: absolute;
+     top: 12px;
+     right: 12px;
+     font-size: 11px;
+     font-weight: 700;
+     padding: 6px 14px;
+     border-radius: 20px;
+     text-transform: uppercase;
+     letter-spacing: 0.5px;
+}
+ .status-waiting {
+     background: var(--yellow-lt);
+     color: #B45309;
+     border: 1px solid rgba(251, 191, 36, 0.3);
+}
+ .status-success {
+     background: var(--green-lt);
+     color: #047857;
+     border: 1px solid rgba(52, 199, 89, 0.3);
+}
+ .status-completed {
+     background: var(--blue-lt);
+     color: #1E40AF;
+     border: 1px solid rgba(0, 122, 255, 0.3);
+}
+ .status-cancelled {
+     background: var(--red-lt);
+     color: #B91C1C;
+     border: 1px solid rgba(255, 59, 48, 0.3);
+}
+ .card-body {
+     padding: 20px;
+     display: flex;
+     flex-direction: column;
+     gap: 12px;
+     flex: 1;
+}
+ .court-title {
+     font-size: 16px;
+     font-weight: 800;
+     color: var(--text-primary);
+}
+ .booking-date-time {
+     display: flex;
+     flex-direction: column;
+     gap: 6px;
+     background: var(--bg);
+     padding: 12px;
+     border-radius: 10px;
+     border: 1px solid var(--border-lt);
+}
+ .date-time-item {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     font-size: 12.5px;
+     color: var(--text-secondary);
+     font-weight: 600;
+}
+ .date-time-item i {
+     color: var(--orange);
+     font-size: 14px;
+     width: 16px;
+     text-align: center;
+}
+ .payment-summary {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     border-top: 1px dashed var(--border);
+     padding-top: 14px;
+     margin-top: auto;
+}
+ .payment-label {
+     font-size: 12px;
+     color: var(--muted);
+     font-weight: 600;
+}
+ .payment-value {
+     font-size: 15px;
+     font-weight: 800;
+     color: var(--text-primary);
+}
+/* Refund Breakdown Display inside Card */
+ .refund-card-info {
+     background: #FEF2F2;
+     border: 1px solid #FCA5A5;
+     border-radius: 10px;
+     padding: 10px 14px;
+     margin-top: 10px;
+     font-size: 11.5px;
+     color: #991B1B;
+}
+ .btn-card-action {
+     width: 100%;
+     border: none;
+     padding: 12px;
+     font-family: inherit;
+     font-size: 13px;
+     font-weight: 700;
+     border-radius: 10px;
+     cursor: pointer;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 8px;
+     transition: var(--transition-smooth);
+     margin-top: 14px;
+}
+ .btn-cancel-allowed {
+     background: var(--red-lt);
+     color: var(--red);
+     border: 1px solid rgba(255,59,48,0.15);
+}
+ .btn-cancel-allowed:hover {
+     background: var(--red);
+     color: #fff;
+     box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
+}
+ .btn-disabled {
+     background: var(--border-lt);
+     color: var(--muted);
+     cursor: not-allowed;
+     border: 1px solid var(--border);
+}
+/* Info Rules banner */
+ .info-rules-banner {
+     background: #EFF6FF;
+     border: 1px solid rgba(0, 122, 255, 0.15);
+     border-radius: 14px;
+     padding: 16px 20px;
+     display: flex;
+     gap: 14px;
+     align-items: flex-start;
+}
+ .info-rules-banner i {
+     color: var(--blue);
+     font-size: 20px;
+     margin-top: 2px;
+     animation: pulse 2s ease-in-out infinite;
+}
+ .info-rules-text h5 {
+     font-size: 13.5px;
+     font-weight: 800;
+     color: #1E40AF;
+     margin-bottom: 4px;
+}
+ .info-rules-text p {
+     font-size: 12px;
+     color: #1E40AF;
+     line-height: 1.6;
+}
+/* ============ MODAL WINDOW ============ */
+ .modal-overlay {
+     position: fixed;
+     top: 0;
+     left: 0;
+     width: 100%;
+     height: 100%;
+     background: rgba(15, 23, 42, 0.6);
+     backdrop-filter: blur(4px);
+     display: none;
+     align-items: center;
+     justify-content: center;
+     z-index: 1000;
+     padding: 20px;
+     animation: fadeInModal 0.25s ease-out forwards;
+}
+ @keyframes fadeInModal {
+     from {
+         opacity: 0;
+    }
+     to {
+         opacity: 1;
+    }
+}
+ .overlay-gangguan-sistem {
+     z-index: 2000 !important;
+}
+ .modal-card {
+     background: #fff;
+     border-radius: 20px;
+     width: 100%;
+     max-width: 480px;
+     max-height: 90vh;
+     overflow-y: auto;
+     position: relative;
+     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+     padding: 30px;
+     animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+ @keyframes slideInModal {
+     from {
+         transform: translateY(30px);
+         opacity: 0;
+    }
+     to {
+         transform: translateY(0);
+         opacity: 1;
+    }
+}
+ .modal-close {
+     position: absolute;
+     top: 20px;
+     right: 20px;
+     background: var(--border-lt);
+     border: none;
+     width: 32px;
+     height: 32px;
+     border-radius: 50%;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     cursor: pointer;
+     color: var(--text-secondary);
+     transition: var(--transition-smooth);
+}
+ .modal-close:hover {
+     background: var(--red-lt);
+     color: var(--red);
+     transform: rotate(90deg);
+}
+ .modal-title {
+     font-size: 18px;
+     font-weight: 800;
+     color: var(--text-primary);
+     margin-bottom: 20px;
+     display: flex;
+     align-items: center;
+     gap: 8px;
+}
+ .cancellation-details-box {
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
+     background: var(--bg);
+     border: 1px solid var(--border);
+     border-radius: 12px;
+     padding: 14px;
+     margin-bottom: 18px;
+}
+ .cancel-detail-row {
+     display: flex;
+     justify-content: space-between;
+     font-size: 12.5px;
+     font-weight: 500;
+     color: var(--text-secondary);
+}
+ .cancel-detail-row strong {
+     color: var(--text-primary);
+     font-weight: 700;
+}
+ .cancellation-refund-breakdown {
+     border-top: 1px dashed var(--border);
+     margin-top: 8px;
+     padding-top: 10px;
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+}
+ .refund-row {
+     display: flex;
+     justify-content: space-between;
+     font-size: 12.5px;
+     font-weight: 600;
+}
+ .refund-total {
+     font-size: 15px;
+     font-weight: 800;
+     color: var(--green);
+}
+ .form-group {
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+     margin-bottom: 18px;
+}
+ .form-label {
+     font-size: 12px;
+     font-weight: 700;
+     color: var(--text-primary);
+}
+ .textarea-control {
+     width: 100%;
+     border: 1px solid var(--border);
+     border-radius: 10px;
+     padding: 12px;
+     font-family: inherit;
+     font-size: 13px;
+     outline: none;
+     transition: var(--transition-smooth);
+     resize: none;
+     min-height: 80px;
+}
+ .textarea-control:focus {
+     border-color: var(--orange);
+     box-shadow: 0 0 0 3px var(--orange-glow);
+}
+ .checkbox-label {
+     display: flex;
+     align-items: flex-start;
+     gap: 10px;
+     font-size: 11.5px;
+     color: var(--text-secondary);
+     line-height: 1.5;
+     cursor: pointer;
+     user-select: none;
+}
+ .checkbox-label input {
+     margin-top: 2px;
+     accent-color: var(--orange);
+}
+ .btn-submit-cancellation {
+     width: 100%;
+     background: var(--red);
+     color: #fff;
+     border: none;
+     border-radius: 12px;
+     padding: 14px;
+     font-family: inherit;
+     font-size: 13.5px;
+     font-weight: 700;
+     cursor: pointer;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 8px;
+     margin-top: 20px;
+     transition: var(--transition-smooth);
+}
+ .btn-submit-cancellation:hover {
+     background: #D32F2F;
+     box-shadow: 0 8px 20px rgba(255, 59, 48, 0.3);
+}
+ .btn-submit-cancellation:disabled {
+     background: var(--muted);
+     cursor: not-allowed;
+     box-shadow: none;
+}
+/* ============ FOOTER ============ */
+ footer {
+     background: var(--dark-bg);
+     color: #8E8E93;
+     padding: 80px 80px 40px;
+     border-top: 1px solid #1C1C1E;
+     position: relative;
+     overflow: hidden;
+}
+ footer::before {
+     content: '';
+     position: absolute;
+     top: 0;
+     left: 0;
+     right: 0;
+     height: 1px;
+     background: linear-gradient(90deg, transparent, var(--primary), transparent);
+     background-size: 200% 100%;
+}
+ .footer-grid {
+     display: grid;
+     grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+     gap: 40px;
+     margin-bottom: 60px;
+}
+ .footer-logo {
+     display: flex;
+     align-items: center;
+     gap: 10px;
+     margin-bottom: 16px;
+     transition: transform 0.3s ease;
+}
+ .footer-logo img {
+     height: 70px;
+}
+ .footer-desc {
+     font-size: 13px;
+     line-height: 1.6;
+     margin-bottom: 24px;
+}
+ .social-links {
+     display: flex;
+     gap: 12px;
+}
+ .social-btn {
+     width: 36px;
+     height: 36px;
+     border-radius: 50%;
+     background: #1C1C1E;
+     color: var(--white);
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     text-decoration: none;
+     transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+ .social-btn:hover {
+     background: var(--primary);
+     transform: translateY(-3px) scale(1.1);
+     box-shadow: 0 8px 20px rgba(255,82,0,0.3);
+}
+ .footer-col h4 {
+     color: var(--white);
+     font-size: 15px;
+     font-weight: 700;
+     margin-bottom: 20px;
+     position: relative;
+     display: inline-block;
+}
+ .footer-col h4::after {
+     content: '';
+     position: absolute;
+     bottom: -4px;
+     left: 0;
+     width: 30px;
+     height: 2px;
+     background: var(--primary);
+}
+ .footer-col ul {
+     list-style: none;
+}
+ .footer-col ul li {
+     margin-bottom: 12px;
+}
+ .footer-col ul li a {
+     color: #8E8E93;
+     text-decoration: none;
+     font-size: 13px;
+     transition: all 0.3s ease;
+     display: inline-block;
+}
+ .footer-col ul li a:hover {
+     color: var(--white);
+     transform: translateX(5px);
+}
+ .contact-item {
+     display: flex;
+     gap: 12px;
+     font-size: 13px;
+     line-height: 1.5;
+     margin-bottom: 16px;
+     padding: 4px;
+}
+ .contact-item i {
+     color: var(--primary);
+     font-size: 14px;
+     margin-top: 3px;
+}
+ .footer-bottom {
+     border-top: 1px solid #1C1C1E;
+     padding-top: 30px;
+     text-align: center;
+     font-size: 13px;
+     position: relative;
+}
+ @media (max-width: 1200px) {
+     nav {
+         padding: 0 40px;
+    }
+     .footer-grid {
+         grid-template-columns: repeat(2, 1fr);
+    }
+}
+ @media (max-width: 768px) {
+     nav {
+         flex-direction: column;
+         height: auto;
+         padding: 15px 20px;
+         gap: 15px;
+    }
+     .nav-links {
+         flex-wrap: wrap;
+         justify-content: center;
+         gap: 4px;
+    }
+     .nav-user-container {
+         height: auto;
+    }
+     .dropdown-menu {
+         top: 50px;
+         right: 50%;
+         transform: translateX(50%);
+    }
+     .footer-grid {
+         grid-template-columns: 1fr;
+    }
+     .tab-content.active {
+         grid-template-columns: 1fr;
+    }
+}
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--bg);
-            color: var(--text-primary);
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-        }
-
-        /* Menghilangkan scrollbar secara global */
-        ::-webkit-scrollbar { display: none; }
-        html, body { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* ============ KEYFRAMES & ANIMATIONS ============ */
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes scaleIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
-        @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(52,199,89,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(52,199,89,0)}}
-
-        .anim-fade-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .anim-scale-in { animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        /* ============ NAVBAR ============ */
-        nav { background:var(--white); padding:0 80px; display:flex; justify-content:space-between; align-items:center; height:76px; position:sticky; top:0; z-index:1000; border-bottom:1px solid #E5E5EA; animation:fadeInDown 0.6s ease-out forwards; }
-        .nav-logo { display:flex; align-items:center; text-decoration:none; gap:10px; transition:transform 0.3s ease; }
-        .nav-logo:hover { transform:scale(1.05); }
-        .nav-logo img { height:70px; width:auto; transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
-        .nav-logo:hover img { transform:rotate(5deg) scale(1.1); }
-        .nav-links { display:flex; align-items:center; gap:8px; }
-        .nav-links a { color:#636366; text-decoration:none; font-size:14px; font-weight:500; padding:8px 16px; border-radius:20px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
-        .nav-links a::before { content:''; position:absolute; bottom:0; left:50%; width:0; height:2px; background:var(--primary); transition:all 0.3s cubic-bezier(0.16,1,0.3,1); transform:translateX(-50%); }
-        .nav-links a:hover { color:#1C1C1E; transform:translateY(-2px); }
-        .nav-links a:hover::before { width:60%; }
-        .nav-links a.active { color:var(--primary); font-weight:600; }
-        .nav-links a.active::before { width:60%; }
-
-        .nav-user-container { position:relative; height:76px; display:flex; align-items:center; }
-        .nav-user { background:#F2F2F7; border:1px solid #E5E5EA; padding:8px 16px; border-radius:50px; color:#1C1C1E; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); }
-        .nav-user:hover { background:#E5E5EA; border-color:var(--primary); transform:scale(1.02); box-shadow:0 4px 12px rgba(255,82,0,0.15); }
-        .nav-user img.user-avatar { width:24px; height:24px; border-radius:50%; object-fit:cover; }
-        .nav-user i.user-icon { font-size:16px; color:var(--primary); }
-        .nav-user i.arrow { font-size:11px; color:#8E8E93; transition:0.3s cubic-bezier(0.34,1.56,0.64,1); }
-        .nav-user-container:hover i.arrow { transform:rotate(180deg); color:var(--primary); }
-        .dropdown-menu { position:absolute; top:85%; right:0; background:#16161a; min-width:220px; border-radius:12px; border:1px solid #2d2d33; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; display:none; z-index:1001; transform-origin:top right; }
-        .nav-user-container:hover .dropdown-menu { display:block; animation:fadeInUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .dropdown-menu .user-info-header { padding:12px 20px; border-bottom:1px solid #2d2d33; margin-bottom:6px; }
-        .dropdown-menu .user-info-header span { display:block; }
-        .dropdown-menu .user-info-header .u-name { color:var(--white); font-size:14px; font-weight:700; }
-        .dropdown-menu .user-info-header .u-role { color:var(--text-gray); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
-        .dropdown-menu a { display:flex; align-items:center; gap:12px; padding:10px 20px; color:#c5c5ca; text-decoration:none; font-size:13px; font-weight:500; transition:all 0.25s cubic-bezier(0.16,1,0.3,1); }
-        .dropdown-menu a:hover { background:#222227; color:var(--primary); padding-left:28px; }
-        .dropdown-divider { height:1px; background:#2d2d33; margin:6px 0; }
-        .member-badge-nav { display:inline-flex; align-items:center; gap:6px; background:var(--green-lt); border:1px solid var(--green); color:var(--green); padding:4px 12px; border-radius:50px; font-size:11px; font-weight:700; margin-left:8px; animation:pulse 2s ease-in-out infinite; }
-
-        /* ============ CONTAINER & TABS ============ */
-        .container { width: 100%; max-width: 90%; margin: 40px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 30px; min-height: 60vh; }
-        
-        .section-header { display: flex; flex-direction: column; gap: 6px; }
-        .section-title { font-size: 22px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
-        .section-subtitle { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
-
-        /* Tab Navigation Styling */
-        .tab-wrapper { display: flex; gap: 12px; border-bottom: 2px solid var(--border-lt); padding-bottom: 2px; }
-        .tab-btn { background: none; border: none; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text-secondary); padding: 12px 24px; cursor: pointer; transition: var(--transition-smooth); position: relative; }
-        .tab-btn.active { color: var(--orange); }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 100%; height: 3px; background: var(--orange); border-radius: 10px; }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; animation: scaleIn 0.4s ease; }
-
-        /* ============ BOOKING CARDS ============ */
-        .booking-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: var(--transition-smooth); position: relative; }
-        .booking-card:hover { transform: translateY(-5px); border-color: var(--orange); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-        
-        .card-img-wrapper { position: relative; height: 160px; overflow: hidden; background: #cbd5e1; }
-        .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
-        .booking-card:hover .card-img { transform: scale(1.05); }
-
-        /* Badges */
-        .status-badge { position: absolute; top: 12px; right: 12px; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .status-waiting { background: var(--yellow-lt); color: #B45309; border: 1px solid rgba(251, 191, 36, 0.3); }
-        .status-success { background: var(--green-lt); color: #047857; border: 1px solid rgba(52, 199, 89, 0.3); }
-        .status-completed { background: var(--blue-lt); color: #1E40AF; border: 1px solid rgba(0, 122, 255, 0.3); }
-        .status-cancelled { background: var(--red-lt); color: #B91C1C; border: 1px solid rgba(255, 59, 48, 0.3); }
-
-        .card-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
-        .court-title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
-        .booking-date-time { display: flex; flex-direction: column; gap: 6px; background: var(--bg); padding: 12px; border-radius: 10px; border: 1px solid var(--border-lt); }
-        .date-time-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
-        .date-time-item i { color: var(--orange); font-size: 14px; width: 16px; text-align: center; }
-
-        .payment-summary { display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border); padding-top: 14px; margin-top: auto; }
-        .payment-label { font-size: 12px; color: var(--muted); font-weight: 600; }
-        .payment-value { font-size: 15px; font-weight: 800; color: var(--text-primary); }
-
-        /* Refund Breakdown Display inside Card */
-        .refund-card-info { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: 11.5px; color: #991B1B; }
-
-        .btn-card-action { width: 100%; border: none; padding: 12px; font-family: inherit; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: var(--transition-smooth); margin-top: 14px; }
-        .btn-cancel-allowed { background: var(--red-lt); color: var(--red); border: 1px solid rgba(255,59,48,0.15); }
-        .btn-cancel-allowed:hover { background: var(--red); color: #fff; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2); }
-        .btn-disabled { background: var(--border-lt); color: var(--muted); cursor: not-allowed; border: 1px solid var(--border); }
-
-        /* Info Rules banner */
-        .info-rules-banner { background: #EFF6FF; border: 1px solid rgba(0, 122, 255, 0.15); border-radius: 14px; padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; }
-        .info-rules-banner i { color: var(--blue); font-size: 20px; margin-top: 2px; animation: pulse 2s ease-in-out infinite; }
-        .info-rules-text h5 { font-size: 13.5px; font-weight: 800; color: #1E40AF; margin-bottom: 4px; }
-        .info-rules-text p { font-size: 12px; color: #1E40AF; line-height: 1.6; }
-
-        /* ============ MODAL WINDOW ============ */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeInModal 0.25s ease-out forwards; }
-        @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
-
-        .modal-card { background: #fff; border-radius: 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); padding: 30px; animation: slideInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes slideInModal { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .modal-close { position: absolute; top: 20px; right: 20px; background: var(--border-lt); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); }
-        .modal-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
-
-        .modal-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
-        
-        .cancellation-details-box { display: flex; flex-direction: column; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 18px; }
-        .cancel-detail-row { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); }
-        .cancel-detail-row strong { color: var(--text-primary); font-weight: 700; }
-
-        .cancellation-refund-breakdown { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .refund-row { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
-        .refund-total { font-size: 15px; font-weight: 800; color: var(--green); }
-
-        .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-        .form-label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
-        .textarea-control { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: inherit; font-size: 13px; outline: none; transition: var(--transition-smooth); resize: none; min-height: 80px; }
-        .textarea-control:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
-
-        .checkbox-label { display: flex; align-items: flex-start; gap: 10px; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; cursor: pointer; user-select: none; }
-        .checkbox-label input { margin-top: 2px; accent-color: var(--orange); }
-
-        .btn-submit-cancellation { width: 100%; background: var(--red); color: #fff; border: none; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; transition: var(--transition-smooth); }
-        .btn-submit-cancellation:hover { background: #D32F2F; box-shadow: 0 8px 20px rgba(255, 59, 48, 0.3); }
-        .btn-submit-cancellation:disabled { background: var(--muted); cursor: not-allowed; box-shadow: none; }
-
-        /* ============ FOOTER ============ */
-        footer { background: var(--dark-bg); color: #8E8E93; padding: 80px 80px 40px; border-top: 1px solid #1C1C1E; position: relative; overflow: hidden; }
-        footer::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent); background-size: 200% 100%; }
-        .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; margin-bottom: 60px; }
-        .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; transition: transform 0.3s ease; }
-        .footer-logo img { height: 70px; }
-        .footer-desc { font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
-        .social-links { display: flex; gap: 12px; }
-        .social-btn { width: 36px; height: 36px; border-radius: 50%; background: #1C1C1E; color: var(--white); display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-        .social-btn:hover { background: var(--primary); transform: translateY(-3px) scale(1.1); box-shadow: 0 8px 20px rgba(255,82,0,0.3); }
-        .footer-col h4 { color: var(--white); font-size: 15px; font-weight: 700; margin-bottom: 20px; position: relative; display: inline-block; }
-        .footer-col h4::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 30px; height: 2px; background: var(--primary); }
-        .footer-col ul { list-style: none; }
-        .footer-col ul li { margin-bottom: 12px; }
-        .footer-col ul li a { color: #8E8E93; text-decoration: none; font-size: 13px; transition: all 0.3s ease; display: inline-block; }
-        .footer-col ul li a:hover { color: var(--white); transform: translateX(5px); }
-        .contact-item { display: flex; gap: 12px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; padding: 4px; }
-        .contact-item i { color: var(--primary); font-size: 14px; margin-top: 3px; }
-        .footer-bottom { border-top: 1px solid #1C1C1E; padding-top: 30px; text-align: center; font-size: 13px; position: relative; }
-
-        @media (max-width: 1200px) { nav { padding: 0 40px; } .footer-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 768px) {
-            nav { flex-direction: column; height: auto; padding: 15px 20px; gap: 15px; }
-            .nav-links { flex-wrap: wrap; justify-content: center; gap: 4px; }
-            .nav-user-container { height: auto; }
-            .dropdown-menu { top: 50px; right: 50%; transform: translateX(50%); }
-            .footer-grid { grid-template-columns: 1fr; }
-            .tab-content.active { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
@@ -667,7 +1351,7 @@ function resolvePhotoPath($photo_path) {
         </div>
 
         <div class="form-group">
-            <label class="form-label">Alasan Pembatalan Sewa</label>
+            <label class="form-label">Alasan Pembatalan Sewa<span style="color: red;">*</span></label>
             <textarea id="txtReason" class="textarea-control" placeholder="Tuliskan alasan rasional mengapa Anda membatalkan sewa ini..." oninput="validateForm()"></textarea>
         </div>
 
@@ -784,16 +1468,24 @@ function resolvePhotoPath($photo_path) {
 
     // Modal Form Validator
     function validateForm() {
-        const reason = document.getElementById('txtReason').value.trim();
-        const isAgreed = document.getElementById('chkAgree').checked;
-        const btnSubmit = document.getElementById('btnSubmitCancel');
+         const reasonInput = document.getElementById('txtReason');
+    
+    // Menghapus angka dan simbol secara real-time saat pengguna mengetik
+    reasonInput.value = reasonInput.value.replace(/[^a-zA-Z\s]/g, '');
 
-        if (reason.length >= 10 && isAgreed) {
-            btnSubmit.disabled = false;
-        } else {
-            btnSubmit.disabled = true;
-        }
+    const reason = reasonInput.value.trim();
+    const isAgreed = document.getElementById('chkAgree').checked;
+    const btnSubmit = document.getElementById('btnSubmitCancel');
+
+    // Validasi panjang karakter minimal 10 dan hanya huruf/spasi
+    const isValidPattern = /^[a-zA-Z\s]+$/.test(reason);
+
+    if (reason.length >= 10 && isValidPattern && isAgreed) {
+        btnSubmit.disabled = false;
+    } else {
+        btnSubmit.disabled = true;
     }
+}
 
     // AJAX Request Execution
     function processCancellation() {
@@ -803,7 +1495,7 @@ function resolvePhotoPath($photo_path) {
         btnSubmit.disabled = true;
         btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungkan...';
 
-        fetch('pembatalan_booking.php?action=submit_pembatalan', {
+        fetch(window.location.pathname + '?action=submit_pembatalan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -820,7 +1512,7 @@ function resolvePhotoPath($photo_path) {
                     title: 'Pembatalan Diproses',
                     text: result.message,
                     confirmButtonColor: 'var(--orange)',
-                    confirmButtonText: 'Kembali Ke Riwayat'
+                    confirmButtonText: 'Kembali'
                 }).then(() => {
                     location.reload();
                 });
