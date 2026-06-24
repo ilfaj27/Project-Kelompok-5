@@ -6,7 +6,7 @@ include '../includes/config.php';
 // Sesuai proses bisnis: Customer hanya bisa lihat riwayat transaksi milik pribadi
 // Karyawan bisa mengelola semua data langganan
 if (!isset($_SESSION['role'])) {
-    header("Location: ../login.php");
+    header("Location: ../login/login.php");
     exit();
 }
 
@@ -539,7 +539,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 <body>
 
 <aside class="sidebar">
-    <a href="../view_admin.php" class="sb-brand">
+    <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -548,35 +548,35 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     </a>
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="../view_admin.php" class="sb-link">
+        <a href="../dashboard/view_admin.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="customer.php" class="sb-link">
+        <a href="../master/customer.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Kelola Customer
         </a>
-        <a href="lapangan.php" class="sb-link">
+        <a href="../master/lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Kelola Lapangan
         </a>
-        <a href="fasilitas_lapangan.php" class="sb-link">
+        <a href="../master/fasilitas_lapangan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
             Kelola Fasilitas
         </a>
-        <a href="jadwal.php" class="sb-link">
+        <a href="../master/jadwal.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
             Kelola Jadwal
         </a>
-        <a href="promo.php" class="sb-link">
+        <a href="../master/promo.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
             Kelola Promo
         </a>
-        <a href="tipe_member.php" class="sb-link">
+        <a href="../master/tipe_member.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
             Kelola Tipe Member
         </a>
-        <a href="alat.php" class="sb-link">
+        <a href="../master/alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
@@ -618,7 +618,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                 <?php endif; ?>
             </div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
-            <a href="../logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
+            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
     </div>
 </aside>
@@ -653,9 +653,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
                 <div class="dropdown-menu">
-                    <a href="../profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
+                    <a href="../profile/profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
                     <hr class="dd-divider">
-                    <a href="../logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
                 </div>
             </div>
         </div>
@@ -821,10 +821,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
                                     <?php if ($is_karyawan && $is_pending): ?>
-                                    <a href="?confirm_id=<?= $row['ID_Langganan'] ?>" class="btn-action btn-confirm" title="Konfirmasi Pembayaran" onclick="return confirmAction('konfirmasi', '<?= htmlspecialchars($row['Nama_Customer'] ?? 'Customer') ?>')">
+                                    <a href="?confirm_id=<?= $row['ID_Langganan'] ?>" class="btn-action btn-confirm" title="Konfirmasi Pembayaran" onclick="return confirmAction(event, 'konfirmasi', '<?= htmlspecialchars($row['Nama_Customer'] ?? 'Customer', ENT_QUOTES) ?>')">
                                         <i class="fa-solid fa-check"></i>
                                     </a>
-                                    <a href="?reject_id=<?= $row['ID_Langganan'] ?>" class="btn-action btn-reject" title="Tolak Pembayaran" onclick="return confirmAction('tolak', '<?= htmlspecialchars($row['Nama_Customer'] ?? 'Customer') ?>')">
+                                    <a href="?reject_id=<?= $row['ID_Langganan'] ?>" class="btn-action btn-reject" title="Tolak Pembayaran" onclick="return confirmAction(event, 'tolak', '<?= htmlspecialchars($row['Nama_Customer'] ?? 'Customer', ENT_QUOTES) ?>')">
                                         <i class="fa-solid fa-xmark"></i>
                                     </a>
                                     <?php endif; ?>
@@ -967,10 +967,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
                 <?php if ($is_karyawan && $is_pending): ?>
                 <div style="display:flex;gap:10px;margin-top:16px;">
-                    <a href="?confirm_id=<?= $detail_data['ID_Langganan'] ?>" class="btn-submit" style="flex:1;background:var(--green);text-decoration:none;" onclick="return confirmAction('konfirmasi', '<?= htmlspecialchars($detail_data['Nama_Customer'] ?? 'Customer') ?>')">
+                    <a href="?confirm_id=<?= $detail_data['ID_Langganan'] ?>" class="btn-submit" style="flex:1;background:var(--green);text-decoration:none;" onclick="return confirmAction(event, 'konfirmasi', '<?= htmlspecialchars($detail_data['Nama_Customer'] ?? 'Customer', ENT_QUOTES) ?>')">
                         <i class="fa-solid fa-check"></i> Konfirmasi
                     </a>
-                    <a href="?reject_id=<?= $detail_data['ID_Langganan'] ?>" class="btn-submit" style="flex:1;background:var(--red);text-decoration:none;" onclick="return confirmAction('tolak', '<?= htmlspecialchars($detail_data['Nama_Customer'] ?? 'Customer') ?>')">
+                    <a href="?reject_id=<?= $detail_data['ID_Langganan'] ?>" class="btn-submit" style="flex:1;background:var(--red);text-decoration:none;" onclick="return confirmAction(event, 'tolak', '<?= htmlspecialchars($detail_data['Nama_Customer'] ?? 'Customer', ENT_QUOTES) ?>')">
                         <i class="fa-solid fa-xmark"></i> Tolak
                     </a>
                 </div>
@@ -1053,7 +1053,9 @@ function searchTable() {
 // ============================================
 // CONFIRM ACTION (KONFIRMASI / TOLAK)
 // ============================================
-function confirmAction(action, name) {
+function confirmAction(event, action, name) {
+    event.preventDefault();
+    const url = event.currentTarget.href;
     const isConfirm = action === 'konfirmasi';
     const title = isConfirm ? 'Konfirmasi Pembayaran?' : 'Tolak Langganan?';
     const text = isConfirm 
@@ -1084,11 +1086,11 @@ function confirmAction(action, name) {
                     Swal.showLoading();
                 }
             });
-            return true;
+            // Redirect to the URL from href attribute
+            window.location.href = url;
         }
-        return false;
     });
-    return false; // Prevent default until confirmed
+    return false;
 }
 
 

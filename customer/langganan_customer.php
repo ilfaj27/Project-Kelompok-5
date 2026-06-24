@@ -71,23 +71,6 @@ if ($query_tipe) {
 }
 
 // ============================================================================
-// AMBIL RIWAYAT LANGGANAN CUSTOMER
-// ============================================================================
-$riwayat_langganan = [];
-$query_riwayat = sqlsrv_query($conn, 
-    "SELECT L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
-     FROM Langganan L 
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
-     WHERE L.ID_Customer = ? 
-     ORDER BY L.Created_Date DESC",
-    array($id_customer)
-);
-if ($query_riwayat) {
-    while ($row = sqlsrv_fetch_array($query_riwayat, SQLSRV_FETCH_ASSOC)) {
-        $riwayat_langganan[] = $row;
-    }
-}
-
 // ============================================================================
 // PROSES PEMBELIAN LANGGANAN
 // ============================================================================
@@ -148,7 +131,7 @@ if (isset($_POST['beli_langganan'])) {
                     if ($stmt_insert) {
                         $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
                         $last_id = $id_row['ID_Langganan'] ?? 0;
-                        header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! ID: LANG-$last_id. Menunggu konfirmasi admin.");
+                        header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Paket: " . urlencode($tipe_data['Nama_Tipe']) . ". Menunggu konfirmasi admin.");
                         exit();
                     } else {
                         $errors = sqlsrv_errors();
@@ -188,7 +171,7 @@ $status_labels = [
 $photo_profile = $customer_data['Photo_Profile'] ?? '';
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" style="scroll-behavior: smooth;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -196,7 +179,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
+<style>
         :root {
             --primary: #FF5200;
             --primary-hover: #E04800;
@@ -232,8 +215,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--light-bg);color:#111;overflow-x:hidden}
-
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--light-bg);color:#111;overflow-x:hidden;animation: fadeIn 0.5s ease-out}
         ::-webkit-scrollbar{display:none}
         html,body{-ms-overflow-style:none;scrollbar-width:none}
         ::selection{background:rgba(255,82,0,0.3);color:#1C1C1E}
@@ -251,6 +233,61 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         @keyframes countUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
         @keyframes drawLine{from{width:0}to{width:60px}}
 
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,82,0,0.3); }
+            50% { box-shadow: 0 0 40px rgba(255,82,0,0.6); }
+        }
+        @keyframes floatBall {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            33% { transform: translateY(-15px) rotate(5deg); }
+            66% { transform: translateY(10px) rotate(-3deg); }
+        }
+        @keyframes ballFloat1 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(10px,-20px) rotate(5deg)} 50%{transform:translate(-5px,10px) rotate(-3deg)} 75%{transform:translate(15px,5px) rotate(2deg)} }
+        @keyframes ballFloat2 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(-15px,10px) rotate(-5deg)} 50%{transform:translate(10px,-15px) rotate(3deg)} 75%{transform:translate(-10px,-5px) rotate(-2deg)} }
+        @keyframes ballFloat3 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(20px,5px) rotate(3deg)} 50%{transform:translate(-15px,-20px) rotate(-5deg)} 75%{transform:translate(5px,15px) rotate(2deg)} }
+        @keyframes heroGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes iconBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+        @keyframes borderGlow {
+            0%, 100% { border-color: rgba(255,82,0,0.3); }
+            50% { border-color: rgba(255,82,0,0.8); }
+        }
+        @keyframes numberCount {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes rotateIn {
+            from { opacity: 0; transform: rotate(-10deg) scale(0.9); }
+            to { opacity: 1; transform: rotate(0deg) scale(1); }
+        }
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
         /* ═══ REVEAL ═══ */
         .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
         .reveal.active{opacity:1;transform:translateY(0)}
@@ -283,12 +320,14 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             text-decoration: none;
             gap: 10px;
             transition: transform .3s ease;
+            animation: fadeInDown 0.5s ease-out both;
         }
         .nav-logo:hover { transform: scale(1.05); }
         .nav-logo img {
             height: 70px;
             width: auto;
             transition: transform .5s cubic-bezier(.34,1.56,.64,1);
+            animation: rotateIn 0.6s ease-out 0.2s both;
         }
         .nav-logo:hover img { transform: rotate(5deg) scale(1.1); }
         .nav-links {
@@ -322,6 +361,17 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .nav-links a:hover::before { width: 60%; }
         .nav-links a.active { color: var(--primary); font-weight: 600; }
         .nav-links a.active::before { width: 60%; }
+        .nav-links a {
+            animation: fadeInDown 0.5s ease-out both;
+            opacity: 0;
+        }
+        .nav-links a:nth-child(1) { animation-delay: 0.1s; }
+        .nav-links a:nth-child(2) { animation-delay: 0.15s; }
+        .nav-links a:nth-child(3) { animation-delay: 0.2s; }
+        .nav-links a:nth-child(4) { animation-delay: 0.25s; }
+        .nav-links a:nth-child(5) { animation-delay: 0.3s; }
+        .nav-links a:nth-child(6) { animation-delay: 0.35s; }
+        .nav-links a:nth-child(7) { animation-delay: 0.4s; }
 
         .nav-user-container {
             position: relative;
@@ -380,9 +430,14 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             display: none; 
             z-index: 1001;
             transform-origin: top right;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .nav-user-container:hover .dropdown-menu {
             display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
             animation: fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards;
         }
         .dropdown-menu .user-info-header {
@@ -470,7 +525,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
         /* ---- HERO SECTION ---- */
         .hero {
-            background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 100%);
+            background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 50%, #0d0d1a 100%); background-size: 200% 200%; animation: heroGradient 15s ease infinite;
             padding: 60px 80px;
             display: flex;
             align-items: center;
@@ -478,6 +533,19 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             gap: 40px;
             position: relative;
             overflow: hidden;
+            min-height: 400px;
+        }
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: -50px;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%);
+            pointer-events: none;
+            animation: ballFloat3 15s ease-in-out infinite;
         }
         .hero::before {
             content: '';
@@ -495,6 +563,15 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             z-index: 1;
             animation: fadeInUp 0.8s ease-out forwards;
         }
+        .hero-left .hero-badge {
+            animation: slideInLeft 0.6s ease-out 0.2s both;
+        }
+        .hero-left .hero-title {
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+        .hero-left .hero-desc {
+            animation: fadeInUp 0.8s ease-out 0.6s both;
+        }
         .hero-badge {
             display: inline-flex;
             align-items: center;
@@ -506,6 +583,15 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-size: 13px;
             font-weight: 700;
             margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+        .hero-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(255,82,0,0.4);
+        }
+        .hero-badge i {
+            animation: iconBounce 2s ease-in-out infinite;
         }
         .hero-title {
             font-size: 42px;
@@ -513,18 +599,79 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             color: var(--white);
             line-height: 1.2;
             margin-bottom: 16px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         .hero-title span {
             color: var(--primary);
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        .hero-left:hover .hero-title span {
+            transform: scale(1.02);
         }
         .hero-desc {
             color: #A0A0A5;
             font-size: 16px;
             line-height: 1.6;
             margin-bottom: 24px;
+            transition: color 0.3s ease;
+        }
+        .hero-left:hover .hero-desc {
+            color: #C0C0C5;
         }
 
-        /* ---- MEMBER STATUS CARD ---- */
+        
+        /* ---- FLOATING BALLS ---- */
+        .floating-ball {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.4), rgba(255,82,0,0.1));
+            filter: blur(1px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .ball-1 {
+            width: 80px; height: 80px;
+            top: 10%; right: 15%;
+            animation: ballFloat1 8s ease-in-out infinite;
+            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.35), rgba(255,82,0,0.05));
+        }
+        .ball-2 {
+            width: 50px; height: 50px;
+            top: 60%; right: 25%;
+            animation: ballFloat2 10s ease-in-out infinite;
+            background: radial-gradient(circle at 30% 30%, rgba(255,140,66,0.3), rgba(255,140,66,0.05));
+        }
+        .ball-3 {
+            width: 120px; height: 120px;
+            bottom: 10%; right: 5%;
+            animation: ballFloat3 12s ease-in-out infinite;
+            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.2), rgba(255,82,0,0.02));
+        }
+        .ball-4 {
+            width: 40px; height: 40px;
+            top: 30%; right: 40%;
+            animation: ballFloat1 7s ease-in-out infinite reverse;
+            background: radial-gradient(circle at 30% 30%, rgba(255,200,100,0.3), rgba(255,200,100,0.05));
+        }
+        .ball-5 {
+            width: 60px; height: 60px;
+            bottom: 30%; right: 30%;
+            animation: ballFloat2 9s ease-in-out infinite reverse;
+            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.25), rgba(255,82,0,0.03));
+        }
+        .hero-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            animation: glowPulse 4s ease-in-out infinite;
+        }
+
+/* ---- MEMBER STATUS CARD ---- */
         .member-status-card {
             background: var(--white);
             border-radius: 16px;
@@ -533,9 +680,33 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             position: relative;
             z-index: 1;
             min-width: 340px;
-            animation: fadeInUp 0.8s ease-out 0.2s forwards;
+            animation: fadeInUp 0.8s ease-out 0.2s forwards, cardEnter 0.6s ease-out 0.2s both;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .member-status-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border-color: rgba(255,82,0,0.3);
+        }
+        .member-status-icon {
+            animation: scaleIn 0.5s ease-out 0.4s both;
+        }
+        .member-status-text h3 {
+            animation: fadeInUp 0.5s ease-out 0.5s both;
+        }
+        .member-status-text p {
+            animation: fadeInUp 0.5s ease-out 0.6s both;
+        }
+        .member-detail-row {
+            animation: fadeInUp 0.4s ease-out both;
             opacity: 0;
         }
+        .member-detail-row:nth-child(2) { animation-delay: 0.7s; }
+        .member-detail-row:nth-child(3) { animation-delay: 0.8s; }
+        .member-detail-row:nth-child(4) { animation-delay: 0.9s; }
+        .member-detail-row:nth-child(5) { animation-delay: 1.0s; }
+        .member-detail-row:nth-child(6) { animation-delay: 1.1s; }
         .member-status-header {
             display: flex;
             align-items: center;
@@ -552,10 +723,15 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             align-items: center;
             justify-content: center;
             font-size: 24px;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .member-status-card:hover .member-status-icon {
+            transform: scale(1.1) rotate(5deg);
         }
         .member-status-icon.active {
             background: var(--green-lt);
             color: var(--green);
+            animation: pulse 2s ease-in-out infinite;
         }
         .member-status-icon.inactive {
             background: var(--red-lt);
@@ -564,6 +740,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .member-status-icon.pending {
             background: var(--yellow-lt);
             color: #D97706;
+            animation: float 3s ease-in-out infinite;
         }
         .member-status-text h3 {
             font-size: 18px;
@@ -581,9 +758,19 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             align-items: center;
             padding: 10px 0;
             border-bottom: 1px solid #F2F2F7;
+            transition: all 0.3s ease;
+        }
+        .member-detail-row:hover {
+            background: rgba(255,82,0,0.02);
+            margin: 0 -10px;
+            padding: 10px;
+            border-radius: 8px;
         }
         .member-detail-row:last-child {
             border-bottom: none;
+        }
+        .member-detail-row:last-child:hover {
+            border-radius: 8px;
         }
         .member-detail-label {
             font-size: 13px;
@@ -604,6 +791,17 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             padding: 60px 80px;
             max-width: 1440px;
             margin: 0 auto;
+            position: relative;
+        }
+        .main-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,82,0,0.1), transparent);
         }
 
         /* ---- SECTION HEADER ---- */
@@ -612,11 +810,20 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 28px;
+            animation: fadeInUp 0.6s ease-out both;
         }
         .section-title {
             font-size: 24px;
             font-weight: 800;
             color: #111;
+            transition: color 0.3s ease;
+        }
+        .section-title i {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        .section-header:hover .section-title i {
+            transform: scale(1.2) rotate(10deg);
         }
         .section-subtitle {
             font-size: 14px;
@@ -630,6 +837,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             grid-template-columns: repeat(3, 1fr);
             gap: 24px;
             margin-bottom: 60px;
+            perspective: 1000px;
         }
         .pricing-card {
             background: var(--white);
@@ -637,18 +845,54 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             border-radius: 16px;
             padding: 32px;
             position: relative;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: cardEnter 0.6s ease-out both;
+            opacity: 0;
         }
+        .pricing-card:nth-child(1) { animation-delay: 0.1s; }
+        .pricing-card:nth-child(2) { animation-delay: 0.2s; }
+        .pricing-card:nth-child(3) { animation-delay: 0.3s; }
         .pricing-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+            border-color: rgba(255,82,0,0.4);
+        }
+        .pricing-card:hover .pricing-icon {
+            animation: iconBounce 0.6s ease;
+        }
+        .pricing-card:hover .pricing-name {
+            color: var(--primary);
+            transition: color 0.3s ease;
+        }
+        .pricing-card.recommended {
+            border-color: var(--primary);
+            box-shadow: 0 4px 20px rgba(255,82,0,.1);
+            animation: cardEnter 0.6s ease-out 0.2s both, borderGlow 3s ease-in-out infinite;
+            position: relative;
+            overflow: visible;
+            padding-top: 42px;
+        }
+        .pricing-card.recommended::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,82,0,0.03) 0%, transparent 70%);
+            pointer-events: none;
+            animation: shimmer 4s linear infinite;
+            background-size: 200% 100%;
+        }
+        .pricing-card.recommended:hover {
+            box-shadow: 0 20px 40px rgba(255,82,0,0.2);
+            border-color: var(--primary);
         }
         .pricing-card.recommended {
             border-color: var(--primary);
             box-shadow: 0 4px 20px rgba(255,82,0,.1);
         }
-        .pricing-card.recommended::before {
-            content: 'POPULER';
+        .popular-badge {
             position: absolute;
             top: -12px;
             left: 50%;
@@ -660,6 +904,12 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 1px;
+            animation: shimmer 2s linear infinite;
+            background-size: 200% 100%;
+            background-image: linear-gradient(90deg, var(--primary), #FF8C42, var(--primary));
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(255,82,0,0.3);
+            white-space: nowrap;
         }
         .pricing-icon {
             width: 56px;
@@ -670,6 +920,10 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             justify-content: center;
             font-size: 24px;
             margin-bottom: 20px;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .pricing-icon:hover {
+            transform: scale(1.1) rotate(5deg);
         }
         .pricing-icon.silver { background: var(--blue-lt); color: var(--blue); }
         .pricing-icon.gold { background: var(--orange-lt); color: var(--orange); }
@@ -680,17 +934,27 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-weight: 800;
             color: #1C1C1E;
             margin-bottom: 4px;
+            transition: color 0.3s ease;
         }
         .pricing-desc {
             font-size: 13px;
             color: #8E8E93;
             margin-bottom: 20px;
+            transition: color 0.3s ease;
+        }
+        .pricing-card:hover .pricing-desc {
+            color: #636366;
         }
         .pricing-price {
             font-size: 36px;
             font-weight: 800;
             color: var(--primary);
             margin-bottom: 4px;
+            transition: all 0.3s ease;
+        }
+        .pricing-card:hover .pricing-price {
+            transform: scale(1.05);
+            text-shadow: 0 2px 10px rgba(255,82,0,0.2);
         }
         .pricing-price span {
             font-size: 14px;
@@ -708,6 +972,11 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-size: 12px;
             font-weight: 700;
             margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+        .pricing-card:hover .pricing-potongan {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(52,199,89,0.2);
         }
         .pricing-features {
             list-style: none;
@@ -721,13 +990,25 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-size: 14px;
             color: #1C1C1E;
             border-bottom: 1px solid #F2F2F7;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.4s ease-out both;
+            opacity: 0;
         }
+        .pricing-features li:nth-child(1) { animation-delay: 0.3s; }
+        .pricing-features li:nth-child(2) { animation-delay: 0.4s; }
+        .pricing-features li:nth-child(3) { animation-delay: 0.5s; }
+        .pricing-features li:nth-child(4) { animation-delay: 0.6s; }
+        .pricing-features li:nth-child(5) { animation-delay: 0.7s; }
         .pricing-features li:last-child {
             border-bottom: none;
         }
         .pricing-features li i {
             color: var(--green);
             font-size: 14px;
+            transition: transform 0.3s ease;
+        }
+        .pricing-card:hover .pricing-features li i {
+            transform: scale(1.2);
         }
         .btn-pilih {
             width: 100%;
@@ -739,103 +1020,47 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-pilih::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        .btn-pilih:hover::before {
+            width: 300px;
+            height: 300px;
         }
         .btn-pilih:hover {
             background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255,82,0,0.3);
+        }
+        .btn-pilih:active {
+            transform: translateY(0) scale(0.98);
         }
         .btn-pilih:disabled {
             background: #C7C7CC;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
-
-        /* ---- RIWAYAT LANGGANAN ---- */
-        .riwayat-section {
-            margin-bottom: 60px;
+        .btn-pilih:disabled::before {
+            display: none;
         }
-        .riwayat-card {
-            background: var(--white);
-            border: 1px solid #E5E5EA;
-            border-radius: 16px;
-            overflow: hidden;
-        }
-        .riwayat-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .riwayat-table th {
-            padding: 14px 20px;
-            font-size: 11px;
-            font-weight: 800;
-            color: #8E8E93;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #F2F2F7;
-            text-align: left;
-            background: #FAFAFA;
-        }
-        .riwayat-table td {
-            padding: 16px 20px;
-            font-size: 14px;
-            border-bottom: 1px solid #F2F2F7;
-            vertical-align: middle;
-        }
-        .riwayat-table tr:last-child td {
-            border-bottom: none;
-        }
-        .riwayat-table tbody tr:hover {
-            background: #FAFAFA;
-        }
-        .status-pill {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .sp-active { background: var(--green-lt); color: var(--green); }
-        .sp-pending { background: var(--yellow-lt); color: #D97706; }
-        .sp-inactive { background: var(--red-lt); color: var(--red); }
-        .sp-success { background: var(--blue-lt); color: var(--blue); }
-
-        /* ============ FOOTER ============ */
-        footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; }
-        footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
-        .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; }
-        .footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform 0.3s ease; }
-        .footer-logo:hover { transform:scale(1.05); }
-        .footer-logo img { height:70px; transition:transform 0.5s ease; }
-        .footer-logo:hover img { transform:rotate(5deg); }
-        .footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
-        .footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
-        .social-links { display:flex; gap:12px; }
-        .social-btn { width:36px; height:36px; border-radius:50%; background:#1C1C1E; color:var(--white); display:flex; align-items:center; justify-content:center; text-decoration:none; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-        .social-btn:hover { background:var(--primary); transform:translateY(-3px) scale(1.1); box-shadow:0 8px 20px rgba(255,82,0,0.3); }
-        .social-btn:active { transform:scale(0.95); }
-        .footer-col h4 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:20px; position:relative; display:inline-block; }
-        .footer-col h4::after { content:''; position:absolute; bottom:-4px; left:0; width:30px; height:2px; background:var(--primary); transition:width 0.3s ease; }
-        .footer-col:hover h4::after { width:100%; }
-        .footer-col ul { list-style:none; }
-        .footer-col ul li { margin-bottom:12px; }
-        .footer-col ul li a { color:#8E8E93; text-decoration:none; font-size:13px; transition:all 0.3s ease; display:inline-block; position:relative; }
-        .footer-col ul li a::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:1px; background:var(--primary); transition:width 0.3s ease; }
-        .footer-col ul li a:hover { color:var(--white); transform:translateX(5px); }
-        .footer-col ul li a:hover::after { width:100%; }
-        .contact-item { display:flex; gap:12px; font-size:13px; line-height:1.5; margin-bottom:16px; transition:all 0.3s ease; padding:4px; border-radius:6px; }
-        .contact-item:hover { background:rgba(255,82,0,0.05); transform:translateX(5px); }
-        .contact-item i { color:var(--primary); font-size:14px; margin-top:3px; transition:transform 0.3s ease; }
-        .contact-item:hover i { transform:scale(1.2); }
-        .footer-bottom { border-top:1px solid #1C1C1E; padding-top:30px; text-align:center; font-size:13px; position:relative; }
-
-        .swal-toast { border-radius:12px !important; font-family:'Plus Jakarta Sans',sans-serif !important; }
 
         /* ---- RESPONSIVE ---- */
         @media(max-width: 1100px) {
@@ -856,7 +1081,13 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         /* ═══ PAYMENT MODAL (MATCHING BOOKING) ═══ */
         .booking-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px;animation:fadeInModal .25s ease-out forwards}
         .booking-modal-overlay.active{display:flex}
-        .summary-card{background:#fff;border-radius:20px;padding:30px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards;-ms-overflow-style:none;scrollbar-width:none}
+        .booking-modal-overlay.active .summary-card {
+            animation: slideInModal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .summary-card{background:#fff;border-radius:20px;padding:30px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards;-ms-overflow-style:none;scrollbar-width:none;transition: transform 0.3s ease}
+        .summary-card:hover {
+            transform: translateY(-2px);
+        }
         .summary-card::-webkit-scrollbar{display:none}
         .booking-modal-close{position:absolute;top:20px;right:20px;background:var(--border-lt);border:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);transition:var(--transition-smooth);z-index:10}
         .booking-modal-close:hover{background:var(--red-lt);color:var(--red);transform:rotate(90deg)}
@@ -878,7 +1109,11 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .payment-card::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,90,31,.1);border-radius:50%;transform:translate(-50%,-50%);transition:width .4s,height .4s}
         .payment-card:hover::before{width:200px;height:200px}
         .payment-card:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 4px 12px rgba(255,90,31,.1)}
-        .payment-card.selected{border-color:var(--orange);background:var(--orange-lt)}
+        .payment-card.selected{border-color:var(--orange);background:var(--orange-lt);animation: scaleIn 0.3s ease-out}
+        .payment-card:hover .payment-name {
+            color: var(--orange);
+            transition: color 0.3s ease;
+        }
         .custom-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
         .payment-card.selected .custom-radio{border-color:var(--orange)}
         .custom-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--orange);display:none}
@@ -892,6 +1127,12 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .btn-booking:hover::before{width:400px;height:400px}
         .btn-booking:hover:not(:disabled){background:var(--orange-hover);transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,90,31,.4)}
         .btn-booking:disabled{background:var(--muted);cursor:not-allowed}
+        .btn-booking i {
+            transition: transform 0.3s ease;
+        }
+        .btn-booking:hover i {
+            transform: translateX(3px);
+        }
         .booking-disclaimer{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);margin-top:10px;font-weight:500}
         .booking-disclaimer i{color:var(--green);animation:pulse 2s ease-in-out infinite}
 
@@ -1006,9 +1247,167 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .btn-done-pay::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .6s,height .6s}
         .btn-done-pay:hover::before{width:400px;height:400px}
         .btn-done-pay:hover{background:var(--orange-hover);transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,90,31,.4)}
-    </style>
+        .btn-done-pay i {
+            transition: transform 0.3s ease;
+        }
+        .btn-done-pay:hover i {
+            transform: scale(1.2);
+        }
+    
+
+        /* ═══ PAGE LOADER ═══ */
+        .page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0B0B0C;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            z-index: 99999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        .page-loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .loader-ball {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            animation: loaderBounce 0.6s ease-in-out infinite alternate;
+        }
+        .loader-ball:nth-child(2) { animation-delay: 0.2s; }
+        .loader-ball:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes loaderBounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-20px); }
+        }
+
+        /* ═══ FOOTER ═══ */
+        footer {
+            background: #0B0B0C;
+            padding: 60px 80px 30px;
+            border-top: 1px solid #222225;
+            animation: fadeInUp 0.6s ease-out both;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1.5fr;
+            gap: 40px;
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+        .footer-logo img {
+            height: 50px;
+            width: auto;
+            margin-bottom: 16px;
+            transition: transform 0.3s ease;
+        }
+        .footer-logo:hover img {
+            transform: scale(1.05);
+        }
+        .footer-desc {
+            font-size: 14px;
+            color: #8E8E93;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .social-links {
+            display: flex;
+            gap: 10px;
+        }
+        .social-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #222225;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8E8E93;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .social-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .footer-col h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .footer-col ul {
+            list-style: none;
+            padding: 0;
+        }
+        .footer-col ul li {
+            margin-bottom: 12px;
+        }
+        .footer-col ul li a {
+            color: #8E8E93;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        .footer-col ul li a:hover {
+            color: var(--primary);
+            transform: translateX(4px);
+        }
+        .contact-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #8E8E93;
+            font-size: 13px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        .contact-item i {
+            color: var(--primary);
+            font-size: 14px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        .footer-bottom {
+            border-top: 1px solid #222225;
+            margin-top: 40px;
+            padding-top: 20px;
+            text-align: center;
+            color: #636366;
+            font-size: 12px;
+        }
+        @media(max-width: 1100px) {
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+            footer { padding: 40px; }
+        }
+        @media(max-width: 768px) {
+            .footer-grid { grid-template-columns: 1fr; }
+            footer { padding: 30px 20px; }
+        }
+</style>
 </head>
 <body>
+
+<div class="page-loader" id="pageLoader">
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+</div>
 
 <div class="scroll-progress" id="scrollProgress"></div>
 
@@ -1057,6 +1456,14 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
 <!-- HERO SECTION -->
 <section class="hero">
+    <!-- Floating Balls Animation -->
+    <div class="floating-ball ball-1"></div>
+    <div class="floating-ball ball-2"></div>
+    <div class="floating-ball ball-3"></div>
+    <div class="floating-ball ball-4"></div>
+    <div class="floating-ball ball-5"></div>
+    <div class="hero-glow"></div>
+
     <div class="hero-left">
         <div class="hero-badge">
             <i class="fa-solid fa-crown"></i> LANGGANAN MEMBER
@@ -1188,6 +1595,9 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
                 $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
             ?>
             <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>">
+                <?php if ($is_recommended): ?>
+                <div class="popular-badge">POPULER</div>
+                <?php endif; ?>
                 <div class="pricing-icon <?php echo $cls; ?>">
                     <i class="fa-solid <?php echo $icon; ?>"></i>
                 </div>
@@ -1227,54 +1637,8 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         </div>
     </section>
 
-    <!-- RIWAYAT LANGGANAN -->
-    <?php if (!empty($riwayat_langganan)): ?>
-    <section class="riwayat-section reveal">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary)"></i> Riwayat Langganan</h2>
-                <p class="section-subtitle">Daftar langganan member yang pernah Anda lakukan.</p>
-            </div>
-        </div>
-        <div class="riwayat-card">
-            <table class="riwayat-table">
-                <thead>
-                    <tr>
-                        <th>Tipe Member</th>
-                        <th>Tanggal Mulai</th>
-                        <th>Tanggal Selesai</th>
-                        <th>Total Bayar</th>
-                        <th>Metode</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($riwayat_langganan as $rl): 
-                        $status = $status_labels[$rl['Status']] ?? $status_labels[0];
-                    ?>
-                    <tr>
-                        <td>
-                            <strong><?php echo htmlspecialchars($rl['Nama_Tipe']); ?></strong>
-                            <div style="font-size: 12px; color: #8E8E93; margin-top: 2px;">
-                                Potongan <?php echo rupiahFormat($rl['Potongan_Harga']); ?>
-                            </div>
-                        </td>
-                        <td><?php echo formatTanggal($rl['Tanggal_Mulai']); ?></td>
-                        <td><?php echo formatTanggal($rl['Tanggal_Selesai']); ?></td>
-                        <td><strong style="color: var(--primary);"><?php echo rupiahFormat($rl['Total_Bayar']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($rl['Metode_Pembayaran']); ?></td>
-                        <td>
-                            <span class="status-pill <?php echo $status['class']; ?>">
-                                <i class="fa-solid <?php echo $status['icon']; ?>"></i> <?php echo $status['label']; ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-    <?php endif; ?>
+    
+
 
 </main>
 
@@ -1481,7 +1845,93 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     </div>
 </div>
 
+
 <script>
+/* ─── ENHANCED ANIMATIONS (moved from head) ─── */
+// Add hover tilt effect to pricing cards
+document.querySelectorAll('.pricing-card').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = (y - centerY) / 20;
+        const rotateY = (centerX - x) / 20;
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.02)`;
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+    });
+});
+
+// Add parallax effect to floating balls on mouse move
+document.querySelector('.hero').addEventListener('mousemove', (e) => {
+    const balls = document.querySelectorAll('.floating-ball');
+    const x = (e.clientX / window.innerWidth - 0.5) * 20;
+    const y = (e.clientY / window.innerHeight - 0.5) * 20;
+    balls.forEach((ball, i) => {
+        const speed = (i + 1) * 0.5;
+        ball.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+    });
+});
+
+// Enhanced reveal with stagger for pricing cards
+const pricingObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+            setTimeout(() => {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0) scale(1)';
+            }, index * 100);
+            pricingObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.pricing-card').forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px) scale(0.95)';
+    card.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    pricingObserver.observe(card);
+});
+
+// Animate member detail rows on scroll
+const memberObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.querySelectorAll('.member-detail-row').forEach((row, i) => {
+                setTimeout(() => {
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, i * 100);
+            });
+            memberObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.2 });
+
+const memberCard = document.querySelector('.member-status-card');
+if (memberCard) {
+    memberCard.querySelectorAll('.member-detail-row').forEach(row => {
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(10px)';
+        row.style.transition = 'all 0.4s ease';
+    });
+    memberObserver.observe(memberCard);
+}
+
+// Hide page loader when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+    const loader = document.getElementById('pageLoader');
+    if (loader) {
+        setTimeout(() => {
+            loader.classList.add('hidden');
+        }, 500);
+    }
+});
+
+
 /* ─── SCROLL PROGRESS ─── */
 window.addEventListener('scroll', () => {
     const st = document.documentElement.scrollTop || document.body.scrollTop;
