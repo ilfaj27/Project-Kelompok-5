@@ -2132,17 +2132,17 @@ function format_date_display($date)
     <a href="../customer/booking_customer.php">Booking</a>
     <a href="../customer/pembatalan_customer.php">Pembatalan</a>
     <a href="../customer/langganan_customer.php">Member</a>
-    <a href="../customer/pembelian_customer.php">Pembelian</a>
+    <a href="../customer/pembelian_alat.php">Pembelian</a>
     <a href="#">Tentang</a>
     <a href="#">Kontak</a>
 </div>
 
         <div class="nav-user-container">
             <div class="nav-user">
-                <?php if (!empty($profile_photo)): ?>
+                <?php if (!empty($profile_photo) && file_exists($profile_photo)): ?>
                     <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Avatar" class="user-avatar">
                 <?php else: ?>
-                    <i class="fa-solid fa-circle-user user-icon"></i>
+                    <div class="user-avatar" style="background: #FF5200; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; text-transform: uppercase;"><?= strtoupper(substr($nama, 0, 1)) ?></div>
                 <?php endif; ?>
                 <span><?php echo htmlspecialchars($nama); ?></span>
                 <i class="fa-solid fa-chevron-down arrow"></i>
@@ -2175,7 +2175,7 @@ function format_date_display($date)
                         <div class="photo-wrapper-ringkasan"
                             onclick="document.getElementById('profilePhotoInput').click();"
                             style="position: relative; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid var(--primary); cursor: pointer;">
-                            <?php if ($profile_photo): ?>
+                            <?php if ($profile_photo && file_exists($profile_photo)): ?>
                                 <img src="<?= $profile_photo ?>" alt="Profile"
                                     style="width:100%; height:100%; object-fit:cover;">
                             <?php else: ?>

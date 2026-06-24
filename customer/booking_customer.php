@@ -485,7 +485,7 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
         <a href="booking_customer.php" class="active">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
-        <a href="pembelian_customer.php">Pembelian</a>
+        <a href="pembelian_alat.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
@@ -509,11 +509,8 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-
             <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
-
-            <a href="pengaturan_customer.php"><i class="fa-solid fa-gear"></i> Pengaturan</a>
-
+            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color:#ff3b30"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
@@ -768,7 +765,7 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
                 <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
             </div>
         </div>
-        <div class="footer-col"><h4>Navigasi</h4><ul><li><a href="view_customer.php">Beranda</a></li><li><a href="booking_customer.php">Booking</a></li><li><a href="pembatalan_customer.php">Pembatalan</a></li><li><a href="langganan_customer.php">Member</a></li><li><a href="pembelian_customer.php">Pembelian</a></li></ul></div>
+        <div class="footer-col"><h4>Navigasi</h4><ul><li><a href="view_customer.php">Beranda</a></li><li><a href="booking_customer.php">Booking</a></li><li><a href="pembatalan_customer.php">Pembatalan</a></li><li><a href="langganan_customer.php">Member</a></li><li><a href="pembelian_alat.php">Pembelian</a></li></ul></div>
         <div class="footer-col"><h4>Informasi</h4><ul><li><a href="#">Cara Booking</a></li><li><a href="#">Syarat &amp; Ketentuan</a></li><li><a href="#">Kebijakan Privasi</a></li><li><a href="#">FAQ</a></li></ul></div>
         <div class="footer-col"><h4>Hubungi Kami</h4>
             <div class="contact-item"><i class="fa-solid fa-location-dot"></i>Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190</div>

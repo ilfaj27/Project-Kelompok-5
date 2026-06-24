@@ -638,7 +638,7 @@ html { scroll-behavior:smooth; }
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
-        <a href="pembelian_customer.php">Pembelian</a>
+        <a href="pembelian_alat.php">Pembelian</a>
         <a href="#">Tentang</a>
         <a href="#">Kontak</a>
     </div>
@@ -665,6 +665,7 @@ html { scroll-behavior:smooth; }
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="../customer/booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
             <a href="../customer/langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
+            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color: #ff3b30;"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
