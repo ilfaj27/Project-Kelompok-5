@@ -509,11 +509,8 @@ footer::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
             <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-
             <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
-
-            <a href="pengaturan_customer.php"><i class="fa-solid fa-gear"></i> Pengaturan</a>
-
+            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div class="dropdown-divider"></div>
             <a href="#" onclick="confirmHapusAkun(event)" style="color:#ff3b30"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
