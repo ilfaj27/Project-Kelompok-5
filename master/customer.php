@@ -727,9 +727,9 @@ html.swal2-shown {
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
             Kelola Tipe Member
         </a>
-        <a href="alat.php" class="sb-link">
+        <a href="pembelian.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
+            Kelola Pembelian Alat
         </a>
     </nav>
 

@@ -1092,7 +1092,7 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
     <div class="nav-links">
         <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
-        <a href="jadwal_customer.php">Jadwal</a>
+        <a href="pembatalan_customer.php">Jadwal</a>
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="pembelian_alat.php">Pembelian</a>
         <a href="tentang_customer.php">Tentang</a>
@@ -1371,9 +1371,9 @@ footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1
             <ul>
                 <li><a href="view_customer.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="#">Jadwal</a></li>
-                <li><a href="../customer/langganan_customer.php">Member</a></li>
-                <li><a href="#">Pembelian</a></li>
+                <li><a href="pembatalan_customer.php">Jadwal</a></li>
+                <li><a href="langganan_customer.php">Member</a></li>
+                <li><a href="pembelian_alat.php">Pembelian</a></li>
             </ul>
         </div>
 
