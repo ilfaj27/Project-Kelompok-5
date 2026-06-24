@@ -330,7 +330,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <a href="../master/tipe_member.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
         </a>
-        <a href="../master/alat.php" class="sb-link">
+        <a href="../master/pembelian_alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
         </a>
     </nav>
@@ -342,7 +342,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <a href="../transaksi/langganan.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
         </a>
-        <a href="../transaksi/beli_alat.php" class="sb-link">
+        <a href="../transaksi/pembelian.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
         </a>
         <a href="../transaksi/pembatalan.php" class="sb-link">

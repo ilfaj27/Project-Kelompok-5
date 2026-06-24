@@ -956,7 +956,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         <a href="jadwal.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal</a>
         <a href="promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo</a>
         <a href="tipe_member.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member</a>
-        <a href="alat.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat</a>
+        <a href="pembelian.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Pembelian Alat</a>
     </nav>
     <div class="sb-section-label">Transaksi</div>
     <nav>
