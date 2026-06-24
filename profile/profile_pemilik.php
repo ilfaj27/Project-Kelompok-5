@@ -425,10 +425,10 @@ body::-webkit-scrollbar {
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if ($sidebar_photo) { ?>
+                <?php if ($sidebar_photo && file_exists($sidebar_photo)) { ?>
                     <img src="<?= $sidebar_photo ?>" alt="Profile">
                 <?php } else { ?>
-                    <i class="fa-solid fa-user"></i>
+                    <span style="font-size:14px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span>
                 <?php } ?>
             </div>
             <div>
@@ -455,7 +455,7 @@ body::-webkit-scrollbar {
             <div class="dropdown-wrap">
                 <div class="topbar-user">
                     <div class="t-avatar">
-                        <?php if ($photo_path): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?>
+                        <?php if ($photo_path && file_exists($photo_path)): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><span style="font-size:13px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?>
                     </div>
                     <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
@@ -479,10 +479,10 @@ body::-webkit-scrollbar {
             <!-- 1. KIRI ATAS: FOTO PROFIL -->
             <div class="profile-card">
                 <div class="profile-photo-wrap">
-                    <?php if ($photo_path): ?>
+                    <?php if ($photo_path && file_exists($photo_path)): ?>
                         <img src="<?= $photo_path ?>" alt="Profile">
                     <?php else: ?>
-                        <i class="fa-solid fa-user-tie"></i>
+                        <span style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
                     <?php endif; ?>
                 </div>
                 <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>

@@ -818,7 +818,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
     <a href="../profile/profile_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
     <div class="sb-bottom">
         <div class="sb-user">
-            <div class="sb-avatar"><?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?></div>
+            <div class="sb-avatar"><?php if ($profile_photo && file_exists($profile_photo)): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><span style="font-size:14px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?></div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
             <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
         </div>
@@ -840,7 +840,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
             </div>
             <div class="dropdown-wrap">
                 <div class="topbar-user">
-                    <div class="t-avatar"><?php if ($profile_photo): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><i class="fa-solid fa-user"></i><?php endif; ?></div>
+                    <div class="t-avatar"><?php if ($profile_photo && file_exists($profile_photo)): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><span style="font-size:13px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?></div>
                     <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
                     <i class="fa-solid fa-chevron-down t-chevron"></i>
                 </div>
