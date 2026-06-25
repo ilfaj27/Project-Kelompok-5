@@ -1431,9 +1431,21 @@ if (file_exists('includes/config.php')) {
 
         .footer-grid {
             display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            grid-template-columns: 1.5fr 1.5fr 1.5fr 1.5fr;
             gap: 40px;
             margin-bottom: 60px;
+        }
+
+        .col-tautan {
+            padding-left: 52px;
+            /* Menggeser isi kolom Tautan ke kanan sebesar 50px */
+        }
+
+        /* Reset padding pada layar HP agar tampilan tidak rusak di perangkat mobile */
+        @media (max-width: 992px) {
+            .col-tautan {
+                padding-left: 0;
+            }
         }
 
         .footer-brand .logo {
@@ -2915,7 +2927,7 @@ if (file_exists('includes/config.php')) {
                             17530</span></div>
                 </div>
             </div>
-            <div class="footer-col">
+            <div class="footer-col col-tautan">
                 <h4>Tautan</h4>
                 <ul class="footer-links">
                     <li>
