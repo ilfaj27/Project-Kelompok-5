@@ -1623,7 +1623,7 @@ function resetFilter() {
 
 
 // ============================================
-// URL PARAMETER NOTIFICATION (Status & Msg)
+// URL PARAMETER NOTIFICATION (CENTERED MODAL)
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1637,12 +1637,11 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: isSuccess ? 'success' : 'error',
             title: isSuccess ? 'Berhasil!' : 'Gagal!',
             text: msg,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            timerProgressBar: true,
-            showCloseButton: true
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
 
         // Hapus parameter dari URL tanpa reload

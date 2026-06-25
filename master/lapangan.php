@@ -1362,16 +1362,11 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: isSuccess ? 'success' : 'error',
             title: isSuccess ? 'Berhasil!' : 'Gagal!',
             text: msg,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            timerProgressBar: true,
-            showCloseButton: true,
-            didOpen: function(toast) {
-                toast.addEventListener('mouseenter', Swal.stopTimer);
-                toast.addEventListener('mouseleave', Swal.resumeTimer);
-            }
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
         var cleanUrl = window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);

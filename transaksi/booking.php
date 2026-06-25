@@ -26,7 +26,6 @@ if (!empty($id_karyawan)) {
     }
 }
 
-// FIX: Sama seperti customer.php - sesuaikan path untuk folder transaksi/
 $sidebar_photo = '';
 if (!empty($profile_photo)) {
     if (strpos($profile_photo, '../') === 0) {
@@ -36,7 +35,6 @@ if (!empty($profile_photo)) {
     } else {
         $sidebar_photo = '../uploads/profiles/' . $profile_photo;
     }
-    // Cek file exists, jika tidak ada kosongkan
     if (!file_exists($sidebar_photo)) {
         $sidebar_photo = '';
     }
@@ -44,10 +42,6 @@ if (!empty($profile_photo)) {
 
 // ============================================================================
 // STATUS BOOKING
-// 0 = Menunggu Konfirmasi (Customer sudah bayar, tunggu karyawan cek)
-// 1 = Berhasil (Sudah Dikonfirmasi Karyawan)
-// 2 = Selesai
-// 3 = Dibatalkan
 // ============================================================================
 $status_labels = [
     0 => ['label' => 'Menunggu', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
@@ -57,18 +51,16 @@ $status_labels = [
 ];
 
 // ============================================================================
-// PROSES KONFIRMASI PEMBAYARAN (KARYAWAN)
+// PROSES KONFIRMASI PEMBAYARAN
 // ============================================================================
 if (isset($_POST['konfirmasi_bayar'])) {
     $id_booking = $_POST['id_booking'];
-
     $stmt = sqlsrv_query($conn, 
         "UPDATE Booking SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ? AND Status = 0",
         array($nama, $id_booking)
     );
-
     if ($stmt) {
-        header("Location: booking.php?status=success&msg=Pembayaran berhasil dikonfirmasi. Booking status: Berhasil.");
+        header("Location: booking.php?status=success&msg=Pembayaran berhasil dikonfirmasi.");
         exit();
     } else {
         header("Location: booking.php?status=error&msg=Gagal mengkonfirmasi pembayaran.");
@@ -81,12 +73,10 @@ if (isset($_POST['konfirmasi_bayar'])) {
 // ============================================================================
 if (isset($_POST['selesai_booking'])) {
     $id_booking = $_POST['id_booking'];
-
     $stmt = sqlsrv_query($conn, 
         "UPDATE Booking SET Status = 2, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ? AND Status = 1",
         array($nama, $id_booking)
     );
-
     if ($stmt) {
         header("Location: booking.php?status=success&msg=Booking telah diselesaikan.");
         exit();
@@ -120,16 +110,14 @@ if (isset($_POST['batal_booking'])) {
             "UPDATE Booking SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ?",
             array($nama, $id_booking)
         );
-
         sqlsrv_query($conn, 
             "INSERT INTO Pembatalan_Booking (ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Created_By, Created_Date) 
              VALUES (?, ?, GETDATE(), ?, ?, ?, ?, 1, ?, GETDATE())",
             array($id_booking, $id_karyawan, $alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama)
         );
-
         sqlsrv_query($conn, "UPDATE Jadwal SET Status = 1 WHERE ID_Jadwal = ?", array($id_jadwal));
 
-        header("Location: booking.php?status=success&msg=Booking dibatalkan. Refund 50% (" . number_format($nominal_refund, 0, ',', '.') . ") dikembalikan via $metode_refund.");
+        header("Location: booking.php?status=success&msg=Booking dibatalkan. Refund 50% dikembalikan via $metode_refund.");
         exit();
     } else {
         header("Location: booking.php?status=error&msg=Data booking tidak ditemukan.");
@@ -160,6 +148,28 @@ if (!empty($filter_tanggal)) {
     $params[] = $filter_tanggal;
 }
 
+// --- HITUNG TOTAL DATA UNTUK PAGING ---
+$count_sql = "SELECT COUNT(*) as total FROM Booking B
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+              LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_count = sqlsrv_query($conn, $count_sql, $params);
+$total_data = 0;
+if ($q_count) {
+    $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
+    $total_data = $row_count['total'] ?? 0;
+}
+
+// --- PAGING ---
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$total_pages = max(1, ceil($total_data / $limit));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $limit;
+
 $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, B.ID_Promo, 
                        B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
                        B.Created_Date, B.Modified_Date,
@@ -175,10 +185,13 @@ $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, 
                 LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
                 LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY B.Created_Date DESC";
+                ORDER BY B.Created_Date DESC
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+$params_with_paging = array_merge($params, [$offset, $limit]);
 
 $bookings = [];
-$q_booking = sqlsrv_query($conn, $sql_booking, $params);
+$q_booking = sqlsrv_query($conn, $sql_booking, $params_with_paging);
 if ($q_booking) {
     while ($row = sqlsrv_fetch_array($q_booking, SQLSRV_FETCH_ASSOC)) {
         $bookings[] = $row;
@@ -186,20 +199,30 @@ if ($q_booking) {
 }
 
 // ============================================================================
-// HITUNG STATISTIK
+// HITUNG STATISTIK (dari semua data, tanpa paging)
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'berhasil' => 0, 'selesai' => 0, 'dibatalkan' => 0,
     'total_omzet' => 0, 'total_refund' => 0
 ];
 
-foreach ($bookings as $b) {
-    $stats['total']++;
-    switch ($b['Status']) {
-        case 0: $stats['menunggu']++; break;
-        case 1: $stats['berhasil']++; $stats['total_omzet'] += (float)$b['Total_Bayar']; break;
-        case 2: $stats['selesai']++; $stats['total_omzet'] += (float)$b['Total_Bayar']; break;
-        case 3: $stats['dibatalkan']++; $stats['total_refund'] += ((float)$b['Total_Bayar'] * 0.5); break;
+$stats_sql = "SELECT B.Status, B.Total_Bayar FROM Booking B
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+              LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_stats = sqlsrv_query($conn, $stats_sql, $params);
+if ($q_stats) {
+    while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
+        $stats['total']++;
+        switch ($row['Status']) {
+            case 0: $stats['menunggu']++; break;
+            case 1: $stats['berhasil']++; $stats['total_omzet'] += (float)$row['Total_Bayar']; break;
+            case 2: $stats['selesai']++; $stats['total_omzet'] += (float)$row['Total_Bayar']; break;
+            case 3: $stats['dibatalkan']++; $stats['total_refund'] += ((float)$row['Total_Bayar'] * 0.5); break;
+        }
     }
 }
 
@@ -217,6 +240,16 @@ function formatJam($jam) {
         return $jam->format('H:i');
     }
     return substr($jam, 0, 5);
+}
+
+// Build URL params untuk paging
+function buildPageUrl($page_num) {
+    $parts = [];
+    if (isset($_GET['filter_status']) && $_GET['filter_status'] !== '') $parts[] = 'filter_status=' . urlencode($_GET['filter_status']);
+    if (isset($_GET['filter_customer']) && $_GET['filter_customer'] !== '') $parts[] = 'filter_customer=' . urlencode($_GET['filter_customer']);
+    if (isset($_GET['filter_tanggal']) && $_GET['filter_tanggal'] !== '') $parts[] = 'filter_tanggal=' . urlencode($_GET['filter_tanggal']);
+    $parts[] = 'page=' . $page_num;
+    return 'booking.php?' . implode('&', $parts);
 }
 ?>
 <!DOCTYPE html>
@@ -271,7 +304,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
 
-/* Active indicator pill */
 .sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
@@ -292,11 +324,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
@@ -317,12 +347,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link:nth-of-type(12) { animation-delay: 0.85s; }
 .sb-section-label:nth-of-type(3) { animation-delay: 0.9s; }
 .sb-link:nth-of-type(13) { animation-delay: 0.95s; }
-/* Fix for Profil Saya inside last nav */
-.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) {
-    animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.95s forwards;
-    opacity: 0;
-}
-
+.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.95s forwards; opacity: 0; }
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -411,6 +436,18 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
 .btn-icon.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
 
+/* ---- PAGINATION ---- */
+.pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pagination-info strong { color: var(--text); font-weight: 800; }
+.pagination-nav { display: flex; align-items: center; gap: 4px; }
+.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .2s ease; border: 1.5px solid var(--border); color: var(--text-md); background: #fff; }
+.page-btn:hover:not(.disabled):not(.active) { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); transform: translateY(-1px); }
+.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
+.page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
+
 /* ---- MODAL DETAIL ---- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
@@ -431,8 +468,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-value.price { color: var(--orange); font-size: 16px; }
 .detail-full { grid-column: span 2; }
 
-.swal-toast { border-radius: 12px !important; font-family: 'Barlow', sans-serif !important; }
-
 @media(max-width: 1200px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -443,6 +478,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .filter-group { width: 100%; }
     .detail-grid { grid-template-columns: 1fr; }
     .detail-full { grid-column: span 1; }
+    .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
@@ -450,7 +486,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
-
 <!-- SIDEBAR -->
 <aside class="sidebar">
     <a href="../dashboard/view_admin.php" class="sb-brand">
@@ -613,7 +648,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="card">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-list"></i> Daftar Booking</div>
-            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= count($bookings) ?> data ditemukan</span>
+            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= $total_data ?> data ditemukan</span>
         </div>
         <div class="card-body" style="overflow-x: auto;">
             <table class="data-table">
@@ -631,7 +666,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 </thead>
                 <tbody>
                     <?php if (count($bookings) > 0): ?>
-                        <?php $no = 1; foreach ($bookings as $b): 
+                        <?php $no = $offset + 1; foreach ($bookings as $b): 
                             $status = $status_labels[$b['Status']] ?? $status_labels[0];
                             $tanggal_jadwal = formatTanggal($b['Tanggal']);
                             $jam_mulai = formatJam($b['Jam_Mulai']);
@@ -677,6 +712,49 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
             </table>
         </div>
     </div>
+
+    <!-- PAGINATION -->
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+        <div class="pagination-nav">
+            <a href="<?= buildPageUrl(1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
+            <a href="<?= buildPageUrl($page - 1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
+
+            <?php 
+            $start_page = max(1, $page - 2); 
+            $end_page = min($total_pages, $page + 2); 
+            if ($end_page - $start_page < 4 && $total_pages >= 5) { 
+                if ($start_page == 1) { 
+                    $end_page = min(5, $total_pages); 
+                } else { 
+                    $start_page = max(1, $total_pages - 4); 
+                } 
+            } 
+            if ($start_page > 1): 
+            ?>
+                <a href="<?= buildPageUrl(1) ?>" class="page-btn">1</a>
+                <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
+            <?php endif; ?>
+
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                <a href="<?= buildPageUrl($i) ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
+            <?php endfor; ?>
+
+            <?php if ($end_page < $total_pages): ?>
+                <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn"><?= $total_pages ?></a>
+            <?php endif; ?>
+
+            <a href="<?= buildPageUrl($page + 1) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
+            <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
+        </div>
+    </div>
+    <?php else: ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+    </div>
+    <?php endif; ?>
 </div>
 </main>
 
@@ -708,7 +786,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <input type="hidden" name="alasan_batal" id="batalAlasan">
     <input type="hidden" name="batal_booking" value="1">
 </form>
-
 <script>
 const bookingData = <?= json_encode($bookings) ?>;
 
@@ -835,27 +912,27 @@ function confirmBatal(id) {
     });
 }
 
+// ============================================
+// NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
+// ============================================
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
 
 if (status && msg) {
     const isSuccess = status === 'success';
+
     Swal.fire({
         icon: isSuccess ? 'success' : 'error',
         title: isSuccess ? 'Berhasil!' : 'Gagal!',
         text: msg,
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        showCloseButton: true,
-        background: '#ffffff',
-        color: '#1c1c1e',
-        iconColor: isSuccess ? '#10B981' : '#EF4444',
-        customClass: { popup: 'swal-toast' }
+        showConfirmButton: true,
+        confirmButtonText: 'OK',
+        confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+        allowOutsideClick: false,
+        allowEscapeKey: false
     });
+
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
