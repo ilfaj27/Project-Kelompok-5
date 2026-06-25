@@ -1210,8 +1210,8 @@ if (file_exists('includes/config.php')) {
             <div class="stat-divider"></div>
             <div class="stat-box">
                 <div class="stat-icon"><i class="fa-regular fa-star"></i></div>
-                <div class="stat-num">4.9</div>
-                <div class="stat-label">Rating</div>
+                <div class="stat-num">100+</div>
+                <div class="stat-label">Member</div>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-box">
@@ -1446,7 +1446,8 @@ if (file_exists('includes/config.php')) {
             <div class="footer-contact-info">
                 <div class="contact-item"><i class="fa-solid fa-phone"></i><span>0812-3456-7890</span></div>
                 <div class="contact-item"><i class="fa-solid fa-envelope"></i><span>info@hoopball.id</span></div>
-                <div class="contact-item"><i class="fa-solid fa-location-dot"></i><span>Jl. Sunset Road No. 123, Jakarta Selatan, 12050</span></div>
+                <div class="contact-item"><i class="fa-solid fa-location-dot"></i><span>
+Politeknik Astra, Delta Silicon II, Cibatu, Cikarang Selatan, Bekasi, Jawa Barat 17530</span></div>
             </div>
         </div>
         <div class="footer-col">
@@ -1455,7 +1456,7 @@ if (file_exists('includes/config.php')) {
                 <li><a href="#lapangan">Lapangan</a></li>
                 <li><a href="#jadwal">Jadwal</a></li>
                 <li><a href="#alat-basket">Alat Basket</a></li>
-                <li><a href="#tentang-kami">Tentang Kami</a></li>
+                <li><a href="#tentang-kami">Member</a></li>
             </ul>
         </div>
         <div class="footer-col">
@@ -1463,8 +1464,8 @@ if (file_exists('includes/config.php')) {
             <ul class="footer-links">
                 <li><a href="#">Cara Pemesanan</a></li>
                 <li><a href="syarat_ketentuan.php">Syarat & Ketentuan</a></li>
-                <li><a href="#">Kebijakan Privasi</a></li>
-                <li><a href="#">FAQ</a></li>
+                <li><a href="kebijakan_privasi.php">Kebijakan Privasi</a></li>
+                <li><a href="faq.php">FAQ</a></li>
                 <li><a href="#">Hubungi Kami</a></li>
             </ul>
         </div>
