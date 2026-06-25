@@ -537,7 +537,7 @@ if (!isset($_SESSION['intro_done'])) {
         }
 
         .col-tautan {
-            padding-left: 50px;
+            padding-left: 52px;
             /* Menggeser isi kolom Tautan ke kanan sebesar 50px */
         }
 
@@ -713,7 +713,7 @@ if (!isset($_SESSION['intro_done'])) {
                             17530</span></div>
                 </div>
             </div>
-            <div class="footer-col">
+            <div class="footer-col col-tautan">
                 <h4>Tautan</h4>
                 <ul class="footer-links">
                     <li>
