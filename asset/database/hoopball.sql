@@ -544,5 +544,8 @@ SELECT * FROM Beli_Alat;
 SELECT * FROM Detail_Beli_Alat;
 SELECT * FROM Pembatalan_Booking;
 
+BACKUP DATABASE Hoopball
+TO DISK = 'C:\Program Files\Microsoft SQL Server\MSSQL17.MSSQLSERVER\MSSQL\Backup\Hoopball_Kel05.bak'
+WITH INIT;
 
 drop database Hoopball
