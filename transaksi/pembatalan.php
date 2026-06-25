@@ -1715,57 +1715,6 @@ function formatJam($jam)
         </div>
     </div>
 
-    <!-- MODAL EDIT PEMBATALAN -->
-    <div class="modal-overlay" id="modalEdit">
-        <div class="modal" style="max-width: 500px;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-pen-to-square"></i> Edit Data Pembatalan</div>
-                <button class="modal-close" onclick="closeModal('modalEdit')"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <form method="POST" action="">
-                <div class="modal-body">
-                    <input type="hidden" name="id_pembatalan" id="editId">
-                    <input type="hidden" name="update_pembatalan" value="1">
-
-                    <div class="detail-grid" style="grid-template-columns: 1fr;">
-                        <div class="form-group"
-                            style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                            <label class="form-label">Metode Refund</label>
-                            <input type="text" name="metode_refund" id="editMetode" class="filter-input" required
-                                style="width:100%;">
-                        </div>
-
-                        <div class="form-group"
-                            style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                            <label class="form-label">Denda Pembatalan (Biaya Batal)</label>
-                            <input type="number" name="biaya_batal" id="editBiaya" class="filter-input" required
-                                style="width:100%;" step="0.01">
-                        </div>
-
-                        <div class="form-group"
-                            style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                            <label class="form-label">Nominal Refund (Kembali ke Customer)</label>
-                            <input type="number" name="nominal_refund" id="editRefund" class="filter-input" required
-                                style="width:100%;" step="0.01">
-                        </div>
-
-                        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
-                            <label class="form-label">Alasan Pembatalan</label>
-                            <textarea name="alasan" id="editAlasan" class="filter-input" required
-                                style="width:100%; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeModal('modalEdit')"><i
-                            class="fa-solid fa-xmark"></i> Batal</button>
-                    <button type="submit" class="btn-orange" style="padding:10px 20px; font-size:13px;"><i
-                            class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- HIDDEN FORMS -->
     <form method="POST" id="formRefund" style="display: none;">
         <input type="hidden" name="id_pembatalan" id="refundId">
@@ -1954,22 +1903,6 @@ function formatJam($jam)
                 customClass: { popup: 'swal-toast' }
             });
             window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
-        // Membuka modal edit dan mengisi nilai form berdasarkan ID Pembatalan
-        function editPembatalan(id) {
-            const data = pembatalanData.find(p => p.ID_Pembatalan == id);
-            if (!data) return;
-
-            // Isi nilai input modal dengan data dari database
-            document.getElementById('editId').value = data.ID_Pembatalan;
-            document.getElementById('editMetode').value = data.Metode_Refund;
-            document.getElementById('editBiaya').value = parseFloat(data.Biaya_Batal);
-            document.getElementById('editRefund').value = parseFloat(data.Nominal_Refund);
-            document.getElementById('editAlasan').value = data.Alasan;
-
-            // Tampilkan modal edit
-            openModal('modalEdit');
         }
 
     </script>

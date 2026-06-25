@@ -2917,8 +2917,6 @@ function format_date_display($date)
             <a href="../customer/pembatalan_customer.php">Pembatalan</a>
             <a href="../customer/langganan_customer.php">Member</a>
             <a href="../customer/pembelian_alat.php">Pembelian</a>
-            <a href="#">Tentang</a>
-            <a href="#">Kontak</a>
         </div>
 
         <div class="nav-user-container">
