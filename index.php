@@ -1462,7 +1462,7 @@ if (file_exists('includes/config.php')) {
             <h4>Informasi</h4>
             <ul class="footer-links">
                 <li><a href="#">Cara Pemesanan</a></li>
-                <li><a href="#">Syarat & Ketentuan</a></li>
+                <li><a href="syarat_ketentuan.php">Syarat & Ketentuan</a></li>
                 <li><a href="#">Kebijakan Privasi</a></li>
                 <li><a href="#">FAQ</a></li>
                 <li><a href="#">Hubungi Kami</a></li>
