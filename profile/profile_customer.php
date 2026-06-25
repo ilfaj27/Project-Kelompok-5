@@ -106,7 +106,7 @@ if (isset($_POST['update_biodata'])) {
     $field_errors = [];
 
     // NORMALISASI TELEPON
-    $telepon = preg_replace('/[^0-9]/', '', $telepon); 
+    $telepon = preg_replace('/[^0-9]/', '', $telepon);
     if (strpos($telepon, '62') === 0) {
         $telepon = '0' . substr($telepon, 2);
     }
@@ -217,12 +217,12 @@ if (isset($_POST['update_biodata'])) {
             $_SESSION['nama'] = $nama;
             $_SESSION['nama_user'] = $nama;
             session_write_close();
-            
+
             // STATUS SUKSES (Simpan ke Session & Redirect)
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Biodata berhasil diperbarui!';
-            
+
             header("Location: profile_customer.php");
             exit();
         } else {
@@ -278,7 +278,7 @@ if (isset($_POST['update_password'])) {
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Kata Sandi berhasil diperbarui!';
             unset($_SESSION['pass_error_field']);
-             header("Location: profile_customer.php");
+            header("Location: profile_customer.php");
             exit();
         } else {
             $swal_status = 'error';
@@ -691,18 +691,22 @@ function format_date_display($date)
             color: var(--primary);
         }
 
-       /* ---- USER DROPDOWN (TEMA TERANG & PEMICU HOVER) ---- */
+        /* ---- USER DROPDOWN (TEMA TERANG & PEMICU HOVER) ---- */
         .dropdown-menu {
             position: absolute;
             top: 85%;
             right: 0;
-            background: #FFFFFF !important; /* Warna latar putih */
+            background: #FFFFFF !important;
+            /* Warna latar putih */
             min-width: 220px;
             border-radius: 12px;
-            border: 1px solid #E5E5EA !important; /* Garis tepi tipis abu-abu */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); /* Bayangan halus */
+            border: 1px solid #E5E5EA !important;
+            /* Garis tepi tipis abu-abu */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            /* Bayangan halus */
             padding: 8px 0;
-            display: none; /* Sembunyi saat awal */
+            display: none;
+            /* Sembunyi saat awal */
             z-index: 1001;
             animation: fadeIn 0.2s ease-out;
         }
@@ -714,25 +718,31 @@ function format_date_display($date)
 
         .dropdown-menu .user-info-header {
             padding: 12px 20px 10px 20px;
-            border-bottom: 1px solid #E5E5EA !important; /* Memberi garis pembatas tipis di bawah CUSTOMER */
+            border-bottom: 1px solid #E5E5EA !important;
+            /* Memberi garis pembatas tipis di bawah CUSTOMER */
             margin-bottom: 6px;
             display: flex;
-            flex-direction: column; /* Memaksa teks tersusun ke bawah */
-            gap: 4px; /* Jarak antara Nama dan CUSTOMER */
+            flex-direction: column;
+            /* Memaksa teks tersusun ke bawah */
+            gap: 4px;
+            /* Jarak antara Nama dan CUSTOMER */
         }
 
         .dropdown-menu .user-info-header span {
-            display: block !important; /* Memastikan setiap teks berada di baris baru */
+            display: block !important;
+            /* Memastikan setiap teks berada di baris baru */
         }
 
         .dropdown-menu .user-info-header .u-name {
-            color: #1C1C1E !important; /* Nama teks hitam gelap */
+            color: #1C1C1E !important;
+            /* Nama teks hitam gelap */
             font-size: 14px;
             font-weight: 700;
         }
 
         .dropdown-menu .user-info-header .u-role {
-            color: #8E8E93 !important; /* Role teks abu-abu */
+            color: #8E8E93 !important;
+            /* Role teks abu-abu */
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -745,7 +755,8 @@ function format_date_display($date)
             align-items: center;
             gap: 12px;
             padding: 10px 20px;
-            color: #48484A !important; /* Teks abu-abu gelap */
+            color: #48484A !important;
+            /* Teks abu-abu gelap */
             text-decoration: none !important;
             font-size: 13px;
             font-weight: 600;
@@ -756,18 +767,22 @@ function format_date_display($date)
             font-size: 14px;
             width: 16px;
             text-align: center;
-            color: #8E8E93 !important; /* Warna ikon */
+            color: #8E8E93 !important;
+            /* Warna ikon */
             transition: 0.2s;
         }
 
         /* EFEK HOVER INDIVIDU */
         .dropdown-menu a:hover {
-            background: #F2F2F7 !important; /* Highlight background saat hover */
-            color: #FF5200 !important; /* Teks berubah oranye */
+            background: #F2F2F7 !important;
+            /* Highlight background saat hover */
+            color: #FF5200 !important;
+            /* Teks berubah oranye */
         }
 
         .dropdown-menu a:hover i {
-            color: #FF5200 !important; /* Ikon berubah oranye */
+            color: #FF5200 !important;
+            /* Ikon berubah oranye */
         }
 
         /* GARIS PEMBATAS TENGAH */
@@ -781,12 +796,15 @@ function format_date_display($date)
         }
 
         .dropdown-menu a.logout:hover {
-            background: #FFEBEA !important; /* Latar merah sangat tipis */
-            color: #FF3B30 !important; /* Teks menjadi merah */
+            background: #FFEBEA !important;
+            /* Latar merah sangat tipis */
+            color: #FF3B30 !important;
+            /* Teks menjadi merah */
         }
 
         .dropdown-menu a.logout:hover i {
-            color: #FF3B30 !important; /* Ikon menjadi merah */
+            color: #FF3B30 !important;
+            /* Ikon menjadi merah */
         }
 
         @keyframes fadeIn {
@@ -1013,10 +1031,12 @@ function format_date_display($date)
         .main-content {
             max-width: 1440px;
             margin: 0 auto;
-            padding: 0 80px;
+            padding: 40px 80px 80px 80px;
+            /* Diubah dari '0 80px' menjadi ada jarak atas 40px dan bawah 80px */
             display: flex;
             flex-direction: column;
             gap: 30px;
+            box-sizing: border-box;
         }
 
         /* BARIS 1: Grid Kiri & Kanan yang Sejajar */
@@ -1024,7 +1044,8 @@ function format_date_display($date)
             display: grid;
             grid-template-columns: 280px 1fr;
             gap: 30px;
-            align-items: start; /* Mengubah stretch menjadi start agar tinggi menu kiri menyesuaikan kontennya sendiri */
+            align-items: start;
+            /* Mengubah stretch menjadi start agar tinggi menu kiri menyesuaikan kontennya sendiri */
         }
 
         /* SIDEBAR WRAPPER */
@@ -1032,7 +1053,8 @@ function format_date_display($date)
             display: flex;
             flex-direction: column;
             gap: 20px;
-            height: auto; /* Mengubah dari 100% menjadi auto agar tidak mulur */
+            height: auto;
+            /* Mengubah dari 100% menjadi auto agar tidak mulur */
         }
 
         /* MENU AKUN SIDEBAR */
@@ -1044,7 +1066,8 @@ function format_date_display($date)
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
             display: flex;
             flex-direction: column;
-            gap: 16px; /* Memberikan jarak antar menu yang konsisten dan stabil */
+            gap: 16px;
+            /* Memberikan jarak antar menu yang konsisten dan stabil */
         }
 
         .sidebar-menu-card h3 {
@@ -1106,11 +1129,12 @@ function format_date_display($date)
             background: var(--white);
             border-radius: 12px;
             border: 1px solid var(--border-color);
-            padding: 32px;
+            padding: 40px 32px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            min-height: 585px;
         }
 
         .form-card-title {
@@ -1128,7 +1152,7 @@ function format_date_display($date)
         }
 
         .form-group {
-            margin-bottom: 18px;
+            margin-bottom: 24px;
         }
 
         .form-label {
@@ -1533,7 +1557,7 @@ function format_date_display($date)
             max-width: 100%;
             object-fit: contain;
             display: block;
-            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
             transition: transform 0.3s ease;
         }
 
@@ -1984,137 +2008,897 @@ function format_date_display($date)
             font-size: 15px;
         }
 
+        /* CSS UNTUK PAGINATION */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .pagination-btn {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            color: var(--dark-text);
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pagination-btn:hover {
+            background: #F2F2F7;
+            border-color: #CBD5E1;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        .pagination-btn:disabled {
+            background: #F2F2F7;
+            color: #AEAEB2;
+            border-color: var(--border-color);
+            cursor: not-allowed;
+        }
+
         @media(max-width: 576px) {
             .footer-grid-4 {
                 grid-template-columns: 1fr;
             }
         }
-    
-/* ============ KEYFRAMES (from view_customer.php) ============ */
-@keyframes fadeInUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
-@keyframes fadeInDown { from{opacity:0;transform:translateY(-30px)} to{opacity:1;transform:translateY(0)} }
-@keyframes fadeInLeft { from{opacity:0;transform:translateX(-40px)} to{opacity:1;transform:translateX(0)} }
-@keyframes fadeInRight { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-@keyframes fadeIn { from{opacity:0} to{opacity:1} }
-@keyframes scaleIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
-@keyframes slideInUp { from{opacity:0;transform:translateY(60px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-@keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,82,0,0.4)} 50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(255,82,0,0)} }
-@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-@keyframes bounceIn { 0%{opacity:0;transform:scale(0.3)} 50%{opacity:1;transform:scale(1.05)} 70%{transform:scale(0.9)} 100%{transform:scale(1)} }
-@keyframes rotateIn { from{opacity:0;transform:rotate(-180deg) scale(0.5)} to{opacity:1;transform:rotate(0) scale(1)} }
-@keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-@keyframes ripple { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
-@keyframes glow { 0%,100%{box-shadow:0 0 5px rgba(255,82,0,0.3)} 50%{box-shadow:0 0 25px rgba(255,82,0,0.6),0 0 50px rgba(255,82,0,0.2)} }
-@keyframes drawLine { from{width:0} to{width:60px} }
-@keyframes wave { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
-@keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-@keyframes countUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
-@keyframes borderGlow { 0%,100%{border-color:rgba(255,82,0,0.1)} 50%{border-color:rgba(255,82,0,0.4)} }
-@keyframes textReveal { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
-@keyframes iconPop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
-@keyframes neonPulse { 0%,100%{text-shadow:0 0 5px rgba(255,82,0,0.5),0 0 10px rgba(255,82,0,0.3)} 50%{text-shadow:0 0 10px rgba(255,82,0,0.8),0 0 20px rgba(255,82,0,0.5),0 0 30px rgba(255,82,0,0.3)} }
-@keyframes slideDown { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
-@keyframes zoomIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
-@keyframes flipX { from{transform:perspective(400px) rotateX(90deg);opacity:0} to{transform:perspective(400px) rotateX(0);opacity:1} }
-@keyframes flipY { from{transform:perspective(400px) rotateY(90deg);opacity:0} to{transform:perspective(400px) rotateY(0);opacity:1} }
-@keyframes swing { 0%{transform:rotate(0)} 20%{transform:rotate(15deg)} 40%{transform:rotate(-10deg)} 60%{transform:rotate(5deg)} 80%{transform:rotate(-5deg)} 100%{transform:rotate(0)} }
-@keyframes rubberBand { 0%{transform:scale(1)} 30%{transform:scale(1.25,0.75)} 40%{transform:scale(0.75,1.25)} 50%{transform:scale(1.15,0.85)} 65%{transform:scale(0.95,1.05)} 75%{transform:scale(1.05,0.95)} 100%{transform:scale(1)} }
-@keyframes heartBeat { 0%{transform:scale(1)} 14%{transform:scale(1.3)} 28%{transform:scale(1)} 42%{transform:scale(1.3)} 70%{transform:scale(1)} }
-@keyframes jello { 0%,100%{transform:skewX(0) skewY(0)} 22.2%{transform:skewX(-12.5deg) skewY(-12.5deg)} 33.3%{transform:skewX(6.25deg) skewY(6.25deg)} 44.4%{transform:skewX(-3.125deg) skewY(-3.125deg)} 55.5%{transform:skewX(1.5625deg) skewY(1.5625deg)} 66.6%{transform:skewX(-0.78125deg) skewY(-0.78125deg)} 77.7%{transform:skewX(0.390625deg) skewY(0.390625deg)} 88.8%{transform:skewX(-0.1953125deg) skewY(-0.1953125deg)} }
-@keyframes rollIn { from{opacity:0;transform:translateX(-100%) rotate(-120deg)} to{opacity:1;transform:translateX(0) rotate(0)} }
-@keyframes jackInTheBox { from{opacity:0;transform:scale(0.1) rotate(30deg);transform-origin:center bottom} 50%{transform:rotate(-10deg)} 70%{transform:rotate(3deg)} to{opacity:1;transform:scale(1)} }
-@keyframes lightSpeedIn { from{transform:translate3d(100%,0,0) skewX(-30deg);opacity:0} 60%{transform:skewX(20deg);opacity:1} 80%{transform:skewX(-5deg)} to{transform:translate3d(0,0,0)} }
 
-/* ============ ANIMATION CLASSES ============ */
-.anim-hidden { opacity:0; }
-.anim-fade-up { animation:fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-fade-down { animation:fadeInDown 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-fade-left { animation:fadeInLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-fade-right { animation:fadeInRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-scale-in { animation:scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-.anim-slide-up { animation:slideInUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-bounce-in { animation:bounceIn 0.8s cubic-bezier(0.68,-0.55,0.265,1.55) forwards; }
-.anim-rotate-in { animation:rotateIn 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-text-reveal { animation:textReveal 1s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-zoom-in { animation:zoomIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-flip-x { animation:flipX 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-flip-y { animation:flipY 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
-.anim-swing { animation:swing 1s ease forwards; }
-.anim-rubber { animation:rubberBand 1s ease forwards; }
-.anim-heart { animation:heartBeat 1.3s ease-in-out forwards; }
-.anim-jello { animation:jello 0.9s ease forwards; }
-.anim-roll-in { animation:rollIn 0.6s ease forwards; }
-.anim-jack-in { animation:jackInTheBox 0.8s ease forwards; }
-.anim-light-speed { animation:lightSpeedIn 0.8s ease forwards; }
-.anim-neon { animation:neonPulse 2s ease-in-out infinite; }
+        /* ============ KEYFRAMES (from view_customer.php) ============ */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px)
+            }
 
-.delay-100 { animation-delay:0.1s; }
-.delay-200 { animation-delay:0.2s; }
-.delay-300 { animation-delay:0.3s; }
-.delay-400 { animation-delay:0.4s; }
-.delay-500 { animation-delay:0.5s; }
-.delay-600 { animation-delay:0.6s; }
-.delay-700 { animation-delay:0.7s; }
-.delay-800 { animation-delay:0.8s; }
-.delay-900 { animation-delay:0.9s; }
-.delay-1000 { animation-delay:1.0s; }
-.delay-1200 { animation-delay:1.2s; }
-.delay-1500 { animation-delay:1.5s; }
-.delay-2000 { animation-delay:2.0s; }
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
 
-/* ============ INTERSECTION OBSERVER ============ */
-.reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
-.reveal.active { opacity:1; transform:translateY(0); }
-.reveal-left { opacity:0; transform:translateX(-50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
-.reveal-left.active { opacity:1; transform:translateX(0); }
-.reveal-right { opacity:0; transform:translateX(50px); transition:all 0.8s cubic-bezier(0.16,1,0.3,1); }
-.reveal-right.active { opacity:1; transform:translateX(0); }
-.reveal-scale { opacity:0; transform:scale(0.9); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
-.reveal-scale.active { opacity:1; transform:scale(1); }
-.reveal-stagger .stagger-item { opacity:0; transform:translateY(30px); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); }
-.reveal-stagger.active .stagger-item { opacity:1; transform:translateY(0); }
-.reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
-.reveal-stagger.active .stagger-item:nth-child(2){transition-delay:0.1s}
-.reveal-stagger.active .stagger-item:nth-child(3){transition-delay:0.2s}
-.reveal-stagger.active .stagger-item:nth-child(4){transition-delay:0.3s}
-.reveal-stagger.active .stagger-item:nth-child(5){transition-delay:0.4s}
-.reveal-flip .stagger-item { opacity:0; transform:perspective(1000px) rotateY(90deg); transition:all 0.7s cubic-bezier(0.16,1,0.3,1); }
-.reveal-flip.active .stagger-item { opacity:1; transform:perspective(1000px) rotateY(0); }
-.reveal-flip.active .stagger-item:nth-child(1){transition-delay:0s}
-.reveal-flip.active .stagger-item:nth-child(2){transition-delay:0.15s}
-.reveal-flip.active .stagger-item:nth-child(3){transition-delay:0.3s}
-.reveal-flip.active .stagger-item:nth-child(4){transition-delay:0.45s}
-.reveal-flip.active .stagger-item:nth-child(5){transition-delay:0.6s}
-.reveal-zoom .stagger-item { opacity:0; transform:scale(0.5); transition:all 0.6s cubic-bezier(0.34,1.56,0.64,1); }
-.reveal-zoom.active .stagger-item { opacity:1; transform:scale(1); }
-.reveal-zoom.active .stagger-item:nth-child(1){transition-delay:0s}
-.reveal-zoom.active .stagger-item:nth-child(2){transition-delay:0.1s}
-.reveal-zoom.active .stagger-item:nth-child(3){transition-delay:0.2s}
-.reveal-zoom.active .stagger-item:nth-child(4){transition-delay:0.3s}
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px)
+            }
 
-/* ============ ENHANCED HOVER EFFECTS ============ */
-.hover-lift { transition:all 0.4s cubic-bezier(0.16,1,0.3,1); }
-.hover-lift:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,0.1); }
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
 
-/* ============ SCROLL PROGRESS BAR ============ */
-.scroll-progress { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--primary),#FF8C42); z-index:9999; transform-origin:left; transform:scaleX(0); transition:transform 0.1s ease-out; }
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-40px)
+            }
 
-/* ============ CUSTOM SCROLLBAR ============ */
-::-webkit-scrollbar { width:8px; }
-::-webkit-scrollbar-track { background:#f1f1f1; }
-::-webkit-scrollbar-thumb { background:var(--primary); border-radius:4px; }
-::-webkit-scrollbar-thumb:hover { background:var(--primary-hover); }
+            to {
+                opacity: 1;
+                transform: translateX(0)
+            }
+        }
 
-/* ============ SELECTION COLOR ============ */
-::selection { background:rgba(255,82,0,0.3); color:#1C1C1E; }
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translateX(40px)
+            }
 
-/* ============ REDUCED MOTION ============ */
-@media (prefers-reduced-motion:reduce) {
-  *,*::before,*::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
-}
+            to {
+                opacity: 1;
+                transform: translateX(0)
+            }
+        }
 
+        @keyframes fadeIn {
+            from {
+                opacity: 0
+            }
+
+            to {
+                opacity: 1
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8)
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1)
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(60px) scale(0.95)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1)
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+
+            50% {
+                transform: translateY(-10px)
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 82, 0, 0.4)
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 15px rgba(255, 82, 0, 0)
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0
+            }
+
+            100% {
+                background-position: 200% 0
+            }
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3)
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.05)
+            }
+
+            70% {
+                transform: scale(0.9)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        @keyframes rotateIn {
+            from {
+                opacity: 0;
+                transform: rotate(-180deg) scale(0.5)
+            }
+
+            to {
+                opacity: 1;
+                transform: rotate(0) scale(1)
+            }
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%
+            }
+
+            50% {
+                background-position: 100% 50%
+            }
+
+            100% {
+                background-position: 0% 50%
+            }
+        }
+
+        @keyframes ripple {
+            0% {
+                transform: scale(1);
+                opacity: 1
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0
+            }
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(255, 82, 0, 0.3)
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(255, 82, 0, 0.6), 0 0 50px rgba(255, 82, 0, 0.2)
+            }
+        }
+
+        @keyframes drawLine {
+            from {
+                width: 0
+            }
+
+            to {
+                width: 60px
+            }
+        }
+
+        @keyframes wave {
+
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+
+            50% {
+                transform: translateY(-15px)
+            }
+        }
+
+        @keyframes spinSlow {
+            from {
+                transform: rotate(0deg)
+            }
+
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0)
+            }
+
+            25% {
+                transform: translateX(-5px)
+            }
+
+            75% {
+                transform: translateX(5px)
+            }
+        }
+
+        @keyframes borderGlow {
+
+            0%,
+            100% {
+                border-color: rgba(255, 82, 0, 0.1)
+            }
+
+            50% {
+                border-color: rgba(255, 82, 0, 0.4)
+            }
+        }
+
+        @keyframes textReveal {
+            from {
+                clip-path: inset(0 100% 0 0)
+            }
+
+            to {
+                clip-path: inset(0 0 0 0)
+            }
+        }
+
+        @keyframes iconPop {
+            0% {
+                transform: scale(0)
+            }
+
+            60% {
+                transform: scale(1.2)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        @keyframes neonPulse {
+
+            0%,
+            100% {
+                text-shadow: 0 0 5px rgba(255, 82, 0, 0.5), 0 0 10px rgba(255, 82, 0, 0.3)
+            }
+
+            50% {
+                text-shadow: 0 0 10px rgba(255, 82, 0, 0.8), 0 0 20px rgba(255, 82, 0, 0.5), 0 0 30px rgba(255, 82, 0, 0.3)
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1
+            }
+        }
+
+        @keyframes zoomIn {
+            from {
+                transform: scale(0.5);
+                opacity: 0
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1
+            }
+        }
+
+        @keyframes flipX {
+            from {
+                transform: perspective(400px) rotateX(90deg);
+                opacity: 0
+            }
+
+            to {
+                transform: perspective(400px) rotateX(0);
+                opacity: 1
+            }
+        }
+
+        @keyframes flipY {
+            from {
+                transform: perspective(400px) rotateY(90deg);
+                opacity: 0
+            }
+
+            to {
+                transform: perspective(400px) rotateY(0);
+                opacity: 1
+            }
+        }
+
+        @keyframes swing {
+            0% {
+                transform: rotate(0)
+            }
+
+            20% {
+                transform: rotate(15deg)
+            }
+
+            40% {
+                transform: rotate(-10deg)
+            }
+
+            60% {
+                transform: rotate(5deg)
+            }
+
+            80% {
+                transform: rotate(-5deg)
+            }
+
+            100% {
+                transform: rotate(0)
+            }
+        }
+
+        @keyframes rubberBand {
+            0% {
+                transform: scale(1)
+            }
+
+            30% {
+                transform: scale(1.25, 0.75)
+            }
+
+            40% {
+                transform: scale(0.75, 1.25)
+            }
+
+            50% {
+                transform: scale(1.15, 0.85)
+            }
+
+            65% {
+                transform: scale(0.95, 1.05)
+            }
+
+            75% {
+                transform: scale(1.05, 0.95)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        @keyframes heartBeat {
+            0% {
+                transform: scale(1)
+            }
+
+            14% {
+                transform: scale(1.3)
+            }
+
+            28% {
+                transform: scale(1)
+            }
+
+            42% {
+                transform: scale(1.3)
+            }
+
+            70% {
+                transform: scale(1)
+            }
+        }
+
+        @keyframes jello {
+
+            0%,
+            100% {
+                transform: skewX(0) skewY(0)
+            }
+
+            22.2% {
+                transform: skewX(-12.5deg) skewY(-12.5deg)
+            }
+
+            33.3% {
+                transform: skewX(6.25deg) skewY(6.25deg)
+            }
+
+            44.4% {
+                transform: skewX(-3.125deg) skewY(-3.125deg)
+            }
+
+            55.5% {
+                transform: skewX(1.5625deg) skewY(1.5625deg)
+            }
+
+            66.6% {
+                transform: skewX(-0.78125deg) skewY(-0.78125deg)
+            }
+
+            77.7% {
+                transform: skewX(0.390625deg) skewY(0.390625deg)
+            }
+
+            88.8% {
+                transform: skewX(-0.1953125deg) skewY(-0.1953125deg)
+            }
+        }
+
+        @keyframes rollIn {
+            from {
+                opacity: 0;
+                transform: translateX(-100%) rotate(-120deg)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0) rotate(0)
+            }
+        }
+
+        @keyframes jackInTheBox {
+            from {
+                opacity: 0;
+                transform: scale(0.1) rotate(30deg);
+                transform-origin: center bottom
+            }
+
+            50% {
+                transform: rotate(-10deg)
+            }
+
+            70% {
+                transform: rotate(3deg)
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1)
+            }
+        }
+
+        @keyframes lightSpeedIn {
+            from {
+                transform: translate3d(100%, 0, 0) skewX(-30deg);
+                opacity: 0
+            }
+
+            60% {
+                transform: skewX(20deg);
+                opacity: 1
+            }
+
+            80% {
+                transform: skewX(-5deg)
+            }
+
+            to {
+                transform: translate3d(0, 0, 0)
+            }
+        }
+
+        /* ============ ANIMATION CLASSES ============ */
+        .anim-hidden {
+            opacity: 0;
+        }
+
+        .anim-fade-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-fade-down {
+            animation: fadeInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-fade-left {
+            animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-fade-right {
+            animation: fadeInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-scale-in {
+            animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .anim-slide-up {
+            animation: slideInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-bounce-in {
+            animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        .anim-rotate-in {
+            animation: rotateIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-text-reveal {
+            animation: textReveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-zoom-in {
+            animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-flip-x {
+            animation: flipX 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-flip-y {
+            animation: flipY 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .anim-swing {
+            animation: swing 1s ease forwards;
+        }
+
+        .anim-rubber {
+            animation: rubberBand 1s ease forwards;
+        }
+
+        .anim-heart {
+            animation: heartBeat 1.3s ease-in-out forwards;
+        }
+
+        .anim-jello {
+            animation: jello 0.9s ease forwards;
+        }
+
+        .anim-roll-in {
+            animation: rollIn 0.6s ease forwards;
+        }
+
+        .anim-jack-in {
+            animation: jackInTheBox 0.8s ease forwards;
+        }
+
+        .anim-light-speed {
+            animation: lightSpeedIn 0.8s ease forwards;
+        }
+
+        .anim-neon {
+            animation: neonPulse 2s ease-in-out infinite;
+        }
+
+        .delay-100 {
+            animation-delay: 0.1s;
+        }
+
+        .delay-200 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-300 {
+            animation-delay: 0.3s;
+        }
+
+        .delay-400 {
+            animation-delay: 0.4s;
+        }
+
+        .delay-500 {
+            animation-delay: 0.5s;
+        }
+
+        .delay-600 {
+            animation-delay: 0.6s;
+        }
+
+        .delay-700 {
+            animation-delay: 0.7s;
+        }
+
+        .delay-800 {
+            animation-delay: 0.8s;
+        }
+
+        .delay-900 {
+            animation-delay: 0.9s;
+        }
+
+        .delay-1000 {
+            animation-delay: 1.0s;
+        }
+
+        .delay-1200 {
+            animation-delay: 1.2s;
+        }
+
+        .delay-1500 {
+            animation-delay: 1.5s;
+        }
+
+        .delay-2000 {
+            animation-delay: 2.0s;
+        }
+
+        /* ============ INTERSECTION OBSERVER ============ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-50px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-left.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .reveal-right {
+            opacity: 0;
+            transform: translateX(50px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-right.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .reveal-scale {
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-scale.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .reveal-stagger .stagger-item {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-stagger.active .stagger-item {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-stagger.active .stagger-item:nth-child(1) {
+            transition-delay: 0s
+        }
+
+        .reveal-stagger.active .stagger-item:nth-child(2) {
+            transition-delay: 0.1s
+        }
+
+        .reveal-stagger.active .stagger-item:nth-child(3) {
+            transition-delay: 0.2s
+        }
+
+        .reveal-stagger.active .stagger-item:nth-child(4) {
+            transition-delay: 0.3s
+        }
+
+        .reveal-stagger.active .stagger-item:nth-child(5) {
+            transition-delay: 0.4s
+        }
+
+        .reveal-flip .stagger-item {
+            opacity: 0;
+            transform: perspective(1000px) rotateY(90deg);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-flip.active .stagger-item {
+            opacity: 1;
+            transform: perspective(1000px) rotateY(0);
+        }
+
+        .reveal-flip.active .stagger-item:nth-child(1) {
+            transition-delay: 0s
+        }
+
+        .reveal-flip.active .stagger-item:nth-child(2) {
+            transition-delay: 0.15s
+        }
+
+        .reveal-flip.active .stagger-item:nth-child(3) {
+            transition-delay: 0.3s
+        }
+
+        .reveal-flip.active .stagger-item:nth-child(4) {
+            transition-delay: 0.45s
+        }
+
+        .reveal-flip.active .stagger-item:nth-child(5) {
+            transition-delay: 0.6s
+        }
+
+        .reveal-zoom .stagger-item {
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .reveal-zoom.active .stagger-item {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .reveal-zoom.active .stagger-item:nth-child(1) {
+            transition-delay: 0s
+        }
+
+        .reveal-zoom.active .stagger-item:nth-child(2) {
+            transition-delay: 0.1s
+        }
+
+        .reveal-zoom.active .stagger-item:nth-child(3) {
+            transition-delay: 0.2s
+        }
+
+        .reveal-zoom.active .stagger-item:nth-child(4) {
+            transition-delay: 0.3s
+        }
+
+        /* ============ ENHANCED HOVER EFFECTS ============ */
+        .hover-lift {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ============ SCROLL PROGRESS BAR ============ */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), #FF8C42);
+            z-index: 9999;
+            transform-origin: left;
+            transform: scaleX(0);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* ============ CUSTOM SCROLLBAR ============ */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ============ SELECTION COLOR ============ */
+        ::selection {
+            background: rgba(255, 82, 0, 0.3);
+            color: #1C1C1E;
+        }
+
+        /* ============ REDUCED MOTION ============ */
+        @media (prefers-reduced-motion:reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 
 </head>
@@ -2128,21 +2912,24 @@ function format_date_display($date)
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
-    <a href="../customer/view_customer.php">Beranda</a>
-    <a href="../customer/booking_customer.php">Booking</a>
-    <a href="../customer/pembatalan_customer.php">Pembatalan</a>
-    <a href="../customer/langganan_customer.php">Member</a>
-    <a href="../customer/pembelian_alat.php">Pembelian</a>
-    <a href="#">Tentang</a>
-    <a href="#">Kontak</a>
-</div>
+            <a href="../customer/view_customer.php">Beranda</a>
+            <a href="../customer/booking_customer.php">Booking</a>
+            <a href="../customer/pembatalan_customer.php">Pembatalan</a>
+            <a href="../customer/langganan_customer.php">Member</a>
+            <a href="../customer/pembelian_alat.php">Pembelian</a>
+            <a href="#">Tentang</a>
+            <a href="#">Kontak</a>
+        </div>
 
         <div class="nav-user-container">
             <div class="nav-user">
                 <?php if (!empty($profile_photo) && file_exists($profile_photo)): ?>
                     <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Avatar" class="user-avatar">
                 <?php else: ?>
-                    <div class="user-avatar" style="background: #FF5200; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; text-transform: uppercase;"><?= strtoupper(substr($nama, 0, 1)) ?></div>
+                    <div class="user-avatar"
+                        style="background: #FF5200; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+                        <?= strtoupper(substr($nama, 0, 1)) ?>
+                    </div>
                 <?php endif; ?>
                 <span><?php echo htmlspecialchars($nama); ?></span>
                 <i class="fa-solid fa-chevron-down arrow"></i>
@@ -2229,39 +3016,7 @@ function format_date_display($date)
         </div> <!-- Penutup .ringkasan-akun-card -->
     </section> <!-- TAG PENUTUP </section> UNTUK .hero-banner YANG SEBELUMNYA TERHAPUS -->
 
-    <!-- STATS CARDS ROW (INDIKATOR ATAS) -->
-    <section class="stats-indicator-container reveal-stagger">
-        <div class="stat-indicator-card stagger-item hover-lift">
-            <div class="stat-ind-icon orange-icon"><i class="fa-regular fa-calendar-check"></i></div>
-            <div class="stat-ind-info">
-                <span class="stat-ind-label">Booking Selesai</span>
-                <span class="stat-ind-val"><?= $count_selesai ?></span>
-            </div>
-        </div>
-        <div class="stat-indicator-card stagger-item hover-lift">
-            <div class="stat-ind-icon orange-icon"><i class="fa-regular fa-clock"></i></div>
-            <div class="stat-ind-info">
-                <span class="stat-ind-label">Booking Mendatang</span>
-                <span class="stat-ind-val"><?= $count_mendatang ?></span>
-            </div>
-        </div>
-        <div class="stat-indicator-card stagger-item hover-lift">
-            <div class="stat-ind-icon orange-icon"><i class="fa-solid fa-bag-shopping"></i></div>
-            <div class="stat-ind-info">
-                <span class="stat-ind-label">Pesanan Alat</span>
-                <span class="stat-ind-val"><?= $count_alat ?></span>
-            </div>
-        </div>
-        <div class="stat-indicator-card stagger-item hover-lift">
-            <div class="stat-ind-icon orange-icon"><i class="fa-solid fa-wallet"></i></div>
-            <div class="stat-ind-info">
-                <span class="stat-ind-label">Total Transaksi</span>
-                <span class="stat-ind-val" style="font-size: 15px; font-weight: 800; color: var(--dark-text);">
-                    Rp <?= number_format($total_spending, 0, ',', '.') ?>
-                </span>
-            </div>
-        </div>
-    </section>
+
 
     <!-- MAIN CONTENT LAYOUT -->
     <main class="main-content">
@@ -2334,111 +3089,121 @@ function format_date_display($date)
             <!-- SISI KANAN: FORM EDIT BIODATA (Tinggi menyesuaikan stretch secara otomatis) -->
             <div class="form-card" id="profile-form-card" class="reveal-right" style="justify-content: flex-start;">
                 <div class="form-card-title">Informasi Pribadi</div>
-                <form method="POST" id="formBiodata" style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
-    <div>
-        <div class="form-row-2">
-            <!-- Nama Lengkap -->
-            <div class="form-group">
-                <label class="form-label">Nama Lengkap <span class="required">*</span></label>
-                <input type="text" name="nama_customer" id="nama_customer" 
-                       class="form-input <?= isset($field_errors['nama']) ? 'error' : '' ?>"
-                       value="<?= htmlspecialchars($nama) ?>" placeholder="Nama lengkap sesuai identitas" autocomplete="off">
-                <div class="error-msg <?= isset($field_errors['nama']) ? 'show' : '' ?>" id="namaError">
-                    <?= $field_errors['nama'] ?? 'Nama lengkap wajib diisi.' ?>
-                </div>
-            </div>
+                <form method="POST" id="formBiodata"
+                    style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
+                    <div>
+                        <div class="form-row-2">
+                            <!-- Nama Lengkap -->
+                            <div class="form-group">
+                                <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                                <input type="text" name="nama_customer" id="nama_customer"
+                                    class="form-input <?= isset($field_errors['nama']) ? 'error' : '' ?>"
+                                    value="<?= htmlspecialchars($nama) ?>" placeholder="Nama lengkap sesuai identitas"
+                                    autocomplete="off">
+                                <div class="error-msg <?= isset($field_errors['nama']) ? 'show' : '' ?>" id="namaError">
+                                    <?= $field_errors['nama'] ?? 'Nama lengkap wajib diisi.' ?>
+                                </div>
+                            </div>
 
-            <!-- Email -->
-            <div class="form-group">
-                <label class="form-label">Email <span class="required">*</span></label>
-                <input type="email" name="email" id="email" 
-                       class="form-input <?= isset($field_errors['email']) ? 'error' : '' ?>"
-                       value="<?= htmlspecialchars($email) ?>" placeholder="email@domain.com" autocomplete="off">
-                <div class="error-msg <?= isset($field_errors['email']) ? 'show' : '' ?>" id="emailError">
-                    <?= $field_errors['email'] ?? 'Email wajib diisi.' ?>
-                </div>
-            </div>
-        </div>
+                            <!-- Email -->
+                            <div class="form-group">
+                                <label class="form-label">Email <span class="required">*</span></label>
+                                <input type="email" name="email" id="email"
+                                    class="form-input <?= isset($field_errors['email']) ? 'error' : '' ?>"
+                                    value="<?= htmlspecialchars($email) ?>" placeholder="email@domain.com"
+                                    autocomplete="off">
+                                <div class="error-msg <?= isset($field_errors['email']) ? 'show' : '' ?>"
+                                    id="emailError">
+                                    <?= $field_errors['email'] ?? 'Email wajib diisi.' ?>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="form-row-2">
-            <!-- No. HP -->
-            <div class="form-group">
-                <label class="form-label">No. HP <span class="required">*</span></label>
-                <input type="tel" name="no_telepon" id="no_telepon" 
-                       class="form-input <?= isset($field_errors['telepon']) ? 'error' : '' ?>"
-                       value="<?= htmlspecialchars($telepon) ?>" maxlength="14" placeholder="Contoh: 08123456789">
-                <div class="error-msg <?= isset($field_errors['telepon']) ? 'show' : '' ?>" id="teleponError">
-                    <?= $field_errors['telepon'] ?? 'Nomor telepon wajib diisi.' ?>
-                </div>
-            </div>
+                        <div class="form-row-2">
+                            <!-- No. HP -->
+                            <div class="form-group">
+                                <label class="form-label">No. HP <span class="required">*</span></label>
+                                <input type="tel" name="no_telepon" id="no_telepon"
+                                    class="form-input <?= isset($field_errors['telepon']) ? 'error' : '' ?>"
+                                    value="<?= htmlspecialchars($telepon) ?>" maxlength="14"
+                                    placeholder="Contoh: 08123456789">
+                                <div class="error-msg <?= isset($field_errors['telepon']) ? 'show' : '' ?>"
+                                    id="teleponError">
+                                    <?= $field_errors['telepon'] ?? 'Nomor telepon wajib diisi.' ?>
+                                </div>
+                            </div>
 
-            <!-- Tanggal Lahir -->
-            <div class="form-group">
-                <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
-                <input type="date" name="tanggal_lahir" id="tanggal_lahir" 
-                       class="form-input <?= isset($field_errors['tgl_lahir']) ? 'error' : '' ?>"
-                       value="<?= format_date_input($tgl_lahir) ?>">
-                <div class="error-msg <?= isset($field_errors['tgl_lahir']) ? 'show' : '' ?>" id="tglLahirError">
-                    <?= $field_errors['tgl_lahir'] ?? 'Tanggal lahir wajib diisi.' ?>
-                </div>
-            </div>
-        </div>
+                            <!-- Tanggal Lahir -->
+                            <div class="form-group">
+                                <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
+                                <input type="date" name="tanggal_lahir" id="tanggal_lahir"
+                                    class="form-input <?= isset($field_errors['tgl_lahir']) ? 'error' : '' ?>"
+                                    value="<?= format_date_input($tgl_lahir) ?>">
+                                <div class="error-msg <?= isset($field_errors['tgl_lahir']) ? 'show' : '' ?>"
+                                    id="tglLahirError">
+                                    <?= $field_errors['tgl_lahir'] ?? 'Tanggal lahir wajib diisi.' ?>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="form-row-2">
-            <!-- Jenis Kelamin -->
-            <div class="form-group">
-                <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
-                <div class="radio-group-container">
-                    <label class="radio-card">
-                        <input type="radio" name="jenis_kelamin" value="1" <?= ($jk == 1) ? 'checked' : '' ?>>
-                        <span class="radio-custom-box">
-                            <i class="fa-solid fa-mars"></i> Laki-laki
-                        </span>
-                    </label>
-                    <label class="radio-card">
-                        <input type="radio" name="jenis_kelamin" value="0" <?= ($jk == 0) ? 'checked' : '' ?>>
-                        <span class="radio-custom-box">
-                            <i class="fa-solid fa-venus"></i> Perempuan
-                        </span>
-                    </label>
-                </div>
-            </div>
+                        <div class="form-row-2">
+                            <!-- Jenis Kelamin -->
+                            <div class="form-group">
+                                <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
+                                <div class="radio-group-container">
+                                    <label class="radio-card">
+                                        <input type="radio" name="jenis_kelamin" value="1" <?= ($jk == 1) ? 'checked' : '' ?>>
+                                        <span class="radio-custom-box">
+                                            <i class="fa-solid fa-mars"></i> Laki-laki
+                                        </span>
+                                    </label>
+                                    <label class="radio-card">
+                                        <input type="radio" name="jenis_kelamin" value="0" <?= ($jk == 0) ? 'checked' : '' ?>>
+                                        <span class="radio-custom-box">
+                                            <i class="fa-solid fa-venus"></i> Perempuan
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
 
-            <!-- Kota / Tempat Lahir -->
-            <div class="form-group">
-                <label class="form-label">Kota <span class="required">*</span></label>
-                <input type="text" name="tempat_lahir" id="tempat_lahir" 
-                       class="form-input <?= isset($field_errors['tmp_lahir']) ? 'error' : '' ?>"
-                       value="<?= htmlspecialchars($tmp_lahir) ?>" placeholder="Kota tempat tinggal">
-                <div class="error-msg <?= isset($field_errors['tmp_lahir']) ? 'show' : '' ?>" id="tmpLahirError">
-                    <?= $field_errors['tmp_lahir'] ?? 'Tempat lahir wajib diisi.' ?>
-                </div>
-            </div>
-        </div>
+                            <!-- Kota / Tempat Lahir -->
+                            <div class="form-group">
+                                <label class="form-label">Kota <span class="required">*</span></label>
+                                <input type="text" name="tempat_lahir" id="tempat_lahir"
+                                    class="form-input <?= isset($field_errors['tmp_lahir']) ? 'error' : '' ?>"
+                                    value="<?= htmlspecialchars($tmp_lahir) ?>" placeholder="Kota tempat tinggal">
+                                <div class="error-msg <?= isset($field_errors['tmp_lahir']) ? 'show' : '' ?>"
+                                    id="tmpLahirError">
+                                    <?= $field_errors['tmp_lahir'] ?? 'Tempat lahir wajib diisi.' ?>
+                                </div>
+                            </div>
+                        </div>
 
-        <!-- Alamat Lengkap -->
-        <div class="form-group">
-            <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
-            <textarea name="alamat" id="alamat" 
-                      class="form-input <?= isset($field_errors['alamat']) ? 'error' : '' ?>" 
-                      placeholder="Tuliskan alamat lengkap Anda" rows="4" style="resize: vertical; min-height: 100px; font-family: inherit;"><?= htmlspecialchars($alamat) ?></textarea>
-            <div class="error-msg <?= isset($field_errors['alamat']) ? 'show' : '' ?>" id="alamatError">
-                <?= $field_errors['alamat'] ?? 'Alamat lengkap wajib diisi.' ?>
-            </div>
-        </div>
+                        <!-- Alamat Lengkap -->
+                        <div class="form-group">
+                            <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
+                            <textarea name="alamat" id="alamat"
+                                class="form-input <?= isset($field_errors['alamat']) ? 'error' : '' ?>"
+                                placeholder="Tuliskan alamat lengkap Anda" rows="4"
+                                style="resize: vertical; min-height: 100px; font-family: inherit;"><?= htmlspecialchars($alamat) ?></textarea>
+                            <div class="error-msg <?= isset($field_errors['alamat']) ? 'show' : '' ?>" id="alamatError">
+                                <?= $field_errors['alamat'] ?? 'Alamat lengkap wajib diisi.' ?>
+                            </div>
+                        </div>
 
-        <input type="hidden" name="username" id="username" value="<?= htmlspecialchars($username) ?>">
-    </div>
+                        <input type="hidden" name="username" id="username" value="<?= htmlspecialchars($username) ?>">
+                    </div>
 
-    <div class="form-buttons">
-        <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
-        <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
-    </div>
-</form>
+                    <div class="form-buttons">
+                        <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
+                        <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
+                    </div>
+                </form>
             </div>
 
             <!-- FORM KATA SANDI (TAMPIL KONDISIONAL VIA TAB) -->
-            <div class="form-card" id="password-form-card" class="reveal-right" style="display: none; align-self: start;">
+            <div class="form-card" id="password-form-card" class="reveal-right"
+                style="display: none; align-self: start;">
                 <div class="form-card-title">Keamanan & Ubah Password</div>
                 <form method="POST" id="formPassword"
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
@@ -2513,17 +3278,20 @@ function format_date_display($date)
             </div>
 
             <!-- TAB 1: KARTU RIWAYAT BOOKING -->
-            <div class="form-card" id="booking-list-card" class="reveal-right" style="display: none; align-self: start;">
+
+            <div class="form-card" id="booking-list-card" class="reveal-right"
+                style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Booking Lapangan</div>
-                <div class="list-container">
+
+                <div class="list-container" id="booking-items-wrapper">
                     <?php if (empty($bookings)): ?>
                         <div class="empty-state">
-                            <i class="fa-regular fa-calendar-times"></i>
-                            Belum ada riwayat booking lapangan.
+                            <i class="fa-regular fa-calendar-times"></i> Belum ada riwayat booking lapangan.
                         </div>
                     <?php else: ?>
                         <?php foreach ($bookings as $b): ?>
-                            <div class="history-item hover-lift">
+                            <div class="history-item hover-lift paginated-item">
+                                <!-- KEMBALIKAN BLOK DATA ASLI DI SINI -->
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-regular fa-clock"></i>
                                         <?= format_date_display($b['Tanggal_Booking']) ?></span>
@@ -2577,20 +3345,23 @@ function format_date_display($date)
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                <div class="pagination-container" id="booking-pagination-nav"></div>
             </div>
+
 
             <!-- TAB 2: KARTU RIWAYAT LANGGANAN MEMBER -->
             <div class="form-card" id="member-list-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Langganan Member</div>
-                <div class="list-container">
+
+                <div class="list-container" id="member-items-wrapper">
                     <?php if (empty($memberships)): ?>
                         <div class="empty-state">
-                            <i class="fa-solid fa-award"></i>
-                            Belum ada riwayat langganan member.
+                            <i class="fa-solid fa-award"></i> Belum ada riwayat langganan member.
                         </div>
                     <?php else: ?>
                         <?php foreach ($memberships as $m): ?>
-                            <div class="history-item hover-lift">
+                            <div class="history-item hover-lift paginated-item">
+                                <!-- KEMBALIKAN BLOK DATA ASLI DI SINI -->
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-solid fa-crown"></i> Paket:
                                         <?= htmlspecialchars($m['Nama_Tipe']) ?></span>
@@ -2641,20 +3412,23 @@ function format_date_display($date)
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                <div class="pagination-container" id="member-pagination-nav"></div>
             </div>
 
-            <!-- TAB 3: KARTU RIWAYAT PEMBELIAN ALAT -->
-            <div class="form-card" id="purchase-list-card" class="reveal-right" style="display: none; align-self: start;">
+            <!-- TAB 3: KARTU RIWAYAT PEMBELIAN PERLENGKAPAN -->
+            <div class="form-card" id="purchase-list-card" class="reveal-right"
+                style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Pembelian Perlengkapan</div>
-                <div class="list-container">
+
+                <div class="list-container" id="purchase-items-wrapper">
                     <?php if (empty($purchases)): ?>
                         <div class="empty-state">
-                            <i class="fa-solid fa-bag-shopping"></i>
-                            Belum ada riwayat pembelian perlengkapan.
+                            <i class="fa-solid fa-bag-shopping"></i> Belum ada riwayat pembelian perlengkapan.
                         </div>
                     <?php else: ?>
                         <?php foreach ($purchases as $p): ?>
-                            <div class="history-item hover-lift">
+                            <div class="history-item hover-lift paginated-item">
+                                <!-- KEMBALIKAN BLOK DATA ASLI DI SINI -->
                                 <div class="history-header">
                                     <span class="history-date"><i class="fa-regular fa-clock"></i>
                                         <?= format_date_display($p['Tanggal_Beli']) ?></span>
@@ -2695,210 +3469,8 @@ function format_date_display($date)
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                <div class="pagination-container" id="purchase-pagination-nav"></div>
             </div>
-
-        </div>
-
-        <!-- BARIS 2: DETAIL BOOKING BERIKUTNYA & MEMBER AKTIF (LEBAR PENUH) -->
-        <div class="lower-panel-grid reveal" id="lower-dashboard-section">
-
-            <!-- Booking Berikutnya -->
-            <div class="lower-card hover-lift">
-                <div class="lower-card-title">Booking Berikutnya</div>
-                <?php if ($next_booking): ?>
-                    <div class="booking-row">
-                        <div class="booking-img-wrapper">
-                            <img src="https://images.unsplash.com/photo-1519766304817-4f37bda74a27?q=80&w=400&auto=format&fit=crop"
-                                alt="Lapangan">
-                        </div>
-                        <div class="booking-details-box">
-                            <div class="b-title"><?= htmlspecialchars($next_booking['Nama_Lapangan']) ?></div>
-                            <ul class="b-meta-list">
-                                <li class="b-meta-item"><i class="fa-solid fa-location-dot"></i> Jakarta Selatan</li>
-                                <li class="b-meta-item"><i class="fa-regular fa-calendar"></i>
-                                    <?= format_date_display($next_booking['Tanggal']) ?></li>
-                                <li class="b-meta-item"><i class="fa-regular fa-clock"></i>
-                                    <?= $next_booking['Jam_Mulai']->format('H:i') . ' - ' . $next_booking['Jam_Selesai']->format('H:i') ?>
-                                    WIB</li>
-                            </ul>
-                        </div>
-                        <div class="booking-actions-box">
-                            <span class="badge-status-green"><i class="fa-regular fa-circle-check"></i> Terkonfirmasi</span>
-                            <button type="button" class="btn-outline-detail">Lihat Detail</button>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div
-                        style="text-align: center; padding: 20px; color: var(--muted-text); font-size: 13px; margin: auto 0;">
-                        <i class="fa-regular fa-calendar-times"
-                            style="font-size: 24px; margin-bottom: 8px; display: block; color: #AEAEB2;"></i>
-                        Tidak ada jadwal booking mendatang.
-                    </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- Member Aktif -->
-            <div class="lower-card hover-lift">
-                <div class="lower-card-title">Member Aktif</div>
-                <?php if ($has_member): ?>
-                    <div class="member-row">
-                        <div class="member-badge-logo" style="border-color: #FF9500; color: #FF9500;">
-                            <i class="fa-solid fa-crown"></i>
-                            <span><?= strtoupper($member_tipe) ?></span>
-                        </div>
-                        <div class="member-info-box">
-                            <div class="member-name-label">Paket <?= htmlspecialchars($member_tipe) ?></div>
-                            <ul class="member-benefit-list">
-                                <li class="member-benefit-item"><i class="fa-solid fa-circle-check"></i> Diskon booking
-                                    sesuai paket</li>
-                                <li class="member-benefit-item"><i class="fa-solid fa-circle-check"></i> Prioritas reservasi
-                                    lapangan</li>
-                                <li class="member-benefit-item"><i class="fa-solid fa-circle-check"></i> Benefit merchant
-                                    Hoopball</li>
-                            </ul>
-                        </div>
-                        <div class="member-renew-box">
-                            <div class="renew-expiry-label">
-                                <span>Aktif sampai</span>
-                                <span class="renew-expiry-val"
-                                    style="display:block; margin-top:2px; color: var(--primary);">
-                                    <?= $member_expiry ? $member_expiry->format('d F Y') : '-' ?>
-                                </span>
-                            </div>
-                            <button class="btn-solid-renew">Perpanjang Member</button>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div class="member-row">
-                        <div class="member-badge-logo" style="border-color: #8E8E93; color: #8E8E93; background: none;">
-                            <i class="fa-solid fa-user-slash"></i>
-                            <span style="font-size: 9px;">BASIC</span>
-                        </div>
-                        <div class="member-info-box">
-                            <div class="member-name-label" style="color: var(--muted-text);">Belum Berlangganan Member</div>
-                            <div style="font-size: 11px; color: var(--muted-text); margin-top: 4px; line-height: 1.4;">
-                                Bergabunglah menjadi member Silver, Gold, atau Platinum untuk mendapatkan potongan harga
-                                langsung pada reservasi lapangan Anda!
-                            </div>
-                        </div>
-                        <div class="member-renew-box" style="justify-content: center; height: auto;">
-                            <button class="btn-solid-renew">Daftar Member</button>
-                        </div>
-                    </div>
-                <?php endif; ?>
-            </div> <!-- Menutup .lower-card -->
-        </div> <!-- <-- TAMBAHKAN TAG PENUTUP INI UNTUK MENUTUP .lower-panel-grid YANG HILANG -->
-
-        <!-- BARIS 3: AKTIVITAS TERBARU (LEBAR PENUH) -->
-        <div class="activity-section-card reveal" id="activity-section">
-            <div class="form-card-title" style="margin-bottom: 16px;">Aktivitas Terbaru</div>
-            <div class="activity-grid-3 reveal-stagger">
-
-                <!-- AKTIVITAS 1: Booking Terakhir -->
-                <?php if (!empty($bookings)):
-                    $last_b = $bookings[0]; // Mengambil booking paling baru
-                    $b_status_label = 'Menunggu';
-                    $b_status_class = 'orange';
-                    if ($last_b['BookingStatus'] == 1) {
-                        $b_status_label = 'Terkonfirmasi';
-                        $b_status_class = 'green';
-                    } elseif ($last_b['BookingStatus'] == 2) {
-                        $b_status_label = 'Selesai';
-                        $b_status_class = 'green';
-                    } elseif ($last_b['BookingStatus'] == 3) {
-                        $b_status_label = 'Batal';
-                        $b_status_class = 'red';
-                    }
-                    ?>
-                    <div class="activity-item-card stagger-item">
-                        <div class="activity-item-icon"><i class="fa-regular fa-calendar-check"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Booking: <?= htmlspecialchars($last_b['Nama_Lapangan']) ?></div>
-                            <div class="act-subtitle">Reservasi Lapangan Basket</div>
-                            <div class="act-time"><?= format_date_display($last_b['Tanggal_Booking']) ?></div>
-                        </div>
-                        <span class="badge-act-status <?= $b_status_class ?>"><?= $b_status_label ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="activity-item-card" style="opacity: 0.6;">
-                        <div class="activity-item-icon"><i class="fa-regular fa-calendar-check"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Belum ada booking</div>
-                            <div class="act-subtitle">Belum ada riwayat pemesanan</div>
-                            <div class="act-time">-</div>
-                        </div>
-                        <span class="badge-act-status grey">Kosong</span>
-                    </div>
-                <?php endif; ?>
-
-                <!-- AKTIVITAS 2: Pembelian Alat Terakhir -->
-                <?php if (!empty($purchases)):
-                    $last_p = $purchases[0]; // Mengambil pembelian alat paling baru
-                    $p_status_label = $last_p['PurchaseStatus'] == 1 ? 'Selesai' : 'Diproses';
-                    $p_status_class = $last_p['PurchaseStatus'] == 1 ? 'green' : 'blue';
-                    $item_name = !empty($last_p['items']) ? $last_p['items'][0]['Nama_Alat'] : 'Perlengkapan';
-                    ?>
-                    <div class="activity-item-card stagger-item">
-                        <div class="activity-item-icon"><i class="fa-solid fa-bag-shopping"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Beli: <?= htmlspecialchars($item_name) ?></div>
-                            <div class="act-subtitle">Alat Pendukung Olahraga</div>
-                            <div class="act-time"><?= format_date_display($last_p['Tanggal_Beli']) ?></div>
-                        </div>
-                        <span class="badge-act-status <?= $p_status_class ?>"><?= $p_status_label ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="activity-item-card" style="opacity: 0.6;">
-                        <div class="activity-item-icon"><i class="fa-solid fa-bag-shopping"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Belum ada pembelian</div>
-                            <div class="act-subtitle">Belum ada riwayat belanja</div>
-                            <div class="act-time">-</div>
-                        </div>
-                        <span class="badge-act-status grey">Kosong</span>
-                    </div>
-                <?php endif; ?>
-
-                <!-- AKTIVITAS 3: Status Member Terakhir -->
-                <?php if (!empty($memberships)):
-                    $last_m = $memberships[0]; // Mengambil langganan paling baru
-                    $m_status_label = 'Aktif';
-                    $m_status_class = 'green';
-                    if ($last_m['MemberStatus'] == 0) {
-                        $m_status_label = 'Proses';
-                        $m_status_class = 'orange';
-                    } elseif ($last_m['MemberStatus'] == 2) {
-                        $m_status_label = 'Berakhir';
-                        $m_status_class = 'grey';
-                    } elseif ($last_m['MemberStatus'] == 3) {
-                        $m_status_label = 'Ditolak';
-                        $m_status_class = 'red';
-                    }
-                    ?>
-                    <div class="activity-item-card stagger-item">
-                        <div class="activity-item-icon"><i class="fa-regular fa-user"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Member: <?= htmlspecialchars($last_m['Nama_Tipe']) ?></div>
-                            <div class="act-subtitle">Status Keanggotaan</div>
-                            <div class="act-time"><?= format_date_display($last_m['Tanggal_Mulai']) ?></div>
-                        </div>
-                        <span class="badge-act-status <?= $m_status_class ?>"><?= $m_status_label ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="activity-item-card" style="opacity: 0.6;">
-                        <div class="activity-item-icon"><i class="fa-regular fa-user"></i></div>
-                        <div class="activity-item-details">
-                            <div class="act-title">Bukan Member</div>
-                            <div class="act-subtitle">Belum bergabung keanggotaan</div>
-                            <div class="act-time">-</div>
-                        </div>
-                        <span class="badge-act-status grey">Kosong</span>
-                    </div>
-                <?php endif; ?>
-
-            </div>
-        </div>
-
     </main>
 
     <!-- FOOTER -->
@@ -2963,8 +3535,86 @@ function format_date_display($date)
     </footer>
 
     <script>
-        // Tab Switcher Controller
+
+        // FUNGSI UTAMA UNTUK HANDLING PAGINATION
+        function initPagination(wrapperId, navId, itemsPerPage = 5) {
+            const wrapper = document.getElementById(wrapperId);
+            const navContainer = document.getElementById(navId);
+            if (!wrapper || !navContainer) return;
+
+            const items = Array.from(wrapper.getElementsByClassName('paginated-item'));
+            const totalItems = items.length;
+
+            // Jika jumlah item lebih sedikit atau sama dengan limit, sembunyikan navigasi
+            if (totalItems <= itemsPerPage) {
+                navContainer.style.display = 'none';
+                return;
+            }
+
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            let currentPage = 1;
+
+            function showPage(page) {
+                currentPage = page;
+                const start = (page - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+
+                items.forEach((item, index) => {
+                    if (index >= start && index < end) {
+                        item.style.display = 'flex'; // Tampilkan item pada halaman aktif
+                    } else {
+                        item.style.display = 'none'; // Sembunyikan item lainnya
+                    }
+                });
+
+                renderControls();
+            }
+
+            function renderControls() {
+                navContainer.innerHTML = '';
+
+                // Tombol Sebelumnya (Prev)
+                const prevBtn = document.createElement('button');
+                prevBtn.type = 'button';
+                prevBtn.className = 'pagination-btn';
+                prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                prevBtn.disabled = currentPage === 1;
+                prevBtn.onclick = () => showPage(currentPage - 1);
+                navContainer.appendChild(prevBtn);
+
+                // Angka Halaman
+                for (let i = 1; i <= totalPages; i++) {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.type = 'button';
+                    pageBtn.className = `pagination-btn ${currentPage === i ? 'active' : ''}`;
+                    pageBtn.textContent = i;
+                    pageBtn.onclick = () => showPage(i);
+                    navContainer.appendChild(pageBtn);
+                }
+
+                // Tombol Berikutnya (Next)
+                const nextBtn = document.createElement('button');
+                nextBtn.type = 'button';
+                nextBtn.className = 'pagination-btn';
+                nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                nextBtn.disabled = currentPage === totalPages;
+                nextBtn.onclick = () => showPage(currentPage + 1);
+                navContainer.appendChild(nextBtn);
+            }
+
+            showPage(1); // Set ke halaman awal saat pertama dimuat
+        }
+
+        // Jalankan pagination saat DOM selesai dimuat sepenuhnya
+        document.addEventListener('DOMContentLoaded', () => {
+            // Parameter angka '5' di bawah ini adalah limit jumlah data per halaman (bisa disesuaikan)
+            initPagination('booking-items-wrapper', 'booking-pagination-nav', 2);
+            initPagination('member-items-wrapper', 'member-pagination-nav', 2);
+            initPagination('purchase-items-wrapper', 'purchase-pagination-nav', 2);
+        });
+
         function switchTab(tab) {
+            // Menghapus status active dari semua tombol menu
             document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
 
             const profileForm = document.getElementById('profile-form-card');
@@ -2973,58 +3623,44 @@ function format_date_display($date)
             const bookingList = document.getElementById('booking-list-card');
             const memberList = document.getElementById('member-list-card');
             const purchaseList = document.getElementById('purchase-list-card');
-            const lowerSection = document.getElementById('lower-dashboard-section');
-            const activitySection = document.getElementById('activity-section');
 
             const sections = [profileForm, passwordForm, deleteForm, bookingList, memberList, purchaseList];
 
-            // Menyembunyikan semua section terlebih dahulu
+            // Menyembunyikan semua section terlebih dahulu secara aman
             sections.forEach(sec => {
                 if (sec) {
                     sec.style.display = 'none';
-                    sec.style.animation = 'none'; // Reset animasi
+                    sec.style.animation = 'none';
                 }
             });
 
             let activeSection = null;
 
+            // Menentukan section mana yang akan ditampilkan berdasarkan tab yang diklik
             if (tab === 'profile') {
                 document.getElementById('menu-profile').classList.add('active');
                 activeSection = profileForm;
-                lowerSection.style.display = 'grid';
-                activitySection.style.display = 'block';
             } else if (tab === 'password') {
                 document.getElementById('menu-password').classList.add('active');
                 activeSection = passwordForm;
-                lowerSection.style.display = 'none';
-                activitySection.style.display = 'none';
             } else if (tab === 'delete') {
                 document.getElementById('menu-delete').classList.add('active');
                 activeSection = deleteForm;
-                lowerSection.style.display = 'none';
-                activitySection.style.display = 'none';
             } else if (tab === 'booking') {
                 document.getElementById('menu-booking').classList.add('active');
                 activeSection = bookingList;
-                lowerSection.style.display = 'none';
-                activitySection.style.display = 'none';
             } else if (tab === 'member') {
                 document.getElementById('menu-member').classList.add('active');
                 activeSection = memberList;
-                lowerSection.style.display = 'none';
-                activitySection.style.display = 'none';
             } else if (tab === 'purchase') {
                 document.getElementById('menu-purchase').classList.add('active');
                 activeSection = purchaseList;
-                lowerSection.style.display = 'none';
-                activitySection.style.display = 'none';
             }
 
-            // Tampilkan panel aktif dengan trigger ulang animasi CSS
+            // Menampilkan panel aktif dengan efek transisi
             if (activeSection) {
                 activeSection.style.display = 'flex';
-                // Memaksa browser me-render ulang animasi slide-in
-                void activeSection.offsetWidth;
+                void activeSection.offsetWidth; // Memicu render ulang untuk animasi CSS
                 activeSection.style.animation = 'tabSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards';
             }
         }
@@ -3064,171 +3700,171 @@ function format_date_display($date)
         }
 
         function validateNama() {
-    if (!namaInput) return true;
-    const val = namaInput.value.trim();
-    const error = document.getElementById('namaError');
-    if (val === '') {
-        namaInput.classList.add('error'); error.textContent = 'Nama lengkap wajib diisi.'; error.classList.add('show'); return false;
-    } else {
-        namaInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+            if (!namaInput) return true;
+            const val = namaInput.value.trim();
+            const error = document.getElementById('namaError');
+            if (val === '') {
+                namaInput.classList.add('error'); error.textContent = 'Nama lengkap wajib diisi.'; error.classList.add('show'); return false;
+            } else {
+                namaInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
 
-function validateTmpLahir() {
-    if (!tmpLahirInput) return true;
-    const val = tmpLahirInput.value.trim();
-    const error = document.getElementById('tmpLahirError');
-    if (val === '') {
-        tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir wajib diisi.'; error.classList.add('show'); return false;
-    } else if (val.length < 3) {
-        tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir minimal 3 karakter.'; error.classList.add('show'); return false;
-    } else if (!/^[a-zA-Z\s]+$/.test(val)) {
-        tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir hanya boleh huruf dan spasi.'; error.classList.add('show'); return false;
-    } else {
-        tmpLahirInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+        function validateTmpLahir() {
+            if (!tmpLahirInput) return true;
+            const val = tmpLahirInput.value.trim();
+            const error = document.getElementById('tmpLahirError');
+            if (val === '') {
+                tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir wajib diisi.'; error.classList.add('show'); return false;
+            } else if (val.length < 3) {
+                tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir minimal 3 karakter.'; error.classList.add('show'); return false;
+            } else if (!/^[a-zA-Z\s]+$/.test(val)) {
+                tmpLahirInput.classList.add('error'); error.textContent = 'Tempat lahir hanya boleh huruf dan spasi.'; error.classList.add('show'); return false;
+            } else {
+                tmpLahirInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
 
-function validateTglLahir() {
-    if (!tglLahirInput) return true;
-    const val = tglLahirInput.value;
-    const error = document.getElementById('tglLahirError');
-    if (val === '') {
-        tglLahirInput.classList.add('error'); error.textContent = 'Tanggal lahir wajib diisi.'; error.classList.add('show'); return false;
-    }
-    const birthDate = new Date(val);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+        function validateTglLahir() {
+            if (!tglLahirInput) return true;
+            const val = tglLahirInput.value;
+            const error = document.getElementById('tglLahirError');
+            if (val === '') {
+                tglLahirInput.classList.add('error'); error.textContent = 'Tanggal lahir wajib diisi.'; error.classList.add('show'); return false;
+            }
+            const birthDate = new Date(val);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
 
-    if (age < 10) {
-        tglLahirInput.classList.add('error'); error.textContent = 'Usia minimal 10 tahun.'; error.classList.add('show'); return false;
-    } else if (age > 100) {
-        tglLahirInput.classList.add('error'); error.textContent = 'Tanggal lahir tidak valid.'; error.classList.add('show'); return false;
-    } else {
-        tglLahirInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+            if (age < 10) {
+                tglLahirInput.classList.add('error'); error.textContent = 'Usia minimal 10 tahun.'; error.classList.add('show'); return false;
+            } else if (age > 100) {
+                tglLahirInput.classList.add('error'); error.textContent = 'Tanggal lahir tidak valid.'; error.classList.add('show'); return false;
+            } else {
+                tglLahirInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
 
-function validateTelepon() {
-    if (!teleponInput) return true;
-    let val = teleponInput.value.trim();
-    
-    val = val.replace(/[^0-9+]/g, '');
-    if (val.startsWith('+62')) {
-        val = '0' + val.substring(3);
-    } else if (val.startsWith('62')) {
-        val = '0' + val.substring(2);
-    }
-    val = val.replace(/[^0-9]/g, '');
-    teleponInput.value = val;
+        function validateTelepon() {
+            if (!teleponInput) return true;
+            let val = teleponInput.value.trim();
 
-    const error = document.getElementById('teleponError');
-    const phonePattern = /^08[0-9]{8,11}$/; // 10-13 digit murni
-    
-    if (val === '') {
-        teleponInput.classList.add('error'); error.textContent = 'Nomor telepon wajib diisi.'; error.classList.add('show'); return false;
-    } else if (!phonePattern.test(val)) {
-        teleponInput.classList.add('error'); error.textContent = 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.'; error.classList.add('show'); return false;
-    } else {
-        teleponInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+            val = val.replace(/[^0-9+]/g, '');
+            if (val.startsWith('+62')) {
+                val = '0' + val.substring(3);
+            } else if (val.startsWith('62')) {
+                val = '0' + val.substring(2);
+            }
+            val = val.replace(/[^0-9]/g, '');
+            teleponInput.value = val;
 
-function validateAlamat() {
-    if (!alamatInput) return true;
-    const val = alamatInput.value.trim();
-    const error = document.getElementById('alamatError');
-    const allowedCharsPattern = /^[a-zA-Z0-9\s,\.\/\-]+$/;
-    const onlyNumbersPattern = /^[0-9\s]+$/;
-    const onlySymbolsPattern = /^[^a-zA-Z0-9]+$/;
+            const error = document.getElementById('teleponError');
+            const phonePattern = /^08[0-9]{8,11}$/; // 10-13 digit murni
 
-    if (val === '') {
-        alamatInput.classList.add('error'); error.textContent = 'Alamat rumah wajib diisi.'; error.classList.add('show'); return false;
-    } else if (val.length < 10 || val.length > 100) {
-        alamatInput.classList.add('error'); error.textContent = 'Alamat minimal 10 karakter dan maksimal 100 karakter.'; error.classList.add('show'); return false;
-    } else if (!allowedCharsPattern.test(val)) {
-        alamatInput.classList.add('error'); error.textContent = 'Alamat hanya boleh menggunakan huruf, angka, spasi, koma (,), titik (.), garis miring (/), dan tanda strip (-).'; error.classList.add('show'); return false;
-    } else if (onlyNumbersPattern.test(val)) {
-        alamatInput.classList.add('error'); error.textContent = 'Alamat tidak boleh hanya berupa angka murni.'; error.classList.add('show'); return false;
-    } else if (onlySymbolsPattern.test(val)) {
-        alamatInput.classList.add('error'); error.textContent = 'Alamat tidak boleh hanya berupa simbol murni.'; error.classList.add('show'); return false;
-    } else {
-        alamatInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+            if (val === '') {
+                teleponInput.classList.add('error'); error.textContent = 'Nomor telepon wajib diisi.'; error.classList.add('show'); return false;
+            } else if (!phonePattern.test(val)) {
+                teleponInput.classList.add('error'); error.textContent = 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.'; error.classList.add('show'); return false;
+            } else {
+                teleponInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
 
-function validateEmail() {
-    if (!emailInput) return true;
-    const val = emailInput.value.trim();
-    const error = document.getElementById('emailError');
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
-    if (val === '') {
-        emailInput.classList.add('error'); error.textContent = 'Email wajib diisi.'; error.classList.add('show'); return false;
-    } else if (!emailPattern.test(val)) {
-        emailInput.classList.add('error'); error.textContent = 'Format email yang dimasukkan tidak valid.'; error.classList.add('show'); return false;
-    } else if (!val.toLowerCase().endsWith('@gmail.com')) {
-        emailInput.classList.add('error'); error.textContent = 'Email wajib menggunakan domain @gmail.com.'; error.classList.add('show'); return false;
-    } else {
-        emailInput.classList.remove('error'); error.classList.remove('show'); return true;
-    }
-}
+        function validateAlamat() {
+            if (!alamatInput) return true;
+            const val = alamatInput.value.trim();
+            const error = document.getElementById('alamatError');
+            const allowedCharsPattern = /^[a-zA-Z0-9\s,\.\/\-]+$/;
+            const onlyNumbersPattern = /^[0-9\s]+$/;
+            const onlySymbolsPattern = /^[^a-zA-Z0-9]+$/;
+
+            if (val === '') {
+                alamatInput.classList.add('error'); error.textContent = 'Alamat rumah wajib diisi.'; error.classList.add('show'); return false;
+            } else if (val.length < 10 || val.length > 100) {
+                alamatInput.classList.add('error'); error.textContent = 'Alamat minimal 10 karakter dan maksimal 100 karakter.'; error.classList.add('show'); return false;
+            } else if (!allowedCharsPattern.test(val)) {
+                alamatInput.classList.add('error'); error.textContent = 'Alamat hanya boleh menggunakan huruf, angka, spasi, koma (,), titik (.), garis miring (/), dan tanda strip (-).'; error.classList.add('show'); return false;
+            } else if (onlyNumbersPattern.test(val)) {
+                alamatInput.classList.add('error'); error.textContent = 'Alamat tidak boleh hanya berupa angka murni.'; error.classList.add('show'); return false;
+            } else if (onlySymbolsPattern.test(val)) {
+                alamatInput.classList.add('error'); error.textContent = 'Alamat tidak boleh hanya berupa simbol murni.'; error.classList.add('show'); return false;
+            } else {
+                alamatInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
+
+        function validateEmail() {
+            if (!emailInput) return true;
+            const val = emailInput.value.trim();
+            const error = document.getElementById('emailError');
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (val === '') {
+                emailInput.classList.add('error'); error.textContent = 'Email wajib diisi.'; error.classList.add('show'); return false;
+            } else if (!emailPattern.test(val)) {
+                emailInput.classList.add('error'); error.textContent = 'Format email yang dimasukkan tidak valid.'; error.classList.add('show'); return false;
+            } else if (!val.toLowerCase().endsWith('@gmail.com')) {
+                emailInput.classList.add('error'); error.textContent = 'Email wajib menggunakan domain @gmail.com.'; error.classList.add('show'); return false;
+            } else {
+                emailInput.classList.remove('error'); error.classList.remove('show'); return true;
+            }
+        }
 
         // Form Submit Validation (Biodata)
-const formBiodata = document.getElementById('formBiodata');
-if (formBiodata) {
-    // 1. Rekam keadaan/nilai awal semua input saat halaman pertama kali dimuat
-    const trackedInputs = formBiodata.querySelectorAll('input, select, textarea');
-    trackedInputs.forEach(input => {
-        if (input.type === 'radio') {
-            input.dataset.initial = input.checked;
-        } else {
-            input.dataset.initial = input.value;
-        }
-    });
-
-    formBiodata.addEventListener('submit', function (e) {
-        // 2. Cek apakah pengguna melakukan perubahan pada input
-        let hasChanged = false;
-        trackedInputs.forEach(input => {
-            if (input.type === 'radio') {
-                if (input.checked.toString() !== input.dataset.initial) {
-                    hasChanged = true;
+        const formBiodata = document.getElementById('formBiodata');
+        if (formBiodata) {
+            // 1. Rekam keadaan/nilai awal semua input saat halaman pertama kali dimuat
+            const trackedInputs = formBiodata.querySelectorAll('input, select, textarea');
+            trackedInputs.forEach(input => {
+                if (input.type === 'radio') {
+                    input.dataset.initial = input.checked;
+                } else {
+                    input.dataset.initial = input.value;
                 }
-            } else {
-                if (input.value !== input.dataset.initial) {
-                    hasChanged = true;
+            });
+
+            formBiodata.addEventListener('submit', function (e) {
+                // 2. Cek apakah pengguna melakukan perubahan pada input
+                let hasChanged = false;
+                trackedInputs.forEach(input => {
+                    if (input.type === 'radio') {
+                        if (input.checked.toString() !== input.dataset.initial) {
+                            hasChanged = true;
+                        }
+                    } else {
+                        if (input.value !== input.dataset.initial) {
+                            hasChanged = true;
+                        }
+                    }
+                });
+
+                // 3. JIKA TIDAK ADA PERUBAHAN: Batalkan submit secara senyap (halaman tidak reload/scroll)
+                if (!hasChanged) {
+                    e.preventDefault();
+                    return; // Keluar langsung tanpa menjalankan validasi atau SweetAlert
                 }
-            }
-        });
 
-        // 3. JIKA TIDAK ADA PERUBAHAN: Batalkan submit secara senyap (halaman tidak reload/scroll)
-        if (!hasChanged) {
-            e.preventDefault();
-            return; // Keluar langsung tanpa menjalankan validasi atau SweetAlert
-        }
-
-        // 4. JIKA ADA PERUBAHAN: Jalankan proses validasi seperti biasa
-        let valid = true;
-        if (!validateNama()) valid = false;
-        if (!validateTglLahir()) valid = false;
-        if (!validateTmpLahir()) valid = false;
-        if (!validateAlamat()) valid = false;
-        if (!validateTelepon()) valid = false;
-        if (!validateEmail()) valid = false;
-        if (!valid) {
-            e.preventDefault();
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal Memperbarui',
-                text: 'Mohon periksa kembali data yang diisi dengan benar.',
-                confirmButtonColor: '#FF5200'
+                // 4. JIKA ADA PERUBAHAN: Jalankan proses validasi seperti biasa
+                let valid = true;
+                if (!validateNama()) valid = false;
+                if (!validateTglLahir()) valid = false;
+                if (!validateTmpLahir()) valid = false;
+                if (!validateAlamat()) valid = false;
+                if (!validateTelepon()) valid = false;
+                if (!validateEmail()) valid = false;
+                if (!valid) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Memperbarui',
+                        text: 'Mohon periksa kembali data yang diisi dengan benar.',
+                        confirmButtonColor: '#FF5200'
+                    });
+                }
             });
         }
-    });
-}
 
         // Password Form Validation
         const oldPass = document.getElementById('old_password');
@@ -3326,52 +3962,52 @@ if (formBiodata) {
         }
 
         // Notification handler (SweetAlert)
-<?php if ($swal_status && $swal_msg): ?>
-    Swal.fire({
-        icon: '<?= $swal_status ?>',
-        title: '<?= $swal_title ?? ($swal_status === 'success' ? 'Berhasil Memperbarui' : 'Gagal Memperbarui') ?>',
-        text: '<?= addslashes($swal_msg) ?>',
-        confirmButtonColor: '#FF5200'
-    });
-<?php endif; ?>
+        <?php if ($swal_status && $swal_msg): ?>
+            Swal.fire({
+                icon: '<?= $swal_status ?>',
+                title: '<?= $swal_title ?? ($swal_status === 'success' ? 'Berhasil Memperbarui' : 'Gagal Memperbarui') ?>',
+                text: '<?= addslashes($swal_msg) ?>',
+                confirmButtonColor: '#FF5200'
+            });
+        <?php endif; ?>
 
-    
 
-// ============ INTERSECTION OBSERVER FOR SCROLL ANIMATIONS ============
-document.addEventListener('DOMContentLoaded', function() {
-    const observerOptions = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 0.1
-    };
 
-    const revealObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('active');
-                observer.unobserve(entry.target);
+        // ============ INTERSECTION OBSERVER FOR SCROLL ANIMATIONS ============
+        document.addEventListener('DOMContentLoaded', function () {
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.1
+            };
+
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all reveal elements
+            document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+                revealObserver.observe(el);
+            });
+
+            // Scroll progress bar
+            const scrollProgress = document.getElementById('scrollProgress');
+            if (scrollProgress) {
+                window.addEventListener('scroll', () => {
+                    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+                    const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    const scrollPercent = scrollTop / scrollHeight;
+                    scrollProgress.style.transform = `scaleX(${scrollPercent})`;
+                });
             }
         });
-    }, observerOptions);
 
-    // Observe all reveal elements
-    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
-        revealObserver.observe(el);
-    });
-
-    // Scroll progress bar
-    const scrollProgress = document.getElementById('scrollProgress');
-    if (scrollProgress) {
-        window.addEventListener('scroll', () => {
-            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const scrollPercent = scrollTop / scrollHeight;
-            scrollProgress.style.transform = `scaleX(${scrollPercent})`;
-        });
-    }
-});
-
-</script>
+    </script>
 </body>
 
 </html>
