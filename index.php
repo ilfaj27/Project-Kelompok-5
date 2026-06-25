@@ -1156,20 +1156,12 @@ if (file_exists('includes/config.php')) {
                 <div class="profile-dropdown-divider"></div>
                 
                 <ul class="profile-dropdown-list">
-                    <li><a href="user/profil.php"><i class="fa-regular fa-user"></i> Profil Saya</a></li>
-                    <li><a href="user/riwayat.php"><i class="fa-regular fa-calendar-check"></i> Riwayat Booking</a></li>
-                    <li><a href="user/langganan.php"><i class="fa-solid fa-crown"></i> Langganan Member</a></li>
-                    <li><a href="user/pembelian.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a></li>
+                    <li><a href="profile/profile_customer.php"><i class="fa-regular fa-user"></i> Profil Saya</a></li>
                 </ul>
                 
                 <div class="profile-dropdown-divider"></div>
                 
                 <ul class="profile-dropdown-list">
-                    <li>
-                        <a href="user/hapus_akun.php" class="text-danger" onclick="return confirm('Apakah Anda yakin ingin menghapus akun?')">
-                            <i class="fa-regular fa-trash-can"></i> Hapus Akun
-                        </a>
-                    </li>
                     <li><a href="login/logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</a></li>
                 </ul>
             </div>
@@ -1190,8 +1182,8 @@ if (file_exists('includes/config.php')) {
         <h1>Sewa Lapangan<br>Basket Jadi<br><span>Lebih Mudah</span></h1>
         <p>Pemesanan lapangan basket favoritmu secara online, pilih jadwal sesuai keinginan, dan nikmati fasilitas terbaik untuk pengalaman bermain yang seru!</p>
         <div class="hero-cta">
-            <a href="login/register.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Pemesanan Lapangan</a>
-            <a href="#jadwal" class="btn-hero-secondary"><i class="fa-regular fa-clock"></i> Lihat Jadwal</a>
+            <a href="login/login.php" class="btn-hero-primary"><i class="fa-solid fa-calendar-days"></i> Pemesanan Lapangan</a>
+            <a href="login/login.php" class="btn-hero-secondary"><i class="fa-regular fa-clock"></i> Lihat Jadwal</a>
         </div>
     </div>
     <div class="hero-visual">
@@ -1274,7 +1266,7 @@ if (file_exists('includes/config.php')) {
                 <p>Indoor • Full AC • Lantai Kayu. Cocok untuk latihan & friendly match.</p>
                 <div class="court-footer">
                     <div class="court-price"><span>Rp 250.000</span> / jam</div>
-                    <a href="detail.php?id=A" class="btn-detail">Lihat Detail</a>
+                    <a href="login/login.php?id=A" class="btn-detail">Lihat</a>
                 </div>
             </div>
         </div>
@@ -1287,7 +1279,7 @@ if (file_exists('includes/config.php')) {
                 <p>Indoor • Full AC • Lantai Vinyl. Ring basket portabel + Scoreboard.</p>
                 <div class="court-footer">
                     <div class="court-price"><span>Rp 200.000</span> / jam</div>
-                    <a href="detail.php?id=B" class="btn-detail">Lihat Detail</a>
+                    <a href="login/login.php?id=B" class="btn-detail">Lihat</a>
                 </div>
             </div>
         </div>
@@ -1300,7 +1292,7 @@ if (file_exists('includes/config.php')) {
                 <p>Semi Indoor • Ventilasi Alami. Cocok untuk latihan komunitas.</p>
                 <div class="court-footer">
                     <div class="court-price"><span>Rp 150.000</span> / jam</div>
-                    <a href="detail.php?id=C" class="btn-detail">Lihat Detail</a>
+                    <a href="login/login.php?id=C" class="btn-detail">Lihat</a>
                 </div>
             </div>
         </div>
@@ -1366,28 +1358,23 @@ if (file_exists('includes/config.php')) {
     </div>
     <div class="pricing-container reveal-right">
         <div class="pricing-card">
-            <div class="price-name">Basic</div>
-            <div class="price-amount">Rp 99.000 <span>/ bulan</span></div>
+            <div class="price-name">Silver</div>
+            <div class="price-amount">Rp. 100.000 <span>/30hari</span></div>
             <ul class="price-features">
-                <li><i class="fa-solid fa-circle-check"></i> Diskon 10% setiap pemesanan</li>
-                <li><i class="fa-solid fa-circle-check"></i> Gratis pembatalan 1x / bulan</li>
-                <li><i class="fa-solid fa-circle-check"></i> Poin reward setiap transaksi</li>
-                <li><i class="fa-solid fa-circle-check"></i> Support prioritas</li>
+                <li><i class="fa-solid fa-circle-check"></i> Potongan Rp. 10.000 per booking</li>
+                <li><i class="fa-solid fa-circle-check"></i> Masa aktif 30 hari</li>
             </ul>
-            <a href="register.php?plan=basic" class="btn-price outline">Daftar Anggota</a>
+            <a href="login/login.php?plan=basic" class="btn-price outline">Daftar Anggota</a>
         </div>
         <div class="pricing-card premium">
             <div class="popular-badge">Paling Populer</div>
-            <div class="price-name">Premium</div>
-            <div class="price-amount">Rp 199.000 <span>/ bulan</span></div>
+            <div class="price-name">Platinum</div>
+            <div class="price-amount">Rp 350.000 <span>/30 hari</span></div>
             <ul class="price-features">
-                <li><i class="fa-solid fa-circle-check"></i> Diskon 20% setiap pemesanan</li>
-                <li><i class="fa-solid fa-circle-check"></i> Gratis pembatalan 3x / bulan</li>
-                <li><i class="fa-solid fa-circle-check"></i> Poin reward 2x lebih banyak</li>
-                <li><i class="fa-solid fa-circle-check"></i> Akses jadwal eksklusif</li>
-                <li><i class="fa-solid fa-circle-check"></i> Merchandise eksklusif</li>
+                <li><i class="fa-solid fa-circle-check"></i> Potongan Rp. 35.000 per booking</li>
+                <li><i class="fa-solid fa-circle-check"></i> Masa aktif 30 hari</li>
             </ul>
-            <a href="register.php?plan=premium" class="btn-price outline">Daftar Anggota</a>
+            <a href="login/login.php?plan=premium" class="btn-price outline">Daftar Anggota</a>
         </div>
     </div>
 </section>
@@ -1425,7 +1412,7 @@ if (file_exists('includes/config.php')) {
         <div class="store-content">
             <h2>Lengkapi Permainanmu<br>dengan <span>Alat Basket Berkualitas</span></h2>
             <p>Temukan bola basket, jersey, sepatu, handuk, dan perlengkapan terbaik untuk latihan maupun pertandingan.</p>
-            <a href="register.php" class="btn-store-cta"><i class="fa-solid fa-bag-shopping"></i> Lihat Alat Basket</a>
+            <a href="login/login.php" class="btn-store-cta"><i class="fa-solid fa-bag-shopping"></i> Lihat Alat Basket</a>
         </div>
         <div class="store-visual">
             <img src="asset/image/alat basket.png" class="store-gear-img" alt="Basketball Gear">

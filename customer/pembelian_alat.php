@@ -488,9 +488,6 @@ function resolvePhotoPath($photo_path) {
                 <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
-            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div style="height:1px; background:#2d2d33; margin:6px 0;"></div>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>

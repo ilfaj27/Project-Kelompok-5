@@ -1869,11 +1869,7 @@ if (!$has_member) {
                 <span class="u-role">Customer <?= $has_member ? '• Member '.htmlspecialchars($member_tipe) : '' ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
-            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div class="dropdown-divider"></div>
-            <a href="#" onclick="confirmHapusAkun(event)" style="color:#ff3b30"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
@@ -2370,18 +2366,6 @@ document.getElementById('btnCopyVA').addEventListener('click',()=>{
         Swal.fire({icon:'success',title:'Berhasil Disalin!',text:'Nomor VA disalin ke papan klip.',confirmButtonColor:'var(--orange)',confirmButtonText:'OK'});
     });
 });
-
-/* ─── HAPUS AKUN ─── */
-function confirmHapusAkun(e){
-    e.preventDefault();
-    Swal.fire({title:'Hapus Akun Permanen?',html:'<strong style="color:#FF3B30">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>Data Anda akan dihapus dari sistem.',icon:'warning',showCancelButton:true,confirmButtonColor:'#FF3B30',cancelButtonColor:'#8E8E93',confirmButtonText:'Ya, Hapus Akun Saya',cancelButtonText:'Batal',reverseButtons:true,allowOutsideClick:false})
-    .then(r=>{
-        if(r.isConfirmed){
-            let ti;
-            Swal.fire({title:'Menghapus Akun...',html:'Mohon tunggu...<b></b>',timer:2000,timerProgressBar:true,allowOutsideClick:false,didOpen:()=>{Swal.showLoading();const b=Swal.getHtmlContainer().querySelector('b');ti=setInterval(()=>{b.textContent=Math.ceil(Swal.getTimerLeft()/1000)+' detik'},100)},willClose:()=>clearInterval(ti)}).then(()=>window.location.href='?hapus_akun=1');
-        }
-    });
-}
 
 /* ─── URL NOTIFICATION ─── */
 const urlParams=new URLSearchParams(window.location.search);
