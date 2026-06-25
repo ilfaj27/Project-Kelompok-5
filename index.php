@@ -35,11 +35,17 @@ if (file_exists('includes/config.php')) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HoopBall - Sewa Lapangan Basket Jadi Lebih Mudah</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href= "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         /* ─── SCROLLBAR HIDDEN ─────────────────────── */
-        html { scroll-behavior: smooth; scrollbar-width: none; -ms-overflow-style: none; }
+        html { 
+            scroll-behavior: smooth; 
+            scrollbar-width: none; 
+            -ms-overflow-style: none; 
+            background-color: #FFFFFF !important;
+        }
+            
         html::-webkit-scrollbar { display: none; }
 
         /* ─── SCROLL-MARGIN ───────────────────────── */
@@ -61,7 +67,7 @@ if (file_exists('includes/config.php')) {
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Barlow', sans-serif; }
 
         body {
-            background: #fff;
+            background-color: #FFFFFF !important;
             color: var(--text-dark);
             overflow-x: hidden;
             line-height: 1.5;
@@ -69,39 +75,25 @@ if (file_exists('includes/config.php')) {
 
         a { text-decoration: none; transition: all 0.3s ease; }
 
-        /* ═══════════════════════════════════════════
-           PAGE-ENTER OVERLAY (plays after intro)
-           ═══════════════════════════════════════════ */
-        #page-enter {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            z-index: 99998;
-            pointer-events: none;
-            animation: pageEnter 0.9s cubic-bezier(0.76,0,0.24,1) 0.05s forwards;
-        }
-        @keyframes pageEnter {
-            0%   { opacity: 1; }
-            100% { opacity: 0; visibility: hidden; }
-        }
-
-        /* Page content starts invisible and rises in */
-        body > *:not(#page-enter) {
-            animation: contentRise 0.8s cubic-bezier(0.22,1,0.36,1) 0.25s both;
-        }
-        @keyframes contentRise {
-            from { opacity: 0; transform: translateY(22px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
+        /* TAMBAHKAN/GANTI KEYFRAMES INI */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
         /* ═══════════════════════════════════════════
            SCROLL REVEAL
            ═══════════════════════════════════════════ */
         .reveal {
             opacity: 0;
-            transform: translateY(36px);
-            transition: opacity 0.65s cubic-bezier(0.22,1,0.36,1),
-                        transform 0.65s cubic-bezier(0.22,1,0.36,1);
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .reveal.visible {
             opacity: 1;
@@ -140,16 +132,17 @@ if (file_exists('includes/config.php')) {
         .navbar {
             position: sticky;
             top: 0;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(12px);
+            background: #FFFFFF;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 4%;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.04);
+            height: 76px;
+            padding: 0 80px;
+            border-bottom: 1px solid #E5E5EA;
+            box-shadow: none;
             z-index: 1000;
-            /* navbar enters from top */
-            animation: navSlide 0.7s cubic-bezier(0.22,1,0.36,1) 0.4s both;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            animation: fadeInDown 0.6s ease-out forwards !important;
         }
         @keyframes navSlide {
             from { opacity: 0; transform: translateY(-24px); }
@@ -157,86 +150,114 @@ if (file_exists('includes/config.php')) {
         }
 
         .logo {
-            font-size: 28px;
-            font-weight: 800;
-            color: var(--dark);
             display: flex;
             align-items: center;
+            text-decoration: none;
             gap: 10px;
+            transition: transform 0.3s ease;
+        }
+        .logo:hover {
+            transform: scale(1.05);
         }
         .logo img {
-            width: 170px; height: 75px;
+            height: 70px;
+            width: auto;
             object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            filter: none;
+            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .logo span { color: var(--orange); }
+        .logo:hover img {
+            transform: rotate(5deg) scale(1.1);
+        }
 
         .nav-menu {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 32px;
+            gap: 8px;
             z-index: 5;
         }
         .nav-menu a {
-            color: var(--text-muted);
-            font-weight: 700;
-            font-size: 16px;
+            color: #636366;
+            text-decoration: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            padding: 8px 0;
-            transition: color 0.3s ease;
+            overflow: hidden;
         }
         .nav-menu a::after {
             content: '';
             position: absolute;
-            bottom: 0; left: 0;
-            width: 100%; height: 2.5px;
+            bottom: 0; 
+            left: 50%;
+            width: 0; 
+            height: 2px;
             background: var(--orange);
-            transform: scaleX(0);
-            transform-origin: right;
-            transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%);
         }
-        .nav-menu a:hover { color: var(--orange); }
-        .nav-menu a:hover::after { transform: scaleX(1); transform-origin: left; }
-        .nav-menu a.active { color: var(--orange) !important; }
-        .nav-menu a.active::after { transform: scaleX(1) !important; }
+        .nav-menu a:hover { 
+            color: #1C1C1E; 
+            transform: translateY(-2px);
+        }
+        .nav-menu a:hover::after { 
+            width: 60%; 
+        }
+        .nav-menu a.active { 
+            color: var(--orange) !important; 
+            font-weight: 600;
+        }
+        .nav-menu a.active::after { 
+            width: 60% !important; 
+        }
 
-        .nav-btns { display: flex; align-items: center; gap: 16px; }
+        .nav-btns { 
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+        }
 
         .btn-login {
-            color: var(--text-dark);
-            font-weight: 700;
+            color: #1C1C1E;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 600;
             font-size: 14px;
             padding: 10px 24px;
-            border-radius: 8px;
-            border: 1.5px solid #475569;
-            background: transparent;
-            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+            border-radius: 50px;
+            border: 1px solid #E5E5EA;
+            background: #F2F2F7;
+            transition: all 0.3s ease;
             cursor: pointer;
         }
         .btn-login:hover {
+            background: #E5E5EA;
             border-color: var(--orange);
-            color: var(--orange);
-            background: rgba(255,69,0,0.05);
-            transform: translateY(-1px);
+            color: #1C1C1E;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 82, 0, 0.15);
         }
         .btn-join {
             background: var(--orange);
             color: #fff;
-            font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 750;
             font-size: 14px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 14px rgba(255,84,0,0.2);
-            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+            padding: 10px 24px;
+            border-radius: 50px;
+            box-shadow: 0 4px 14px rgba(255, 82, 0, 0.15);
+            transition: all 0.3s ease;
             cursor: pointer;
             border: none;
         }
         .btn-join:hover {
             background: var(--orange-dark);
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255,69,0,0.35);
+            box-shadow: 0 6px 20px rgba(255, 69, 0, 0.35);
         }
 
         /* ═══════════════════════════════════════════
@@ -957,6 +978,125 @@ if (file_exists('includes/config.php')) {
             100% { opacity: 0; }
         }
 
+        /* ─── CSS TAMBAHAN UNTUK PROFILE DROPDOWN ─── */
+        .profile-dropdown-container {
+            position: relative;
+            display: inline-block;
+        }
+        .btn-profile-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #F2F2F7;
+            border: 1px solid #E5E5EA;
+            padding: 8px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.3s ease;
+        }
+        .btn-profile-trigger:hover {
+            background: #E5E5EA;
+            border-color: var(--orange);
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 82, 0, 0.15);
+        }
+        .profile-icon-orange {
+            font-size: 20px;
+            color: var(--orange);
+        }
+        .profile-trigger-name {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1C1C1E;
+        }
+        .chevron-icon {
+            font-size: 11px;
+            color: var(--orange);
+            transition: transform 0.3s ease;
+        }
+        .profile-dropdown-container.active .chevron-icon {
+            transform: rotate(180deg);
+        }
+        .profile-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 240px;
+            background: #18191E;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            padding: 16px;
+            display: none;
+            z-index: 1010;
+        }
+        .profile-dropdown-menu.show {
+            display: block;
+        }
+        .profile-dropdown-header {
+            display: flex;
+            flex-direction: column;
+            padding: 4px 10px 8px;
+        }
+        .profile-dropdown-header .user-fullname {
+            font-size: 15px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+        .profile-dropdown-header .user-role {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .profile-dropdown-divider {
+            height: 1px;
+            background: #2D3139;
+            margin: 10px 0;
+        }
+        .profile-dropdown-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .profile-dropdown-list li a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            color: #E2E8F0;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .profile-dropdown-list li a:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #FFFFFF;
+        }
+        .profile-dropdown-list li a i {
+            font-size: 14px;
+            width: 20px;
+            text-align: center;
+            color: #94A3B8;
+        }
+        .profile-dropdown-list li a:hover i {
+            color: var(--orange);
+        }
+        .profile-dropdown-list li a.text-danger {
+            color: #EF4444;
+        }
+        .profile-dropdown-list li a.text-danger i {
+            color: #EF4444;
+        }
+        .profile-dropdown-list li a.text-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
         /* ═══════════════════════════════════════════
            RESPONSIVE
            ═══════════════════════════════════════════ */
@@ -986,25 +1126,60 @@ if (file_exists('includes/config.php')) {
 </head>
 <body>
 
-<!-- Page-enter black wipe (fades away to reveal page) -->
-<div id="page-enter"></div>
-
 <!-- ═══════════════════════════════════════════
      NAVBAR
      ═══════════════════════════════════════════ -->
 <nav class="navbar">
     <a href="#" class="logo"><img src="asset/image/logo2.png" alt="HoopBall"></a>
     <div class="nav-menu">
-        <a href="#beranda">Beranda</a>
-        <a href="#lapangan">Lapangan</a>
-        <a href="#jadwal">Cara Kerja</a>
-        <a href="#member">Langganan</a>
-        <a href="#alat-basket">Alat Basket</a>
+        <a href="customer/booking_customer.php">Booking</a>
+        <a href="customer/pembatalan_customer.php">Pembatalan</a>
+        <a href="customer/langganan_customer.php">Member</a>
+        <a href="customer/pembelian_alat.php">Pembelian</a>
     </div>
     <div class="nav-btns">
+    <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
+        <!-- TAMPILAN JIKA SUDAH LOGIN (DROPDOWN PROFIL) -->
+        <div class="profile-dropdown-container">
+            <button class="btn-profile-trigger" id="profileTrigger">
+                <i class="fa-solid fa-circle-user profile-icon-orange"></i>
+                <span class="profile-trigger-name"><?= htmlspecialchars($_SESSION['Nama_Customer'] ?? 'User') ?></span>
+                <i class="fa-solid fa-chevron-down chevron-icon"></i>
+            </button>
+            
+            <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                <div class="profile-dropdown-header">
+                    <span class="user-fullname"><?= htmlspecialchars($_SESSION['Nama_Customer'] ?? 'User') ?></span>
+                    <span class="user-role">CUSTOMER</span>
+                </div>
+                
+                <div class="profile-dropdown-divider"></div>
+                
+                <ul class="profile-dropdown-list">
+                    <li><a href="user/profil.php"><i class="fa-regular fa-user"></i> Profil Saya</a></li>
+                    <li><a href="user/riwayat.php"><i class="fa-regular fa-calendar-check"></i> Riwayat Booking</a></li>
+                    <li><a href="user/langganan.php"><i class="fa-solid fa-crown"></i> Langganan Member</a></li>
+                    <li><a href="user/pembelian.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a></li>
+                </ul>
+                
+                <div class="profile-dropdown-divider"></div>
+                
+                <ul class="profile-dropdown-list">
+                    <li>
+                        <a href="user/hapus_akun.php" class="text-danger" onclick="return confirm('Apakah Anda yakin ingin menghapus akun?')">
+                            <i class="fa-regular fa-trash-can"></i> Hapus Akun
+                        </a>
+                    </li>
+                    <li><a href="login/logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</a></li>
+                </ul>
+            </div>
+        </div>
+    <?php else: ?>
+        <!-- TAMPILAN JIKA BELUM LOGIN -->
         <a href="login/login.php" class="btn-login">Masuk</a>
         <a href="login/register.php" class="btn-join">Daftar Sekarang</a>
-    </div>
+    <?php endif; ?>
+</div>
 </nav>
 
 <!-- ═══════════════════════════════════════════
@@ -1418,6 +1593,29 @@ function triggerExitAnimation() {
         window.location.href = 'exit_intro.php?to=intro.php';
     }, 4500);
 }
+
+// ── Dropdown Profil Toggle ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const profileTrigger = document.getElementById('profileTrigger');
+    const profileDropdownMenu = document.getElementById('profileDropdownMenu');
+    const dropdownContainer = document.querySelector('.profile-dropdown-container');
+
+    if (profileTrigger && profileDropdownMenu) {
+        profileTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdownMenu.classList.toggle('show');
+            dropdownContainer.classList.toggle('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!dropdownContainer.contains(e.target)) {
+                profileDropdownMenu.classList.remove('show');
+                dropdownContainer.classList.remove('active');
+            }
+        });
+    }
+});
+
 </script>
 </body>
 </html>

@@ -1417,13 +1417,10 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
-        <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="pembelian_alat.php">Pembelian</a>
-        <a href="tentang_customer.php">Tentang</a>
-        <a href="kontak_customer.php">Kontak</a>
     </div>
 
     <div class="nav-user-container">
