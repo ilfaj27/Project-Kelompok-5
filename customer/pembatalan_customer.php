@@ -1197,9 +1197,11 @@ function resolvePhotoPath($photo_path) {
                         <?php 
                         $rawPhoto = $b['Photo_Lapangan'] ?? '';
                         $resolvedPhoto = resolvePhotoPath($rawPhoto);
-                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
                         ?>
-                        <img src="<?= $img ?>" class="card-img" alt="Lapangan" onerror="this.src='https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop'">
+                        <?php if ($img): ?>
+                        <img src="<?= $img ?>" class="card-img" alt="Lapangan">
+                        <?php endif; ?>
                         
                         <?php if ($b['StatusBooking'] == 0): ?>
                             <span class="status-badge status-waiting">Menunggu Konfirmasi</span>
@@ -1257,9 +1259,11 @@ function resolvePhotoPath($photo_path) {
                         <?php 
                         $rawPhoto = $b['Photo_Lapangan'] ?? '';
                         $resolvedPhoto = resolvePhotoPath($rawPhoto);
-                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : 'https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop';
+                        $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
                         ?>
-                        <img src="<?= $img ?>" class="card-img" alt="Lapangan" onerror="this.src='https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=600&auto=format&fit=crop'">
+                        <?php if ($img): ?>
+                            <img src="<?= $img ?>" class="card-img" alt="Lapangan">
+                        <?php endif; ?>
                         
                         <?php if ($b['StatusBooking'] == 2): ?>
                             <span class="status-badge status-completed">Selesai</span>
