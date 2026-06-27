@@ -1,0 +1,432 @@
+-- ============================================================
+-- SP: CRUD BOOKING
+-- ============================================================
+
+-- 8.1 CREATE Booking
+CREATE PROCEDURE SP_Booking_Insert
+    @ID_Customer        INT,
+    @ID_Karyawan        INT,
+    @ID_Jadwal          INT,
+    @ID_Promo           INT = NULL,
+    @Tanggal_Booking    DATE,
+    @Metode_Pembayaran  VARCHAR(20),
+    @Total_Bayar        DECIMAL(18,2),
+    @Created_By         VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Customer WHERE ID_Customer = @ID_Customer AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Customer tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF NOT EXISTS (SELECT 1 FROM Karyawan WHERE ID_Karyawan = @ID_Karyawan AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Karyawan tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF NOT EXISTS (SELECT 1 FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Jadwal tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF @ID_Promo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Promo WHERE ID_Promo = @ID_Promo AND Is_Deleted = 0 AND Status = 1)
+    BEGIN
+        RAISERROR('Promo tidak valid atau tidak aktif!', 16, 1);
+        RETURN;
+    END
+    
+    -- Cek apakah jadwal sudah dibooking (status <> 3 = dibatalkan)
+    IF EXISTS (SELECT 1 FROM Booking WHERE ID_Jadwal = @ID_Jadwal AND Status <> 3)
+    BEGIN
+        RAISERROR('Jadwal sudah dibooking!', 16, 1);
+        RETURN;
+    END
+
+    INSERT INTO Booking 
+    (ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, 
+     Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date)
+    VALUES 
+    (@ID_Customer, @ID_Karyawan, @ID_Jadwal, @ID_Promo, @Tanggal_Booking,
+     @Metode_Pembayaran, @Total_Bayar, 0, @Created_By, GETDATE());
+END
+GO
+
+-- 8.2 READ Booking
+CREATE PROCEDURE SP_Booking_Select
+    @ID_Booking   INT = NULL,
+    @ID_Customer  INT = NULL,
+    @Status       INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT b.ID_Booking, b.ID_Customer, c.Nama_Customer, 
+           b.ID_Karyawan, k.Nama_Karyawan,
+           b.ID_Jadwal, j.Tanggal AS Tanggal_Main, j.Jam_Mulai, j.Jam_Selesai,
+           l.Nama_Lapangan, l.Harga_Sewa,
+           b.ID_Promo, p.Nama_Promo, p.Diskon,
+           b.Tanggal_Booking, b.Metode_Pembayaran, b.Total_Bayar, b.Status,
+           b.Created_By, b.Created_Date, b.Modified_By, b.Modified_Date
+    FROM Booking b
+    JOIN Customer c ON b.ID_Customer = c.ID_Customer
+    JOIN Karyawan k ON b.ID_Karyawan = k.ID_Karyawan
+    JOIN Jadwal j ON b.ID_Jadwal = j.ID_Jadwal
+    JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
+    LEFT JOIN Promo p ON b.ID_Promo = p.ID_Promo
+    WHERE (@ID_Booking IS NULL OR b.ID_Booking = @ID_Booking)
+      AND (@ID_Customer IS NULL OR b.ID_Customer = @ID_Customer)
+      AND (@Status IS NULL OR b.Status = @Status)
+      AND c.Is_Deleted = 0 AND k.Is_Deleted = 0
+    ORDER BY b.Created_Date DESC;
+END
+GO
+
+-- 8.3 UPDATE Booking (Update status, promo, dll)
+CREATE PROCEDURE SP_Booking_Update
+    @ID_Booking         INT,
+    @ID_Promo           INT = NULL,
+    @Metode_Pembayaran  VARCHAR(20) = NULL,
+    @Total_Bayar        DECIMAL(18,2) = NULL,
+    @Status             INT = NULL,
+    @Modified_By        VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Booking WHERE ID_Booking = @ID_Booking)
+    BEGIN
+        RAISERROR('Data Booking tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    IF @ID_Promo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM Promo WHERE ID_Promo = @ID_Promo AND Is_Deleted = 0 AND Status = 1)
+    BEGIN
+        RAISERROR('Promo tidak valid atau tidak aktif!', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Booking
+    SET ID_Promo          = COALESCE(@ID_Promo, ID_Promo),
+        Metode_Pembayaran = COALESCE(@Metode_Pembayaran, Metode_Pembayaran),
+        Total_Bayar       = COALESCE(@Total_Bayar, Total_Bayar),
+        Status            = COALESCE(@Status, Status),
+        Modified_By       = @Modified_By,
+        Modified_Date     = GETDATE()
+    WHERE ID_Booking = @ID_Booking;
+END
+GO
+
+-- 8.4 DELETE Booking (Soft Delete / Batalkan)
+CREATE PROCEDURE SP_Booking_Cancel
+    @ID_Booking  INT,
+    @ID_Karyawan INT,        -- Karyawan yang membatalkan
+    @Alasan      VARCHAR(255),
+    @Modified_By VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Booking WHERE ID_Booking = @ID_Booking AND Status <> 3)
+    BEGIN
+        RAISERROR('Data Booking tidak ditemukan atau sudah dibatalkan!', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @Total DECIMAL(18,2) = (SELECT Total_Bayar FROM Booking WHERE ID_Booking = @ID_Booking);
+    DECLARE @BiayaBatal DECIMAL(18,2) = @Total * 0.5;
+    DECLARE @Refund DECIMAL(18,2) = @Total * 0.5;
+
+    -- Update status booking jadi dibatalkan
+    UPDATE Booking
+    SET Status = 3,
+        Modified_By = @Modified_By,
+        Modified_Date = GETDATE()
+    WHERE ID_Booking = @ID_Booking;
+
+    -- Insert ke tabel pembatalan
+    INSERT INTO Pembatalan_Booking
+    (ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Created_By, Created_Date)
+    VALUES
+    (@ID_Booking, @ID_Karyawan, GETDATE(), @Alasan, @BiayaBatal, @Refund, 'QRIS', 1, @Modified_By, GETDATE());
+END
+GO
+
+
+-- ============================================================
+-- SP: CRUD LANGGANAN (MEMBERSHIP)
+-- ============================================================
+
+-- 9.1 CREATE Langganan
+CREATE PROCEDURE SP_Langganan_Insert
+    @ID_Customer        INT,
+    @ID_Karyawan        INT,
+    @ID_Tipe            INT,
+    @Tanggal_Mulai      DATE,
+    @Tanggal_Selesai    DATE,
+    @Total_Bayar        DECIMAL(18,2),
+    @Metode_Pembayaran  VARCHAR(20),
+    @Created_By         VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Customer WHERE ID_Customer = @ID_Customer AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Customer tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF NOT EXISTS (SELECT 1 FROM Karyawan WHERE ID_Karyawan = @ID_Karyawan AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Karyawan tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF NOT EXISTS (SELECT 1 FROM Tipe_Member WHERE ID_Tipe = @ID_Tipe AND Is_Deleted = 0 AND Status = 1)
+    BEGIN
+        RAISERROR('Tipe Member tidak valid atau tidak aktif!', 16, 1);
+        RETURN;
+    END
+    
+    IF @Tanggal_Mulai > @Tanggal_Selesai
+    BEGIN
+        RAISERROR('Tanggal mulai tidak boleh lebih besar dari tanggal selesai!', 16, 1);
+        RETURN;
+    END
+
+    INSERT INTO Langganan 
+    (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai,
+     Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
+    VALUES 
+    (@ID_Customer, @ID_Karyawan, @ID_Tipe, @Tanggal_Mulai, @Tanggal_Selesai,
+     @Total_Bayar, @Metode_Pembayaran, 0, @Created_By, GETDATE());
+END
+GO
+
+-- 9.2 READ Langganan
+CREATE PROCEDURE SP_Langganan_Select
+    @ID_Langganan INT = NULL,
+    @ID_Customer  INT = NULL,
+    @Status       INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT l.ID_Langganan, l.ID_Customer, c.Nama_Customer,
+           l.ID_Karyawan, k.Nama_Karyawan,
+           l.ID_Tipe, tm.Nama_Tipe, tm.Harga_Member, tm.Potongan_Harga,
+           l.Tanggal_Mulai, l.Tanggal_Selesai,
+           l.Total_Bayar, l.Metode_Pembayaran, l.Status,
+           l.Created_By, l.Created_Date, l.Modified_By, l.Modified_Date
+    FROM Langganan l
+    JOIN Customer c ON l.ID_Customer = c.ID_Customer
+    JOIN Karyawan k ON l.ID_Karyawan = k.ID_Karyawan
+    JOIN Tipe_Member tm ON l.ID_Tipe = tm.ID_Tipe
+    WHERE (@ID_Langganan IS NULL OR l.ID_Langganan = @ID_Langganan)
+      AND (@ID_Customer IS NULL OR l.ID_Customer = @ID_Customer)
+      AND (@Status IS NULL OR l.Status = @Status)
+      AND c.Is_Deleted = 0 AND k.Is_Deleted = 0 AND tm.Is_Deleted = 0
+    ORDER BY l.Created_Date DESC;
+END
+GO
+
+-- 9.3 UPDATE Langganan (Update status)
+CREATE PROCEDURE SP_Langganan_Update
+    @ID_Langganan       INT,
+    @Tanggal_Mulai      DATE = NULL,
+    @Tanggal_Selesai    DATE = NULL,
+    @Total_Bayar        DECIMAL(18,2) = NULL,
+    @Metode_Pembayaran  VARCHAR(20) = NULL,
+    @Status             INT = NULL,
+    @Modified_By        VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Langganan WHERE ID_Langganan = @ID_Langganan)
+    BEGIN
+        RAISERROR('Data Langganan tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    IF @Tanggal_Mulai IS NOT NULL AND @Tanggal_Selesai IS NOT NULL
+       AND @Tanggal_Mulai > @Tanggal_Selesai
+    BEGIN
+        RAISERROR('Tanggal mulai tidak boleh lebih besar dari tanggal selesai!', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Langganan
+    SET Tanggal_Mulai     = COALESCE(@Tanggal_Mulai, Tanggal_Mulai),
+        Tanggal_Selesai   = COALESCE(@Tanggal_Selesai, Tanggal_Selesai),
+        Total_Bayar       = COALESCE(@Total_Bayar, Total_Bayar),
+        Metode_Pembayaran = COALESCE(@Metode_Pembayaran, Metode_Pembayaran),
+        Status            = COALESCE(@Status, Status),
+        Modified_By       = @Modified_By,
+        Modified_Date     = GETDATE()
+    WHERE ID_Langganan = @ID_Langganan;
+END
+GO
+
+
+-- ============================================================
+-- SP: CRUD BELI ALAT
+-- ============================================================
+
+-- 10.1 CREATE Beli Alat (dengan detail)
+CREATE PROCEDURE SP_BeliAlat_Insert
+    @ID_Karyawan        INT,
+    @ID_Customer        INT,
+    @Tanggal_Beli       DATE,
+    @Metode_Pembayaran  VARCHAR(20),
+    @Created_By         VARCHAR(50),
+    -- Detail beli (XML/JSON string untuk multiple items)
+    @DetailItems        NVARCHAR(MAX)  -- Format: [{"id_alat":1,"jumlah":2},...]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Karyawan WHERE ID_Karyawan = @ID_Karyawan AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Karyawan tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+    
+    IF NOT EXISTS (SELECT 1 FROM Customer WHERE ID_Customer = @ID_Customer AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Customer tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    BEGIN TRANSACTION;
+    
+    BEGIN TRY
+        -- Insert header
+        INSERT INTO Beli_Alat 
+        (ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date)
+        VALUES 
+        (@ID_Karyawan, @ID_Customer, @Tanggal_Beli, @Metode_Pembayaran, 0, 0, @Created_By, GETDATE());
+        
+        DECLARE @ID_Beli INT = SCOPE_IDENTITY();
+        DECLARE @TotalBayar DECIMAL(18,2) = 0;
+        
+        -- Parse JSON detail items
+        DECLARE @id_alat INT, @jumlah INT, @harga DECIMAL(18,2), @subtotal DECIMAL(18,2);
+        
+        DECLARE item_cursor CURSOR FOR
+        SELECT JSON_VALUE(j.value, '$.id_alat') AS id_alat,
+               JSON_VALUE(j.value, '$.jumlah') AS jumlah
+        FROM OPENJSON(@DetailItems) AS j;
+        
+        OPEN item_cursor;
+        FETCH NEXT FROM item_cursor INTO @id_alat, @jumlah;
+        
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @harga = (SELECT Harga_Alat FROM Alat WHERE ID_Alat = @id_alat AND Is_Deleted = 0);
+            
+            IF @harga IS NULL
+            BEGIN
+                RAISERROR('Alat tidak ditemukan!', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            
+            IF @jumlah <= 0
+            BEGIN
+                RAISERROR('Jumlah harus lebih dari 0!', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+            
+            SET @subtotal = @harga * @jumlah;
+            SET @TotalBayar = @TotalBayar + @subtotal;
+            
+            INSERT INTO Detail_Beli_Alat (ID_Alat, ID_Beli, Jumlah, SubTotal)
+            VALUES (@id_alat, @ID_Beli, @jumlah, @subtotal);
+            
+            FETCH NEXT FROM item_cursor INTO @id_alat, @jumlah;
+        END
+        
+        CLOSE item_cursor;
+        DEALLOCATE item_cursor;
+        
+        -- Update total bayar
+        UPDATE Beli_Alat
+        SET Total_Bayar = @TotalBayar
+        WHERE ID_Beli = @ID_Beli;
+        
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- 10.2 READ Beli Alat
+CREATE PROCEDURE SP_BeliAlat_Select
+    @ID_Beli     INT = NULL,
+    @ID_Customer INT = NULL,
+    @Status      INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT ba.ID_Beli, ba.ID_Customer, c.Nama_Customer,
+           ba.ID_Karyawan, k.Nama_Karyawan,
+           ba.Tanggal_Beli, ba.Metode_Pembayaran, ba.Total_Bayar, ba.Status,
+           ba.Created_By, ba.Created_Date, ba.Modified_By, ba.Modified_Date
+    FROM Beli_Alat ba
+    JOIN Customer c ON ba.ID_Customer = c.ID_Customer
+    JOIN Karyawan k ON ba.ID_Karyawan = k.ID_Karyawan
+    WHERE (@ID_Beli IS NULL OR ba.ID_Beli = @ID_Beli)
+      AND (@ID_Customer IS NULL OR ba.ID_Customer = @ID_Customer)
+      AND (@Status IS NULL OR ba.Status = @Status)
+      AND c.Is_Deleted = 0 AND k.Is_Deleted = 0
+    ORDER BY ba.Created_Date DESC;
+END
+GO
+
+-- 10.3 READ Detail Beli Alat
+CREATE PROCEDURE SP_BeliAlat_Detail_Select
+    @ID_Beli INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT d.ID_Alat, a.Nama_Alat, a.Harga_Alat, d.Jumlah, d.SubTotal
+    FROM Detail_Beli_Alat d
+    JOIN Alat a ON d.ID_Alat = a.ID_Alat
+    WHERE d.ID_Beli = @ID_Beli;
+END
+GO
+
+-- 10.4 UPDATE Beli Alat (Update status pembayaran)
+CREATE PROCEDURE SP_BeliAlat_UpdateStatus
+    @ID_Beli     INT,
+    @Status      INT,
+    @Modified_By VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Beli_Alat WHERE ID_Beli = @ID_Beli)
+    BEGIN
+        RAISERROR('Data Beli Alat tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Beli_Alat
+    SET Status        = @Status,
+        Modified_By   = @Modified_By,
+        Modified_Date = GETDATE()
+    WHERE ID_Beli = @ID_Beli;
+END
+GO
