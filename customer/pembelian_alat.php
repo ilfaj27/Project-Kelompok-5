@@ -763,8 +763,8 @@ function addToCart(idAlat, namaAlat, harga, maxStok) {
 
     Swal.fire({
         icon: 'success', title: 'Ditambahkan!', text: namaAlat + ' (' + qty + 'x)',
-        timer: 1500, showConfirmButton: false, toast: true, position: 'top-end',
-        background: '#ffffff', color: '#1c1c1e', iconColor: '#34C759', customClass: { popup: 'swal-toast' }
+        confirmButtonColor: '#FF5200', confirmButtonText: 'OK',
+        allowOutsideClick: false, allowEscapeKey: false
     });
 }
 
