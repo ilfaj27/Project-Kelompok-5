@@ -42,8 +42,8 @@ if (!empty($profile_photo)) {
 
 // ============================================================================
 // STATUS PEMBELIAN
-// 0 = Menunggu Konfirmasi (Customer sudah bayar, tunggu karyawan cek)
-// 1 = Berhasil (Sudah Dikonfirmasi Karyawan)
+// 0 = Menunggu Konfirmasi
+// 1 = Berhasil
 // ============================================================================
 $status_labels = [
     0 => ['label' => 'Menunggu', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
@@ -51,18 +51,16 @@ $status_labels = [
 ];
 
 // ============================================================================
-// PROSES KONFIRMASI PEMBAYARAN (KARYAWAN)
+// PROSES KONFIRMASI PEMBAYARAN
 // ============================================================================
 if (isset($_POST['konfirmasi_bayar'])) {
     $id_beli = $_POST['id_beli'];
-
     $stmt = sqlsrv_query($conn, 
         "UPDATE Beli_Alat SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 0",
         array($nama, $id_beli)
     );
-
     if ($stmt) {
-        header("Location: pembelian.php?status=success&msg=Pembayaran pembelian alat berhasil dikonfirmasi. Status: Berhasil.");
+        header("Location: pembelian.php?status=success&msg=Pembayaran pembelian alat berhasil dikonfirmasi.");
         exit();
     } else {
         header("Location: pembelian.php?status=error&msg=Gagal mengkonfirmasi pembayaran pembelian alat.");
@@ -77,15 +75,10 @@ if (isset($_POST['batal_pembelian'])) {
     $id_beli = $_POST['id_beli'];
     $alasan = $_POST['alasan_batal'];
 
-    // Ambil data pembelian dan detailnya untuk restore stok
     $q_beli = sqlsrv_query($conn, 
-        "SELECT BA.*, DBA.ID_Alat, DBA.Jumlah 
-         FROM Beli_Alat BA 
-         INNER JOIN Detail_Beli_Alat DBA ON BA.ID_Beli = DBA.ID_Beli 
-         WHERE BA.ID_Beli = ?",
+        "SELECT BA.*, DBA.ID_Alat, DBA.Jumlah FROM Beli_Alat BA INNER JOIN Detail_Beli_Alat DBA ON BA.ID_Beli = DBA.ID_Beli WHERE BA.ID_Beli = ?",
         array($id_beli)
     );
-
     $details = [];
     $beli_data = null;
     while ($row = sqlsrv_fetch_array($q_beli, SQLSRV_FETCH_ASSOC)) {
@@ -94,22 +87,16 @@ if (isset($_POST['batal_pembelian'])) {
     }
 
     if ($beli_data) {
-        // Update status jadi dibatalkan (0 = batal, atau hapus record)
-        // Karena tabel Beli_Alat cuma punya status 0/1, kita set 0 dan tambah keterangan
-        // Atau lebih baik: restore stok dan set status = 0 dengan Modified_By
         sqlsrv_query($conn, 
             "UPDATE Beli_Alat SET Status = 0, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ?",
             array($nama . ' (BATAL: ' . $alasan . ')', $id_beli)
         );
-
-        // Restore stok
         foreach ($details as $d) {
             sqlsrv_query($conn, 
                 "UPDATE Alat SET Stok = Stok + ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?",
                 array($d['jumlah'], $nama, $d['id_alat'])
             );
         }
-
         header("Location: pembelian.php?status=success&msg=Pembelian alat dibatalkan. Stok telah dikembalikan.");
         exit();
     } else {
@@ -141,6 +128,25 @@ if (!empty($filter_tanggal)) {
     $params[] = $filter_tanggal;
 }
 
+// --- HITUNG TOTAL DATA UNTUK PAGING ---
+$count_sql = "SELECT COUNT(*) as total FROM Beli_Alat BA
+              INNER JOIN Customer C ON BA.ID_Customer = C.ID_Customer
+              LEFT JOIN Karyawan K ON BA.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_count = sqlsrv_query($conn, $count_sql, $params);
+$total_data = 0;
+if ($q_count) {
+    $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
+    $total_data = $row_count['total'] ?? 0;
+}
+
+// --- PAGING ---
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$total_pages = max(1, ceil($total_data / $limit));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $limit;
+
 $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan, 
                        BA.Tanggal_Beli, BA.Metode_Pembayaran, BA.Total_Bayar, BA.Status,
                        BA.Created_Date, BA.Modified_Date,
@@ -150,10 +156,13 @@ $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan,
                 INNER JOIN Customer C ON BA.ID_Customer = C.ID_Customer
                 LEFT JOIN Karyawan K ON BA.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY BA.Created_Date DESC";
+                ORDER BY BA.Created_Date DESC
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+$params_with_paging = array_merge($params, [$offset, $limit]);
 
 $pembelians = [];
-$q_pembelian = sqlsrv_query($conn, $sql_pembelian, $params);
+$q_pembelian = sqlsrv_query($conn, $sql_pembelian, $params_with_paging);
 if ($q_pembelian) {
     while ($row = sqlsrv_fetch_array($q_pembelian, SQLSRV_FETCH_ASSOC)) {
         $id_beli = $row['ID_Beli'];
@@ -176,21 +185,27 @@ if ($q_pembelian) {
 }
 
 // ============================================================================
-// HITUNG STATISTIK
+// HITUNG STATISTIK (dari semua data, tanpa paging)
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'berhasil' => 0,
     'total_omzet' => 0, 'total_item' => 0
 ];
 
-foreach ($pembelians as $p) {
-    $stats['total']++;
-    if ($p['Status'] == 0) $stats['menunggu']++;
-    if ($p['Status'] == 1) {
-        $stats['berhasil']++;
-        $stats['total_omzet'] += (float)$p['Total_Bayar'];
+$stats_sql = "SELECT BA.Status, BA.Total_Bayar FROM Beli_Alat BA
+              INNER JOIN Customer C ON BA.ID_Customer = C.ID_Customer
+              LEFT JOIN Karyawan K ON BA.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_stats = sqlsrv_query($conn, $stats_sql, $params);
+if ($q_stats) {
+    while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
+        $stats['total']++;
+        if ($row['Status'] == 0) $stats['menunggu']++;
+        if ($row['Status'] == 1) {
+            $stats['berhasil']++;
+            $stats['total_omzet'] += (float)$row['Total_Bayar'];
+        }
     }
-    $stats['total_item'] += count($p['details']);
 }
 
 function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
@@ -201,8 +216,17 @@ function formatTanggal($tanggal) {
     }
     return date('d M Y', strtotime($tanggal));
 }
-?>
 
+// Build URL params untuk paging
+function buildPageUrl($page_num) {
+    $parts = [];
+    if (isset($_GET['filter_status']) && $_GET['filter_status'] !== '') $parts[] = 'filter_status=' . urlencode($_GET['filter_status']);
+    if (isset($_GET['filter_customer']) && $_GET['filter_customer'] !== '') $parts[] = 'filter_customer=' . urlencode($_GET['filter_customer']);
+    if (isset($_GET['filter_tanggal']) && $_GET['filter_tanggal'] !== '') $parts[] = 'filter_tanggal=' . urlencode($_GET['filter_tanggal']);
+    $parts[] = 'page=' . $page_num;
+    return 'pembelian.php?' . implode('&', $parts);
+}
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -217,13 +241,11 @@ function formatTanggal($tanggal) {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
     --green: #10B981; --green-lt: rgba(16,185,129,.10); --green-dk: #059669;
     --blue: #3B82F6; --blue-lt: rgba(59,130,246,.10);
-    --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
     --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
     --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
     --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
-    --shopee-orange: #EE4D2D;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -241,9 +263,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; transition: color 0.3s ease; }
 .sb-brand-sub { font-size: 9px; color: #4B5563; font-weight: 700; text-transform: uppercase; transition: color 0.3s ease; }
 .sb-brand:hover .sb-brand-sub { color: var(--orange); }
+
 .sb-section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #374151; letter-spacing: .8px; padding: 0 10px; margin: 22px 0 8px; position: relative; }
 .sb-section-label::after { content: ''; position: absolute; bottom: -4px; left: 10px; width: 20px; height: 2px; background: var(--orange); border-radius: 1px; transition: width 0.3s ease; }
 .sb-section-label:hover::after { width: 40px; }
+
 .sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all 0.35s cubic-bezier(0.16,1,0.3,1); position: relative; overflow: hidden; }
 .sb-link::before { content: ''; position: absolute; left: 0; top: 0; width: 0; height: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.15), rgba(255,69,0,0.05)); border-radius: 10px; transition: width 0.35s cubic-bezier(0.16,1,0.3,1); z-index: 0; }
 .sb-link:hover::before { width: 100%; }
@@ -254,6 +278,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
 .sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); transition: all 0.3s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
 .sb-user:hover { background: rgba(255,255,255,.08); border-color: rgba(255,69,0,.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
@@ -272,11 +297,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
@@ -297,6 +320,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link:nth-of-type(12) { animation-delay: 0.85s; }
 .sb-section-label:nth-of-type(3) { animation-delay: 0.9s; }
 .sb-link:nth-of-type(13) { animation-delay: 0.95s; }
+.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.95s forwards; opacity: 0; }
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -349,10 +373,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .filter-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: .2s; text-decoration: none; }
 .btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
-.btn-success { background: var(--green); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .2s; }
-.btn-success:hover { background: var(--green-dk); }
-.btn-danger { background: var(--red); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .2s; }
-.btn-danger:hover { background: var(--red-dk); }
 
 /* ---- TABLE ---- */
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
@@ -368,17 +388,28 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:last-child td { border-bottom: none; }
 .cell-name { font-weight: 700; color: var(--text); }
 .cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.cell-price { font-weight: 800; color: var(--shopee-orange); white-space: nowrap; }
+.cell-price { font-weight: 800; color: var(--orange); white-space: nowrap; }
 .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
-.sp-inactive { background: var(--red-lt); color: var(--red); }
 .action-btns { display: flex; gap: 6px; flex-wrap: nowrap; }
 .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; transition: .2s; }
 .btn-icon:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
 .btn-icon.view:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
 .btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
 .btn-icon.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
+
+/* ---- PAGINATION ---- */
+.pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pagination-info strong { color: var(--text); font-weight: 800; }
+.pagination-nav { display: flex; align-items: center; gap: 4px; }
+.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .2s ease; border: 1.5px solid var(--border); color: var(--text-md); background: #fff; }
+.page-btn:hover:not(.disabled):not(.active) { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); transform: translateY(-1px); }
+.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
+.page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
 
 /* ---- MODAL DETAIL ---- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
@@ -397,17 +428,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-item { padding: 12px; background: var(--bg); border-radius: 10px; }
 .detail-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
 .detail-value { font-size: 14px; font-weight: 700; color: var(--text); }
-.detail-value.price { color: var(--shopee-orange); font-size: 16px; }
+.detail-value.price { color: var(--orange); font-size: 16px; }
 .detail-full { grid-column: span 2; }
-
 .alat-detail-list { margin-top: 8px; }
 .alat-detail-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
 .alat-detail-item:last-child { border-bottom: none; }
 .alat-detail-name { font-weight: 700; color: var(--text); }
 .alat-detail-qty { font-size: 12px; color: var(--muted); }
-.alat-detail-price { font-weight: 800; color: var(--shopee-orange); }
-
-.swal-toast { border-radius: 12px !important; font-family: 'Barlow', sans-serif !important; }
+.alat-detail-price { font-weight: 800; color: var(--orange); }
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -418,6 +446,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .filter-group { width: 100%; }
     .detail-grid { grid-template-columns: 1fr; }
     .detail-full { grid-column: span 1; }
+    .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
@@ -582,25 +611,25 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="card">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-list"></i> Daftar Pembelian Alat</div>
-            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= count($pembelians) ?> data ditemukan</span>
+            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= $total_data ?> data ditemukan</span>
         </div>
         <div class="card-body" style="overflow-x: auto;">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th style="width: 50px; text-align: center;">No.</th>
-                        <th style="width: 150px;">Customer</th>
-                        <th style="width: 100px;">Tanggal Beli</th>
-                        <th style="width: 260px;">Detail Alat</th>
-                        <th style="width: 90px;">Metode Bayar</th>
-                        <th style="width: 140px;">Total Bayar</th>
-                        <th style="width: 120px;">Status</th>
-                        <th style="width: 130px;">Aksi</th>
+                        <th>Customer</th>
+                        <th>Tanggal Beli</th>
+                        <th>Detail Alat</th>
+                        <th>Metode Bayar</th>
+                        <th>Total Bayar</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($pembelians) > 0): ?>
-                        <?php $no = 1; foreach ($pembelians as $p): 
+                        <?php $no = $offset + 1; foreach ($pembelians as $p): 
                             $status = $status_labels[$p['Status']] ?? $status_labels[0];
                         ?>
                         <tr>
@@ -645,6 +674,41 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
             </table>
         </div>
     </div>
+
+    <!-- PAGINATION -->
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+        <div class="pagination-nav">
+            <a href="<?= buildPageUrl(1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
+            <a href="<?= buildPageUrl($page - 1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
+            <?php 
+            $start_page = max(1, $page - 2); 
+            $end_page = min($total_pages, $page + 2); 
+            if ($end_page - $start_page < 4 && $total_pages >= 5) { 
+                if ($start_page == 1) { $end_page = min(5, $total_pages); } else { $start_page = max(1, $total_pages - 4); } 
+            } 
+            if ($start_page > 1): 
+            ?>
+                <a href="<?= buildPageUrl(1) ?>" class="page-btn">1</a>
+                <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
+            <?php endif; ?>
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                <a href="<?= buildPageUrl($i) ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
+            <?php endfor; ?>
+            <?php if ($end_page < $total_pages): ?>
+                <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn"><?= $total_pages ?></a>
+            <?php endif; ?>
+            <a href="<?= buildPageUrl($page + 1) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
+            <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
+        </div>
+    </div>
+    <?php else: ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+    </div>
+    <?php endif; ?>
 </div>
 </main>
 
@@ -686,10 +750,7 @@ function closeModal(id) {
 }
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.remove('active');
-            document.body.style.overflow = '';
-        }
+        if (e.target === this) { this.classList.remove('active'); document.body.style.overflow = ''; }
     });
 });
 
@@ -781,6 +842,9 @@ function confirmBatal(id) {
     });
 }
 
+// ============================================
+// NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
+// ============================================
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
@@ -791,20 +855,27 @@ if (status && msg) {
         icon: isSuccess ? 'success' : 'error',
         title: isSuccess ? 'Berhasil!' : 'Gagal!',
         text: msg,
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        showCloseButton: true,
-        background: '#ffffff',
-        color: '#1c1c1e',
-        iconColor: isSuccess ? '#10B981' : '#EF4444',
-        customClass: { popup: 'swal-toast' }
+        showConfirmButton: true,
+        confirmButtonText: 'OK',
+        confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+        allowOutsideClick: false,
+        allowEscapeKey: false
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
-</script>
 
+document.addEventListener('DOMContentLoaded', function () {
+    const userDropdown = document.querySelector('.dropdown-wrap');
+    if (userDropdown) {
+        userDropdown.addEventListener('click', function (e) {
+            e.stopPropagation();
+            this.classList.toggle('active');
+        });
+    }
+    document.addEventListener('click', function () {
+        if (userDropdown) userDropdown.classList.remove('active');
+    });
+});
+</script>
 </body>
 </html>

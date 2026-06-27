@@ -1417,13 +1417,10 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
-        <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="pembelian_alat.php">Pembelian</a>
-        <a href="tentang_customer.php">Tentang</a>
-        <a href="kontak_customer.php">Kontak</a>
     </div>
 
     <div class="nav-user-container">
@@ -1445,10 +1442,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
                 <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
             <div class="dropdown-divider"></div>
-            <a href="#" onclick="confirmHapusAkun(event)" style="color:#ff3b30"><i class="fa-solid fa-trash-can"></i> Hapus Akun</a>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
@@ -2060,48 +2054,6 @@ window.addEventListener('click', function(e) {
     if (e.target === cModal) tutupCheckoutModal();
     if (e.target === pModal) tutupInstructionModal();
 });
-
-/* ─── HARD DELETE AKUN ─── */
-function confirmHapusAkun(e) {
-    e.preventDefault();
-    Swal.fire({
-        title: 'Hapus Akun Permanen?',
-        html: '<strong style="color:#FF3B30;">PERINGATAN:</strong> Tindakan ini tidak dapat dibatalkan!<br><br>Akun Anda akan dihapus dari sistem dan Anda harus mendaftar ulang untuk menggunakan layanan kami.<br><br><span style="color:#8E8E93; font-size:12px;">Data akan dihapus secara permanen.</span>',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#FF3B30',
-        cancelButtonColor: '#8E8E93',
-        confirmButtonText: 'Ya, Hapus Akun Saya!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false
-    }).then((result) => {
-        if (result.isConfirmed) {
-            let timerInterval;
-            Swal.fire({
-                title: 'Menghapus Akun...',
-                html: 'Mohon tunggu, akun Anda sedang diproses.<br><b></b>',
-                timer: 2000,
-                timerProgressBar: true,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    const timer = Swal.getHtmlContainer().querySelector('b');
-                    timerInterval = setInterval(() => {
-                        timer.textContent = Math.ceil(Swal.getTimerLeft() / 1000) + ' detik';
-                    }, 100);
-                },
-                willClose: () => {
-                    clearInterval(timerInterval);
-                }
-            }).then(() => {
-                window.location.href = '?hapus_akun=1';
-            });
-        }
-    });
-}
 
 /* ─── URL PARAMETER NOTIFICATION ─── */
 const urlParams = new URLSearchParams(window.location.search);

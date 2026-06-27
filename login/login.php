@@ -91,30 +91,32 @@ if (isset($_POST['login'])) {
             $row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
 
             if ($row2) {
-                if ($pass_input == $row2['Kata_Sandi']) {
-                    $_SESSION['login']   = true;
-                    $_SESSION['id_akun'] = $row2['ID_Customer'];
-                    $_SESSION['role']    = 'customer';
-                    $_SESSION['nama']    = $row2['Nama_Customer'] ?? 'Customer';
-                    $_SESSION['jabatan'] = 'Customer';
+                    if ($pass_input == $row2['Kata_Sandi']) {
+                        // 1. SESUAIKAN DENGAN VARIABEL SESSION YANG DIGUNAKAN DI INDEX.PHP
+                        $_SESSION['logged_in']     = true; 
+                        $_SESSION['id_customer']   = $row2['ID_Customer'];
+                        $_SESSION['role']          = 'customer';
+                        $_SESSION['Nama_Customer'] = $row2['Nama_Customer'] ?? 'Customer'; 
+                        $_SESSION['jabatan']       = 'Customer';
 
-                    if (isset($_POST['remember'])) {
-                        setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                        if (isset($_POST['remember'])) {
+                            setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                        } else {
+                            setcookie('remember_me', '', time() - 3600, "/");
+                        }
+
+                        // 2. UBAH REDIRECT KE INDEX.PHP AGAR MENU PROFIL LANGSUNG AKTIF
+                        header("Location: ../index.php");
+                        exit();
                     } else {
-                        setcookie('remember_me', '', time() - 3600, "/");
+                        $error_msg = "Akun tidak ditemukan";
                     }
-
-                    header("Location: ../customer/view_customer.php");
-                    exit();
                 } else {
                     $error_msg = "Akun tidak ditemukan";
                 }
-            } else {
-                $error_msg = "Akun tidak ditemukan";
-            }
-        }
-    }
-}
+            } // Penutup else cek customer
+        } // Penutup else validasi input kosong
+    } // Penutup if isset POST login
 ?>
 <!DOCTYPE html>
 <html lang="id">

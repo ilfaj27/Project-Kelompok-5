@@ -26,7 +26,6 @@ if (!empty($id_karyawan)) {
     }
 }
 
-// Sesuaikan path folder transaksi/
 $sidebar_photo = '';
 if (!empty($profile_photo)) {
     if (strpos($profile_photo, '../') === 0) {
@@ -42,9 +41,9 @@ if (!empty($profile_photo)) {
 }
 
 // ============================================================================
-// STATUS REFUND PEMBATALAN (Pembatalan_Booking.Status)
-// 0 = Menunggu Transfer Refund (Pending)
-// 1 = Refund Selesai Ditransfer (Berhasil)
+// STATUS REFUND PEMBATALAN
+// 0 = Menunggu Transfer Refund
+// 1 = Refund Selesai Ditransfer
 // ============================================================================
 $status_labels = [
     0 => ['label' => 'Menunggu', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
@@ -56,12 +55,10 @@ $status_labels = [
 // ============================================================================
 if (isset($_POST['konfirmasi_refund'])) {
     $id_pembatalan = intval($_POST['id_pembatalan']);
-
-    $stmt = sqlsrv_query($conn, 
+    $stmt = sqlsrv_query($conn,
         "UPDATE Pembatalan_Booking SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Pembatalan = ? AND Status = 0",
         array($nama, $id_pembatalan)
     );
-
     if ($stmt) {
         header("Location: pembatalan.php?status=success&msg=Pembayaran refund berhasil dikonfirmasi.");
         exit();
@@ -72,7 +69,7 @@ if (isset($_POST['konfirmasi_refund'])) {
 }
 
 // ============================================================================
-// PROSES UPDATE/EDIT DATA PEMBATALAN (KARYAWAN)
+// PROSES UPDATE/EDIT DATA PEMBATALAN
 // ============================================================================
 if (isset($_POST['update_pembatalan'])) {
     $id_pembatalan = intval($_POST['id_pembatalan']);
@@ -81,11 +78,8 @@ if (isset($_POST['update_pembatalan'])) {
     $nominal_refund = floatval($_POST['nominal_refund']);
     $metode_refund = htmlspecialchars($_POST['metode_refund']);
 
-    // Query update hanya diizinkan jika status masih 0 (Menunggu)
-    $stmt = sqlsrv_query($conn, 
-        "UPDATE Pembatalan_Booking 
-         SET Alasan = ?, Biaya_Batal = ?, Nominal_Refund = ?, Metode_Refund = ?, Modified_By = ?, Modified_Date = GETDATE() 
-         WHERE ID_Pembatalan = ? AND Status = 0",
+    $stmt = sqlsrv_query($conn,
+        "UPDATE Pembatalan_Booking SET Alasan = ?, Biaya_Batal = ?, Nominal_Refund = ?, Metode_Refund = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Pembatalan = ? AND Status = 0",
         array($alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama, $id_pembatalan)
     );
 
@@ -99,7 +93,7 @@ if (isset($_POST['update_pembatalan'])) {
 }
 
 // ============================================================================
-// AMBIL DATA PEMBATALAN BOOKING DENGAN FILTER
+// AMBIL DATA PEMBATALAN DENGAN FILTER
 // ============================================================================
 $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
@@ -110,7 +104,7 @@ $params = [];
 
 if ($filter_status !== '' && $filter_status !== 'all') {
     $sql_where .= " AND P.Status = ?";
-    $params[] = (int)$filter_status;
+    $params[] = (int) $filter_status;
 }
 if (!empty($filter_customer)) {
     $sql_where .= " AND C.Nama_Customer LIKE ?";
@@ -120,6 +114,28 @@ if (!empty($filter_tanggal)) {
     $sql_where .= " AND CAST(P.Tanggal_Batal AS DATE) = ?";
     $params[] = $filter_tanggal;
 }
+
+// --- HITUNG TOTAL DATA UNTUK PAGING ---
+$count_sql = "SELECT COUNT(*) as total FROM Pembatalan_Booking P
+              INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_count = sqlsrv_query($conn, $count_sql, $params);
+$total_data = 0;
+if ($q_count) {
+    $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
+    $total_data = $row_count['total'] ?? 0;
+}
+
+// --- PAGING ---
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$total_pages = max(1, ceil($total_data / $limit));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $limit;
 
 $sql_pembatalan = "SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alasan, 
                           P.Biaya_Batal, P.Nominal_Refund, P.Metode_Refund, P.Status AS StatusRefund,
@@ -136,10 +152,13 @@ $sql_pembatalan = "SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alas
                    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
                    LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
                    $sql_where
-                   ORDER BY P.Created_Date DESC";
+                   ORDER BY P.Created_Date DESC
+                   OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+$params_with_paging = array_merge($params, [$offset, $limit]);
 
 $pembatalan_list = [];
-$q_pembatalan = sqlsrv_query($conn, $sql_pembatalan, $params);
+$q_pembatalan = sqlsrv_query($conn, $sql_pembatalan, $params_with_paging);
 if ($q_pembatalan === false) {
     die("<pre>" . print_r(sqlsrv_errors(), true) . "</pre>");
 } else {
@@ -149,22 +168,32 @@ if ($q_pembatalan === false) {
 }
 
 // ============================================================================
-// HITUNG STATISTIK PEMBATALAN
+// HITUNG STATISTIK (dari semua data, tanpa paging)
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'selesai' => 0,
     'total_denda' => 0, 'total_refund' => 0
 ];
 
-foreach ($pembatalan_list as $p) {
-    $stats['total']++;
-    if ($p['StatusRefund'] == 0) {
-        $stats['menunggu']++;
-    } elseif ($p['StatusRefund'] == 1) {
-        $stats['selesai']++;
-        $stats['total_refund'] += (float)$p['Nominal_Refund'];
+$stats_sql = "SELECT P.Status, P.Biaya_Batal, P.Nominal_Refund FROM Pembatalan_Booking P
+              INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_stats = sqlsrv_query($conn, $stats_sql, $params);
+if ($q_stats) {
+    while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
+        $stats['total']++;
+        if ($row['Status'] == 0) {
+            $stats['menunggu']++;
+        } elseif ($row['Status'] == 1) {
+            $stats['selesai']++;
+            $stats['total_refund'] += (float) $row['Nominal_Refund'];
+        }
+        $stats['total_denda'] += (float) $row['Biaya_Batal'];
     }
-    $stats['total_denda'] += (float)$p['Biaya_Batal'];
 }
 
 function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
@@ -181,6 +210,16 @@ function formatJam($jam) {
         return $jam->format('H:i');
     }
     return substr($jam, 0, 5);
+}
+
+// Build URL params untuk paging
+function buildPageUrl($page_num) {
+    $parts = [];
+    if (isset($_GET['filter_status']) && $_GET['filter_status'] !== '') $parts[] = 'filter_status=' . urlencode($_GET['filter_status']);
+    if (isset($_GET['filter_customer']) && $_GET['filter_customer'] !== '') $parts[] = 'filter_customer=' . urlencode($_GET['filter_customer']);
+    if (isset($_GET['filter_tanggal']) && $_GET['filter_tanggal'] !== '') $parts[] = 'filter_tanggal=' . urlencode($_GET['filter_tanggal']);
+    $parts[] = 'page=' . $page_num;
+    return 'pembatalan.php?' . implode('&', $parts);
 }
 ?>
 <!DOCTYPE html>
@@ -200,6 +239,7 @@ function formatJam($jam) {
     --purple: #8B5CF6; --purple-lt: rgba(139,92,246,.10);
     --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
     --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
+    --gray: #6B7280; --gray-lt: rgba(107,114,128,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
     --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6;
@@ -234,8 +274,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active { color: #fff; background: var(--orange-lt); }
 .sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
-
-/* Active indicator pill */
 .sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
@@ -256,11 +294,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
@@ -281,12 +317,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link:nth-of-type(12) { animation-delay: 0.85s; }
 .sb-section-label:nth-of-type(3) { animation-delay: 0.9s; }
 .sb-link:nth-of-type(13) { animation-delay: 0.95s; }
-/* Fix for Profil Saya inside last nav */
-.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) {
-    animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.95s forwards;
-    opacity: 0;
-}
-
+.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.95s forwards; opacity: 0; }
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -331,7 +362,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .si-green { background: var(--green-lt); color: var(--green); }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
 .si-red { background: var(--red-lt); color: var(--red); }
-.stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
+.stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 
 /* ---- FILTER BAR ---- */
@@ -341,6 +372,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .filter-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: .2s; text-decoration: none; }
 .btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
+.btn-orange { background: var(--orange); color: #fff; border: 1px solid var(--orange); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: .2s; text-decoration: none; }
+.btn-orange:hover { background: var(--orange-dk); border-color: var(--orange-dk); }
 
 /* ---- TABLE ---- */
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
@@ -355,7 +388,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:hover { background: #FAFAFA; }
 .cell-name { font-weight: 700; color: var(--text); }
 .cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.cell-price { font-weight: 800; color: var(--orange); }
 .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-success { background: var(--green-lt); color: var(--green); }
@@ -365,7 +397,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-icon.view:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
 .btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
 
-/* ---- MODAL DETAIL ---- */
+/* ---- PAGINATION ---- */
+.pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pagination-info strong { color: var(--text); font-weight: 800; }
+.pagination-nav { display: flex; align-items: center; gap: 4px; }
+.page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 700; font-family: 'Barlow', sans-serif; text-decoration: none; cursor: pointer; transition: all .2s ease; border: 1.5px solid var(--border); color: var(--text-md); background: #fff; }
+.page-btn:hover:not(.disabled):not(.active) { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); transform: translateY(-1px); }
+.page-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 12px rgba(255,69,0,.3); font-weight: 800; }
+.page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.page-btn i { font-size: 11px; }
+.page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
+
+/* ---- MODAL ---- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
 .modal { background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .3s ease-out; }
@@ -386,8 +430,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .detail-value.refund { color: var(--green); font-size: 16px; }
 .detail-full { grid-column: span 2; }
 
-.swal-toast { border-radius: 12px !important; font-family: 'Barlow', sans-serif !important; }
-
 @media(max-width: 1200px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -398,6 +440,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .filter-group { width: 100%; }
     .detail-grid { grid-template-columns: 1fr; }
     .detail-full { grid-column: span 1; }
+    .pagination-wrap { flex-direction: column; gap: 12px; }
 }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
@@ -460,9 +503,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="sb-section-label">Akun</div>
     <nav>
         <a href="../profile/profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
-    </a>
-        </nav>
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
+        </a>
+    </nav>
 
     <div class="sb-bottom">
         <div class="sb-user">
@@ -509,129 +552,46 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     </div>
 </header>
 
-<div class="content">
-    <!-- STAT CARDS -->
-    <div class="stat-grid">
-        <div class="stat-card sc-orange">
-            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-ban"></i></div></div>
-            <div class="stat-value"><?= $stats['total'] ?></div><div class="stat-label">Total Pembatalan</div>
-        </div>
-        <div class="stat-card sc-yellow">
-            <div class="stat-header"><div class="stat-icon-wrap si-yellow"><i class="fa-solid fa-clock"></i></div></div>
-            <div class="stat-value"><?= $stats['menunggu'] ?></div><div class="stat-label">Menunggu Refund</div>
-        </div>
-        <div class="stat-card sc-green">
-            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div></div>
-            <div class="stat-value"><?= $stats['selesai'] ?></div><div class="stat-label">Selesai Refund</div>
-        </div>
-        <div class="stat-card sc-blue">
-            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-money-bill-transfer"></i></div></div>
-            <div class="stat-value" style="font-size:18px;"><?= rupiahFormat($stats['total_refund']) ?></div><div class="stat-label">Dana Direfund</div>
-        </div>
-        <div class="stat-card sc-red">
-            <div class="stat-header"><div class="stat-icon-wrap si-red"><i class="fa-solid fa-percentage"></i></div></div>
-            <div class="stat-value" style="font-size:18px;"><?= rupiahFormat($stats['total_denda']) ?></div><div class="stat-label">Pendapatan Denda</div>
+    <!-- HIDDEN FORMS -->
+    <form method="POST" id="formRefund" style="display: none;">
+        <input type="hidden" name="id_pembatalan" id="refundId">
+        <input type="hidden" name="konfirmasi_refund" value="1">
+    </form>
+
+    <!-- PAGINATION -->
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+        <div class="pagination-nav">
+            <a href="<?= buildPageUrl(1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
+            <a href="<?= buildPageUrl($page - 1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
+            <?php 
+            $start_page = max(1, $page - 2); 
+            $end_page = min($total_pages, $page + 2); 
+            if ($end_page - $start_page < 4 && $total_pages >= 5) { 
+                if ($start_page == 1) { $end_page = min(5, $total_pages); } else { $start_page = max(1, $total_pages - 4); } 
+            } 
+            if ($start_page > 1): 
+            ?>
+                <a href="<?= buildPageUrl(1) ?>" class="page-btn">1</a>
+                <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
+            <?php endif; ?>
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                <a href="<?= buildPageUrl($i) ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
+            <?php endfor; ?>
+            <?php if ($end_page < $total_pages): ?>
+                <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn"><?= $total_pages ?></a>
+            <?php endif; ?>
+            <a href="<?= buildPageUrl($page + 1) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
+            <a href="<?= buildPageUrl($total_pages) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
         </div>
     </div>
-
-    <!-- INFO BOX -->
-    <div style="background: var(--orange-lt); border: 1px solid var(--orange); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
-        <i class="fa-solid fa-circle-exclamation" style="color: var(--orange); font-size: 20px;"></i>
-        <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
-            <strong>Prosedur Refund 50%:</strong> Pembatalan sewa lapangan dikenakan denda pemotongan biaya sebesar 50%. 
-            Karyawan bertanggung jawab melakukan transfer balik sisa dana 50% (*Nominal Refund*) ke rekening customer, lalu melakukan konfirmasi di bawah ini.
-        </div>
+    <?php else: ?>
+    <div class="pagination-wrap">
+        <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data</div>
     </div>
-
-    <!-- FILTER BAR -->
-    <div class="action-bar">
-        <div class="filter-group">
-            <form method="GET" action="" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <select name="filter_status" class="filter-input" onchange="this.form.submit()">
-                    <option value="all">Semua Status Refund</option>
-                    <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>Menunggu Transfer</option>
-                    <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>Selesai Ditransfer</option>
-                </select>
-                <input type="text" name="filter_customer" class="filter-input" placeholder="Cari customer..." value="<?= htmlspecialchars($filter_customer) ?>">
-                <input type="date" name="filter_tanggal" class="filter-input" value="<?= htmlspecialchars($filter_tanggal) ?>">
-                <button type="submit" class="btn-secondary"><i class="fa-solid fa-filter"></i> Filter</button>
-                <?php if ($filter_status || $filter_customer || $filter_tanggal): ?>
-                    <a href="pembatalan.php" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-                <?php endif; ?>
-            </form>
-        </div>
-    </div>
-
-    <!-- CANCELLATION TABLE -->
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title"><i class="fa-solid fa-list-check"></i> Daftar Pengajuan Pembatalan</div>
-            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= count($pembatalan_list) ?> data ditemukan</span>
-        </div>
-        <div class="card-body" style="overflow-x: auto;">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 70px; text-align: center;">No.</th>
-                        <th>Customer</th>
-                        <th>Detail Lapangan</th>
-                        <th>Tanggal Batal</th>
-                        <th>Nominal Refund (50%)</th>
-                        <th>Metode Refund</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (count($pembatalan_list) > 0): 
-                        $no = 1;
-                        foreach ($pembatalan_list as $p): 
-                            $status = $status_labels[$p['StatusRefund']] ?? $status_labels[0];
-                            $tanggal_batal = formatTanggal($p['Tanggal_Batal']);
-                        ?>
-                        <tr>
-                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td>
-                                <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
-                                <div class="cell-detail"><?= htmlspecialchars($p['No_Telepon']) ?></div>
-                            </td>
-                            <td>
-                                <div class="cell-name"><?= htmlspecialchars($p['Nama_Lapangan']) ?></div>
-                                <div class="cell-detail"><?= formatTanggal($p['Tanggal']) ?> (<?= formatJam($p['Jam_Mulai']) ?> - <?= formatJam($p['Jam_Selesai']) ?>)</div>
-                            </td>
-                            <td><?= $tanggal_batal ?></td>
-                            <td style="font-weight: 800; color: var(--green);"><?= rupiahFormat($p['Nominal_Refund']) ?></td>
-                            <td><?= htmlspecialchars($p['Metode_Refund']) ?></td>
-                            <td><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
-                            <td>
-                                <div class="action-btns">
-    <!-- Cukup 1 Tombol Detail (Mata) -->
-    <button class="btn-icon view" onclick="showDetail(<?= $p['ID_Pembatalan'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
-
-    <?php if ($p['StatusRefund'] == 0): ?>
-        <!-- Cukup 1 Tombol Edit (Pensil) -->
-        <button class="btn-icon success" onclick="editPembatalan(<?= $p['ID_Pembatalan'] ?>)" title="Edit Data" style="border-color: var(--blue); color: var(--blue); background: var(--blue-lt);"><i class="fa-solid fa-pen-to-square"></i></button>
-        
-        <!-- Cukup 1 Tombol Konfirmasi Refund (Centang) -->
-        <button class="btn-icon success" onclick="confirmRefund(<?= $p['ID_Pembatalan'] ?>, '<?= htmlspecialchars($p['Metode_Refund']) ?>', <?= $p['Nominal_Refund'] ?>)" title="Konfirmasi Refund Selesai"><i class="fa-solid fa-check"></i></button>
     <?php endif; ?>
-</div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="8" style="text-align: center; padding: 50px; color: var(--muted);">
-                                <i class="fa-solid fa-inbox" style="font-size: 40px; margin-bottom: 16px; opacity: .5; display: block;"></i>
-                                <div style="font-size: 14px; font-weight: 700;">Belum ada pengajuan pembatalan</div>
-                                <div style="font-size: 12px; margin-top: 4px;">Belum ada transaksi sewa lapangan yang dibatalkan</div>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 </main>
 
@@ -660,32 +620,26 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
             <div class="modal-body">
                 <input type="hidden" name="id_pembatalan" id="editId">
                 <input type="hidden" name="update_pembatalan" value="1">
-                
-                <div class="detail-grid" style="grid-template-columns: 1fr;">
-                    <div class="form-group" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label class="form-label">Metode Refund</label>
-                        <input type="text" name="metode_refund" id="editMetode" class="filter-input" required style="width:100%;">
-                    </div>
-                    
-                    <div class="form-group" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label class="form-label">Denda Pembatalan (Biaya Batal)</label>
-                        <input type="number" name="biaya_batal" id="editBiaya" class="filter-input" required style="width:100%;" step="0.01">
-                    </div>
-                    
-                    <div class="form-group" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label class="form-label">Nominal Refund (Kembali ke Customer)</label>
-                        <input type="number" name="nominal_refund" id="editRefund" class="filter-input" required style="width:100%;" step="0.01">
-                    </div>
-                    
-                    <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
-                        <label class="form-label">Alasan Pembatalan</label>
-                        <textarea name="alasan" id="editAlasan" class="filter-input" required style="width:100%; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
-                    </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                    <label style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Metode Refund</label>
+                    <input type="text" name="metode_refund" id="editMetode" class="filter-input" required style="width:100%;">
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                    <label style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Denda Pembatalan (Biaya Batal)</label>
+                    <input type="number" name="biaya_batal" id="editBiaya" class="filter-input" required style="width:100%;" step="0.01">
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                    <label style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Nominal Refund (Kembali ke Customer)</label>
+                    <input type="number" name="nominal_refund" id="editRefund" class="filter-input" required style="width:100%;" step="0.01">
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Alasan Pembatalan</label>
+                    <textarea name="alasan" id="editAlasan" class="filter-input" required style="width:100%; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeModal('modalEdit')"><i class="fa-solid fa-xmark"></i> Batal</button>
-                <button type="submit" class="btn-success" style="padding:10px 20px; font-size:13px;"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
+                <button type="submit" class="btn-orange" style="padding:10px 20px; font-size:13px;"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
             </div>
         </form>
     </div>
@@ -710,10 +664,7 @@ function closeModal(id) {
 }
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.remove('active');
-            document.body.style.overflow = '';
-        }
+        if (e.target === this) { this.classList.remove('active'); document.body.style.overflow = ''; }
     });
 });
 
@@ -730,41 +681,35 @@ function showDetail(id) {
     const tglBatal = data.Tanggal_Batal ? new Date(data.Tanggal_Batal.date || data.Tanggal_Batal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
     const tglJadwal = data.Tanggal ? new Date(data.Tanggal.date || data.Tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
 
-    // Mengambil string waktu dari objek DateTime JSON
-const getJamString = (timeObj) => {
-    if (!timeObj) return '-';
-    // Jika berupa objek JSON, ambil properti .date, jika teks langsung gunakan teksnya
-    let timeStr = (typeof timeObj === 'object' && timeObj.date) ? timeObj.date : timeObj;
-    
-    if (typeof timeStr === 'string') {
-        // Jika formatnya datetime (ada spasi), ambil bagian jamnya saja
-        if (timeStr.includes(' ')) {
-            return timeStr.split(' ')[1].substring(0, 5);
+    const getJamString = (timeObj) => {
+        if (!timeObj) return '-';
+        let timeStr = (typeof timeObj === 'object' && timeObj.date) ? timeObj.date : timeObj;
+        if (typeof timeStr === 'string') {
+            if (timeStr.includes(' ')) return timeStr.split(' ')[1].substring(0, 5);
+            return timeStr.substring(0, 5);
         }
-        return timeStr.substring(0, 5);
-    }
-    return '-';
-};
-
-
-const jamMulai = getJamString(data.Jam_Mulai);
-const jamSelesai = getJamString(data.Jam_Selesai);
+        return '-';
+    };
+    const jamMulai = getJamString(data.Jam_Mulai);
+    const jamSelesai = getJamString(data.Jam_Selesai);
 
     const html = `
         <div class="detail-grid">
-            <div class="detail-item detail-full"><div class="detail-label">Status Refund</div><div class="detail-value"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
-            <div class="detail-item"><div class="detail-label">Nama Pelanggan</div><div class="detail-value">${data.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${data.Email} | ${data.No_Telepon}</div></div>
+            <div class="detail-item detail-full">
+                <div class="detail-label">Status Refund</div>
+                <div class="detail-value"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div>
+            </div>
+            <div class="detail-item"><div class="detail-label">Nama Pelanggan</div><div class="detail-value">${data.Nama_Customer}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${data.Email} | ${data.No_Telepon}</div></div>
             <div class="detail-item"><div class="detail-label">Lapangan</div><div class="detail-value">${data.Nama_Lapangan}</div></div>
-            <div class="detail-item"><div class="detail-label">Jadwal Sewa Asli</div><div class="detail-value">${tglJadwal}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${jamMulai} - ${jamSelesai} WIB</div></div>
+            <div class="detail-item"><div class="detail-label">Jadwal Sewa Asli</div><div class="detail-value">${tglJadwal}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${jamMulai} - ${jamSelesai} WIB</div></div>
             <div class="detail-item"><div class="detail-label">Tanggal Pengajuan Batal</div><div class="detail-value">${tglBatal}</div></div>
-            <div class="detail-item detail-full"><div class="detail-label">Alasan Pembatalan</div><div class="detail-value" style="font-weight: 500; font-style: italic; line-height: 1.4;">"${data.Alasan}"</div></div>
+            <div class="detail-item detail-full"><div class="detail-label">Alasan Pembatalan</div><div class="detail-value" style="font-weight:500;font-style:italic;line-height:1.4;">"${data.Alasan}"</div></div>
             <div class="detail-item"><div class="detail-label">Pembayaran Awal</div><div class="detail-value">${formatRupiah(data.Total_Booking_Awal)} (${data.Metode_Bayar_Awal})</div></div>
             <div class="detail-item"><div class="detail-label">Denda Pembatalan (50%)</div><div class="detail-value price">${formatRupiah(data.Biaya_Batal)}</div></div>
-            <div class="detail-item detail-full" style="background:#ECFDF5; border: 1px solid #A7F3D0;"><div class="detail-label" style="color:#047857;">Dana Refund Dikembalikan (50%)</div><div class="detail-value refund">${formatRupiah(data.Nominal_Refund)} (${data.Metode_Refund})</div></div>
+            <div class="detail-item detail-full" style="background:#ECFDF5;border:1px solid #A7F3D0;"><div class="detail-label" style="color:#047857;">Dana Refund Dikembalikan (50%)</div><div class="detail-value refund">${formatRupiah(data.Nominal_Refund)} (${data.Metode_Refund})</div></div>
             <div class="detail-item detail-full"><div class="detail-label">Dikonfirmasi Oleh</div><div class="detail-value">${data.Nama_Karyawan_Proses || 'Belum Dikonfirmasi'}</div></div>
         </div>
     `;
-
     document.getElementById('detailContent').innerHTML = html;
     openModal('modalDetail');
 }
@@ -776,7 +721,7 @@ function formatRupiah(angka) {
 function confirmRefund(id, metode, nominal) {
     Swal.fire({
         title: 'Konfirmasi Kirim Refund?',
-        html: `Apakah Anda sudah mentransfer balik dana refund sebesar <strong style="color:var(--green);">${formatRupiah(nominal)}</strong> via <strong>${metode}</strong>?<br><br><span style="color: var(--muted); font-size: 12px;">Tindakan ini menyatakan bahwa hak refund customer telah ditransfer sepenuhnya.</span>`,
+        html: `Apakah Anda sudah mentransfer balik dana refund sebesar <strong style="color:var(--green);">${formatRupiah(nominal)}</strong> via <strong>${metode}</strong>?`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#10B981',
@@ -792,7 +737,20 @@ function confirmRefund(id, metode, nominal) {
     });
 }
 
-// System Status Messages
+function editPembatalan(id) {
+    const data = pembatalanData.find(p => p.ID_Pembatalan == id);
+    if (!data) return;
+    document.getElementById('editId').value = data.ID_Pembatalan;
+    document.getElementById('editMetode').value = data.Metode_Refund;
+    document.getElementById('editBiaya').value = parseFloat(data.Biaya_Batal);
+    document.getElementById('editRefund').value = parseFloat(data.Nominal_Refund);
+    document.getElementById('editAlasan').value = data.Alasan;
+    openModal('modalEdit');
+}
+
+// ============================================
+// NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
+// ============================================
 const urlParams = new URLSearchParams(window.location.search);
 const statusMsg = urlParams.get('status');
 const msgText = urlParams.get('msg');
@@ -803,36 +761,35 @@ if (statusMsg && msgText) {
         icon: isSuccess ? 'success' : 'error',
         title: isSuccess ? 'Berhasil!' : 'Gagal!',
         text: msgText,
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        showCloseButton: true,
-        background: '#ffffff',
-        color: '#1c1c1e',
-        iconColor: isSuccess ? '#10B981' : '#EF4444',
-        customClass: { popup: 'swal-toast' }
+        showConfirmButton: true,
+        confirmButtonText: 'OK',
+        confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+        allowOutsideClick: false,
+        allowEscapeKey: false
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// Membuka modal edit dan mengisi nilai form berdasarkan ID Pembatalan
-function editPembatalan(id) {
-    const data = pembatalanData.find(p => p.ID_Pembatalan == id);
-    if (!data) return;
+        if (statusMsg && msgText) {
+            const isSuccess = statusMsg === 'success';
+            Swal.fire({
+                icon: isSuccess ? 'success' : 'error',
+                title: isSuccess ? 'Berhasil!' : 'Gagal!',
+                text: msgText,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                showCloseButton: true,
+                background: '#ffffff',
+                color: '#1c1c1e',
+                iconColor: isSuccess ? '#10B981' : '#EF4444',
+                customClass: { popup: 'swal-toast' }
+            });
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
-    // Isi nilai input modal dengan data dari database
-    document.getElementById('editId').value = data.ID_Pembatalan;
-    document.getElementById('editMetode').value = data.Metode_Refund;
-    document.getElementById('editBiaya').value = parseFloat(data.Biaya_Batal);
-    document.getElementById('editRefund').value = parseFloat(data.Nominal_Refund);
-    document.getElementById('editAlasan').value = data.Alasan;
-
-    // Tampilkan modal edit
-    openModal('modalEdit');
-}
-
-</script>
+    </script>
 </body>
 </html>

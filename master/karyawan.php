@@ -2535,12 +2535,11 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: isSuccess ? 'success' : 'error',
             title: isSuccess ? 'Berhasil!' : 'Gagal!',
             text: msg,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            timerProgressBar: true,
-            showCloseButton: true
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
         window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -2557,12 +2556,11 @@ document.addEventListener('DOMContentLoaded', function() {
             icon: 'error',
             title: 'Validasi Gagal!',
             text: errorMsg,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            timerProgressBar: true,
-            showCloseButton: true
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
         window.history.replaceState({}, document.title, window.location.pathname);
     }

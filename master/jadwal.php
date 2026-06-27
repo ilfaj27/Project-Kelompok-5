@@ -1347,24 +1347,30 @@ function resetFilter() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // ============================================
+    // NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
+    // ============================================
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');
+
     if (status && msg) {
         const isSuccess = status === 'success';
+
         Swal.fire({
             icon: isSuccess ? 'success' : 'error',
             title: isSuccess ? 'Berhasil!' : 'Gagal!',
             text: msg,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end',
-            timerProgressBar: true,
-            showCloseButton: true
+            showConfirmButton: true,
+            confirmButtonText: 'OK',
+            confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
+            allowOutsideClick: false,
+            allowEscapeKey: false
         });
+
         window.history.replaceState({}, document.title, window.location.pathname);
     }
+    // ============================================
     const idLapangan = document.getElementById('id_lapangan');
     if (idLapangan) {
         idLapangan.addEventListener('change', function() {

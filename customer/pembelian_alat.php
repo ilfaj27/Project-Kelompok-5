@@ -463,13 +463,10 @@ function resolvePhotoPath($photo_path) {
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
-        <a href="view_customer.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php">Member</a>
         <a href="pembelian_alat.php" class="active">Pembelian</a>
-        <a href="#">Tentang</a>
-        <a href="#">Kontak</a>
     </div>
 
     <div class="nav-user-container">
@@ -491,9 +488,6 @@ function resolvePhotoPath($photo_path) {
                 <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <a href="booking_customer.php"><i class="fa-solid fa-calendar-check"></i> Riwayat Booking</a>
-            <a href="langganan_customer.php"><i class="fa-solid fa-crown"></i> Langganan Member</a>
-            <a href="pembelian_alat.php"><i class="fa-solid fa-cart-shopping"></i> Pembelian Alat</a>
             <div style="height:1px; background:#2d2d33; margin:6px 0;"></div>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
@@ -769,8 +763,8 @@ function addToCart(idAlat, namaAlat, harga, maxStok) {
 
     Swal.fire({
         icon: 'success', title: 'Ditambahkan!', text: namaAlat + ' (' + qty + 'x)',
-        timer: 1500, showConfirmButton: false, toast: true, position: 'top-end',
-        background: '#ffffff', color: '#1c1c1e', iconColor: '#34C759', customClass: { popup: 'swal-toast' }
+        confirmButtonColor: '#FF5200', confirmButtonText: 'OK',
+        allowOutsideClick: false, allowEscapeKey: false
     });
 }
 
