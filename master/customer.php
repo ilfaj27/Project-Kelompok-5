@@ -8,14 +8,13 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 }
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
-$map_jk = [0 => 'Laki-laki', 1 => 'Perempuan'];
 
 // FIX: Ambil foto profil dari database dengan kolom yang benar
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
 if (!empty($id_karyawan_session)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    $stmt_photo = sqlsrv_query($conn, "EXEC dbo.sp_GetKaryawanPhoto ?", array($id_karyawan_session));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -81,7 +80,7 @@ function safe_sqlsrv_fetch_array($stmt, $fetch_type = SQLSRV_FETCH_ASSOC) {
 // --- TOGGLE STATUS ---
 if (isset($_GET['toggle_id'])) {
     $toggle_id = $_GET['toggle_id'];
-    $stmt_check = safe_sqlsrv_query($conn, "SELECT Status, Nama_Customer FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($toggle_id), false);
+    $stmt_check = safe_sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerDetail ?", array($toggle_id), false);
     if ($stmt_check !== false) {
         $row_check = safe_sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC);
         if ($row_check) {
@@ -90,8 +89,8 @@ if (isset($_GET['toggle_id'])) {
             $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
 
             $stmt_toggle = safe_sqlsrv_query($conn, 
-                "UPDATE Customer SET Status = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ? AND Is_Deleted = 0", 
-                array($new_status, $modified_by, $toggle_id), false
+                "EXEC dbo.sp_UpdateStatusCustomer ?, ?, ?", 
+                array($toggle_id, $new_status, $modified_by), false
             );
 
             if ($stmt_toggle) {
@@ -112,7 +111,7 @@ if (isset($_GET['toggle_id'])) {
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
-    $r_detail = safe_sqlsrv_query($conn, "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($_GET['detail_id']), false);
+    $r_detail = safe_sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerDetail ?", array($_GET['detail_id']), false);
     if ($r_detail) {
         $detail_data = safe_sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
         $show_detail = true;
@@ -143,63 +142,34 @@ if ($filter_jk >= 0) {
 
 $where_sql = implode(" AND ", $where_clauses);
 
-// --- STAT COUNTS ---
-$count_sql = "SELECT COUNT(*) as t FROM Customer WHERE " . $where_sql;
-$q_total = safe_sqlsrv_query($conn, $count_sql, $params, false);
-$total_cust = 0;
-if ($q_total !== false) {
-    $row_total = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
-    $total_cust = $row_total['t'] ?? 0;
-}
+// --- STAT COUNTS & DASHBOARD (USING UDF) ---
+$q_stats = safe_sqlsrv_query($conn, "SELECT Total, Aktif, Nonaktif FROM dbo.fn_GetCustomerStats()", [], false);
+$stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
 
-// Total Aktif
-$q_aktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 1 AND Is_Deleted = 0", [], false);
-$total_aktif = 0;
-if ($q_aktif !== false) {
-    $row_aktif = safe_sqlsrv_fetch_array($q_aktif, SQLSRV_FETCH_ASSOC);
-    $total_aktif = $row_aktif['t'] ?? 0;
-}
-
-// Total Nonaktif
-$q_nonaktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Status = 0 AND Is_Deleted = 0", [], false);
-$total_nonaktif = 0;
-if ($q_nonaktif !== false) {
-    $row_nonaktif = safe_sqlsrv_fetch_array($q_nonaktif, SQLSRV_FETCH_ASSOC);
-    $total_nonaktif = $row_nonaktif['t'] ?? 0;
-}
+$total_cust = $stats['Total'] ?? 0;
+$total_aktif = $stats['Aktif'] ?? 0;
+$total_nonaktif = $stats['Nonaktif'] ?? 0;
 
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$total_pages = max(1, ceil($total_cust / $limit));
-$page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$q_laki = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin = 0 AND Is_Deleted = 0", [], false);
-$total_laki = 0;
-if ($q_laki !== false) {
-    $row_laki = safe_sqlsrv_fetch_array($q_laki, SQLSRV_FETCH_ASSOC);
-    $total_laki = $row_laki['t'] ?? 0;
-}
-
-$q_perempuan = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Customer WHERE Jenis_Kelamin = 1 AND Is_Deleted = 0", [], false);
-$total_perempuan = 0;
-if ($q_perempuan !== false) {
-    $row_perempuan = safe_sqlsrv_fetch_array($q_perempuan, SQLSRV_FETCH_ASSOC);
-    $total_perempuan = $row_perempuan['t'] ?? 0;
-}
-
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status = 1");
+// Ambil data pending untuk lonceng notifikasi dari UDF
+$q_pending = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetPendingBookingCount() as t", [], false);
 $total_pending = 0;
 if ($q_pending !== false) {
-    $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
+    $row_pending = safe_sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
     $total_pending = $row_pending['t'] ?? 0;
 }
 
-$query_sql = "SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status FROM Customer WHERE " . $where_sql . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, $params, false);
+$query_sql = "EXEC dbo.sp_ReadCustomerListWithCount @FilterStatus = ?, @FilterJK = ?, @SortBy = ?, @SortOrder = ?, @Offset = ?, @Limit = ?";
+$params_sp = array($filter_status, $filter_jk, $sort_by, $sort_order, intval($offset), intval($limit));
+
+$query = safe_sqlsrv_query($conn, $query_sql, $params_sp, false);
 
 $query_error = false;
 $query_error_msg = '';
+
 if ($query === false) {
     $query_error = true;
     $errors = sqlsrv_errors();
@@ -208,6 +178,17 @@ if ($query === false) {
             $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
         }
     }
+} else {
+    // Ambil hasil pertama dari SP (Total Count)
+    $row_count = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC);
+    $total_cust = intval($row_count['TotalCount'] ?? 0);
+
+    // Geser ke hasil kedua dari SP (List Data Customer)
+    sqlsrv_next_result($query);
+    
+    // Hitung ulang halaman berdasarkan total data terfilter
+    $total_pages = max(1, ceil($total_cust / $limit));
+    $page = min($page, $total_pages);
 }
 
 function format_tgl_display($date) {
@@ -1348,9 +1329,7 @@ function jk_label($jk) {
      -ms-overflow-style: none;
      scrollbar-width: none;
 }
- .modal-box::-webkit-scrollbar {
-     display: none;
-}
+
  .modal-header {
      padding: 20px 24px 14px;
      border-bottom: 1px solid var(--border);
