@@ -42,6 +42,25 @@ if (!empty($profile_photo)) {
     }
 }
 
+// --- (AJAX Handler Detail & Edit) ---
+if (isset($_GET['ajax_detail_id'])) {
+    header('Content-Type: application/json');
+    $r = safeQuery($conn, "EXEC dbo.sp_GetLapanganDetail ?", [intval($_GET['ajax_detail_id'])]);
+    if ($r) {
+        $detail_data = safeFetch($r);
+        if ($detail_data) {
+            $detail_data['Harga_Sewa_Rupiah'] = rupiah($detail_data['Harga_Sewa']);
+            $detail_data['Photo_Lapangan_Url'] = getPhotoUrl($detail_data['Photo_Lapangan']);
+            echo json_encode(['status' => 'success', 'data' => $detail_data]);
+        } else {
+            echo json_encode(['status' => 'error', 'msg' => 'Data lapangan tidak ditemukan.']);
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'msg' => 'Gagal mengambil data dari database.']);
+    }
+    exit();
+}
+
 function safeQuery($conn, $sql, $params = [])
 {
     $stmt = empty($params) ? sqlsrv_query($conn, $sql) : sqlsrv_query($conn, $sql, $params);
@@ -218,27 +237,6 @@ if (isset($_GET['delete_id'])) {
     }
     exit();
 }
-
-// AMBIL DATA EDIT
-$edit_data = null;
-if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "EXEC dbo.sp_GetLapanganDetail ?", [intval($_GET['edit_id'] ?? $_GET['detail_id'])]);
-    if ($r)
-        $edit_data = safeFetch($r);
-}
-
-// AMBIL DATA DETAIL
-$detail_data = null;
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "EXEC dbo.sp_GetLapanganDetail ?", [intval($_GET['detail_id'])]);
-    if ($r) {
-        $detail_data = safeFetch($r);
-        $show_detail = ($detail_data !== false && $detail_data !== null);
-    }
-}
-
-$show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
 
 // STATISTIK
@@ -2258,53 +2256,39 @@ function rupiah($n)
 </head>
 
 <body>
-    <!-- MODAL FORM TAMBAH/EDIT LAPANGAN -->
-    <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalLapangan">
+    <!-- MODAL FORM TAMBAH/EDIT LAPANGAN (VERSI BARU) -->
+    <div class="modal-overlay" id="modalLapangan">
         <div class="modal-box">
-            <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i
+            <button type="button" class="modal-close" onclick="closeModalDirect('modalLapangan')" title="Tutup"><i
                     class="fa-solid fa-xmark"></i></button>
             <div class="modal-header">
                 <div class="modal-subtitle">Kelola Lapangan</div>
-                <div class="modal-title"><?= $edit_data ? 'Edit Lapangan' : 'Tambah Lapangan Baru' ?></div>
+                <div class="modal-title" id="formModalTitle">Tambah Lapangan Baru</div>
             </div>
             <div class="modal-body">
                 <form method="POST" id="formLapangan" enctype="multipart/form-data" action="lapangan.php"
                     onsubmit="return validateForm()" novalidate>
                     <input type="hidden" name="save_lapangan" value="1">
-                    <?php if ($edit_data): ?>
-                        <input type="hidden" name="edit_mode" value="1">
-                        <input type="hidden" name="id_lap" value="<?= intval($edit_data['ID_Lapangan']) ?>">
-                        <input type="hidden" name="edit_photo_path"
-                            value="<?= htmlspecialchars($edit_data['Photo_Lapangan'] ?? '') ?>">
-                    <?php endif; ?>
+
+                    <!-- Tempat menaruh parameter Edit Mode secara dinamis via JS -->
+                    <div id="hiddenInputsArea"></div>
 
                     <label class="modal-label">Foto Lapangan <span style="color:var(--muted);font-size:10px;">(Opsional,
                             max 5MB)</span></label>
-                    <div class="photo-upload-area <?= ($edit_data && !empty($edit_data['Photo_Lapangan'])) ? 'has-image' : '' ?>"
-                        id="uploadArea">
+                    <div class="photo-upload-area" id="uploadArea">
                         <input type="file" name="photo_lapangan" id="photo_lapangan"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                             onchange="handlePhotoUpload(this)"
                             style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:5;">
 
-                        <?php if ($edit_data && !empty($edit_data['Photo_Lapangan'])): ?>
-                            <img src="<?= htmlspecialchars(getPhotoUrl($edit_data['Photo_Lapangan'])) ?>"
-                                class="photo-upload-preview" id="previewImg" alt="Foto Lapangan"
-                                onerror="this.style.display='none'; document.getElementById('uploadPlaceholder').style.display='flex';">
-                            <button type="button" class="photo-upload-remove" id="removeBtn"
-                                onclick="event.stopPropagation(); removePhoto();" title="Hapus Foto">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        <?php else: ?>
-                            <img class="photo-upload-preview" id="previewImg" style="display:none;" alt="Preview">
-                            <button type="button" class="photo-upload-remove" id="removeBtn"
-                                onclick="event.stopPropagation(); removePhoto();" style="display:none;" title="Hapus Foto">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        <?php endif; ?>
+                        <img class="photo-upload-preview" id="previewImg" style="display:none;" alt="Preview">
+                        <button type="button" class="photo-upload-remove" id="removeBtn"
+                            onclick="event.stopPropagation(); removePhoto();" style="display:none;" title="Hapus Foto">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
 
                         <div class="upload-placeholder-inner" id="uploadPlaceholder"
-                            style="display:<?= ($edit_data && !empty($edit_data['Photo_Lapangan'])) ? 'none' : 'flex' ?>; flex-direction:column; align-items:center;">
+                            style="display:flex; flex-direction:column; align-items:center;">
                             <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
                             <p>Klik untuk upload foto lapangan</p>
                             <p style="font-size:11px; margin-top:4px; opacity:.7;">JPG, PNG, GIF, WEBP (Max 5MB)</p>
@@ -2313,83 +2297,67 @@ function rupiah($n)
 
                     <label class="modal-label">Nama Lapangan <span class="required">*</span></label>
                     <input type="text" name="nama_lapangan" id="nama_lapangan" class="modal-input"
-                        value="<?= htmlspecialchars($edit_data['Nama_Lapangan'] ?? '') ?>"
                         placeholder="Contoh: Lapangan Indoor A" autocomplete="off" maxlength="50">
                     <div class="val-msg" id="val-nama_lapangan"></div>
 
                     <label class="modal-label">Harga Sewa per Jam (Rp) <span class="required">*</span></label>
                     <input type="number" name="harga_sewa" id="harga_sewa" class="modal-input"
-                        value="<?= isset($edit_data['Harga_Sewa']) ? intval($edit_data['Harga_Sewa']) : '' ?>"
                         placeholder="Contoh: 100000" autocomplete="off">
                     <div class="val-msg" id="val-harga_sewa"></div>
 
-                    <button type="submit" class="btn-submit" id="btnSubmit">
-                        <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                        <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Lapangan' ?>
+                    <button type="submit" class="btn-submit" id="btnSubmitForm">
+                        <i class="fa-solid fa-plus"></i> Tambah Lapangan
                     </button>
-                    <button type="button" class="btn-cancel" onclick="closeModal()">Batal</button>
+                    <button type="button" class="btn-cancel" onclick="closeModalDirect('modalLapangan')">Batal</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DETAIL LAPANGAN - FOTO BULAT SEPERTI ALAT -->
-    <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+    <!-- MODAL DETAIL LAPANGAN - FOTO BULAT SEPERTI ALAT (VERSI BARU) -->
+    <div class="modal-overlay" id="modalDetail">
         <div class="modal-box detail-modal-box">
-            <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i
+            <button type="button" class="modal-close" onclick="closeModalDirect('modalDetail')" title="Tutup"><i
                     class="fa-solid fa-xmark"></i></button>
             <div class="modal-header" style="text-align: center; padding-bottom: 10px;">
                 <div class="modal-subtitle">Detail Informasi</div>
                 <div class="modal-title">Spesifikasi Lapangan</div>
             </div>
             <div class="modal-body" style="padding-top:10px;">
-                <?php if ($detail_data): ?>
-                    <div class="detail-photo-wrap">
-                        <?php
-                        $detail_photo_url = getPhotoUrl($detail_data['Photo_Lapangan'] ?? '');
-                        if (!empty($detail_photo_url)):
-                            ?>
-                            <img src="<?= htmlspecialchars($detail_photo_url) ?>"
-                                alt="<?= htmlspecialchars($detail_data['Nama_Lapangan']) ?>"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                            <div class="detail-photo-placeholder" style="display:none;"><i class="fa-solid fa-layer-group"></i>
-                            </div>
-                        <?php else: ?>
-                            <div class="detail-photo-placeholder"><i class="fa-solid fa-layer-group"></i></div>
-                        <?php endif; ?>
-                    </div>
+                <div class="detail-photo-wrap">
+                    <img src="" id="det_photo_img" alt="Foto Lapangan" style="display:none;">
+                    <div class="detail-photo-placeholder" id="det_photo_placeholder"><i
+                            class="fa-solid fa-layer-group"></i></div>
+                </div>
 
-                    <div style="text-align: center;">
-                        <div
-                            class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
-                            <i class="fa-solid fa-circle"></i>
-                            <?= $detail_data['Status'] == 1 ? 'Lapangan Aktif' : 'Lapangan Maintenance' ?>
-                        </div>
+                <div style="text-align: center;">
+                    <div class="detail-status-badge" id="det_status_badge">
+                        <i class="fa-solid fa-circle"></i>
+                        <span id="det_status_text">Lapangan Aktif</span>
                     </div>
+                </div>
 
-                    <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
-                    <div class="detail-price"><?= rupiah($detail_data['Harga_Sewa']) ?> <span
-                            style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ jam</span>
+                <div class="detail-name" id="det_nama_title">-</div>
+                <div class="detail-price" id="det_harga">- <span
+                        style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ jam</span>
+                </div>
+
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa</div>
+                        <div class="detail-info-value" id="det_harga_val" style="color:var(--shopee-orange);">-</div>
                     </div>
-
-                    <div class="detail-info-grid">
-                        <div class="detail-info-item">
-                            <div class="detail-info-label"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa</div>
-                            <div class="detail-info-value" style="color:var(--shopee-orange);">
-                                <?= rupiah($detail_data['Harga_Sewa']) ?>
-                            </div>
-                        </div>
-                        <div class="detail-info-item">
-                            <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Tarif per Jam</div>
-                            <div class="detail-info-value"><?= rupiah($detail_data['Harga_Sewa']) ?> <span
-                                    style="font-size:11px; font-weight:500; color:var(--muted);">/jam</span></div>
-                        </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Tarif per Jam</div>
+                        <div class="detail-info-value" id="det_tarif_secondary">- <span
+                                style="font-size:11px; font-weight:500; color:var(--muted);">/jam</span></div>
                     </div>
+                </div>
 
-                    <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117;">
-                        <i class="fa-solid fa-arrow-left"></i> Kembali
-                    </button>
-                <?php endif; ?>
+                <button type="button" onclick="closeModalDirect('modalDetail')" class="btn-submit"
+                    style="background:#0D1117; margin-top: 10px;">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali
+                </button>
             </div>
         </div>
     </div>
@@ -2571,11 +2539,12 @@ function rupiah($n)
                             </form>
                         </div>
                     </div>
-                    <a href="lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
+                    <button type="button" onclick="showAddForm()" class="btn-add"><i
+                            class="fa-solid fa-plus"></i>Tambah</button>
                 </div>
             </div>
 
-            <!-- GRID KARTU LAPANGAN -->
+            <!-- GRID KARTU LAPANGAN (YANG SUDAH DIRAPIKAN TAG PENUTUPNYA) -->
             <div class="lapangan-grid" id="lapanganGrid">
                 <?php
                 $has_data = false;
@@ -2586,8 +2555,9 @@ function rupiah($n)
                         $is_aktif = intval($row['Status']) === 1;
                         ?>
                         <div class="lapangan-card" data-name="<?= strtolower(htmlspecialchars($row['Nama_Lapangan'])) ?>">
-                            <div class="lapangan-card-photo-wrap"
-                                onclick="window.location.href='?detail_id=<?= intval($row['ID_Lapangan']) ?>'">
+
+                            <!-- 1. BAGIAN FOTO WRAP -->
+                            <div class="lapangan-card-photo-wrap" onclick="showDetail('<?= intval($row['ID_Lapangan']) ?>')">
                                 <div class="lapangan-card-photo-placeholder">
                                     <i class="fa-solid fa-layer-group"></i>
                                 </div>
@@ -2602,19 +2572,23 @@ function rupiah($n)
                                     <span class="badge-dot"></span> <?= $is_aktif ? 'AKTIF' : 'MAINTENANCE' ?>
                                 </span>
                                 <div class="lapangan-card-actions" style="z-index:3;">
-                                    <a href="?detail_id=<?= intval($row['ID_Lapangan']) ?>"
-                                        class="lapangan-card-action-btn ac-btn-view" title="Lihat Detail"
-                                        onclick="event.stopPropagation()"><i class="fa-solid fa-eye"></i></a>
-                                    <a href="?edit_id=<?= intval($row['ID_Lapangan']) ?>"
-                                        class="lapangan-card-action-btn ac-btn-edit" title="Edit Lapangan"
-                                        onclick="event.stopPropagation()"><i class="fa-solid fa-pen-to-square"></i></a>
+                                    <button type="button"
+                                        onclick="event.stopPropagation(); showDetail('<?= intval($row['ID_Lapangan']) ?>')"
+                                        class="lapangan-card-action-btn ac-btn-view" title="Lihat Detail"><i
+                                            class="fa-solid fa-eye"></i></button>
+                                    <button type="button"
+                                        onclick="event.stopPropagation(); showEditForm('<?= intval($row['ID_Lapangan']) ?>')"
+                                        class="lapangan-card-action-btn ac-btn-edit" title="Edit Lapangan"><i
+                                            class="fa-solid fa-pen-to-square"></i></button>
                                     <button type="button"
                                         onclick="event.stopPropagation(); doDelete(<?= intval($row['ID_Lapangan']) ?>, '<?= htmlspecialchars($row['Nama_Lapangan'], ENT_QUOTES) ?>')"
                                         class="lapangan-card-action-btn ac-btn-delete" title="Hapus Lapangan">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </div>
-                            </div>
+                            </div> <!-- PENUTUP LAPANGAN-CARD-PHOTO-WRAP (SANGAT PENTING) -->
+
+                            <!-- 2. BAGIAN INFORMASI DETAIL -->
                             <div class="lapangan-card-info">
                                 <div class="lapangan-card-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
                                 <div class="lapangan-card-price"><?= rupiah($row['Harga_Sewa']) ?> <span
@@ -2632,8 +2606,9 @@ function rupiah($n)
                                         </label>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                            </div> <!-- PENUTUP LAPANGAN-CARD-INFO -->
+
+                        </div> <!-- PENUTUP LAPANGAN-CARD UTAMA (SANGAT PENTING) -->
                         <?php
                     endwhile;
                 endif;
@@ -2954,6 +2929,122 @@ function rupiah($n)
         function resetFilter() {
             window.location.href = 'lapangan.php';
         }
+
+        // Buka Modal Form Tambah Baru
+        function showAddForm() {
+            document.getElementById('formLapangan').reset();
+            document.getElementById('hiddenInputsArea').innerHTML = '';
+            removePhoto(); // Reset area foto preview
+
+            // Reset Visual Error
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+            document.getElementById('formModalTitle').innerText = 'Tambah Lapangan Baru';
+            document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Lapangan';
+
+            document.getElementById('modalLapangan').classList.add('open');
+        }
+
+        // Buka Modal Form Edit Data (AJAX)
+        function showEditForm(id) {
+            fetch('?ajax_detail_id=' + id)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status === 'success') {
+                        const data = res.data;
+
+                        // Isi Form Input
+                        document.getElementById('nama_lapangan').value = data.Nama_Lapangan;
+                        document.getElementById('harga_sewa').value = parseInt(data.Harga_Sewa);
+
+                        // Set area hidden input edit mode
+                        document.getElementById('hiddenInputsArea').innerHTML = `
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_lap" value="${data.ID_Lapangan}">
+                    <input type="hidden" name="edit_photo_path" value="${data.Photo_Lapangan ? data.Photo_Lapangan : ''}">
+                `;
+
+                        // Set Preview Foto jika ada
+                        if (data.Photo_Lapangan_Url && data.Photo_Lapangan) {
+                            const previewImg = document.getElementById('previewImg');
+                            const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+                            const uploadArea = document.getElementById('uploadArea');
+                            const removeBtn = document.getElementById('removeBtn');
+
+                            previewImg.src = data.Photo_Lapangan_Url;
+                            previewImg.style.display = 'block';
+                            uploadArea.classList.add('has-image');
+                            uploadPlaceholder.style.display = 'none';
+                            removeBtn.style.display = 'flex';
+                        } else {
+                            removePhoto();
+                        }
+
+                        // Reset visual error
+                        document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+                        document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+                        document.getElementById('formModalTitle').innerText = 'Edit Lapangan';
+                        document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+                        document.getElementById('modalLapangan').classList.add('open');
+                    } else {
+                        Swal.fire('Gagal!', res.msg, 'error');
+                    }
+                });
+        }
+
+        // Tampilkan Detail Lapangan (AJAX)
+        function showDetail(id) {
+            fetch('?ajax_detail_id=' + id)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status === 'success') {
+                        const data = res.data;
+
+                        // Set Foto Detail
+                        const detImg = document.getElementById('det_photo_img');
+                        const detPlaceholder = document.getElementById('det_photo_placeholder');
+                        if (data.Photo_Lapangan_Url && data.Photo_Lapangan) {
+                            detImg.src = data.Photo_Lapangan_Url;
+                            detImg.style.display = 'block';
+                            detPlaceholder.style.display = 'none';
+                        } else {
+                            detImg.src = '';
+                            detImg.style.display = 'none';
+                            detPlaceholder.style.display = 'flex';
+                        }
+
+                        // Set Keaktifan Badge
+                        const badge = document.getElementById('det_status_badge');
+                        const text = document.getElementById('det_status_text');
+                        if (data.Status == 1) {
+                            badge.className = 'detail-status-badge badge-status-aktif';
+                            text.innerText = 'Lapangan Aktif';
+                        } else {
+                            badge.className = 'detail-status-badge badge-status-nonaktif';
+                            text.innerText = 'Lapangan Maintenance';
+                        }
+
+                        // Set Informasi Teks
+                        document.getElementById('det_nama_title').innerText = data.Nama_Lapangan;
+                        document.getElementById('det_harga').innerHTML = `${data.Harga_Sewa_Rupiah} <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ jam</span>`;
+                        document.getElementById('det_harga_val').innerText = data.Harga_Sewa_Rupiah;
+                        document.getElementById('det_tarif_secondary').innerHTML = `${data.Harga_Sewa_Rupiah} <span style="font-size:11px; font-weight:500; color:var(--muted);">/jam</span>`;
+
+                        document.getElementById('modalDetail').classList.add('open');
+                    } else {
+                        Swal.fire('Gagal!', res.msg, 'error');
+                    }
+                });
+        }
+
+        // Tutup Modal secara Langsung
+        function closeModalDirect(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+        }
+
     </script>
 </body>
 
