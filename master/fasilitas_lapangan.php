@@ -10,6 +10,24 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
+//  AJAX Handler Detail & Edit)
+if (isset($_GET['ajax_detail_id'])) {
+    header('Content-Type: application/json');
+    $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [intval($_GET['ajax_detail_id'])]);
+    if ($r) {
+        $detail_data = safeFetch($r);
+        if ($detail_data) {
+            $detail_data['Harga_Sewa_Rupiah'] = rupiah($detail_data['Harga_Sewa']);
+            echo json_encode(['status' => 'success', 'data' => $detail_data]);
+        } else {
+            echo json_encode(['status' => 'error', 'msg' => 'Data fasilitas tidak ditemukan.']);
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'msg' => 'Gagal mengambil data dari database.']);
+    }
+    exit();
+}
+
 // ===== PHOTO PROFILE =====
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
@@ -52,6 +70,16 @@ if (isset($_POST['save_fasilitas'])) {
     $nama_fasilitas = trim($_POST['nama_fasilitas']);
     $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
 
+    // ── VALIDASI FORMAT HANYA HURUF DAN SPASI ──
+    if (!preg_match('/^[a-zA-Z\s]+$/', $nama_fasilitas)) {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Nama fasilitas hanya boleh berisi huruf dan spasi!");
+        exit();
+    }
+    if (!preg_match('/^[a-zA-Z\s]+$/', $detail_fasilitas)) {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Detail fasilitas hanya boleh berisi huruf dan spasi!");
+        exit();
+    }
+
     // ── VALIDASI DUPLIKAT NAMA FASILITAS ──
     $q_check_nama = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasDuplicate ?, ?", [$nama_fasilitas, $id]);
     if ($q_check_nama && safeFetch($q_check_nama)) {
@@ -85,35 +113,32 @@ if (isset($_POST['save_fasilitas'])) {
 
 if (isset($_GET['toggle_id'])) {
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?", [$_GET['toggle_id'], $s_baru]);
+    $stmt = safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?", [$_GET['toggle_id'], $s_baru]);
+
+    // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
+    if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'msg' => 'Status fasilitas berhasil diubah!', 'new_status' => $s_baru]);
+        exit();
+    }
+
     header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Status fasilitas berhasil diubah!");
     exit();
 }
 
 if (isset($_GET['delete_id'])) {
-    safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$_GET['delete_id'], $nama]);
+    $stmt = safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$_GET['delete_id'], $nama]);
+
+    // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
+    if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'msg' => 'Fasilitas berhasil dihapus!']);
+        exit();
+    }
+
     header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil dihapus!");
     exit();
 }
-
-$edit_data = null;
-if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [$_GET['edit_id']]);
-    if ($r)
-        $edit_data = safeFetch($r);
-}
-
-$detail_data = null;
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [$_GET['detail_id']]);
-    if ($r) {
-        $detail_data = safeFetch($r);
-        $show_detail = true;
-    }
-}
-
-$show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
 // ID_Fasilitas auto-increment INT, tidak perlu generate manual
 
@@ -1989,26 +2014,24 @@ function rupiah($n)
 
 <body>
     <!-- MODAL FORM -->
-    <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalFasilitas">
+    <div class="modal-overlay" id="modalFasilitas">
         <div class="modal-box">
-            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="modal-close" onclick="closeModalDirect('modalFasilitas')"><i
+                    class="fa-solid fa-xmark"></i></button>
             <div class="modal-header">
                 <div class="modal-subtitle">Kelola Fasilitas</div>
-                <div class="modal-title"><?= $edit_data ? 'Edit Fasilitas' : 'Tambah Fasilitas Baru' ?></div>
+                <div class="modal-title" id="formModalTitle">Tambah Fasilitas Baru</div>
             </div>
             <div class="modal-body">
                 <form method="POST" id="formFasilitas" onsubmit="return validateForm()" novalidate>
-                    <?php if ($edit_data): ?>
-                        <input type="hidden" name="edit_mode" value="1">
-                        <input type="hidden" name="id_fas" id="id_fas"
-                            value="<?= htmlspecialchars($edit_data['ID_Fasilitas']) ?>">
-                    <?php endif; ?>
+                    <!-- Hidden inputs untuk edit mode -->
+                    <div id="hiddenInputsArea"></div>
 
                     <label class="modal-label">Lapangan <span class="required">*</span></label>
                     <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
                         <option value="">Pilih Lapangan</option>
                         <?php foreach ($lapangan_list as $lap): ?>
-                            <option value="<?= $lap['ID_Lapangan'] ?>" <?= (isset($edit_data['ID_Lapangan']) && $edit_data['ID_Lapangan'] == $lap['ID_Lapangan']) ? 'selected' : '' ?>>
+                            <option value="<?= $lap['ID_Lapangan'] ?>">
                                 <?= htmlspecialchars($lap['Nama_Lapangan']) ?> - <?= rupiah($lap['Harga_Sewa']) ?>/jam
                             </option>
                         <?php endforeach; ?>
@@ -2017,70 +2040,64 @@ function rupiah($n)
                         lapangan</div>
 
                     <label class="modal-label">Nama Fasilitas <span class="required">*</span></label>
-                    <input type="text" name="nama_fasilitas" id="nama_fasilitas" class="modal-input"
-                        value="<?= htmlspecialchars($edit_data['Nama_Fasilitas'] ?? '') ?>" required minlength="3"
-                        maxlength="50" placeholder="Contoh: Bola Basket Spalding" autocomplete="off">
+                    <input type="text" name="nama_fasilitas" id="nama_fasilitas" class="modal-input" required
+                        minlength="3" maxlength="50" placeholder="Contoh: Bola Basket Spalding" autocomplete="off">
                     <div class="val-msg" id="val-nama_fasilitas"></div>
 
                     <label class="modal-label">Detail Fasilitas <span class="required">*</span></label>
-                    <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input"
-                        value="<?= htmlspecialchars($edit_data['Detail_Fasilitas'] ?? '') ?>" required maxlength="50"
-                        placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
+                    <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input" required
+                        maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
                     <div class="val-msg" id="val-detail_fasilitas"><i class="fa-solid fa-circle-exclamation"></i> Detail
                         fasilitas wajib diisi</div>
 
-                    <button type="submit" name="save_fasilitas" class="btn-submit">
-                        <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                        <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Fasilitas' ?>
+                    <button type="submit" name="save_fasilitas" class="btn-submit" id="btnSubmitForm">
+                        <i class="fa-solid fa-plus"></i> Tambah Fasilitas
                     </button>
-                    <a onclick="closeModal()" class="btn-cancel">Batal</a>
+                    <a onclick="closeModalDirect('modalFasilitas')" class="btn-cancel">Batal</a>
                 </form>
             </div>
         </div>
     </div>
 
     <!-- MODAL DETAIL -->
-    <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+    <div class="modal-overlay" id="modalDetail">
         <div class="modal-box" style="width: 440px;">
-            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="modal-close" onclick="closeModalDirect('modalDetail')"><i
+                    class="fa-solid fa-xmark"></i></button>
             <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                 <div class="modal-subtitle">Informasi Fasilitas</div>
                 <div class="modal-title">Detail Fasilitas</div>
             </div>
             <div class="modal-body" style="padding-top: 10px;">
-                <?php if ($detail_data): ?>
-                    <div
-                        style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
-                        <div class="detail-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-                        <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Fasilitas']) ?></div>
-                    </div>
-                    <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Fasilitas']) ?>">
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-layer-group"></i> Lapangan</span>
-                        <span class="info-val"
-                            style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-circle-info"></i> Detail Fasilitas</span>
-                        <span class="info-val"
-                            style="font-weight:700;"><?= htmlspecialchars($detail_data['Detail_Fasilitas'] ?? '-') ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa Lapangan</span>
-                        <span class="info-val"
-                            style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= isset($detail_data['Harga_Sewa']) ? rupiah($detail_data['Harga_Sewa']) : '-' ?></span>
-                    </div>
-                    <div class="info-row" style="border-bottom:none;">
-                        <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Fasilitas</span>
-                        <span class="info-val">
-                            <span class="status-pill <?= $detail_data['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
-                                <span class="sp-dot"></span>
-                                <?= $detail_data['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
-                            </span>
+                <div
+                    style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
+                    <div class="detail-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+                    <div class="detail-main-name" id="det_nama_title">-</div>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-layer-group"></i> Lapangan</span>
+                    <span class="info-val" id="det_lapangan" style="font-weight:700;">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-circle-info"></i> Detail Fasilitas</span>
+                    <span class="info-val" id="det_detail" style="font-weight:700;">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa Lapangan</span>
+                    <span class="info-val" id="det_harga"
+                        style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;">-</span>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Fasilitas</span>
+                    <span class="info-val" id="det_status_pill_wrap">
+                        <span class="status-pill sp-active" id="det_status_pill">
+                            <span class="sp-dot"></span>
+                            <span id="det_status_text">AKTIF</span>
                         </span>
-                    </div>
-                <?php endif; ?>
-                <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
+                    </span>
+                </div>
+                <button type="button" onclick="closeModalDirect('modalDetail')" class="btn-submit"
+                    style="margin-top: 24px; background: #0D1117;">
                     <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
                 </button>
             </div>
@@ -2264,7 +2281,8 @@ function rupiah($n)
                                         <option value="">Semua Lapangan</option>
                                         <?php foreach ($lapangan_list as $lap): ?>
                                             <option value="<?= $lap['ID_Lapangan'] ?>" <?= ($_GET['f_lapangan'] ?? '') == $lap['ID_Lapangan'] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($lap['Nama_Lapangan']) ?></option>
+                                                <?= htmlspecialchars($lap['Nama_Lapangan']) ?>
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -2297,7 +2315,8 @@ function rupiah($n)
                             </form>
                         </div>
                     </div>
-                    <a href="fasilitas_lapangan.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
+                    <button type="button" onclick="showAddForm()" class="btn-add"><i
+                            class="fa-solid fa-plus"></i>Tambah</button>
                 </div>
             </div>
 
@@ -2337,10 +2356,12 @@ function rupiah($n)
                                         </td>
                                         <td>
                                             <div class="actions">
-                                                <a href="?detail_id=<?= $row['ID_Fasilitas'] ?>" class="btn-action btn-view"
-                                                    title="Lihat Detail"><i class="fa-solid fa-eye"></i></a>
-                                                <a href="?edit_id=<?= $row['ID_Fasilitas'] ?>" class="btn-action btn-edit"
-                                                    title="Edit Fasilitas"><i class="fa-solid fa-pen-to-square"></i></a>
+                                                <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')"
+                                                    class="btn-action btn-view" title="Lihat Detail"><i
+                                                        class="fa-solid fa-eye"></i></button>
+                                                <button type="button" onclick="showEditForm('<?= $row['ID_Fasilitas'] ?>')"
+                                                    class="btn-action btn-edit" title="Edit Fasilitas"><i
+                                                        class="fa-solid fa-pen-to-square"></i></button>
                                                 <label class="toggle-switch"
                                                     title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                                     <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?>
@@ -2376,7 +2397,8 @@ function rupiah($n)
                 <div class="pagination-wrap">
                     <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
                         <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong>
-                        data</div>
+                        data
+                    </div>
                     <div class="pagination-nav">
                         <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i
                                 class="fa-solid fa-angles-left"></i></a>
@@ -2397,7 +2419,8 @@ function rupiah($n)
             <?php else: ?>
                 <div class="pagination-wrap">
                     <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari
-                        <strong><?= $total_data ?></strong> data</div>
+                        <strong><?= $total_data ?></strong> data
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -2499,10 +2522,10 @@ function rupiah($n)
             }
 
             if (rules.pattern && value !== '') {
-                const regex = /^[a-zA-Z0-9\s\-_.(),&/]+$/;
+                const regex = /^[a-zA-Z\s]+$/; // <--- HANYA HURUF DAN SPASI
                 if (!regex.test(value)) {
                     field.classList.add('error');
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Hanya huruf, angka, spasi, dan tanda baca umum';
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' hanya boleh berisi huruf';
                     valMsg.classList.add('show');
                     return false;
                 }
@@ -2560,6 +2583,7 @@ function rupiah($n)
         // ============================================
         // TOGGLE STATUS
         // ============================================
+        // TOGGLE STATUS (AJAX - Realtime)
         function confirmToggle(id, status) {
             const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
             const iconType = status == 1 ? 'warning' : 'question';
@@ -2578,19 +2602,45 @@ function rupiah($n)
                 allowOutsideClick: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Memproses...',
-                        text: 'Mengubah status fasilitas',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    setTimeout(() => {
-                        window.location.href = '?toggle_id=' + id + '&s=' + status;
-                    }, 600);
+                    // Mengirim request ke server di latar belakang menggunakan AJAX
+                    fetch('?toggle_id=' + id + '&s=' + status + '&ajax=1')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil!',
+                                    text: data.msg,
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+
+                                // Cari baris tabel tempat tombol ini diklik
+                                const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
+                                const row = checkbox.closest('tr');
+                                const pill = row.querySelector('.status-pill');
+
+                                // Perbarui UI secara langsung tanpa memuat ulang halaman
+                                if (newStatus === 1) {
+                                    pill.className = 'status-pill sp-active';
+                                    pill.innerHTML = '<span class="sp-dot"></span> AKTIF';
+                                    checkbox.checked = true;
+                                    checkbox.setAttribute('onchange', "confirmToggle('" + id + "', 1)");
+                                } else {
+                                    pill.className = 'status-pill sp-inactive';
+                                    pill.innerHTML = '<span class="sp-dot"></span> NONAKTIF';
+                                    checkbox.checked = false;
+                                    checkbox.setAttribute('onchange', "confirmToggle('" + id + "', 0)");
+                                }
+                            } else {
+                                Swal.fire('Gagal!', data.msg, 'error');
+                                const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
+                                if (checkbox) checkbox.checked = !checkbox.checked;
+                            }
+                        });
                 } else {
-                    var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
+                    // Reset checkbox jika batal
+                    const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
                     if (checkbox) checkbox.checked = !checkbox.checked;
                 }
             });
@@ -2613,17 +2663,36 @@ function rupiah($n)
                 allowOutsideClick: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Memproses...',
-                        text: 'Menghapus fasilitas',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    setTimeout(() => {
-                        window.location.href = '?delete_id=' + id;
-                    }, 600);
+                    // Mengirim request hapus data ke server di latar belakang
+                    fetch('?delete_id=' + id + '&ajax=1')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Terhapus!',
+                                    text: data.msg,
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+
+                                // Cari baris tombol hapus tempat diklik
+                                const btnDelete = document.querySelector('button[onclick*="confirmDelete(\'' + id + '\'"]');
+                                if (btnDelete) {
+                                    const row = btnDelete.closest('tr');
+
+                                    // Berikan animasi geser & memudar sebelum dihapus secara live
+                                    row.style.transition = 'all 0.5s ease';
+                                    row.style.opacity = '0';
+                                    row.style.transform = 'translateX(-20px)';
+                                    setTimeout(() => {
+                                        row.remove();
+                                    }, 500);
+                                }
+                            } else {
+                                Swal.fire('Gagal!', data.msg, 'error');
+                            }
+                        });
                 }
             });
         }
@@ -2736,6 +2805,101 @@ function rupiah($n)
                 });
             }
         });
+
+        // --- TAMBAHKAN FUNGSI JAVASCRIPT BARU INI ---
+
+        // Fungsi Buka Form Tambah Baru
+        function showAddForm() {
+            // Reset Form Input
+            document.getElementById('formFasilitas').reset();
+            document.getElementById('hiddenInputsArea').innerHTML = '';
+
+            // Reset Error Visuals
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+            // Set Title & Button Icon
+            document.getElementById('formModalTitle').innerText = 'Tambah Fasilitas Baru';
+            document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Fasilitas';
+
+            // Buka Modal
+            document.getElementById('modalFasilitas').classList.add('open');
+        }
+
+        // Fungsi Buka Form Edit Data (AJAX)
+        function showEditForm(id) {
+            // Ambil data fasilitas dari latar belakang menggunakan Fetch API
+            fetch('?ajax_detail_id=' + id)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status === 'success') {
+                        const data = res.data;
+
+                        // Isi input form secara otomatis
+                        document.getElementById('id_lapangan').value = data.ID_Lapangan;
+                        document.getElementById('nama_fasilitas').value = data.Nama_Fasilitas;
+                        document.getElementById('detail_fasilitas').value = data.Detail_Fasilitas;
+
+                        // Set hidden input agar form dikirim sebagai EDIT MODE
+                        document.getElementById('hiddenInputsArea').innerHTML = `
+                    <input type="hidden" name="edit_mode" value="1">
+                    <input type="hidden" name="id_fas" id="id_fas" value="${data.ID_Fasilitas}">
+                `;
+
+                        // Ubah Title & Button Icon
+                        document.getElementById('formModalTitle').innerText = 'Edit Fasilitas';
+                        document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+                        // Reset visual error jika ada bekas validasi sebelumnya
+                        document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+                        document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+                        // Buka Modal
+                        document.getElementById('modalFasilitas').classList.add('open');
+                    } else {
+                        Swal.fire('Gagal!', res.msg, 'error');
+                    }
+                });
+        }
+
+        // Fungsi Tampilkan Detail Fasilitas (AJAX)
+        function showDetail(id) {
+            fetch('?ajax_detail_id=' + id)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.status === 'success') {
+                        const data = res.data;
+
+                        // Tulis nilai ke dalam kolom modal detail secara dinamis
+                        document.getElementById('det_nama_title').innerText = data.Nama_Fasilitas;
+                        document.getElementById('det_lapangan').innerText = data.Nama_Lapangan;
+                        document.getElementById('det_detail').innerText = data.Detail_Fasilitas ? data.Detail_Fasilitas : '-';
+                        document.getElementById('det_harga').innerText = data.Harga_Sewa_Rupiah;
+
+                        // Pengaturan warna badge status keaktifan
+                        const pill = document.getElementById('det_status_pill');
+                        const text = document.getElementById('det_status_text');
+                        if (data.Status == 1) {
+                            pill.className = 'status-pill sp-active';
+                            text.innerText = 'AKTIF';
+                        } else {
+                            pill.className = 'status-pill sp-inactive';
+                            text.innerText = 'NONAKTIF';
+                        }
+
+                        // Buka Modal Detail
+                        document.getElementById('modalDetail').classList.add('open');
+                    } else {
+                        Swal.fire('Gagal!', res.msg, 'error');
+                    }
+                });
+        }
+
+        // Fungsi Menutup Modal Secara Langsung
+        function closeModalDirect(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+        }
+
     </script>
 </body>
 

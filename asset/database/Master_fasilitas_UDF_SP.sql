@@ -157,12 +157,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Hasil 1: Total Record terfilter (untuk penentuan jumlah halaman pagination)
+    -- Hasil 1: Total Record terfilter
     SELECT COUNT(*) AS TotalCount
     FROM dbo.Fasilitas_Lapangan f
     JOIN dbo.Lapangan l ON f.ID_Lapangan = l.ID_Lapangan
     WHERE f.Is_Deleted = 0
-      AND (@FilterLapangan = 'all' OR f.ID_Lapangan = CAST(@FilterLapangan AS INT))
+      AND (@FilterLapangan = 'all' OR f.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT)) -- MENGGUNAKAN TRY_CAST AGAR AMAN
       AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND f.Status = 1) OR (@FilterStatus = 'nonaktif' AND f.Status = 0));
 
     -- Hasil 2: List Data terpaginasi
@@ -170,7 +170,7 @@ BEGIN
     FROM dbo.Fasilitas_Lapangan f
     JOIN dbo.Lapangan l ON f.ID_Lapangan = l.ID_Lapangan
     WHERE f.Is_Deleted = 0
-      AND (@FilterLapangan = 'all' OR f.ID_Lapangan = CAST(@FilterLapangan AS INT))
+      AND (@FilterLapangan = 'all' OR f.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT)) -- MENGGUNAKAN TRY_CAST AGAR AMAN
       AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND f.Status = 1) OR (@FilterStatus = 'nonaktif' AND f.Status = 0))
     ORDER BY 
         CASE WHEN @SortBy = 'nomor_asc' THEN f.ID_Fasilitas END ASC,
