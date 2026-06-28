@@ -32,8 +32,8 @@ if (isset($_POST['register'])) {
         $jk = 1; // Default Laki-laki
     }
 
-    // Cek duplikat Username, Email, atau Nomor Telepon di tabel Customer
-    $sql_check = "SELECT Username, Email, No_Telepon FROM Customer WHERE Username = ? OR Email = ? OR No_Telepon = ?";
+    // --- DIUBAH MENGGUNAKAN SP: Cek duplikat Username, Email, atau Nomor Telepon ---
+    $sql_check = "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?";
     $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email, $telp));
 
     if ($stmt_check === false) {
@@ -71,10 +71,8 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
-        // Insert ke tabel Customer (ID_Customer dilewati karena otomatis diisi oleh IDENTITY di database)
-        $sql_customer = "INSERT INTO Customer 
-            (Nama_Customer, Tanggal_Lahir, Tempat_Lahir, Jenis_Kelamin, Alamat, No_Telepon, Email, Username, Kata_Sandi, Status, Created_By, Created_Date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'System', GETDATE())";
+        // --- DIUBAH MENGGUNAKAN SP: Simpan data customer baru ---
+        $sql_customer = "EXEC dbo.sp_CreateCustomer ?, ?, ?, ?, ?, ?, ?, ?, ?";
 
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array(
             $nama,

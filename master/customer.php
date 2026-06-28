@@ -126,21 +126,6 @@ $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 $allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort)) $sort_by = 'ID_Customer';
 
-$where_clauses = ["Is_Deleted = 0"];
-$params = [];
-
-if ($filter_status == 'aktif') {
-    $where_clauses[] = "Status = 1";
-} elseif ($filter_status == 'nonaktif') {
-    $where_clauses[] = "Status = 0";
-}
-
-if ($filter_jk >= 0) {
-    $where_clauses[] = "Jenis_Kelamin = ?";
-    $params[] = $filter_jk;
-}
-
-$where_sql = implode(" AND ", $where_clauses);
 
 // --- STAT COUNTS & DASHBOARD (USING UDF) ---
 $q_stats = safe_sqlsrv_query($conn, "SELECT Total, Aktif, Nonaktif FROM dbo.fn_GetCustomerStats()", [], false);
