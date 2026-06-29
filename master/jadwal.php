@@ -62,7 +62,7 @@ if ($q_lap) {
 }
 
 if (isset($_POST['save_jadwal'])) {
-    $id = trim($_POST['id_jadwal']);
+    $id = isset($_POST['id_jadwal']) ? trim($_POST['id_jadwal']) : '';
     $id_lapangan = $_POST['id_lapangan'];
     $tanggal = $_POST['tanggal'];
     $jam_mulai = $_POST['jam_mulai'];
@@ -132,20 +132,25 @@ if (isset($_POST['save_jadwal'])) {
         exit();
     }
 
+    $selesai_compare = ($jam_selesai == '00:00') ? '24:00' : $jam_selesai;
     $sql_check_bentrok = "SELECT ID_Jadwal FROM Jadwal 
                           WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
-                          AND NOT (Jam_Selesai <= ? OR Jam_Mulai >= ?)";
-    $q_check = safeQuery($conn, $sql_check_bentrok, [$id_lapangan, $tanggal, $id, $jam_mulai, $jam_selesai]);
+                          AND NOT (
+                              (CASE WHEN Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), Jam_Selesai, 108) END) <= ?
+                              OR CONVERT(VARCHAR(5), Jam_Mulai, 108) >= ?
+                          )";
+    $q_check = safeQuery($conn, $sql_check_bentrok, [$id_lapangan, $tanggal, $id, $jam_mulai, $selesai_compare]);
+
     if ($q_check && safeFetch($q_check)) {
         header("Location: jadwal.php?page=1&status=error&msg=Jadwal tidak boleh bentrok dengan jadwal lain pada lapangan yang sama.");
         exit();
     }
 
     if (isset($_POST['edit_mode'])) {
-        safeQuery($conn, "UPDATE Jadwal SET ID_Lapangan=?, Tanggal=?, Jam_Mulai=?, Jam_Selesai=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Jadwal=?", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama, $id]);
+        safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?", [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil diperbarui!");
     } else {
-        safeQuery($conn, "INSERT INTO Jadwal (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
         header("Location: jadwal.php?page=1&status=success&msg=Jadwal baru berhasil ditambahkan!");
     }
     exit();
@@ -153,27 +158,27 @@ if (isset($_POST['save_jadwal'])) {
 
 if (isset($_GET['toggle_id'])) {
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    safeQuery($conn, "UPDATE Jadwal SET Status=? WHERE ID_Jadwal=?", [$s_baru, $_GET['toggle_id']]);
+    safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @Status=?, @Modified_By=?", [$_GET['toggle_id'], $s_baru, $nama]);
     header("Location: jadwal.php?page=1&status=success&msg=Status jadwal berhasil diubah!");
     exit();
 }
 
 if (isset($_GET['delete_id'])) {
-    safeQuery($conn, "UPDATE Jadwal SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Jadwal=?", [$nama, $_GET['delete_id']]);
+    safeQuery($conn, "EXEC SP_Jadwal_Delete @ID_Jadwal=?, @Deleted_By=?", [$_GET['delete_id'], $nama]);
     header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil dihapus!");
     exit();
 }
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "SELECT * FROM Jadwal WHERE ID_Jadwal=?", [$_GET['edit_id']]);
+    $r = safeQuery($conn, "EXEC SP_Jadwal_Select @ID_Jadwal=?", [$_GET['edit_id']]);
     if ($r) $edit_data = safeFetch($r);
 }
 
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "SELECT j.*, l.Nama_Lapangan FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan WHERE j.ID_Jadwal=?", [$_GET['detail_id']]);
+    $r = safeQuery($conn, "EXEC SP_Jadwal_Select @ID_Jadwal=?", [$_GET['detail_id']]);
     if ($r) {
         $detail_data = safeFetch($r);
         $show_detail = true;
@@ -202,21 +207,21 @@ if (isset($_GET['f_sort'])) {
     elseif ($_GET['f_sort'] === 'lapangan_asc') $sort_by = "l.Nama_Lapangan ASC";
 }
 
-$q_total = safeQuery($conn, "SELECT COUNT(*) as t FROM Jadwal WHERE Is_Deleted=0", []);
+$q_total = safeQuery($conn, "EXEC SP_Jadwal_Count", []);
 $total_jadwal = 0;
 if ($q_total) {
     $row = safeFetch($q_total);
     $total_jadwal = $row['t'] ?? 0;
 }
 
-$q_aktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Jadwal WHERE Is_Deleted=0 AND Status=1", []);
+$q_aktif = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=1", []);
 $aktif_count = 0;
 if ($q_aktif) {
     $row = safeFetch($q_aktif);
     $aktif_count = $row['t'] ?? 0;
 }
 
-$q_nonaktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Jadwal WHERE Is_Deleted=0 AND Status=0", []);
+$q_nonaktif = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=0", []);
 $nonaktif_count = 0;
 if ($q_nonaktif) {
     $row = safeFetch($q_nonaktif);
@@ -226,11 +231,14 @@ if ($q_nonaktif) {
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-$count_sql = "SELECT COUNT(*) as t FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan WHERE $where_sql";
-$count_res = safeQuery($conn, $count_sql, $params);
+// Hitung total data pakai SP (dengan filter)
+$q_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
+$q_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? $_GET['f_lapangan'] : null;
+
+$q_count = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=?, @LapanganFilter=?", [$q_status, $q_lapangan]);
 $total_data = 0;
-if ($count_res) {
-    $row = safeFetch($count_res);
+if ($q_count) {
+    $row = safeFetch($q_count);
     $total_data = $row['t'] ?? 0;
 }
 
@@ -238,20 +246,44 @@ $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$query_sql = "SELECT j.*, l.Nama_Lapangan FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safeQuery($conn, $query_sql, $params);
+// Query data pakai SP (dengan filter + pagination)
+$q_sort = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'tanggal_desc';
+$query = safeQuery($conn, "EXEC SP_Jadwal_SelectFiltered @StatusFilter=?, @LapanganFilter=?, @SortBy=?, @PageNumber=?, @PageSize=?", 
+    [$q_status, $q_lapangan, $q_sort, $page, $limit]);
 
 $q_pending = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0", []);
 $total_pending = 0;
 if ($q_pending) {
     $row = safeFetch($q_pending);
-    $total_pending = $row['t'] ?? 0;
+    $total_pending = $row['t'] ?? 0;   // ✅ BENER: kolomnya 't'
 }
 
 $filter_url = "";
 if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 if (isset($_GET['f_lapangan'])) $filter_url .= "&f_lapangan=" . urlencode($_GET['f_lapangan']);
+
+// ===== PAGINATION =====
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+// Hitung total data
+$q_count = safeQuery($conn, "EXEC SP_Jadwal_Count", []);
+$total_data = 0;
+if ($q_count) {
+    $row = safeFetch($q_count);
+    $total_data = $row['t'] ?? 0;
+}
+$total_pages = ceil($total_data / $limit);
+
+// Query data jadwal dengan filter
+$q_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
+$q_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? $_GET['f_lapangan'] : null;
+$q_sort = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'tanggal_desc';
+
+$query = safeQuery($conn, "EXEC SP_Jadwal_SelectFiltered @StatusFilter=?, @LapanganFilter=?, @SortBy=?, @PageNumber=?, @PageSize=?", 
+    [$q_status, $q_lapangan, $q_sort, $page, $limit]);
 
 ?>
 <!DOCTYPE html>
@@ -600,7 +632,7 @@ input[type="time"].modal-input {
 </head>
 <body>
 <!-- MODAL FORM JADWAL -->
-<div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalAlat">
+<div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalJadwal">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
@@ -1229,37 +1261,12 @@ function validateForm() {
         // ====================================
         
         // ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
-function checkJamOperasional() {
-    const jamMulaiField = document.getElementById('jam_mulai');
-    const jamSelesaiField = document.getElementById('jam_selesai');
-    const valMulai = document.getElementById('val-jam_mulai');
-    const valSelesai = document.getElementById('val-jam_selesai');
+        if (!checkJamOperasional()) {
+            valid = false;
+        }
+        // =====================================================
 
-    if (!jamMulaiField || !jamSelesaiField) return true;
-
-    let valid = true;
-
-    // Jam mulai minimal 08:30
-    if (jamMulaiField.value && jamMulaiField.value < '08:30') {
-        jamMulaiField.classList.add('error');
-        valMulai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional dimulai pukul 08:30 WIB.';
-        valMulai.classList.add('show');
-        valid = false;
-    }
-
-    // Jam selesai maksimal 00:00 (tengah malam), tidak boleh di antara 00:00-08:30
-    if (jamSelesaiField.value && jamSelesaiField.value > '00:00' && jamSelesaiField.value < '08:30') {
-        jamSelesaiField.classList.add('error');
-        valSelesai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional berakhir pukul 00:00 WIB.';
-        valSelesai.classList.add('show');
-        valid = false;
-    }
-
-    return valid;
-}
-// =====================================================
-
-// ===== VALIDASI DURASI MINIMAL 1 JAM =====
+        // ===== VALIDASI DURASI MINIMAL 1 JAM =====
         if (!checkDurasiMinimal()) {
             valid = false;
         }
