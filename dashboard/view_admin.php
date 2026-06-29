@@ -1146,7 +1146,7 @@ html { scroll-behavior:smooth; }
         <a href="../master/tipe_member.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
         </a>
-        <a href="../master/pembelian_alat.php" class="sb-link">
+        <a href="../master/alat.php" class="sb-link">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
         </a>
     </nav>
