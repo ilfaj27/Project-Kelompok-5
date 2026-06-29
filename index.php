@@ -8,23 +8,17 @@ if (!isset($_SESSION['intro_done'])) {
     exit();
 }
 
-$total_lapangan = 15;
-$total_promo = 3;
+$total_lapangan = 0;
 
 if (file_exists('includes/config.php')) {
     include 'includes/config.php';
     if (isset($conn)) {
-        $sql_lap = "SELECT COUNT(*) as total FROM Lapangan WHERE Status = 1";
+        // --- DIUBAH MENGGUNAKAN UDF: Mengambil total lapangan aktif ---
+        $sql_lap = "SELECT dbo.fn_GetActiveCourtCount() as total";
         $q_lap = sqlsrv_query($conn, $sql_lap);
         if ($q_lap) {
             $d_lap = sqlsrv_fetch_array($q_lap, SQLSRV_FETCH_ASSOC);
             $total_lapangan = $d_lap['total'] ?? $total_lapangan;
-        }
-        $sql_prm = "SELECT COUNT(*) as total FROM Promo WHERE Tanggal_Selesai >= GETDATE()";
-        $q_prm = sqlsrv_query($conn, $sql_prm);
-        if ($q_prm) {
-            $d_prm = sqlsrv_fetch_array($q_prm, SQLSRV_FETCH_ASSOC);
-            $total_promo = $d_prm['total'] ?? $total_promo;
         }
     }
 }

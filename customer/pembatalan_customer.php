@@ -482,6 +482,7 @@ function resolvePhotoPath($photo_path) {
      color:var(--white);
      font-size:14px;
      font-weight:700;
+     display:block;
 }
  .dropdown-menu .user-info-header .u-role {
      color:var(--text-gray);
@@ -489,6 +490,7 @@ function resolvePhotoPath($photo_path) {
      text-transform:uppercase;
      letter-spacing:0.5px;
      margin-top:2px;
+     display:block;
 }
  .dropdown-menu a {
      display:flex;
@@ -500,11 +502,42 @@ function resolvePhotoPath($photo_path) {
      font-size:13px;
      font-weight:500;
      transition:all 0.25s cubic-bezier(0.16,1,0.3,1);
+     position:relative;
+     overflow:hidden;
+}
+ .dropdown-menu a::after {
+     content:'';
+     position:absolute;
+     left:0;
+     top:0;
+     width:3px;
+     height:100%;
+     background:var(--primary);
+     transform:scaleY(0);
+     transition:transform 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+ .dropdown-menu a i {
+     font-size:14px;
+     width:16px;
+     text-align:center;
+     transition:transform 0.3s ease;
 }
  .dropdown-menu a:hover {
      background:#222227;
      color:var(--primary);
      padding-left:28px;
+}
+ .dropdown-menu a:hover::after {
+     transform:scaleY(1);
+}
+ .dropdown-menu a:hover i {
+     transform:scale(1.2);
+}
+ .dropdown-menu a.logout:hover {
+     color:#ff3b30;
+}
+ .dropdown-menu a.logout:hover::after {
+     background:#ff3b30;
 }
  .dropdown-divider {
      height:1px;
