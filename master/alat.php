@@ -122,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         $errors[] = 'Harga harus berupa angka.';
     }
     if (empty($errors)) {
-        $sql_check = "SELECT ID_Alat FROM Alat WHERE LOWER(Nama_Alat) = LOWER(?) AND ID_Alat <> ? AND Is_Deleted = 0";
-        $q_check = safeQuery($conn, $sql_check, [$nama_alat, $id]);
+        // Pake SP_Alat_CheckDuplicate buat cek nama alat sudah ada atau belum
+        $q_check = safeQuery($conn, "EXEC SP_Alat_CheckDuplicate @Nama_Alat = ?, @ExcludeID = ?", [$nama_alat, $id]);
         if ($q_check && safeFetch($q_check)) {
             $errors[] = 'Nama alat sudah terdaftar.';
         }
@@ -141,10 +141,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
 
     if (empty($errors)) {
         if ($edit_mode && $id > 0) {
-            $sql = "UPDATE Alat SET Nama_Alat=?, Stok=?, Harga_Alat=?, Photo_Alat=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?";
-            $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $id];
+            $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Modified_By=?";
+            $params = [$id, $nama_alat, $stok, $harga_alat, $photo_alat, $nama];
         } else {
-            $sql = "INSERT INTO Alat (Nama_Alat, Stok, Harga_Alat, Photo_Alat, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())";
+            $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Status=1, @Created_By=?";
             $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama];
         }
         $result = safeQuery($conn, $sql, $params);
@@ -168,7 +168,8 @@ if (isset($_GET['toggle_id'])) {
     $toggle_id = intval($_GET['toggle_id']);
     $current_status = intval($_GET['s']);
     $s_baru = ($current_status == 1) ? 0 : 1;
-    $result = safeQuery($conn, "UPDATE Alat SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Alat=?", [$s_baru, $nama, $toggle_id]);
+    // BUG FIX: parameter kebalik! Harusnya ID_Alat dulu, baru Status, baru Modified_By
+        $result = safeQuery($conn, "EXEC SP_Alat_Update @ID_Alat = ?, @Status = ?, @Modified_By = ?", [$toggle_id, $s_baru, $nama]);
     if ($result !== false) {
         ob_end_clean();
         $msg = ($s_baru == 1) ? 'Alat berhasil diaktifkan!' : 'Alat berhasil dinonaktifkan!';
@@ -182,13 +183,13 @@ if (isset($_GET['toggle_id'])) {
 
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
-    $stmt_nama = safeQuery($conn, "SELECT Nama_Alat FROM Alat WHERE ID_Alat = ?", [$delete_id]);
+    $stmt_nama = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [$delete_id]);
     $nama_alat_deleted = '';
     if ($stmt_nama) {
         $row_nama = safeFetch($stmt_nama);
         if ($row_nama) $nama_alat_deleted = $row_nama['Nama_Alat'];
     }
-    $result = safeQuery($conn, "UPDATE Alat SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Alat=?", [$nama, $delete_id]);
+    $result = safeQuery($conn, "EXEC SP_Alat_Delete @ID_Alat=?, @Deleted_By=?", [$delete_id, $nama]);
     if ($result !== false) {
         ob_end_clean();
         $msg = !empty($nama_alat_deleted) ? 'Alat "' . $nama_alat_deleted . '" berhasil dihapus!' : 'Alat berhasil dihapus!';
@@ -202,14 +203,14 @@ if (isset($_GET['delete_id'])) {
 
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "SELECT * FROM Alat WHERE ID_Alat=? AND Is_Deleted=0", [intval($_GET['edit_id'])]);
+    $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['edit_id'])]);
     if ($r) $edit_data = safeFetch($r);
 }
 
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "SELECT * FROM Alat WHERE ID_Alat=? AND Is_Deleted=0", [intval($_GET['detail_id'])]);
+    $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['detail_id'])]);
     if ($r) {
         $detail_data = safeFetch($r);
         $show_detail = ($detail_data !== false && $detail_data !== null);
@@ -218,50 +219,54 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$where_clauses = ["Is_Deleted = 0"];
-$params = [];
-if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
-    $where_clauses[] = "Status = ?";
-    $params[] = intval($_GET['f_status']);
-}
-$where_sql = implode(" AND ", $where_clauses);
-
-$sort_by = "Nama_Alat ASC";
+// === MAP SORT PARAMETER BUAT SP ===
+$sort_by_param = 'nama_asc';
 if (isset($_GET['f_sort'])) {
     switch ($_GET['f_sort']) {
-        case 'nama_asc': $sort_by = "Nama_Alat ASC"; break;
-        case 'stok_desc': $sort_by = "Stok DESC"; break;
-        case 'harga_desc': $sort_by = "Harga_Alat DESC"; break;
-        case 'harga_asc': $sort_by = "Harga_Alat ASC"; break;
+        case 'nama_asc':  $sort_by_param = 'nama_asc';  break;
+        case 'stok_desc': $sort_by_param = 'stok_desc'; break;
+        case 'harga_desc':$sort_by_param = 'harga_desc';break;
+        case 'harga_asc': $sort_by_param = 'harga_asc'; break;
     }
 }
 
-$q_total = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0");
-$total_alat = 0;
-if ($q_total) { $row = safeFetch($q_total); $total_alat = $row['t'] ?? 0; }
-
-$q_aktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=1");
-$aktif_count = 0;
-if ($q_aktif) { $row = safeFetch($q_aktif); $aktif_count = $row['t'] ?? 0; }
-
-$q_nonaktif = safeQuery($conn, "SELECT COUNT(*) as t FROM Alat WHERE Is_Deleted=0 AND Status=0");
-$nonaktif_count = 0;
-if ($q_nonaktif) { $row = safeFetch($q_nonaktif); $nonaktif_count = $row['t'] ?? 0; }
+// === STATISTIK: 1x SP dapet Total, Aktif, Nonaktif sekaligus ===
+$total_alat = $aktif_count = $nonaktif_count = 0;
+$q_stats = safeQuery($conn, "EXEC SP_Alat_CountByStatus");
+if ($q_stats) {
+    $row_stats = safeFetch($q_stats);
+    if ($row_stats) {
+        $aktif_count    = $row_stats['AktifCount']    ?? 0;
+        $nonaktif_count = $row_stats['NonaktifCount'] ?? 0;
+        $total_alat     = $row_stats['TotalCount']    ?? 0;
+    }
+}
 
 $limit = 12;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-$count_sql = "SELECT COUNT(*) as t FROM Alat WHERE $where_sql";
-$count_res = safeQuery($conn, $count_sql, $params);
+// === HITUNG TOTAL DATA (PAGINATION) PAKAI SP_Alat_Count ===
 $total_data = 0;
-if ($count_res) { $row = safeFetch($count_res); $total_data = $row['t'] ?? 0; }
+if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
+    $count_res = safeQuery($conn, "EXEC SP_Alat_Count @StatusFilter = ?", [intval($_GET['f_status'])]);
+} else {
+    $count_res = safeQuery($conn, "EXEC SP_Alat_Count");
+}
+if ($count_res) {
+    $row = safeFetch($count_res);
+    $total_data = $row['TotalCount'] ?? 0;
+}
 
 $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-$query_sql = "SELECT * FROM Alat WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safeQuery($conn, $query_sql, $params);
+// === AMBIL DATA GRID PAKAI SP_Alat_SelectFiltered ===
+if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
+    $query = safeQuery($conn, "EXEC SP_Alat_SelectFiltered @StatusFilter = ?, @SortBy = ?, @PageNumber = ?, @PageSize = ?", [intval($_GET['f_status']), $sort_by_param, $page, $limit]);
+} else {
+    $query = safeQuery($conn, "EXEC SP_Alat_SelectFiltered @SortBy = ?, @PageNumber = ?, @PageSize = ?", [$sort_by_param, $page, $limit]);
+}
 
 $q_pending = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0");
 $total_pending = 0;
