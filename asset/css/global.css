@@ -492,16 +492,7 @@
  .topbar-btn, .topbar-user {
      background-color: #FFFFFF !important;
 }
- .notif-dot {
-     position: absolute;
-     top: 7px;
-     right: 7px;
-     width: 7px;
-     height: 7px;
-     background: var(--orange);
-     border-radius: 50%;
-     border: 2px solid #fff;
-}
+
  .dropdown-wrap {
      position: relative;
 }

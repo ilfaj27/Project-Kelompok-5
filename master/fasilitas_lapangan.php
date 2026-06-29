@@ -232,7 +232,7 @@ if (isset($_GET['f_status']))
         }
 
         .chip-val {
-            font-family: 'Barlow Condensed';
+            font-family: 'Barlow Condensed', sans-serif;
             font-size: 20px;
             font-weight: 900;
         }
@@ -267,7 +267,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Barlow Condensed', sans-serif;
             outline: none;
             transition: all .2s;
             color: var(--text);
@@ -359,7 +359,7 @@ if (isset($_GET['f_status']))
         }
 
         .lap-name {
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Barlow Condensed', sans-serif;
             font-weight: 700;
             font-size: 15px;
             color: var(--text);
@@ -650,7 +650,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Barlow Condensed', sans-serif;
             margin-bottom: 16px;
             outline: none;
             transition: all .2s;
@@ -797,7 +797,7 @@ if (isset($_GET['f_status']))
             border-radius: 10px;
             font-size: 13px;
             font-weight: 700;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Barlow Condensed', sans-serif;
             text-decoration: none;
             cursor: pointer;
             transition: all .2s ease;
@@ -953,7 +953,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Barlow Condensed', sans-serif;
             outline: none;
             transition: all .2s;
             color: var(--text);
@@ -1211,7 +1211,7 @@ if (isset($_GET['f_status']))
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa Lapangan</span>
                     <span class="info-val" id="det_harga"
-                        style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;">-</span>
+                        style="font-family:'Barlow Condensed', sans-serif; font-size:18px; color:var(--orange); font-weight:800;">-</span>
                 </div>
                 <div class="info-row" style="border-bottom:none;">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Fasilitas</span>
@@ -1329,12 +1329,12 @@ if (isset($_GET['f_status']))
                                     $has_data = true;
                                     ?>
                                     <tr>
-                                        <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
+                                        <td style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                                         <td>
                                             <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
                                         </td>
                                         <td>
-                                            <div class="lap-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
+                                            <div class="fas-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
                                         </td>
                                         <td>
                                             <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
