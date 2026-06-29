@@ -438,7 +438,7 @@ if (isset($_GET['f_status']))
             background: var(--red);
         }
 
-        /* ═══ ACTIONS (SAMAKAN DENGAN LAPANGAN) ═══ */
+        /* ═══ ACTIONS ═══ */
         .actions {
             display: flex;
             gap: 12px;
@@ -1712,8 +1712,6 @@ if (isset($_GET['f_status']))
                 });
             }
         });
-
-        // --- TAMBAHKAN FUNGSI JAVASCRIPT BARU INI ---
 
         // Fungsi Buka Form Tambah Baru
         function showAddForm() {
