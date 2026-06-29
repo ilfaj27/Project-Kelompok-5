@@ -44,10 +44,10 @@
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
             Kelola Tipe Member
         </a>
-        <a href="pembelian.php" 
+        <a href="alat.php" 
            class="sb-link <?= ($current_page === 'pembelian') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Pembelian Alat
+            Kelola Alat
         </a>
     </nav>
 
