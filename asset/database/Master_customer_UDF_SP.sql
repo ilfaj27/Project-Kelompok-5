@@ -1,7 +1,3 @@
-    USE Hoopball;
-    GO
-
-
     -- 1. UDF: Mengambil jumlah booking pending (untuk lonceng notifikasi)
     CREATE OR ALTER FUNCTION dbo.fn_GetPendingBookingCount()
     RETURNS INT
