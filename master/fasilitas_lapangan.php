@@ -2583,7 +2583,6 @@ function rupiah($n)
         // ============================================
         // TOGGLE STATUS
         // ============================================
-        // TOGGLE STATUS (AJAX - Realtime)
         function confirmToggle(id, status) {
             const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
             const iconType = status == 1 ? 'warning' : 'question';
