@@ -24,37 +24,8 @@ BEGIN
 END;
 GO
 
--- 3. SP: Cek Duplikasi Nama Fasilitas
-CREATE OR ALTER PROCEDURE dbo.sp_CheckFasilitasDuplicate
-    @Nama_Fasilitas VARCHAR(50),
-    @ID_Fasilitas INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT ID_Fasilitas 
-    FROM dbo.Fasilitas_Lapangan 
-    WHERE Nama_Fasilitas = @Nama_Fasilitas 
-      AND ID_Fasilitas <> @ID_Fasilitas 
-      AND Is_Deleted = 0;
-END;
-GO
 
--- 4. SP: Cek Duplikasi Detail Fasilitas
-CREATE OR ALTER PROCEDURE dbo.sp_CheckFasilitasDetailDuplicate
-    @Detail_Fasilitas VARCHAR(50),
-    @ID_Fasilitas INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT ID_Fasilitas 
-    FROM dbo.Fasilitas_Lapangan 
-    WHERE Detail_Fasilitas = @Detail_Fasilitas 
-      AND ID_Fasilitas <> @ID_Fasilitas 
-      AND Is_Deleted = 0;
-END;
-GO
-
--- 5. SP: Cek Duplikasi Fasilitas di Lapangan yang Sama
+-- 3. SP: Cek Duplikasi Fasilitas di Lapangan yang Sama
 CREATE OR ALTER PROCEDURE dbo.sp_CheckFasilitasOnCourtDuplicate
     @Nama_Fasilitas VARCHAR(50),
     @ID_Lapangan INT,
@@ -71,7 +42,7 @@ BEGIN
 END;
 GO
 
--- 6. SP: Ambil Detail/Edit Fasilitas Berdasarkan ID (Join dengan Lapangan)
+-- 4. SP: Ambil Detail/Edit Fasilitas Berdasarkan ID (Join dengan Lapangan)
 CREATE OR ALTER PROCEDURE dbo.sp_GetFasilitasDetail
     @ID_Fasilitas INT
 AS
@@ -84,7 +55,7 @@ BEGIN
 END;
 GO
 
--- 7. SP: Simpan Fasilitas Baru (Create)
+-- 5. SP: Simpan Fasilitas Baru (Create)
 CREATE OR ALTER PROCEDURE dbo.sp_CreateFasilitas
     @ID_Lapangan INT,
     @Nama_Fasilitas VARCHAR(50),
@@ -98,7 +69,7 @@ BEGIN
 END;
 GO
 
--- 8. SP: Perbarui Data Fasilitas (Update)
+-- 6. SP: Perbarui Data Fasilitas (Update)
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateFasilitas
     @ID_Fasilitas INT,
     @ID_Lapangan INT,
@@ -118,20 +89,23 @@ BEGIN
 END;
 GO
 
--- 9. SP: Ubah Status Fasilitas (Toggle Status)
+-- 7. SP: Ubah Status Fasilitas (Toggle Status)
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateStatusFasilitas
     @ID_Fasilitas INT,
-    @Status INT
+    @Status INT,
+    @Modified_By VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE dbo.Fasilitas_Lapangan 
-    SET Status = @Status 
+    SET Status = @Status,
+        Modified_By = @Modified_By,
+        Modified_Date = GETDATE()
     WHERE ID_Fasilitas = @ID_Fasilitas AND Is_Deleted = 0;
 END;
 GO
 
--- 10. SP: Soft Delete Fasilitas (Delete)
+-- 8. SP: Soft Delete Fasilitas (Delete)
 CREATE OR ALTER PROCEDURE dbo.sp_DeleteFasilitas
     @ID_Fasilitas INT,
     @Deleted_By VARCHAR(50)
@@ -146,7 +120,7 @@ BEGIN
 END;
 GO
 
--- 11. SP: Membaca list fasilitas terpaginasi sekaligus menghitung total datanya (Read)
+-- 9. SP: Membaca list fasilitas terpaginasi sekaligus menghitung total datanya (Read)
 CREATE OR ALTER PROCEDURE dbo.sp_ReadFasilitasListWithCount
     @FilterLapangan VARCHAR(10),
     @FilterStatus VARCHAR(10),
@@ -163,7 +137,7 @@ BEGIN
     JOIN dbo.Lapangan l ON f.ID_Lapangan = l.ID_Lapangan
     WHERE f.Is_Deleted = 0
       AND (@FilterLapangan = 'all' OR f.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT)) -- MENGGUNAKAN TRY_CAST AGAR AMAN
-      AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND f.Status = 1) OR (@FilterStatus = 'nonaktif' AND f.Status = 0));
+      AND (@FilterStatus = 'all' OR f.Status = TRY_CAST(@FilterStatus AS INT))
 
     -- Hasil 2: List Data terpaginasi
     SELECT f.*, l.Nama_Lapangan, l.Harga_Sewa 
@@ -171,7 +145,7 @@ BEGIN
     JOIN dbo.Lapangan l ON f.ID_Lapangan = l.ID_Lapangan
     WHERE f.Is_Deleted = 0
       AND (@FilterLapangan = 'all' OR f.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT)) -- MENGGUNAKAN TRY_CAST AGAR AMAN
-      AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND f.Status = 1) OR (@FilterStatus = 'nonaktif' AND f.Status = 0))
+      AND (@FilterStatus = 'all' OR f.Status = TRY_CAST(@FilterStatus AS INT))
     ORDER BY 
         CASE WHEN @SortBy = 'nomor_asc' THEN f.ID_Fasilitas END ASC,
         CASE WHEN @SortBy = 'nomor_desc' THEN f.ID_Fasilitas END DESC,
