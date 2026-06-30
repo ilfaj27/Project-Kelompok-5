@@ -187,8 +187,9 @@ function resolvePhotoPath($photo_path) {
     }
 
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--light-bg);color:var(--text-primary);overflow-x:hidden}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--light-bg);color:var(--text-primary);overflow-x:hidden;animation: fadeIn 0.5s ease-out}
     ::-webkit-scrollbar{display:none} html,body{-ms-overflow-style:none;scrollbar-width:none}
+    ::selection{background:rgba(255,82,0,0.3);color:#1C1C1E}
 
     /* ═══ ANIMATIONS ═══ */
     @keyframes fadeInUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
@@ -196,26 +197,66 @@ function resolvePhotoPath($photo_path) {
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes scaleIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
     @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+    @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(52,199,89,.4)}50%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(52,199,89,0)}}
     @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
     @keyframes slideInModal{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
     @keyframes fadeInModal{from{opacity:0}to{opacity:1}}
     @keyframes countUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     @keyframes drawLine{from{width:0}to{width:60px}}
+    @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 20px rgba(255,82,0,0.3); } 50% { box-shadow: 0 0 40px rgba(255,82,0,0.6); } }
+    @keyframes ballFloat1 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(10px,-20px) rotate(5deg)} 50%{transform:translate(-5px,10px) rotate(-3deg)} 75%{transform:translate(15px,5px) rotate(2deg)} }
+    @keyframes ballFloat2 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(-15px,10px) rotate(-5deg)} 50%{transform:translate(10px,-15px) rotate(3deg)} 75%{transform:translate(-10px,-5px) rotate(-2deg)} }
+    @keyframes ballFloat3 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(20px,5px) rotate(3deg)} 50%{transform:translate(-15px,-20px) rotate(-5deg)} 75%{transform:translate(5px,15px) rotate(2deg)} }
+    @keyframes heroGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes cardEnter { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes iconBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+    @keyframes borderGlow { 0%, 100% { border-color: rgba(255,82,0,0.3); } 50% { border-color: rgba(255,82,0,0.8); } }
+    @keyframes numberCount { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes rotateIn { from { opacity: 0; transform: rotate(-10deg) scale(0.9); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+    @keyframes loaderBounce { from { transform: translateY(0); } to { transform: translateY(-20px); } }
+
+    /* ═══ REVEAL ═══ */
+    .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
+    .reveal.active{opacity:1;transform:translateY(0)}
+    .reveal-stagger .stagger-item{opacity:0;transform:translateY(30px);transition:all 0.6s cubic-bezier(0.16,1,0.3,1)}
+    .reveal-stagger.active .stagger-item{opacity:1;transform:translateY(0)}
+    .reveal-stagger.active .stagger-item:nth-child(1){transition-delay:0s}
+    .reveal-stagger.active .stagger-item:nth-child(2){transition-delay:.1s}
+    .reveal-stagger.active .stagger-item:nth-child(3){transition-delay:.2s}
+    .reveal-stagger.active .stagger-item:nth-child(4){transition-delay:.3s}
+    .reveal-stagger.active .stagger-item:nth-child(5){transition-delay:.4s}
+    .reveal-stagger.active .stagger-item:nth-child(6){transition-delay:.5s}
+
+    /* ═══ SCROLL PROGRESS ═══ */
+    .scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--primary),#FF8C42);z-index:9999;transform-origin:left;transform:scaleX(0);transition:transform 0.1s ease-out}
+
+    /* ═══ PAGE LOADER ═══ */
+    .page-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0B0B0C; display: flex; align-items: center; justify-content: center; gap: 8px; z-index: 99999; transition: opacity 0.5s ease, visibility 0.5s ease; }
+    .page-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .loader-ball { width: 12px; height: 12px; border-radius: 50%; background: var(--primary); animation: loaderBounce 0.6s ease-in-out infinite alternate; }
+    .loader-ball:nth-child(2) { animation-delay: 0.2s; }
+    .loader-ball:nth-child(3) { animation-delay: 0.4s; }
 
     /* ═══ NAVBAR ═══ */
     nav{background:var(--white);padding:0 80px;display:flex;justify-content:space-between;align-items:center;height:76px;position:sticky;top:0;z-index:1000;border-bottom:1px solid #E5E5EA;animation:fadeInDown .6s ease-out forwards}
-    .nav-logo{display:flex;align-items:center;text-decoration:none;gap:10px;transition:transform .3s ease}
+    .nav-logo{display:flex;align-items:center;text-decoration:none;gap:10px;transition:transform .3s ease;animation: fadeInDown 0.5s ease-out both}
     .nav-logo:hover{transform:scale(1.05)}
-    .nav-logo img{height:70px;width:auto;transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
+    .nav-logo img{height:70px;width:auto;transition:transform .5s cubic-bezier(.34,1.56,.64,1);animation: rotateIn 0.6s ease-out 0.2s both}
     .nav-logo:hover img{transform:rotate(5deg) scale(1.1)}
     .nav-links{display:flex;align-items:center;gap:8px}
-    .nav-links a{color:#636366;text-decoration:none;font-size:14px;font-weight:500;padding:8px 16px;border-radius:20px;transition:var(--transition-smooth);position:relative;overflow:hidden}
+    .nav-links a{color:#636366;text-decoration:none;font-size:14px;font-weight:500;padding:8px 16px;border-radius:20px;transition:var(--transition-smooth);position:relative;overflow:hidden;animation: fadeInDown 0.5s ease-out both;opacity:0}
     .nav-links a::before{content:'';position:absolute;bottom:0;left:50%;width:0;height:2px;background:var(--primary);transition:var(--transition-smooth);transform:translateX(-50%)}
     .nav-links a:hover{color:#1C1C1E;transform:translateY(-2px)}
     .nav-links a:hover::before{width:60%}
     .nav-links a.active{color:var(--primary);font-weight:600}
     .nav-links a.active::before{width:60%}
+    .nav-links a:nth-child(1) { animation-delay: 0.1s; }
+    .nav-links a:nth-child(2) { animation-delay: 0.15s; }
+    .nav-links a:nth-child(3) { animation-delay: 0.2s; }
+    .nav-links a:nth-child(4) { animation-delay: 0.25s; }
 
     .nav-user-container{position:relative;height:76px;display:flex;align-items:center}
     .nav-user{background:#F2F2F7;border:1px solid #E5E5EA;padding:8px 16px;border-radius:50px;color:#1C1C1E;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition-smooth)}
@@ -226,8 +267,8 @@ function resolvePhotoPath($photo_path) {
     .nav-user:hover i.user-icon{transform:scale(1.2)}
     .nav-user i.arrow{font-size:11px;color:#8E8E93;transition:.3s cubic-bezier(.34,1.56,.64,1)}
     .nav-user-container:hover i.arrow{transform:rotate(180deg);color:var(--primary)}
-    .dropdown-menu{position:absolute;top:85%;right:0;background:#16161a;min-width:220px;border-radius:12px;border:1px solid #2d2d33;padding:8px 0;display:none;z-index:1001;transform-origin:top right}
-    .nav-user-container:hover .dropdown-menu{display:block;animation:fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards}
+    .dropdown-menu{position:absolute;top:85%;right:0;background:#16161a;min-width:220px;border-radius:12px;border:1px solid #2d2d33;padding:8px 0;display:none;z-index:1001;transform-origin:top right;opacity:0;transform:translateY(-10px) scale(0.95);transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}
+    .nav-user-container:hover .dropdown-menu{display:block;opacity:1;transform:translateY(0) scale(1);animation:fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards}
     .dropdown-menu .user-info-header{padding:12px 20px;border-bottom:1px solid #2d2d33;margin-bottom:6px}
     .dropdown-menu .user-info-header .u-name{color:var(--white);font-size:14px;font-weight:700;display:block}
     .dropdown-menu .user-info-header .u-role{color:var(--text-gray);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;display:block}
@@ -239,33 +280,53 @@ function resolvePhotoPath($photo_path) {
     .dropdown-menu a:hover i{transform:scale(1.2)}
     .dropdown-menu a.logout:hover{color:#ff3b30}
     .dropdown-menu a.logout:hover::after{background:#ff3b30}
+    .dropdown-divider { height: 1px; background: #2d2d33; margin: 6px 0; }
     .member-badge-nav{display:inline-flex;align-items:center;gap:6px;background:var(--green-lt);border:1px solid var(--green);color:var(--green);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;margin-left:8px;animation:pulse 2s ease-in-out infinite}
 
     /* ═══ HERO SECTION ═══ */
-    .hero { background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 100%); padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; }
+    .hero { background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 50%, #0d0d1a 100%); background-size: 200% 200%; animation: heroGradient 15s ease infinite; padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; min-height: 400px; }
     .hero::before { content: ''; position: absolute; right: -100px; top: -100px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(255,82,0,.15) 0%, transparent 70%); }
-    .hero-left { max-width: 600px; position: relative; z-index: 1; }
-    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: var(--white); padding: 8px 16px; border-radius: 50px; font-size: 13px; font-weight: 700; margin-bottom: 20px; }
-    .hero-title { font-size: 42px; font-weight: 800; color: var(--white); line-height: 1.2; margin-bottom: 16px; }
-    .hero-title span { color: var(--primary); }
-    .hero-desc { color: #A0A0A5; font-size: 16px; line-height: 1.6; margin-bottom: 24px; }
+    .hero::after { content: ''; position: absolute; bottom: -50px; left: -50px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%); pointer-events: none; animation: ballFloat3 15s ease-in-out infinite; }
+    .hero-left { max-width: 600px; position: relative; z-index: 1; animation: fadeInUp 0.8s ease-out forwards; }
+    .hero-left .hero-badge { animation: slideInLeft 0.6s ease-out 0.2s both; }
+    .hero-left .hero-title { animation: fadeInUp 0.8s ease-out 0.4s both; }
+    .hero-left .hero-desc { animation: fadeInUp 0.8s ease-out 0.6s both; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--primary); color: var(--white); padding: 8px 16px; border-radius: 50px; font-size: 13px; font-weight: 700; margin-bottom: 20px; transition: all 0.3s ease; cursor: default; }
+    .hero-badge:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(255,82,0,0.4); }
+    .hero-badge i { animation: iconBounce 2s ease-in-out infinite; }
+    .hero-title { font-size: 42px; font-weight: 800; color: var(--white); line-height: 1.2; margin-bottom: 16px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    .hero-title span { color: var(--primary); display: inline-block; transition: transform 0.3s ease; }
+    .hero-left:hover .hero-title span { transform: scale(1.02); }
+    .hero-desc { color: #A0A0A5; font-size: 16px; line-height: 1.6; margin-bottom: 24px; transition: color 0.3s ease; }
+    .hero-left:hover .hero-desc { color: #C0C0C5; }
+
+    /* ═══ FLOATING BALLS ═══ */
+    .floating-ball { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.4), rgba(255,82,0,0.1)); filter: blur(1px); pointer-events: none; z-index: 0; }
+    .ball-1 { width: 80px; height: 80px; top: 10%; right: 15%; animation: ballFloat1 8s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.35), rgba(255,82,0,0.05)); }
+    .ball-2 { width: 50px; height: 50px; top: 60%; right: 25%; animation: ballFloat2 10s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, rgba(255,140,66,0.3), rgba(255,140,66,0.05)); }
+    .ball-3 { width: 120px; height: 120px; bottom: 10%; right: 5%; animation: ballFloat3 12s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.2), rgba(255,82,0,0.02)); }
+    .ball-4 { width: 40px; height: 40px; top: 30%; right: 40%; animation: ballFloat1 7s ease-in-out infinite reverse; background: radial-gradient(circle at 30% 30%, rgba(255,200,100,0.3), rgba(255,200,100,0.05)); }
+    .ball-5 { width: 60px; height: 60px; bottom: 30%; right: 30%; animation: ballFloat2 9s ease-in-out infinite reverse; background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.25), rgba(255,82,0,0.03)); }
+    .hero-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%); pointer-events: none; z-index: 0; animation: glowPulse 4s ease-in-out infinite; }
 
     /* ═══ KERANJANG WIDGET ═══ */
-    .cart-widget { background: var(--white); border-radius: 16px; padding: 28px; border: 1px solid #E5E5EA; position: relative; z-index: 1; min-width: 340px; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .cart-widget { background: var(--white); border-radius: 16px; padding: 28px; border: 1px solid #E5E5EA; position: relative; z-index: 1; min-width: 340px; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); animation: fadeInUp 0.8s ease-out 0.2s forwards, cardEnter 0.6s ease-out 0.2s both; opacity: 0; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .cart-widget:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 20px 40px rgba(0,0,0,0.15); border-color: rgba(255,82,0,0.3); }
     .cart-widget-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid #F2F2F7; }
-    .cart-widget-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--orange-lt); color: var(--orange); display: flex; align-items: center; justify-content: center; font-size: 20px; }
-    .cart-widget-title { font-size: 16px; font-weight: 800; color: #1C1C1E; }
-    .cart-widget-subtitle { font-size: 12px; color: #8E8E93; }
+    .cart-widget-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--orange-lt); color: var(--orange); display: flex; align-items: center; justify-content: center; font-size: 20px; animation: scaleIn 0.5s ease-out 0.4s both; }
+    .cart-widget-title { font-size: 16px; font-weight: 800; color: #1C1C1E; animation: fadeInUp 0.5s ease-out 0.5s both; }
+    .cart-widget-subtitle { font-size: 12px; color: #8E8E93; animation: fadeInUp 0.5s ease-out 0.6s both; }
     .cart-items { max-height: 200px; overflow-y: auto; margin-bottom: 16px; }
     .cart-empty { text-align: center; padding: 24px 0; color: #8E8E93; font-size: 13px; }
     .cart-empty i { font-size: 32px; margin-bottom: 8px; display: block; opacity: 0.5; }
-    .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F2F2F7; }
+    .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F2F2F7; transition: var(--transition-smooth); }
+    .cart-item:hover { background: rgba(255,82,0,0.02); transform: translateX(4px); }
     .cart-item-info { flex: 1; }
     .cart-item-name { font-size: 13px; font-weight: 700; color: #1C1C1E; }
     .cart-item-qty { font-size: 11px; color: #8E8E93; }
     .cart-item-price { font-size: 13px; font-weight: 800; color: var(--shopee-orange); }
     .cart-item-remove { background: none; border: none; color: var(--red); cursor: pointer; font-size: 12px; margin-left: 8px; padding: 4px; border-radius: 4px; transition: 0.2s; }
-    .cart-item-remove:hover { background: var(--red-lt); }
+    .cart-item-remove:hover { background: var(--red-lt); transform: scale(1.1); }
     .cart-total { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 2px solid #F2F2F7; margin-bottom: 16px; }
     .cart-total-label { font-size: 14px; font-weight: 600; color: #1C1C1E; }
     .cart-total-value { font-size: 20px; font-weight: 800; color: var(--shopee-orange); }
@@ -275,37 +336,54 @@ function resolvePhotoPath($photo_path) {
     .btn-checkout:hover::before { width:400px; height:400px; }
     .btn-checkout:hover:not(:disabled) { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,90,31,0.3); }
     .btn-checkout:disabled { background: var(--muted); cursor: not-allowed; }
+    .btn-checkout i { transition: transform 0.3s ease; }
+    .btn-checkout:hover i { transform: translateX(3px); }
 
-    /* ═══ ALAT GRID ═══ */
-    .main-container { padding: 60px 80px; max-width: 1440px; margin: 0 auto; }
-    .section-header { margin-bottom: 28px; }
-    .section-title { font-size: 24px; font-weight: 800; color: #111; }
+    /* ═══ MAIN CONTAINER ═══ */
+    .main-container { padding: 60px 80px; max-width: 1440px; margin: 0 auto; position: relative; }
+    .main-container::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 80%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,82,0,0.1), transparent); }
+
+    /* ═══ SECTION HEADER ═══ */
+    .section-header { margin-bottom: 28px; animation: fadeInUp 0.6s ease-out both; }
+    .section-header:hover .section-title i { transform: scale(1.2) rotate(10deg); }
+    .section-title { font-size: 24px; font-weight: 800; color: #111; transition: color 0.3s ease; }
+    .section-title i { display: inline-block; transition: transform 0.3s ease; }
     .section-subtitle { font-size: 14px; color: #636366; margin-top: 4px; }
 
-    .alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; margin-bottom: 60px; }
-    .alat-card { background: var(--white); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: var(--transition-smooth); position: relative; }
-    .alat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); border-color: var(--orange); }
+    /* ═══ ALAT GRID ═══ */
+    .alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; margin-bottom: 60px; perspective: 1000px; }
+    .alat-card { background: var(--white); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; opacity: 0; transform: translateY(30px) scale(0.95); }
+    .alat-card.visible { opacity: 1; transform: translateY(0) scale(1); }
+    .alat-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 12px 32px rgba(0,0,0,0.08); border-color: var(--orange); }
+    .alat-card:hover .alat-card-photo-wrap img { transform: scale(1.08); }
+    .alat-card:hover .alat-card-name { color: var(--primary); }
+    .alat-card:hover .alat-card-price { transform: scale(1.05); text-shadow: 0 2px 10px rgba(255,82,0,0.2); }
     .alat-card-photo-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #F8F9FA; overflow: hidden; }
     .alat-card-photo-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.16,1,0.3,1); }
-    .alat-card:hover .alat-card-photo-wrap img { transform: scale(1.08); }
     .alat-card-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); }
-    .alat-card-photo-placeholder i { font-size: 48px; color: var(--primary); opacity: 0.5; }
+    .alat-card-photo-placeholder i { font-size: 48px; color: var(--primary); opacity: 0.5; transition: transform 0.3s ease; }
+    .alat-card:hover .alat-card-photo-placeholder i { transform: scale(1.1); }
     .alat-card-stok-badge { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,0.9); color: var(--text-primary); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid var(--border); }
 
     .alat-card-info { padding: 20px; }
-    .alat-card-name { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; min-height: 40px; }
-    .alat-card-price { font-size: 20px; font-weight: 800; color: var(--orange); margin-bottom: 16px; }
+    .alat-card-name { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; min-height: 40px; transition: color 0.3s ease; }
+    .alat-card-price { font-size: 20px; font-weight: 800; color: var(--orange); margin-bottom: 16px; transition: all 0.3s ease; }
 
     .alat-card-actions { display: flex; gap: 8px; align-items: center; }
     .qty-input { width: 60px; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; text-align: center; font-family: inherit; outline: none; transition: .2s; }
     .qty-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
 
     .btn-add-cart { flex: 1; background: var(--orange-lt); color: var(--orange); border: 1px solid var(--orange); padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; overflow: hidden; }
-    .btn-add-cart:hover { background: var(--orange); color: #fff; }
+    .btn-add-cart::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+    .btn-add-cart:hover::before { width: 300px; height: 300px; }
+    .btn-add-cart:hover { background: var(--orange); color: #fff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,90,31,0.3); }
+    .btn-add-cart:active { transform: translateY(0) scale(0.98); }
 
     /* ═══ MODAL OVERLAY & CARD ═══ */
     .booking-modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,.6); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px; animation:fadeInModal .25s ease-out forwards; }
-    .summary-card { background:#fff; border-radius:20px; padding:30px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 20px 40px rgba(0,0,0,.15); animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards; }
+    .booking-modal-overlay.active { display: flex; }
+    .summary-card { background:#fff; border-radius:20px; padding:30px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 20px 40px rgba(0,0,0,.15); animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards; -ms-overflow-style:none; scrollbar-width:none; transition: transform 0.3s ease; }
+    .summary-card:hover { transform: translateY(-2px); }
     .summary-card::-webkit-scrollbar { display:none; }
     .booking-modal-close { position:absolute; top:20px; right:20px; background:var(--border-lt); border:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-secondary); transition:var(--transition-smooth); z-index:10; }
     .booking-modal-close:hover { background:var(--red-lt); color:var(--red); transform:rotate(90deg); }
@@ -336,7 +414,8 @@ function resolvePhotoPath($photo_path) {
     .payment-card::before { content:''; position:absolute; top:50%; left:50%; width:0; height:0; background:rgba(255,90,31,.1); border-radius:50%; transform:translate(-50%,-50%); transition:width .4s,height .4s; }
     .payment-card:hover::before { width:200px; height:200px; }
     .payment-card:hover { border-color:var(--orange); transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,90,31,.1); }
-    .payment-card.selected { border-color:var(--orange); background:var(--orange-lt); }
+    .payment-card.selected { border-color:var(--orange); background:var(--orange-lt); animation: scaleIn 0.3s ease-out; }
+    .payment-card:hover .payment-name { color: var(--orange); transition: color 0.3s ease; }
     .custom-radio { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--muted); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:.2s; }
     .payment-card.selected .custom-radio { border-color:var(--orange); }
     .custom-radio::after { content:''; width:8px; height:8px; border-radius:50%; background:var(--orange); display:none; }
@@ -351,6 +430,8 @@ function resolvePhotoPath($photo_path) {
     .btn-booking:hover::before { width:400px; height:400px; }
     .btn-booking:hover:not(:disabled) { background:var(--orange-hover); transform:translateY(-2px); box-shadow:0 10px 30px rgba(255,90,31,.4); }
     .btn-booking:disabled { background: var(--muted); cursor: not-allowed; }
+    .btn-booking i { transition: transform 0.3s ease; }
+    .btn-booking:hover i { transform: translateX(3px); }
     .booking-disclaimer { display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; color:var(--muted); margin-top:10px; font-weight:500; }
     .booking-disclaimer i { color:var(--green); animation:pulse 2s ease-in-out infinite; }
 
@@ -373,20 +454,20 @@ function resolvePhotoPath($photo_path) {
     .instr-qris-box.active { display:flex; }
 
     .bank-info-card { background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:20px; text-align:left; position:relative; overflow:hidden; }
-    .bank-info-card::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; background:rgba(255,82,0,.05); border-radius:50%; }
+    .bank-info-card::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; background:rgba(255,90,31,.05); border-radius:50%; }
     .bank-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-    .bank-icon { width:44px; height:44px; background:var(--primary); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; box-shadow:0 4px 12px rgba(255,82,0,.3); }
+    .bank-icon { width:44px; height:44px; background:var(--orange); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; box-shadow:0 4px 12px rgba(255,90,31,.3); }
     .bank-title { font-size:13px; font-weight:800; color:var(--text-primary); }
     .bank-sub { font-size:11px; color:var(--muted); font-weight:500; }
 
     .va-section-label { font-size:11.5px; font-weight:700; color:var(--text-secondary); margin-bottom:10px; text-transform:uppercase; letter-spacing:.5px; }
     .va-input-row { display:flex; gap:8px; }
     .va-input-wrap { flex:1; background:#fff; border:2px solid var(--border); border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:10px; transition:var(--transition-smooth); }
-    .va-input-wrap:hover { border-color:var(--orange); box-shadow:0 4px 16px rgba(255,82,0,.1); }
+    .va-input-wrap:hover { border-color:var(--orange); box-shadow:0 4px 16px rgba(255,90,31,.1); }
     .va-input-wrap i { color:var(--orange); font-size:14px; }
     .va-input-wrap input { border:none; background:transparent; font-weight:800; text-align:center; font-size:18px; letter-spacing:2px; color:var(--text-primary); font-family:'Plus Jakarta Sans',monospace; width:100%; outline:none; }
-    .btn-copy-va { border-radius:12px; font-size:13px; padding:14px 18px; display:flex; align-items:center; gap:6px; white-space:nowrap; background:var(--primary); color:#fff; border:none; font-weight:700; box-shadow:0 4px 12px rgba(255,82,0,.3); cursor:pointer; transition:var(--transition-smooth); font-family:inherit; }
-    .btn-copy-va:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,82,0,.4); }
+    .btn-copy-va { border-radius:12px; font-size:13px; padding:14px 18px; display:flex; align-items:center; gap:6px; white-space:nowrap; background:var(--orange); color:#fff; border:none; font-weight:700; box-shadow:0 4px 12px rgba(255,90,31,.3); cursor:pointer; transition:var(--transition-smooth); font-family:inherit; }
+    .btn-copy-va:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,90,31,.4); }
 
     .steps-label { font-size:11.5px; font-weight:700; color:var(--text-secondary); margin-bottom:14px; text-transform:uppercase; letter-spacing:.5px; margin-top:20px; }
     .step-item { display:flex; gap:14px; align-items:flex-start; padding:14px 16px; background:#fafafa; border-radius:12px; border:1px solid var(--border-lt); transition:var(--transition-smooth); margin-bottom:12px; }
@@ -407,14 +488,16 @@ function resolvePhotoPath($photo_path) {
     .btn-done-pay:hover::before { width:400px; height:400px; }
     .btn-done-pay:hover:not(:disabled) { background:var(--orange-hover); transform:translateY(-2px); box-shadow:0 10px 30px rgba(255,90,31,.4); }
     .btn-done-pay:disabled { background: var(--muted); cursor: not-allowed; }
+    .btn-done-pay i { transition: transform 0.3s ease; }
+    .btn-done-pay:hover i { transform: scale(1.2); }
 
-    /* ---- FOOTER ---- */
-    footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; }
+    /* ═══ FOOTER ═══ */
+    footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; animation: fadeInUp 0.6s ease-out both; }
     footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
-    .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; }
+    .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; max-width: 1440px; margin: 0 auto 60px; }
     .footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform .3s ease; }
     .footer-logo:hover { transform:scale(1.05); }
-    .footer-logo img { height:70px; transition:transform .5s ease; }
+    .footer-logo img { height:50px; transition:transform .5s ease; }
     .footer-logo:hover img { transform:rotate(5deg); }
     .footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
     .footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
@@ -457,6 +540,14 @@ function resolvePhotoPath($photo_path) {
 </head>
 <body>
 
+<div class="page-loader" id="pageLoader">
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+</div>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+
 <!-- NAVBAR -->
 <nav>
     <a href="view_customer.php" class="nav-logo">
@@ -488,7 +579,7 @@ function resolvePhotoPath($photo_path) {
                 <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
             </div>
             <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <div style="height:1px; background:#2d2d33; margin:6px 0;"></div>
+            <div class="dropdown-divider"></div>
             <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
         </div>
     </div>
@@ -496,6 +587,14 @@ function resolvePhotoPath($photo_path) {
 
 <!-- HERO SECTION -->
 <section class="hero">
+    <!-- Floating Balls Animation -->
+    <div class="floating-ball ball-1"></div>
+    <div class="floating-ball ball-2"></div>
+    <div class="floating-ball ball-3"></div>
+    <div class="floating-ball ball-4"></div>
+    <div class="floating-ball ball-5"></div>
+    <div class="hero-glow"></div>
+
     <div class="hero-left">
         <div class="hero-badge">
             <i class="fa-solid fa-cart-shopping"></i> PEMBELIAN ALAT
@@ -534,16 +633,18 @@ function resolvePhotoPath($photo_path) {
 <!-- MAIN CONTENT -->
 <main class="main-container">
     <section>
-        <div class="section-header">
-            <h2 class="section-title"><i class="fa-solid fa-basketball" style="color:var(--primary)"></i> Daftar Alat</h2>
-            <p class="section-subtitle">Pilih perlengkapan basket yang Anda butuhkan.</p>
+        <div class="section-header reveal">
+            <div>
+                <h2 class="section-title"><i class="fa-solid fa-basketball" style="color:var(--primary)"></i> Daftar Alat</h2>
+                <p class="section-subtitle">Pilih perlengkapan basket yang Anda butuhkan.</p>
+            </div>
         </div>
 
-        <div class="alat-grid" id="alatGrid">
+        <div class="alat-grid reveal-stagger" id="alatGrid">
             <?php foreach ($alat_list as $alat): 
                 $photo_url = resolvePhotoPath($alat['Photo_Alat']);
             ?>
-            <div class="alat-card" data-id="<?php echo $alat['ID_Alat']; ?>">
+            <div class="alat-card stagger-item" data-id="<?php echo $alat['ID_Alat']; ?>">
                 <div class="alat-card-photo-wrap">
                     <?php if (!empty($photo_url) && @file_exists($photo_url)): ?>
                         <img src="<?php echo htmlspecialchars($photo_url); ?>" alt="<?php echo htmlspecialchars($alat['Nama_Alat']); ?>">
@@ -700,7 +801,7 @@ function resolvePhotoPath($photo_path) {
                 </div>
             </div>
             <div class="steps-label">Cara Pembayaran</div>
-            <div class="step-item"><div class="step-num">1</div><div><div class="step-title">Buka Aplikasi Banking</div><div class="step-desc">Pilih menu <strong style="color:var(--primary)">Transfer &gt; Virtual Account</strong> pada M-Banking atau ATM Anda.</div></div></div>
+            <div class="step-item"><div class="step-num">1</div><div><div class="step-title">Buka Aplikasi Banking</div><div class="step-desc">Pilih menu <strong style="color:var(--primary)">Transfer > Virtual Account</strong> pada M-Banking atau ATM Anda.</div></div></div>
             <div class="step-item"><div class="step-num">2</div><div><div class="step-title">Masukkan Nomor VA</div><div class="step-desc">Masukkan nomor Virtual Account <strong style="color:var(--primary)">8801281234567890</strong>.</div></div></div>
             <div class="step-item" style="margin-bottom:0"><div class="step-num">3</div><div><div class="step-title">Konfirmasi Pembayaran</div><div class="step-desc">Nominal akan otomatis muncul sesuai total tagihan. Konfirmasi dan selesaikan transaksi.</div></div></div>
         </div>
@@ -720,7 +821,6 @@ function resolvePhotoPath($photo_path) {
             Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
         </button>
     </div>
-</div></div>
 </div>
 
 <script>
@@ -964,6 +1064,74 @@ window.addEventListener('click', function(e) {
     const pModal = document.getElementById('paymentInstructionModal');
     if (e.target === cModal) closeCheckoutModal();
     if (e.target === pModal) closeInstructionModal();
+});
+
+/* ─── SCROLL PROGRESS ─── */
+window.addEventListener('scroll', () => {
+    const st = document.documentElement.scrollTop || document.body.scrollTop;
+    const sh = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    document.getElementById('scrollProgress').style.transform = `scaleX(${st / sh})`;
+});
+
+/* ─── INTERSECTION OBSERVER (REVEAL ANIMATION) ─── */
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
+}, { threshold: .1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
+
+// Enhanced card animations with IntersectionObserver
+const cardObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+            setTimeout(() => {
+                entry.target.classList.add('visible');
+            }, index * 100);
+            cardObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.alat-card').forEach(card => {
+    cardObserver.observe(card);
+});
+
+// Add hover tilt effect to alat cards
+document.querySelectorAll('.alat-card').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+        if (!card.classList.contains('visible')) return;
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = (y - centerY) / 20;
+        const rotateY = (centerX - x) / 20;
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.02)`;
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+    });
+});
+
+// Add parallax effect to floating balls on mouse move
+document.querySelector('.hero').addEventListener('mousemove', (e) => {
+    const balls = document.querySelectorAll('.floating-ball');
+    const x = (e.clientX / window.innerWidth - 0.5) * 20;
+    const y = (e.clientY / window.innerHeight - 0.5) * 20;
+    balls.forEach((ball, i) => {
+        const speed = (i + 1) * 0.5;
+        ball.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+    });
+});
+
+// Hide page loader when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+    const loader = document.getElementById('pageLoader');
+    if (loader) {
+        setTimeout(() => {
+            loader.classList.add('hidden');
+        }, 500);
+    }
 });
 </script>
 
