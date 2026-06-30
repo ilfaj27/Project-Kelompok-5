@@ -6,8 +6,8 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
-$nama = $_SESSION['nama'];
-$role = $_SESSION['role'];
+$nama = $_SESSION['nama'] ?? '';
+$role = $_SESSION['role'] ?? '';
 
 
 // ============================================================================
@@ -94,7 +94,7 @@ function formatDateOnly($date) {
 }
 
 // ============================================
-// AJAX CHECK NIK (for real-time validation)
+// AJAX CHECK NIK (MENGGUNAKAN SP)
 // ============================================
 if (isset($_GET['ajax_check_nik'])) {
     header('Content-Type: application/json');
@@ -106,186 +106,208 @@ if (isset($_GET['ajax_check_nik'])) {
         exit();
     }
 
-    if ($exclude_id > 0) {
-        $check = safe_sqlsrv_query($conn, 
-            "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND ID_Karyawan<>? AND Is_Deleted=0", 
-            array($nik, $exclude_id), false
-        );
-    } else {
-        $check = safe_sqlsrv_query($conn, 
-            "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND Is_Deleted=0", 
-            array($nik), false
-        );
-    }
+    // GANTI: Menggunakan SP sp_Karyawan_CheckNIK
+    $check = safe_sqlsrv_query($conn, 
+        "EXEC sp_Karyawan_CheckNIK ?, ?", 
+        array($nik, $exclude_id), false
+    );
 
-    $exists = ($check && safe_sqlsrv_has_rows($check));
+    $exists = false;
+    if ($check && $row = safe_sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) {
+        $exists = (bool)$row['Exists_Flag'];
+    }
     echo json_encode(['exists' => $exists]);
     exit();
 }
 
 // ============================================
-// PROSES TAMBAH KARYAWAN
+// PROSES TAMBAH KARYAWAN (MENGGUNAKAN SP)
 // ============================================
 if (isset($_POST['add_karyawan'])) {
     $nik = $_POST['nik'] ?? '';
-    $nama_kry = $_POST['nama'];
-    $jk = intval($_POST['jk']);
-    $jabatan = intval($_POST['jabatan']);
-    $telp = $_POST['telp'];
-    $status = intval($_POST['status']);
+    $nama_kry = $_POST['nama'] ?? '' ?? '';
+    $jk = intval($_POST['jk'] ?? 1);
+    $jabatan = intval($_POST['jabatan'] ?? 1);
+    $telp = $_POST['telp'] ?? '';
+    $status = intval($_POST['status'] ?? 1);
     $created_by = $_SESSION['nama'] ?? 'SYSTEM';
-    $tempat_lahir = $_POST['tempat_lahir'];
-    $tanggal_lahir = $_POST['tanggal_lahir'];
-    $alamat = $_POST['alamat'];
+    $tempat_lahir = $_POST['tempat_lahir'] ?? '';
+    $tanggal_lahir = $_POST['tanggal_lahir'] ?? '';
+    $alamat = $_POST['alamat'] ?? '';
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    // Check NIK uniqueness (final server-side check)
-    $checkNIK = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND Is_Deleted=0", array($nik), false);
-    if ($checkNIK && safe_sqlsrv_has_rows($checkNIK)) {
-        header("Location: karyawan.php?add=1&error=nik_exists");
-        exit();
+    // GANTI: Validasi duplikat menggunakan SP
+    $checkNIK = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckNIK ?, 0", array($nik), false);
+    if ($checkNIK && $row = safe_sqlsrv_fetch_array($checkNIK, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?add=1&error=nik_exists");
+            exit();
+        }
     }
 
-    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND Is_Deleted=0", array($username), false);
-    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?add=1&error=username_exists");
-        exit();
+    $checkUsername = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckUsername ?, 0", array($username), false);
+    if ($checkUsername && $row = safe_sqlsrv_fetch_array($checkUsername, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?add=1&error=username_exists");
+            exit();
+        }
     }
 
-    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND Is_Deleted=0", array($telp), false);
-    if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?add=1&error=telp_exists");
-        exit();
+    $checkTelp = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckTelp ?, 0", array($telp), false);
+    if ($checkTelp && $row = safe_sqlsrv_fetch_array($checkTelp, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?add=1&error=telp_exists");
+            exit();
+        }
     }
 
-    $checkEmail = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Email=? AND Is_Deleted=0", array($email), false);
-    if ($checkEmail && safe_sqlsrv_has_rows($checkEmail)) {
-        header("Location: karyawan.php?add=1&error=email_exists");
-        exit();
+    $checkEmail = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckEmail ?, 0", array($email), false);
+    if ($checkEmail && $row = safe_sqlsrv_fetch_array($checkEmail, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?add=1&error=email_exists");
+            exit();
+        }
     }
 
-    $stmt = safe_sqlsrv_query(
-        $conn,
-        "INSERT INTO Karyawan (NIK, Nama_Karyawan, Tanggal_Lahir, Tempat_Lahir, Alamat, Jenis_Kelamin, Jabatan, No_Telepon, Email, Username, Kata_Sandi, Status, Created_By, Created_Date) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())",
-        array($nik, $nama_kry, $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $created_by),
-        false
+    // GANTI: Insert menggunakan SP sp_Karyawan_Insert
+    $new_id = 0;
+    $params = array(
+        array(&$nik, SQLSRV_PARAM_IN),
+        array(&$nama_kry, SQLSRV_PARAM_IN),
+        array(&$tanggal_lahir, SQLSRV_PARAM_IN),
+        array(&$tempat_lahir, SQLSRV_PARAM_IN),
+        array(&$alamat, SQLSRV_PARAM_IN),
+        array(&$jk, SQLSRV_PARAM_IN),
+        array(&$jabatan, SQLSRV_PARAM_IN),
+        array(&$telp, SQLSRV_PARAM_IN),
+        array(&$email, SQLSRV_PARAM_IN),
+        array(&$username, SQLSRV_PARAM_IN),
+        array(&$password, SQLSRV_PARAM_IN),
+        array(&$status, SQLSRV_PARAM_IN),
+        array(null, SQLSRV_PARAM_IN), // Photo_Profile default NULL
+        array(&$created_by, SQLSRV_PARAM_IN),
+        array(&$new_id, SQLSRV_PARAM_OUT)
     );
+
+    $stmt = sqlsrv_query($conn, "EXEC sp_Karyawan_Insert ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?", $params);
 
     if ($stmt) {
         header("Location: karyawan.php?status=success&msg=Karyawan berhasil ditambahkan!");
     } else {
-        header("Location: karyawan.php?status=error&msg=Gagal menambahkan karyawan!");
+        $errors = sqlsrv_errors();
+        $err_msg = 'Gagal menambahkan karyawan!';
+        if ($errors) {
+            $err_msg = $errors[0]['message'] ?? $err_msg;
+        }
+        header("Location: karyawan.php?status=error&msg=" . urlencode($err_msg));
     }
     exit();
 }
 
 // ============================================
-// PROSES UPDATE KARYAWAN
+// PROSES UPDATE KARYAWAN (MENGGUNAKAN SP)
 // ============================================
 if (isset($_POST['update_karyawan'])) {
-    $id_kry = intval($_POST['id_kry']);
+    $id_kry = intval($_POST['id_kry'] ?? 0);
     $nik = $_POST['nik'] ?? '';
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
-    $tempat_lahir = $_POST['tempat_lahir'];
-    $tanggal_lahir = $_POST['tanggal_lahir'];
-    $alamat = $_POST['alamat'];
-    $jk = intval($_POST['jk']);
-    $jabatan = intval($_POST['jabatan']);
-    $telp = $_POST['telp'];
-    $status = intval($_POST['status']);
+    $tempat_lahir = $_POST['tempat_lahir'] ?? '';
+    $tanggal_lahir = $_POST['tanggal_lahir'] ?? '';
+    $alamat = $_POST['alamat'] ?? '';
+    $jk = intval($_POST['jk'] ?? 1);
+    $jabatan = intval($_POST['jabatan'] ?? 1);
+    $telp = $_POST['telp'] ?? '';
+    $status = intval($_POST['status'] ?? 1);
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    // Check NIK uniqueness (exclude current record)
-    $checkNIK = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE NIK=? AND ID_Karyawan<>? AND Is_Deleted=0", array($nik, $id_kry), false);
-    if ($checkNIK && safe_sqlsrv_has_rows($checkNIK)) {
-        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=nik_exists");
-        exit();
+    // GANTI: Validasi duplikat menggunakan SP dengan exclude_id
+    $checkNIK = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckNIK ?, ?", array($nik, $id_kry), false);
+    if ($checkNIK && $row = safe_sqlsrv_fetch_array($checkNIK, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?edit_id=" . $id_kry . "&error=nik_exists");
+            exit();
+        }
     }
 
-    $checkUsername = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Username=? AND ID_Karyawan<>? AND Is_Deleted=0", array($username, $id_kry), false);
-    if ($checkUsername && safe_sqlsrv_has_rows($checkUsername)) {
-        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=username_exists");
-        exit();
+    $checkUsername = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckUsername ?, ?", array($username, $id_kry), false);
+    if ($checkUsername && $row = safe_sqlsrv_fetch_array($checkUsername, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?edit_id=" . $id_kry . "&error=username_exists");
+            exit();
+        }
     }
 
-    $checkTelp = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE No_Telepon=? AND ID_Karyawan<>? AND Is_Deleted=0", array($telp, $id_kry), false);
-    if ($checkTelp && safe_sqlsrv_has_rows($checkTelp)) {
-        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=telp_exists");
-        exit();
+    $checkTelp = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckTelp ?, ?", array($telp, $id_kry), false);
+    if ($checkTelp && $row = safe_sqlsrv_fetch_array($checkTelp, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?edit_id=" . $id_kry . "&error=telp_exists");
+            exit();
+        }
     }
 
-    $checkEmail = safe_sqlsrv_query($conn, "SELECT ID_Karyawan FROM Karyawan WHERE Email=? AND ID_Karyawan<>? AND Is_Deleted=0", array($email, $id_kry), false);
-    if ($checkEmail && safe_sqlsrv_has_rows($checkEmail)) {
-        header("Location: karyawan.php?edit_id=" . $id_kry . "&error=email_exists");
-        exit();
+    $checkEmail = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckEmail ?, ?", array($email, $id_kry), false);
+    if ($checkEmail && $row = safe_sqlsrv_fetch_array($checkEmail, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Exists_Flag'] == 1) {
+            header("Location: karyawan.php?edit_id=" . $id_kry . "&error=email_exists");
+            exit();
+        }
     }
 
-    $stmt = safe_sqlsrv_query(
-        $conn,
-        "UPDATE Karyawan SET 
-            NIK = ?,
-            Nama_Karyawan=?, 
-            Tanggal_Lahir=?, 
-            Tempat_Lahir=?, 
-            Alamat=?, 
-            Jenis_Kelamin=?, 
-            Jabatan=?, 
-            No_Telepon=?, 
-            Email=?,
-            Username=?,
-            Kata_Sandi=?,
-            Status=?,
-            Modified_By=?, 
-            Modified_Date=GETDATE() 
-        WHERE ID_Karyawan=?",
-        array($nik, $_POST['nama'], $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, $modified_by, $id_kry),
-        false
-    );
+    // GANTI: Update menggunakan SP sp_Karyawan_Update
+    $params = array($id_kry, $nik, $_POST['nama'] ?? '', $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, null, $modified_by);
+    $stmt = sqlsrv_query($conn, "EXEC sp_Karyawan_Update ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?", $params);
 
-    header($stmt ? "Location: karyawan.php?status=success&msg=Data staf berhasil diperbarui!" : "Location: karyawan.php?status=error&msg=Gagal memperbarui data!");
+    if ($stmt) {
+        header("Location: karyawan.php?status=success&msg=Data staf berhasil diperbarui!");
+    } else {
+        $errors = sqlsrv_errors();
+        $err_msg = 'Gagal memperbarui data!';
+        if ($errors) {
+            $err_msg = $errors[0]['message'] ?? $err_msg;
+        }
+        header("Location: karyawan.php?status=error&msg=" . urlencode($err_msg));
+    }
     exit();
 }
 
 // ============================================
-// PROSES TOGGLE STATUS
+// PROSES TOGGLE STATUS (MENGGUNAKAN SP)
 // ============================================
 if (isset($_GET['toggle_id'])) {
     $toggle_id = intval($_GET['toggle_id']);
-    $s_baru = ($_GET['s'] == 1) ? 0 : 1;
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
 
-    safe_sqlsrv_query(
-        $conn,
-        "UPDATE Karyawan SET Status=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Karyawan=?",
-        array($s_baru, $modified_by, $toggle_id),
+    // GANTI: Menggunakan SP sp_Karyawan_ToggleStatus
+    $stmt = safe_sqlsrv_query($conn, 
+        "EXEC sp_Karyawan_ToggleStatus ?, ?", 
+        array($toggle_id, $modified_by), 
         false
     );
 
-    $status_label = $s_baru == 1 ? 'Aktif' : 'Nonaktif';
+    $status_label = 'diubah';
+    if ($stmt && $row = safe_sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $status_label = $row['StatusLabel'] ?? 'diubah';
+    }
+
     header("Location: karyawan.php?page=1&status=success&msg=Status karyawan berhasil diubah menjadi " . $status_label . "!");
     exit();
 }
 
 // ============================================
-// PROSES DELETE (SOFT DELETE)
+// PROSES DELETE (SOFT DELETE) (MENGGUNAKAN SP)
 // ============================================
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
-    $stmt = safe_sqlsrv_query(
-        $conn,
-        "UPDATE Karyawan SET 
-            Is_Deleted=1, 
-            Status=0,
-            Deleted_By=?, 
-            Deleted_Date=GETDATE() 
-        WHERE ID_Karyawan=?",
-        array($deleted_by, $delete_id),
+
+    // GANTI: Menggunakan SP sp_Karyawan_Delete
+    $stmt = safe_sqlsrv_query($conn, 
+        "EXEC sp_Karyawan_Delete ?, ?", 
+        array($delete_id, $deleted_by), 
         false
     );
 
@@ -294,12 +316,13 @@ if (isset($_GET['delete_id'])) {
 }
 
 // ============================================
-// AMBIL DATA EDIT
+// AMBIL DATA EDIT (MENGGUNAKAN SP)
 // ============================================
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
     $edit_id = intval($_GET['edit_id']);
-    $r = safe_sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan=? AND Is_Deleted=0", array($edit_id), false);
+    // GANTI: Menggunakan SP sp_Karyawan_GetByID
+    $r = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_GetByID ?", array($edit_id), false);
     if ($r) {
         $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
     }
@@ -321,52 +344,48 @@ if (!in_array($sort_by, $allowed_sort)) {
 }
 $sort_order = ($sort_order === 'DESC') ? 'DESC' : 'ASC';
 
-$where_conditions = ["Is_Deleted = 0"];
-$params = [];
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-if ($filter_jabatan > 0) {
-    $where_conditions[] = "Jabatan = ?";
-    $params[] = $filter_jabatan;
-}
-if ($filter_jk >= 0) {
-    $where_conditions[] = "Jenis_Kelamin = " . intval($filter_jk);
-}
-if ($filter_status >= 0) {
-    $where_conditions[] = "Status = " . intval($filter_status);
-}
+// ============================================
+// AMBIL TOTAL DATA (MENGGUNAKAN SP)
+// ============================================
+// GANTI: Menggunakan SP sp_Karyawan_GetTotal
+$count_query = safe_sqlsrv_query($conn, 
+    "EXEC sp_Karyawan_GetTotal ?, ?, ?", 
+    array($filter_jabatan, $filter_jk, $filter_status), 
+    false
+);
 
-$where_clause = implode(" AND ", $where_conditions);
-
-$q_total = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan WHERE " . $where_clause, $params, false);
-$total_kry = 0;
-if ($q_total !== false) {
-    $row_total = safe_sqlsrv_fetch_array($q_total, SQLSRV_FETCH_ASSOC);
-    $total_kry = $row_total['t'] ?? 0;
+$total_rows = 0;
+if ($count_query !== false) {
+    $count_row = safe_sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
+    $total_rows = $count_row['Total'] ?? 0;
 }
 
-$q_total_aktif = safe_sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0", [], false);
+$total_pages = max(1, ceil($total_rows / $limit));
+$page = min($page, $total_pages);
+
+// ============================================
+// AMBIL TOTAL AKTIF (MENGGUNAKAN UDF)
+// ============================================
+// GANTI: Menggunakan UDF fn_GetTotalKaryawanAktif
+$q_total_aktif = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetTotalKaryawanAktif() AS t", [], false);
 $total_aktif = 0;
 if ($q_total_aktif !== false) {
     $row_aktif = safe_sqlsrv_fetch_array($q_total_aktif, SQLSRV_FETCH_ASSOC);
     $total_aktif = $row_aktif['t'] ?? 0;
 }
 
-$limit = 10;
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-
-$count_query = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE " . $where_clause, $params, false);
-$total_rows = 0;
-if ($count_query !== false) {
-    $count_row = safe_sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
-    $total_rows = $count_row['total'] ?? 0;
-}
-
-$total_pages = max(1, ceil($total_rows / $limit));
-$page = min($page, $total_pages);
-$offset = ($page - 1) * $limit;
-
-$query_sql = "SELECT * FROM Karyawan WHERE " . $where_clause . " ORDER BY " . $sort_by . " " . $sort_order . " OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, $params, false);
+// ============================================
+// AMBIL DATA LIST (MENGGUNAKAN SP)
+// ============================================
+// GANTI: Menggunakan SP sp_Karyawan_GetAll
+$query = safe_sqlsrv_query($conn, 
+    "EXEC sp_Karyawan_GetAll ?, ?, ?, ?, ?, ?, ?", 
+    array($filter_jabatan, $filter_jk, $filter_status, $sort_by, $sort_order, $page, $limit), 
+    false
+);
 
 $query_error = false;
 $query_error_msg = '';
@@ -381,6 +400,7 @@ if ($query === false) {
 }
 
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -1690,11 +1710,11 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <label class="field-label">Jenis Kelamin <span class="required">*</span></label>
                         <div class="radio-group-container">
                             <label class="radio-card">
-                                <input type="radio" name="jk" value="1" <?= (!isset($edit_data['Jenis_Kelamin']) || $edit_data['Jenis_Kelamin'] == 1) ? 'checked' : '' ?>>
+                                <input type="radio" name="jk" value="1" <?= (!isset($edit_data['Jenis_Kelamin']) || ($edit_data['Jenis_Kelamin'] ?? 1) == 1) ? 'checked' : '' ?>>
                                 <span class="radio-custom-box"><i class="fa-solid fa-mars"></i> Laki-laki</span>
                             </label>
                             <label class="radio-card">
-                                <input type="radio" name="jk" value="0" <?= (isset($edit_data['Jenis_Kelamin']) && $edit_data['Jenis_Kelamin'] == 0) ? 'checked' : '' ?>>
+                                <input type="radio" name="jk" value="0" <?= (isset($edit_data['Jenis_Kelamin']) && ($edit_data['Jenis_Kelamin'] ?? 1) == 0) ? 'checked' : '' ?>>
                                 <span class="radio-custom-box"><i class="fa-solid fa-venus"></i> Perempuan</span>
                             </label>
                         </div>
@@ -1703,8 +1723,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <label class="field-label">Jabatan <span class="required">*</span></label>
                         <select name="jabatan" id="jabatan" class="modal-input" required>
                             <option value="">Pilih Jabatan</option>
-                            <option value="1" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 1) ? 'selected' : '' ?>>Karyawan</option>
-                            <option value="2" <?= (isset($edit_data['Jabatan']) && $edit_data['Jabatan'] == 2) ? 'selected' : '' ?>>Manajer</option>
+                            <option value="1" <?= (isset($edit_data['Jabatan']) && ($edit_data['Jabatan'] ?? 0) == 1) ? 'selected' : '' ?>>Karyawan</option>
+                            <option value="2" <?= (isset($edit_data['Jabatan']) && ($edit_data['Jabatan'] ?? 0) == 2) ? 'selected' : '' ?>>Manajer</option>
                         </select>
                         <div class="val-msg" id="val-jabatan"><i class="fa-solid fa-circle-exclamation"></i> Jabatan wajib dipilih</div>
                     </div>
@@ -1712,8 +1732,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                         <label class="field-label">Status <span class="required">*</span></label>
                         <?php if ($edit_data): ?>
                             <select name="status" id="status" class="modal-input" required>
-                                <option value="1" <?= ($edit_data['Status'] == 1) ? 'selected' : '' ?>>Aktif</option>
-                                <option value="0" <?= ($edit_data['Status'] == 0) ? 'selected' : '' ?>>Nonaktif</option>
+                                <option value="1" <?= (($edit_data['Status'] ?? 1) == 1) ? 'selected' : '' ?>>Aktif</option>
+                                <option value="0" <?= (($edit_data['Status'] ?? 1) == 0) ? 'selected' : '' ?>>Nonaktif</option>
                             </select>
                         <?php else: ?>
                             <select name="status" id="status" class="modal-input" required style="background-color: var(--border-lt); color: var(--muted); pointer-events: none;">
@@ -1825,7 +1845,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         <div class="page-header">
             <div><div class="page-title-tag"></div><div class="page-title">Daftar Karyawan</div></div>
             <div class="stat-chips">
-                <div class="stat-chip chip-blue"><i class="fa-solid fa-user-tie"></i> TOTAL <span class="chip-val"><?= $total_kry ?></span></div>
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-user-tie"></i> TOTAL <span class="chip-val"><?= $total_rows ?></span></div>
                 <div class="stat-chip chip-green"><i class="fa-solid fa-users"></i> AKTIF <span class="chip-val"><?= $total_aktif ?></span></div>
                 <div class="stat-chip chip-red"><i class="fa-solid fa-briefcase"></i> JABATAN <span class="chip-val">2</span></div>
             </div>
@@ -1889,7 +1909,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
         <div class="card">
             <div class="card-header">
                 <div class="card-title"><i class="fa-solid fa-user-tie"></i> Data Karyawan</div>
-                <span class="card-badge"><?= $total_kry ?> total</span>
+                <span class="card-badge"><?= $total_rows ?> total</span>
             </div>
             <?php if ($query_error): ?>
                 <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
@@ -1917,15 +1937,36 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                                 while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                                     $row_num++;
                                     $has_data = true;
-                                    $status_label = $map_status[$row['Status']] ?? 'Tidak diketahui';
-                                    $is_active = $row['Status'] == 1;
-                                    $jabatan_label = $map_jabatan[$row['Jabatan']] ?? 'Tidak diketahui';
-                                    $jabatan_class = ($row['Jabatan'] == 2) ? 'jabatan-manajer' : '';
+                                    $status_val = $row['Status'] ?? 0;
+                                    $status_label = $map_status[$status_val] ?? 'Tidak diketahui';
+                                    $is_active = $status_val == 1;
+                                    $jabatan_val = $row['Jabatan'] ?? 1;
+                                    $jabatan_label = $map_jabatan[$jabatan_val] ?? 'Tidak diketahui';
+                                    $jabatan_class = ($jabatan_val == 2) ? 'jabatan-manajer' : '';
+                                    $id_karyawan = $row['ID_Karyawan'] ?? '';
+                                    $nik = $row['NIK'] ?? '';
+                                    $nama_kry = $row['Nama_Karyawan'] ?? '';
+                                    $username = $row['Username'] ?? '';
+                                    $password = $row['Kata_Sandi'] ?? '';
+                                    $email = $row['Email'] ?? '';
+                                    $jk = $row['Jenis_Kelamin'] ?? 1;
+                                    $tempat_lahir = $row['Tempat_Lahir'] ?? '';
+                                    $tanggal_lahir = '';
+                                    if (isset($row['Tanggal_Lahir'])) {
+                                        $tgl = $row['Tanggal_Lahir'];
+                                        if (is_object($tgl) && method_exists($tgl, 'format')) {
+                                            $tanggal_lahir = $tgl->format('Y-m-d');
+                                        } elseif ($tgl) {
+                                            $tanggal_lahir = htmlspecialchars($tgl);
+                                        }
+                                    }
+                                    $telp = $row['No_Telepon'] ?? '';
+                                    $alamat = $row['Alamat'] ?? '';
                             ?>
-                            <tr id="row-<?= htmlspecialchars($row['ID_Karyawan']) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
+                            <tr id="row-<?= htmlspecialchars($id_karyawan) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
                                 <td class="row-num"><?= $row_num ?></td>
-                                <td><div class="emp-name"><?= htmlspecialchars($row['Nama_Karyawan']) ?></div></td>
-                                <td><span class="info-val-mono" style="font-size:13px;"><?= htmlspecialchars($row['NIK']) ?></span></td>
+                                <td><div class="emp-name"><?= htmlspecialchars($nama_kry) ?></div></td>
+                                <td><span class="info-val-mono" style="font-size:13px;"><?= htmlspecialchars($nik) ?></span></td>
                                 <td><span class="jabatan-badge <?= $jabatan_class ?>"><?= htmlspecialchars($jabatan_label) ?></span></td>
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
@@ -1936,25 +1977,25 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
                                 <td>
                                     <div class="actions">
                                         <button onclick="openDetail(
-                                            '<?= htmlspecialchars($row['NIK']) ?>',
-                                            '<?= htmlspecialchars($row['Nama_Karyawan']) ?>',
-                                            '<?= htmlspecialchars($row['Username'] ?? '') ?>',
-                                            '<?= htmlspecialchars($row['Kata_Sandi'] ?? '') ?>',
-                                            '<?= htmlspecialchars($row['Email'] ?? '') ?>',
-                                            '<?= $row['Jenis_Kelamin'] ?>',
-                                            '<?= htmlspecialchars($row['Tempat_Lahir'] ?? '') ?>',
-                                            '<?php $tgl = $row['Tanggal_Lahir'] ?? ''; if ($tgl && is_object($tgl)) echo $tgl->format('Y-m-d'); elseif ($tgl) echo htmlspecialchars($tgl); ?>',
-                                            '<?= $row['Jabatan'] ?>',
-                                            '<?= htmlspecialchars($row['No_Telepon']) ?>',
+                                            '<?= htmlspecialchars($nik) ?>',
+                                            '<?= htmlspecialchars($nama_kry) ?>',
+                                            '<?= htmlspecialchars($username) ?>',
+                                            '<?= htmlspecialchars($password) ?>',
+                                            '<?= htmlspecialchars($email) ?>',
+                                            '<?= $jk ?>',
+                                            '<?= htmlspecialchars($tempat_lahir) ?>',
+                                            '<?= $tanggal_lahir ?>',
+                                            '<?= $jabatan_val ?>',
+                                            '<?= htmlspecialchars($telp) ?>',
                                             '<?= $status_label ?>',
-                                            '<?= addslashes($row['Alamat'] ?? '') ?>'
+                                            '<?= addslashes($alamat) ?>'
                                         )" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
-                                        <a href="?page=<?= $page ?>&edit_id=<?= $row['ID_Karyawan'] ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
+                                        <a href="?page=<?= $page ?>&edit_id=<?= $id_karyawan ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
                                         <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> karyawan">
-                                            <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="handleToggleClick('<?= htmlspecialchars($row['ID_Karyawan']) ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>', <?= $is_active ? 'true' : 'false' ?>, this)">
+                                            <input type="checkbox" id="toggle-<?= htmlspecialchars($id_karyawan) ?>" <?= $is_active ? 'checked' : '' ?> onchange="handleToggleClick('<?= htmlspecialchars($id_karyawan) ?>', '<?= htmlspecialchars($nama_kry) ?>', <?= $is_active ? 'true' : 'false' ?>, this)">
                                             <span class="toggle-slider"></span>
                                         </label>
-                                        <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $row['ID_Karyawan'] ?>', '<?= htmlspecialchars($row['Nama_Karyawan']) ?>')" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
+                                        <button type="button" class="btn-action btn-delete" onclick="confirmDelete('<?= $id_karyawan ?>', '<?= htmlspecialchars($nama_kry) ?>')" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -2332,9 +2373,10 @@ function confirmDelete(id, nama) {
 // ============================================
 // TOGGLE STATUS
 // ============================================
-function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
+function handleToggleClick(id, nama, isCurrentlyActive, checkbox) {
     const action = isCurrentlyActive ? 'nonaktifkan' : 'aktifkan';
     const iconType = isCurrentlyActive ? 'warning' : 'question';
+    const originalState = isCurrentlyActive;
 
     Swal.fire({
         title: 'Konfirmasi Perubahan Status',
@@ -2356,15 +2398,11 @@ function handleToggleClick(id, nama, isCurrentlyActive, wrapper) {
                 didOpen: () => { Swal.showLoading(); }
             });
             setTimeout(() => {
-                window.location.href = '?toggle_id=' + id + '&s=' + (isCurrentlyActive ? 1 : 0);
+                window.location.href = '?toggle_id=' + id;
             }, 600);
         } else {
-            var checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(function(cb) {
-                if (cb.getAttribute('onchange') && cb.getAttribute('onchange').indexOf(id) !== -1) {
-                    cb.checked = !cb.checked;
-                }
-            });
+            // Revert checkbox to original state
+            checkbox.checked = originalState;
         }
     });
 }
