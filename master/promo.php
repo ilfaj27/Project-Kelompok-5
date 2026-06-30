@@ -9,7 +9,7 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 
-// ⬇️ DEFINISIKAN $profile_photo AGAR TIDAK ERROR
+// DEFINISIKAN $profile_photo
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 if (!empty($id_karyawan_session)) {
@@ -27,9 +27,9 @@ if (!empty($id_karyawan_session)) {
     }
 }
 
-// ═══════════════════════════════════════════
+// ============================================================
 // HELPER: Safe SQLSRV Operations
-// ═══════════════════════════════════════════
+// ============================================================
 function safe_sqlsrv_query($conn, $sql, $params = [], $die_on_error = true) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -72,7 +72,11 @@ function safe_sqlsrv_has_rows($stmt) {
     return sqlsrv_has_rows($stmt);
 }
 
-// --- PROSES CRUD ---
+// ============================================================
+// PROSES CRUD MENGGUNAKAN STORED PROCEDURE
+// ============================================================
+
+// --- CREATE & UPDATE (SP: sp_Promo_Insert & sp_Promo_Update) ---
 if (isset($_POST['save_promo'])) {
     $id = isset($_POST['id_prm']) ? intval($_POST['id_prm']) : 0;
     $nama_promo = trim($_POST['nama_promo']); 
@@ -90,7 +94,7 @@ if (isset($_POST['save_promo'])) {
         exit();
     }
 
-    // Validasi Tanggal Mulai: tidak boleh kurang dari hari ini
+    // Validasi Tanggal Mulai
     $hari_ini = date('Y-m-d');
     if ($tgl_m < $hari_ini) {
         header("Location: promo.php?page=1&status=error&msg=Tanggal mulai tidak boleh kurang dari hari ini!");
@@ -102,52 +106,112 @@ if (isset($_POST['save_promo'])) {
         exit();
     }
 
-    // CEK NAMA DUPLIKAT
-    $sql_check_name = "SELECT ID_Promo FROM Promo WHERE Nama_Promo = ? AND ID_Promo <> ?";
+    // CEK NAMA DUPLIKAT menggunakan UDF
+    $sql_check_name = "SELECT dbo.udf_CekNamaPromoDuplikat(?, ?) AS IsDuplicate";
     $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_promo, $id), false);
+    $is_duplicate = 0;
+    if ($q_check_name) {
+        $row_dup = safe_sqlsrv_fetch_array($q_check_name, SQLSRV_FETCH_ASSOC);
+        $is_duplicate = $row_dup['IsDuplicate'] ?? 0;
+    }
 
-    if ($q_check_name && safe_sqlsrv_has_rows($q_check_name)) {
+    if ($is_duplicate == 1) {
         header("Location: promo.php?page=1&status=error&msg=Nama promo sudah tersedia!");
         exit();
     }
 
     if (isset($_POST['edit_mode']) && $id > 0) {
-        safe_sqlsrv_query($conn, "UPDATE Promo SET Nama_Promo=?, Diskon=?, Tanggal_Mulai=?, Tanggal_Selesai=? WHERE ID_Promo=?", array($nama_promo, $diskon, $tgl_m, $tgl_s, $id), false);
-        header("Location: promo.php?page=1&status=success&msg=Data promo berhasil diperbarui!");
+        // UPDATE menggunakan Stored Procedure
+        $stmt = safe_sqlsrv_query($conn, 
+            "EXEC sp_Promo_Update @ID_Promo=?, @Nama_Promo=?, @Diskon=?, @Tanggal_Mulai=?, @Tanggal_Selesai=?, @Modified_By=?", 
+            array($id, $nama_promo, $diskon, $tgl_m, $tgl_s, $nama), 
+            false
+        );
+
+        if ($stmt) {
+            header("Location: promo.php?page=1&status=success&msg=Data promo berhasil diperbarui!");
+        } else {
+            $errors = sqlsrv_errors();
+            $err_msg = "Gagal memperbarui data promo";
+            if ($errors) {
+                $err_msg = $errors[0]['message'];
+            }
+            header("Location: promo.php?page=1&status=error&msg=" . urlencode($err_msg));
+        }
     } else {
-        // ADD MODE - ID_Promo auto-increment, tidak perlu diisi
-        safe_sqlsrv_query($conn, "INSERT INTO Promo (Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", array($nama_promo, $diskon, $tgl_m, $tgl_s, $nama), false);
-        header("Location: promo.php?page=1&status=success&msg=Promo baru berhasil ditambahkan!");
+        // INSERT menggunakan Stored Procedure
+        $stmt = safe_sqlsrv_query($conn, 
+            "EXEC sp_Promo_Insert @Nama_Promo=?, @Diskon=?, @Tanggal_Mulai=?, @Tanggal_Selesai=?, @Created_By=?", 
+            array($nama_promo, $diskon, $tgl_m, $tgl_s, $nama), 
+            false
+        );
+
+        if ($stmt) {
+            header("Location: promo.php?page=1&status=success&msg=Promo baru berhasil ditambahkan!");
+        } else {
+            $errors = sqlsrv_errors();
+            $err_msg = "Gagal menambahkan promo";
+            if ($errors) {
+                $err_msg = $errors[0]['message'];
+            }
+            header("Location: promo.php?page=1&status=error&msg=" . urlencode($err_msg));
+        }
     }
     exit();
 }
 
+// --- TOGGLE STATUS (SP: sp_Promo_ToggleStatus) ---
 if (isset($_GET['toggle_id'])) {
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    safe_sqlsrv_query($conn, "UPDATE Promo SET Status=? WHERE ID_Promo=?", array($s_baru, $_GET['toggle_id']), false);
-    header("Location: promo.php?page=1&status=success&msg=Status promo berhasil diubah!"); 
+    $stmt = safe_sqlsrv_query($conn, 
+        "EXEC sp_Promo_ToggleStatus @ID_Promo=?, @New_Status=?, @Modified_By=?", 
+        array($_GET['toggle_id'], $s_baru, $nama), 
+        false
+    );
+
+    if ($stmt) {
+        header("Location: promo.php?page=1&status=success&msg=Status promo berhasil diubah!"); 
+    } else {
+        header("Location: promo.php?page=1&status=error&msg=Gagal mengubah status promo!");
+    }
     exit();
 }
 
+// --- DELETE (SP: sp_Promo_Delete) ---
 if (isset($_GET['delete_id'])) {
-    $stmt = safe_sqlsrv_query($conn, "DELETE FROM Promo WHERE ID_Promo=?", array($_GET['delete_id']), false);
-    header($stmt ? "Location: promo.php?page=1&status=success&msg=Promo berhasil dihapus!" : "Location: promo.php?page=1&status=error&msg=Gagal hapus, data masih terikat!");
+    $stmt = safe_sqlsrv_query($conn, 
+        "EXEC sp_Promo_Delete @ID_Promo=?, @Deleted_By=?", 
+        array($_GET['delete_id'], $nama), 
+        false
+    );
+
+    if ($stmt) {
+        header("Location: promo.php?page=1&status=success&msg=Promo berhasil dihapus!");
+    } else {
+        $errors = sqlsrv_errors();
+        $err_msg = "Gagal hapus, data masih terikat!";
+        if ($errors) {
+            $err_msg = $errors[0]['message'];
+        }
+        header("Location: promo.php?page=1&status=error&msg=" . urlencode($err_msg));
+    }
     exit();
 }
 
+// --- GET EDIT DATA (SP: sp_Promo_GetById) ---
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
-    $r = safe_sqlsrv_query($conn, "SELECT * FROM Promo WHERE ID_Promo=?", array($_GET['edit_id']), false);
+    $r = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetById @ID_Promo=?", array($_GET['edit_id']), false);
     if ($r) {
         $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
     }
 }
 
-// --- POPUP DETIL PROMO ---
+// --- GET DETAIL DATA (SP: sp_Promo_GetById) ---
 $detail_data = null;
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
-    $r_detail = safe_sqlsrv_query($conn, "SELECT * FROM Promo WHERE ID_Promo=?", array($_GET['detail_id']), false);
+    $r_detail = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetById @ID_Promo=?", array($_GET['detail_id']), false);
     if ($r_detail) {
         $detail_data = safe_sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
         $show_detail = true; 
@@ -156,64 +220,45 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-// ID_Promo auto-increment INT, tidak perlu generate manual
-
 // --- FILTER DAN SORTING DINAMIS ---
-$where_clauses = array("Is_Deleted = 0"); 
-$query_params = array();
+$filter_status = isset($_GET['f_status']) ? $_GET['f_status'] : null;
+$sort_by = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'nama_asc';
 
-if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
-    if ($_GET['f_status'] === '1') {
-        $where_clauses[] = "Status = 1 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)";
-    } else {
-        $where_clauses[] = "(Status = 0 OR Tanggal_Selesai < CAST(GETDATE() AS DATE))";
-    }
-}
-
-$where_sql = implode(" AND ", $where_clauses);
-
-$sort_by = "Nama_Promo ASC";
-if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'nama_asc') {
-        $sort_by = "Nama_Promo ASC";
-    } elseif ($_GET['f_sort'] === 'nama_desc') {
-        $sort_by = "Nama_Promo DESC";
-    }
-}
-
-// STATISTIK SINKRON
-$q_active = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Is_Deleted=0 AND Status = 1 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)", [], false);
+// --- STATISTIK SINKRON MENGGUNAKAN UDF ---
+$q_stats = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetStats", [], false);
 $active_count = 0;
-if ($q_active) {
-    $row = safe_sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC);
-    $active_count = $row['total'] ?? 0;
-}
-
-$q_expired = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE Is_Deleted=0 AND (Status = 0 OR Tanggal_Selesai < CAST(GETDATE() AS DATE))", [], false);
 $expired_count = 0;
-if ($q_expired) {
-    $row = safe_sqlsrv_fetch_array($q_expired, SQLSRV_FETCH_ASSOC);
-    $expired_count = $row['total'] ?? 0;
-}
-
-// Hitung total data terfilter
-$count_res = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Promo WHERE $where_sql", $query_params, false);
 $total_data = 0;
-if ($count_res) {
-    $total_row = safe_sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
-    $total_data = $total_row['total'] ?? 0;
+
+if ($q_stats) {
+    $row_stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
+    $active_count = $row_stats['ActiveCount'] ?? 0;
+    $expired_count = $row_stats['ExpiredCount'] ?? 0;
+    $total_data = $row_stats['TotalCount'] ?? 0;
 }
 
 // PAGING CONFIG
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$total_pages = max(1, ceil($total_data / $limit));
+
+// Hitung total data terfilter menggunakan SP
+$count_res = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetCount @Filter_Status=?", array($filter_status), false);
+$total_data_filtered = 0;
+if ($count_res) {
+    $total_row = safe_sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
+    $total_data_filtered = $total_row['Total'] ?? 0;
+}
+
+$total_pages = max(1, ceil($total_data_filtered / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-// Query paging terfilter
-$query_sql = "SELECT * FROM Promo WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, $query_params, false);
+// Query paging terfilter menggunakan SP
+$query = safe_sqlsrv_query($conn, 
+    "EXEC sp_Promo_GetAll @Page=?, @Limit=?, @Filter_Status=?, @Sort_By=?", 
+    array($page, $limit, $filter_status, $sort_by), 
+    false
+);
 
 $query_error = ($query === false);
 $query_error_msg = '';
@@ -230,7 +275,7 @@ $filter_url = "";
 if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 
-// --- TAMBAHKAN QUERY INI UNTUK PENDING COUNT SINKRON ---
+// --- PENDING COUNT ---
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
 $total_pending = 0;
 if ($q_pending !== false) {
@@ -264,7 +309,7 @@ function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* ═══ SIDEBAR (TANPA SCROLLBAR) ═══ */
+/* SIDEBAR */
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .sidebar::-webkit-scrollbar { display: none; }
 .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; position: relative; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
@@ -290,8 +335,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active { color: #fff; background: var(--orange-lt); }
 .sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
-
-/* Active indicator pill */
 .sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
@@ -312,11 +355,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
@@ -340,13 +381,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation-delay: 0.95s; }
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
-.main { 
-    margin-left: calc(var(--sidebar-w) - 1px);
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    min-height: 100vh; 
-}
+.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
 .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
@@ -358,9 +393,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.topbar-btn, .topbar-user {
-    background-color: #FFFFFF !important;
-}
+.topbar-btn, .topbar-user { background-color: #FFFFFF !important; }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
 .t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
@@ -374,13 +407,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* ═══ CONTENT ═══ */
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; color: var(--text); text-transform: uppercase; }
 
-/* ═══ STAT CHIPS ═══ */
 .stat-chips { display: flex; gap: 10px; flex-wrap: wrap; }
 .stat-chip { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; transition: all .2s; }
 .stat-chip:hover { transform: translateY(-2px); }
@@ -389,7 +420,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .chip-blue  { background: var(--blue-lt); color: var(--blue); }
 .chip-val   { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; }
 
-/* ═══ ACTION BAR ═══ */
 .action-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 .search-box { position: relative; width: 300px; }
 .search-box i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
@@ -397,103 +427,26 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
 
-/* ═══ CARD & TABLE (SINKRON DETAIL PRESISI GLOBAL) ═══ */
-.card { 
-    background: var(--card-bg); 
-    border-radius: 16px; 
-    border: 1px solid var(--border); 
-    overflow: hidden; 
-    transition: all .2s ease; 
-    background-color: #FFFFFF !important;
-}
+.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; background-color: #FFFFFF !important; }
 .main, .content { background-color: #F3F4F6 !important; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
 
-.data-table th {
-    font-family: 'Barlow Condensed', sans-serif !important; 
-    font-size: 13px !important; 
-    font-weight: 900 !important; 
-    color: var(--muted) !important; 
-    text-transform: uppercase !important; 
-    letter-spacing: 0.8px !important; 
-    padding: 14px 20px;
-    border-bottom: 2px solid var(--border-lt);
-}
-
-.data-table th, .data-table td { 
-    padding: 16px 20px; 
-    vertical-align: middle; 
-}
-
-/* 1. Kolom No (Rata Tengah) */
-.data-table th:nth-child(1),
-.data-table td:nth-child(1) {
-    text-align: center !important;
-    width: 8%;
-    font-size: 15px;
-    font-weight: 700;
-}
-
-/* 2. Kolom Nama Promo */
-.data-table th:nth-child(2),
-.data-table td:nth-child(2) {
-    width: 32%;
-    text-align: center !important;
-}
+.data-table th { font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: var(--muted) !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; padding: 14px 20px; border-bottom: 2px solid var(--border-lt); }
+.data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
+.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
+.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: center !important; }
 .promo-name { font-weight: 700; color: var(--text); font-size: 15px; }
-
-/* 3. Kolom Diskon */
-.data-table th:nth-child(3),
-.data-table td:nth-child(3) {
-    width: 22%;
-    text-align: center !important;
-    padding-left: 0 !important; 
-    position: relative;
-}
-.promo-disc { 
-    font-family: 'Barlow', sans-serif; 
-    font-weight: 700; 
-    font-size: 15px; 
-    color: var(--text);  
-}
-
-/* 4. Kolom Status (Tengah Presisi) */
-.data-table th:nth-child(4),
-.data-table td:nth-child(4) {
-    width: 18%;
-    min-width: 140px;
-    text-align: center !important;
-    padding-left: 0 !important; 
-}
-
-.data-table th:nth-child(4) {
-    position: relative;
-}
-
-.data-table td:nth-child(4) {
-    font-size: 0 !important; 
-}
-
-.data-table td:nth-child(4) .status-pill {
-    position: relative;
-    display: inline-flex !important;
-    font-size: 12px !important; 
-    margin: 0 !important; 
-}
-
-/* 5. Kolom Aksi (Rata Kiri) */
-.data-table th:nth-child(5),
-.data-table td:nth-child(5) {
-    width: 20%;
-    min-width: 220px;
-    text-align: center !important;
-}
-
+.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 22%; text-align: center !important; padding-left: 0 !important; position: relative; }
+.promo-disc { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px; color: var(--text); }
+.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; min-width: 140px; text-align: center !important; padding-left: 0 !important; }
+.data-table th:nth-child(4) { position: relative; }
+.data-table td:nth-child(4) { font-size: 0 !important; }
+.data-table td:nth-child(4) .status-pill { position: relative; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
+.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; min-width: 220px; text-align: center !important; }
 .promo-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 
-/* ═══ STATUS TOGGLE SWITCH ═══ */
 .toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
@@ -509,42 +462,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-/* ═══ ACTIONS ═══ */
-.actions { 
-    display: flex;
-    gap: 12px; 
-    justify-content: center; 
-    align-items: center;
-    min-width: 180px;
-}
-.btn-action {
-    width: 38px;
-    height: 38px;
-    display: inline-flex; 
-    align-items: center; 
-    justify-content: center; 
-    border-radius: 10px; 
-    font-size: 14px; 
-    font-weight: 700;
-    transition: all .25s cubic-bezier(.4,0,.2,1); 
-    border: 1.5px solid transparent; 
-}
-.btn-edit {
-    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;
-}
-.btn-edit:hover {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6;
-    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);
-}
-.btn-delete {
-    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA;
-}
-.btn-delete:hover {
-    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444;
-    transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35);
-}
+.actions { display: flex; gap: 12px; justify-content: center; align-items: center; min-width: 180px; }
+.btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; }
+.btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
+.btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
+.btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
+.btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
 
-/* ═══ MODAL ═══ */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
 .modal-box { background: #fff; border-radius: 20px; width: 480px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
@@ -566,24 +490,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* ═══ VALIDASI ERROR STATE ═══ */
-.modal-input.error {
-    border-color: var(--red) !important;
-    background-color: #FEF2F2 !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
-}
-.modal-input.error:focus {
-    border-color: var(--red) !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
-}
-.val-msg {
-    font-size: 11px; color: var(--red); font-weight: 600; 
-    margin-bottom: 10px; display: none; min-height: 16px;
-}
+.modal-input.error { border-color: var(--red) !important; background-color: #FEF2F2 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important; }
+.modal-input.error:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important; }
+.val-msg { font-size: 11px; color: var(--red); font-weight: 600; margin-bottom: 10px; display: none; min-height: 16px; }
 .val-msg.show { display: block; }
 .val-msg i { margin-right: 4px; }
 
-/* ═══ PAGINATION ═══ */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .pagination-info { font-size: 12px; color: var(--muted); font-weight: 600; }
 .pagination-info strong { color: var(--text); font-weight: 800; }
@@ -595,102 +507,29 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .page-btn i { font-size: 11px; }
 .page-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--muted); font-size: 13px; font-weight: 800; }
 
-/* ═══ EMPTY STATE ═══ */
 .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
 .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: .3; display: block; }
 .empty-state div { font-size: 14px; font-weight: 700; }
 
-/* ═══ ZEBRA STRIPING ═══ */
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 .data-table tbody tr:nth-child(odd):hover { background-color: #FFEDD5; }
 .data-table tbody tr:nth-child(even):hover { background-color: #FFEDD5; }
 
-/* ═══ CLOCK ═══ */
-#clock-display { 
-    display: flex; 
-    align-items: center; 
-    gap: 16px; 
-}
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-.clock-time { 
-    font-family: 'Barlow Condensed', sans-serif; 
-    font-size: 26px; 
-    font-weight: 900; 
-    color: var(--orange); 
-    display: flex; 
-    align-items: center; 
-    gap: 6px; 
-    line-height: 1; 
-}
+.btn-add { display: inline-flex !important; align-items: center !important; gap: 8px !important; background-color: var(--text) !important; color: #fff !important; padding: 11px 22px !important; border-radius: 10px !important; font-size: 13px !important; font-weight: 800 !important; text-decoration: none !important; text-transform: uppercase !important; transition: all .2s ease !important; border: none !important; cursor: pointer !important; }
+.btn-add:hover { background-color: var(--orange) !important; transform: translateY(-2px) !important; box-shadow: 0 8px 20px rgba(255,69,0,.3) !important; }
+.btn-add i { font-size: 14px !important; }
 
-.clock-colon { 
-    color: var(--orange); 
-    opacity: .5; 
-    animation: blink 1s infinite; 
-}
-
-@keyframes blink { 
-    0%, 100% { opacity: .5; } 
-    50% { opacity: 1; } 
-}
-
-.clock-divider { 
-    width: 1.5px; 
-    height: 28px; 
-    background-color: var(--border); 
-}
-
-.clock-date { 
-    font-family: 'Barlow', sans-serif; 
-    font-size: 13px; 
-    font-weight: 700; 
-    color: var(--muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px; 
-}
-
-.btn-add { 
-    display: inline-flex !important; 
-    align-items: center !important; 
-    gap: 8px !important; 
-    background-color: var(--text) !important; 
-    color: #fff !important; 
-    padding: 11px 22px !important; 
-    border-radius: 10px !important; 
-    font-size: 13px !important; 
-    font-weight: 800 !important; 
-    text-decoration: none !important; 
-    text-transform: uppercase !important; 
-    transition: all .2s ease !important; 
-    border: none !important; 
-    cursor: pointer !important; 
-}
-
-.btn-add:hover { 
-    background-color: var(--orange) !important; 
-    transform: translateY(-2px) !important; 
-    box-shadow: 0 8px 20px rgba(255,69,0,.3) !important; 
-}
-
-.btn-add i { 
-    font-size: 14px !important; 
-}
-
-/* ═══ CSS UNTUK DETAIL MODAL & TOMBOL MATA BIRU ═══ */
-.btn-view {
-    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
-    color: #1E40AF; 
-    border-color: #BFDBFE;
-}
-.btn-view:hover {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
-    color: #fff; 
-    border-color: #3B82F6;
-    transform: translateY(-2px); 
-    box-shadow: 0 6px 20px rgba(59,130,246,.35);
-}
+.btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
+.btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
 
 .detail-photo-card { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
 .detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
@@ -702,36 +541,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .info-val { font-size: 14px; font-weight: 700; color: var(--text); }
 .info-val.price { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); font-weight: 800; }
 
-/* ═══ CSS UNTUK TOMBOL FILTER & KARTU FILTER ═══ */
 .filter-dropdown-wrap { position: relative; display: inline-block; }
-.btn-filter {
-    display: inline-flex; 
-    align-items: center; 
-    gap: 8px; 
-    background-color: var(--orange); 
-    color: #ffffff !important; 
-    padding: 11px 20px; 
-    border-radius: 10px; 
-    font-size: 13px; 
-    font-weight: 800; 
-    text-transform: uppercase; 
-    border: none; 
-    cursor: pointer; 
-    transition: all 0.2s; 
-    box-shadow: 0 4px 12px rgba(255,69,0,0.2);
-}
-.btn-filter:hover { 
-    background-color: var(--orange-dk) !important; 
-    color: #ffffff !important; 
-    transform: translateY(-2px); 
-    box-shadow: 0 6px 16px rgba(255,69,0,0.35); 
-}
+.btn-filter { display: inline-flex; align-items: center; gap: 8px; background-color: var(--orange); color: #ffffff !important; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(255,69,0,0.2); }
+.btn-filter:hover { background-color: var(--orange-dk) !important; color: #ffffff !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,69,0,0.35); }
 .btn-filter i.arrow-icon { font-size: 10px; transition: transform 0.3s; }
 .btn-filter.active i.arrow-icon { transform: rotate(180deg); }
 
-.filter-card {
-    position: absolute; top: calc(100% + 10px); right: 0; background: #ffffff; border-radius: 16px; border: 1px solid var(--border); padding: 24px; width: 300px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); z-index: 50; display: none;
-}
+.filter-card { position: absolute; top: calc(100% + 10px); right: 0; background: #ffffff; border-radius: 16px; border: 1px solid var(--border); padding: 24px; width: 300px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); z-index: 50; display: none; }
 .filter-card.open { display: block; animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 @keyframes slideFilter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -747,44 +563,13 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
 .btn-filter-reset:hover { background: #E5E7EB; }
 
-html, body {
-    /* Untuk Firefox */
-    scrollbar-width: none;
-    
-    /* Untuk Internet Explorer dan Edge versi lama */
-    -ms-overflow-style: none;
-}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+.dropdown-wrap.active .dropdown-menu { display: block; }
+.topbar-btn:hover, .topbar-user:hover { background-color: #E5E7EB !important; border-color: #D1D5DB !important; color: #4B5563 !important; }
+.topbar-btn:active, .topbar-user:active { background-color: #D1D5DB !important; border-color: #9CA3AF !important; color: #1F2937 !important; }
 
-/* Untuk Chrome, Safari, dan Opera */
-html::-webkit-scrollbar, 
-body::-webkit-scrollbar {
-    display: none;
-}
-
-/* Mendukung pembukaan menu dropdown via klik */
-.dropdown-wrap.active .dropdown-menu { 
-    display: block; 
-}
-
-/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
-.topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
-    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
-    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
-}
-
-.topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
-    border-color: #9CA3AF !important;    /* Batas border saat diklik */
-    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
-}
-
-
-/* ═══ RESPONSIVE (KHUSUS LAYAR TABLET & HP) ═══ */
-@media(max-width: 1100px) { 
-    .page-header { flex-direction: column; align-items: flex-start; } 
-}
-
+@media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
     .main { margin-left: 0; }
@@ -798,35 +583,16 @@ body::-webkit-scrollbar {
     .modal-box { width: 90%; margin: 20px; }
 }
 
-/* FIX SCROLLBAR SAAT SWAL DIALOG MUNCUL */
-body.swal2-shown, 
-html.swal2-shown {
-    padding-right: 0px !important;
-    overflow-y: auto !important;
-}
-
-.swal2-container {
-    padding-right: 0px !important;
-}
-
-.swal2-shown .swal2-container {
-    overflow-y: auto !important;
-}
-
-/* Pastikan body tidak bergeser saat modal muncul */
-body.swal2-height-auto {
-    height: auto !important;
-    padding-right: 0px !important;
-}
-
-html.swal2-height-auto {
-    padding-right: 0px !important;
-}
+body.swal2-shown, html.swal2-shown { padding-right: 0px !important; overflow-y: auto !important; }
+.swal2-container { padding-right: 0px !important; }
+.swal2-shown .swal2-container { overflow-y: auto !important; }
+body.swal2-height-auto { height: auto !important; padding-right: 0px !important; }
+html.swal2-height-auto { padding-right: 0px !important; }
 </style>
 </head>
 <body>
 
-<!-- ═══ MODAL FORM PROMO ═══ -->
+<!-- MODAL FORM PROMO -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalPromo">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -837,7 +603,7 @@ html.swal2-height-auto {
         <div class="modal-body">
             <form method="POST" id="formPromo" onsubmit="return validateForm()" novalidate>
                 <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
-                
+
                 <?php if ($edit_data): ?>
                     <input type="hidden" name="edit_mode" value="1">
                     <input type="hidden" name="id_prm" id="id_prm" value="<?= htmlspecialchars($edit_data['ID_Promo'] ?? '') ?>">
@@ -848,13 +614,13 @@ html.swal2-height-auto {
                     value="<?= htmlspecialchars($edit_data['Nama_Promo'] ?? '') ?>" 
                     required minlength="3" maxlength="100">
                 <div class="val-msg" id="val-nama_promo"></div>
-                
+
                 <label class="modal-label">Diskon (%) <span class="required">*</span></label>
                 <input type="number" name="diskon" id="diskon" class="modal-input"
                     placeholder="10" max="100" autocomplete="off"
                     value="<?= (int)($edit_data['Diskon'] ?? '') ?>" required>
                 <div class="val-msg" id="val-diskon"></div>
-                
+
                 <div class="modal-grid-2">
                     <div>
                         <label class="modal-label">Tanggal Mulai <span class="required">*</span></label>
@@ -886,7 +652,7 @@ html.swal2-height-auto {
                     </div>
                 </div>
                 <div class="val-msg" id="val-tanggal" style="margin-top: -8px;"></div>
-                
+
                 <button type="submit" name="save_promo" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
                     <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Promo' ?>
@@ -897,7 +663,7 @@ html.swal2-height-auto {
     </div>
 </div>
 
-<!-- ═══ MODAL DETAIL PROMO (POPUP INSTAN) ═══ -->
+<!-- MODAL DETAIL PROMO -->
 <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
     <div class="modal-box" style="width: 440px;">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -907,21 +673,14 @@ html.swal2-height-auto {
         </div>
         <div class="modal-body" style="padding-top: 10px;">
             <?php if ($detail_data): 
-                $is_ready_detail = $detail_data['Status'] == 1;
-                $tgl_s_detail = $detail_data['Tanggal_Selesai'];
-                if ($tgl_s_detail instanceof DateTime) {
-                    $is_time_active_detail = ($tgl_s_detail >= new DateTime('today'));
-                } else {
-                    $is_time_active_detail = (strtotime($tgl_s_detail) >= strtotime('today'));
-                }
-                $is_active_detail = $is_ready_detail && $is_time_active_detail;
+                // Menggunakan kolom dari SP (StatusText sudah dihitung oleh UDF)
+                $is_active_detail = ($detail_data['StatusText'] === 'AKTIF');
             ?>
                 <div class="detail-photo-card">
                     <div class="detail-icon-wrap"><i class="fa-solid fa-tag"></i></div>
                     <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Promo']) ?></div>
                 </div>
 
-                <!-- ID_Promo hidden -->
                 <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Promo']) ?>">
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-tag"></i> Nama Promo</span>
@@ -929,15 +688,15 @@ html.swal2-height-auto {
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-percent"></i> Diskon</span>
-<span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= htmlspecialchars((int)$detail_data['Diskon']) ?>%</span>
+                    <span class="info-val price" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= htmlspecialchars($detail_data['DiskonFormatted']) ?></span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-calendar-days"></i> Periode Mulai</span>
-                    <span class="info-val" style="font-weight:700;"><?= $detail_data['Tanggal_Mulai'] instanceof DateTime ? $detail_data['Tanggal_Mulai']->format('d F Y') : date('d F Y', strtotime($detail_data['Tanggal_Mulai'])) ?></span>
+                    <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['TanggalMulaiFormatted']) ?></span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-calendar-xmark"></i> Periode Selesai</span>
-                    <span class="info-val" style="font-weight:700;"><?= $detail_data['Tanggal_Selesai'] instanceof DateTime ? $detail_data['Tanggal_Selesai']->format('d F Y') : date('d F Y', strtotime($detail_data['Tanggal_Selesai'])) ?></span>
+                    <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['TanggalSelesaiFormatted']) ?></span>
                 </div>
                 <div class="info-row" style="border-bottom:none;">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Promo</span>
@@ -949,15 +708,14 @@ html.swal2-height-auto {
                     </span>
                 </div>
             <?php endif; ?>
-            
+
             <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
                 <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
             </button>
         </div>
     </div>
 </div>
-
-<!-- ═══ SIDEBAR ═══ -->
+<!-- SIDEBAR -->
 <aside class="sidebar">
     <a href="../dashboard/view_admin.php" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
@@ -1046,7 +804,7 @@ html.swal2-height-auto {
     </div>
 </aside>
 
-<!-- ═══ MAIN & TOPBAR ═══ -->
+<!-- MAIN & TOPBAR -->
 <main class="main">
     <header class="topbar">
         <div class="topbar-left">
@@ -1061,14 +819,14 @@ html.swal2-height-auto {
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            
+
             <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            
+
             <a href="#" class="topbar-btn">
                 <i class="fa-solid fa-bell"></i>
                 <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
             </a>
-            
+
             <div class="dropdown-wrap" id="userDropdown">
                 <div class="topbar-user" onclick="toggleUserDropdown()">
                     <div class="t-avatar">
@@ -1113,13 +871,13 @@ html.swal2-height-auto {
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="src" placeholder="Cari promo..." onkeyup="searchTable()">
             </div>
-            
+
             <div style="display: flex; gap: 12px; align-items: center;">
                 <div class="filter-dropdown-wrap">
                     <button class="btn-filter" id="btnFilterToggle">
                         <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
-                    
+
                     <div class="filter-card" id="filterCard">
                         <h4>Filter Data</h4>
                         <form method="GET" action="promo.php">
@@ -1130,7 +888,7 @@ html.swal2-height-auto {
                                     <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Z - A</option>
                                 </select>
                             </div>
-                            
+
                             <div class="filter-group">
                                 <label>Status Promo</label>
                                 <select name="f_status" class="filter-input">
@@ -1139,7 +897,7 @@ html.swal2-height-auto {
                                     <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>KADALUARSA</option>
                                 </select>
                             </div>
-                            
+
                             <div class="filter-buttons">
                                 <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
                                 <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i> Terapkan</button>
@@ -1180,15 +938,9 @@ html.swal2-height-auto {
                         while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
                             $has_data = true;
                             $row_num++;
-                            
-                            $is_ready = $row['Status'] == 1;
-                            $tgl_selesai_row = $row['Tanggal_Selesai'];
-                            if ($tgl_selesai_row instanceof DateTime) {
-                                $is_time_active = ($tgl_selesai_row >= new DateTime('today'));
-                            } else {
-                                $is_time_active = (strtotime($tgl_selesai_row) >= strtotime('today'));
-                            }
-                            $is_active = $is_ready && $is_time_active;
+
+                            // Menggunakan StatusText dari UDF via SP
+                            $is_active = ($row['StatusText'] === 'AKTIF');
                         ?>
                             <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
                                 <td style="font-family:'Barlow'; font-weight:700;"><?= $no++ ?></td>
@@ -1196,7 +948,7 @@ html.swal2-height-auto {
                                     <div class="promo-name"><?= htmlspecialchars($row['Nama_Promo']) ?></div>
                                 </td>
                                 <td>
-                                    <div class="promo-disc"><?= htmlspecialchars((int)$row['Diskon']) ?>%</div>
+                                    <div class="promo-disc"><?= htmlspecialchars($row['DiskonFormatted']) ?></div>
                                 </td>
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
@@ -1212,8 +964,8 @@ html.swal2-height-auto {
                                         <a href="?edit_id=<?= $row['ID_Promo'] ?>" class="btn-action btn-edit" title="Edit Promo">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </a>
-                                        <label class="toggle-switch" title="<?= $is_ready ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
-                                            <input type="checkbox" <?= $is_ready ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
+                                        <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
+                                            <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
                                             <span class="toggle-slider"></span>
                                         </label>
                                         <button onclick="confirmDelete('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo']) ?>')" class="btn-action btn-delete" title="Hapus Promo">
@@ -1223,7 +975,7 @@ html.swal2-height-auto {
                                 </td>
                             </tr>
                         <?php endwhile; endif; ?>
-                        
+
                         <?php if (!$has_data): ?>
                             <tr>
                                 <td colspan="5"> 
@@ -1246,8 +998,8 @@ html.swal2-height-auto {
         <div class="pagination-wrap">
             <div class="pagination-info">
                 Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - 
-                <strong><?= min($page * $limit, $total_data) ?></strong> dari 
-                <strong><?= $total_data ?></strong> data
+                <strong><?= min($page * $limit, $total_data_filtered) ?></strong> dari 
+                <strong><?= $total_data_filtered ?></strong> data
             </div>
             <div class="pagination-nav">
                 <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
@@ -1256,7 +1008,7 @@ html.swal2-height-auto {
                 <a href="?page=<?= $page - 1 ?><?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
                     <i class="fa-solid fa-angle-left"></i>
                 </a>
-                
+
                 <?php 
                 $start_page = max(1, $page - 2); 
                 $end_page = min($total_pages, $page + 2); 
@@ -1272,16 +1024,16 @@ html.swal2-height-auto {
                     <a href="?page=1<?= $filter_url ?>" class="page-btn">1</a>
                     <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
                 <?php endif; ?>
-                
+
                 <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
                     <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
                 <?php endfor; ?>
-                
+
                 <?php if ($end_page < $total_pages): ?>
                     <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
                     <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn"><?= $total_pages ?></a>
                 <?php endif; ?>
-                
+
                 <a href="?page=<?= $page + 1 ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
                     <i class="fa-solid fa-angle-right"></i>
                 </a>
@@ -1293,7 +1045,7 @@ html.swal2-height-auto {
         <?php else: ?>
         <div class="pagination-wrap">
             <div class="pagination-info">
-                Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data
+                Menampilkan <strong>1</strong> - <strong><?= $total_data_filtered ?></strong> dari <strong><?= $total_data_filtered ?></strong> data
             </div>
         </div>
         <?php endif; ?>
@@ -1301,7 +1053,6 @@ html.swal2-height-auto {
 </main>
 
 <script>
-
 // Toggle dropdown profil user
 function toggleUserDropdown() {
     var dd = document.getElementById('userDropdown');
@@ -1312,9 +1063,7 @@ document.addEventListener('click', function(e) {
     if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
-// ============================================
-// CLOCK / JAM
-// ============================================
+// CLOCK
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -1335,23 +1084,15 @@ function updateClock() {
 
     document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
 }
-
-// Jalankan clock segera dan set interval
 updateClock();
 setInterval(updateClock, 1000);
 
-
-// ============================================
 // MODAL FUNCTIONS
-// ============================================
 function closeModal() { 
     window.location.href = 'promo.php'; 
 }
 
-
-// ============================================
 // SEARCH TABLE
-// ============================================
 function searchTable() {
     var input = document.getElementById('src').value.toUpperCase();
     var rows = document.getElementById('tbl').getElementsByTagName('tr');
@@ -1364,12 +1105,7 @@ function searchTable() {
     }
 }
 
-
-// ============================================
-// VALIDASI FORM - REAL TIME & SUBMIT
-// ============================================
-
-// Validasi individual field
+// VALIDASI FORM
 function validateField(fieldId, valId, rules) {
     const field = document.getElementById(fieldId);
     const valMsg = document.getElementById(valId);
@@ -1378,7 +1114,6 @@ function validateField(fieldId, valId, rules) {
     field.classList.remove('error');
     valMsg.classList.remove('show');
 
-    // Required check
     if (rules.required && value === '') {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' wajib diisi';
@@ -1386,7 +1121,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Min length check
     if (rules.minLength && value.length < rules.minLength) {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Minimal ' + rules.minLength + ' karakter';
@@ -1394,7 +1128,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Max length check
     if (rules.maxLength && value.length > rules.maxLength) {
         field.classList.add('error');
         valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Maksimal ' + rules.maxLength + ' karakter';
@@ -1402,7 +1135,6 @@ function validateField(fieldId, valId, rules) {
         return false;
     }
 
-    // Pattern check (hanya huruf, angka, spasi, dan tanda baca umum)
     if (rules.pattern && value !== '') {
         const regex = /^[a-zA-Z0-9\s\-_.(),&/]+$/;
         if (!regex.test(value)) {
@@ -1413,7 +1145,6 @@ function validateField(fieldId, valId, rules) {
         }
     }
 
-    // Min number check
     if (rules.minNum !== undefined && value !== '') {
         const num = Number(value);
         if (num < rules.minNum) {
@@ -1424,7 +1155,6 @@ function validateField(fieldId, valId, rules) {
         }
     }
 
-    // Max number check
     if (rules.maxNum !== undefined && value !== '') {
         const num = Number(value);
         if (num > rules.maxNum) {
@@ -1438,11 +1168,9 @@ function validateField(fieldId, valId, rules) {
     return true;
 }
 
-// Validasi saat submit
 function validateForm() {
     let valid = true;
 
-    // Validasi Nama Promo
     if (!validateField('nama_promo', 'val-nama_promo', {
         required: true,
         minLength: 3,
@@ -1451,16 +1179,13 @@ function validateForm() {
         label: 'Nama promo'
     })) valid = false;
 
-    // Validasi Diskon
-    // Validasi Diskon
-if (!validateField('diskon', 'val-diskon', {
-    required: true,
-    minNum: 1,
-    maxNum: 100,
-    label: 'Diskon'
-})) valid = false;
+    if (!validateField('diskon', 'val-diskon', {
+        required: true,
+        minNum: 1,
+        maxNum: 100,
+        label: 'Diskon'
+    })) valid = false;
 
-    // Validasi Tanggal Mulai
     const tgl_m = document.getElementById('tgl_m');
     const tgl_s = document.getElementById('tgl_s');
     const valTanggal = document.getElementById('val-tanggal');
@@ -1470,7 +1195,6 @@ if (!validateField('diskon', 'val-diskon', {
         label: 'Tanggal mulai'
     })) valid = false;
 
-    // Validasi: tanggal mulai tidak boleh kurang dari hari ini
     if (tgl_m.value) {
         const hariIni = new Date().toISOString().split('T')[0];
         if (tgl_m.value < hariIni) {
@@ -1481,13 +1205,11 @@ if (!validateField('diskon', 'val-diskon', {
         }
     }
 
-    // Validasi Tanggal Selesai
     if (!validateField('tgl_s', 'val-tgl_s', {
         required: true,
         label: 'Tanggal selesai'
     })) valid = false;
 
-    // Validasi tanggal selesai >= tanggal mulai
     if (tgl_m.value && tgl_s.value && new Date(tgl_s.value) < new Date(tgl_m.value)) {
         tgl_m.classList.add('error');
         tgl_s.classList.add('error');
@@ -1499,31 +1221,7 @@ if (!validateField('diskon', 'val-diskon', {
     return valid;
 }
 
-
-// ============================================
-// NOTIFIKASI TOAST
-// ============================================
-function showToast(type, title, message) {
-    Swal.fire({
-        icon: type,
-        title: title,
-        text: message,
-        timer: 3000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end',
-        timerProgressBar: true,
-        showCloseButton: true,
-        customClass: {
-            popup: 'colored-toast'
-        }
-    });
-}
-
-
-// ============================================
 // TOGGLE STATUS
-// ============================================
 function confirmToggle(id, name, currentStatus, event) {
     var checkbox = event.target;
     var newStatus = currentStatus === 1 ? 0 : 1;
@@ -1561,9 +1259,7 @@ function confirmToggle(id, name, currentStatus, event) {
     });
 }
 
-// ============================================
 // DELETE CONFIRMATION
-// ============================================
 function confirmDelete(id, name) {
     Swal.fire({
         title: 'Hapus Promo?',
@@ -1578,7 +1274,6 @@ function confirmDelete(id, name) {
         allowOutsideClick: false
     }).then((result) => {
         if (result.isConfirmed) {
-            // Tampilkan loading
             Swal.fire({
                 title: 'Memproses...',
                 text: 'Menghapus promo',
@@ -1587,8 +1282,6 @@ function confirmDelete(id, name) {
                     Swal.showLoading();
                 }
             });
-
-            // Redirect setelah delay singkat
             setTimeout(() => {
                 window.location.href = '?delete_id=' + id;
             }, 600);
@@ -1596,10 +1289,7 @@ function confirmDelete(id, name) {
     });
 }
 
-
-// ============================================
 // FILTER DROPDOWN
-// ============================================
 const btnFilterToggle = document.getElementById('btnFilterToggle');
 const filterCard = document.getElementById('filterCard');
 if (btnFilterToggle && filterCard) {
@@ -1621,10 +1311,7 @@ function resetFilter() {
     window.location.href = 'promo.php';
 }
 
-
-// ============================================
 // URL PARAMETER NOTIFICATION (CENTERED MODAL)
-// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
@@ -1644,14 +1331,10 @@ document.addEventListener('DOMContentLoaded', function() {
             allowEscapeKey: false
         });
 
-        // Hapus parameter dari URL tanpa reload
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // ============================================
-    // REAL-TIME VALIDATION EVENT LISTENERS
-    // ============================================
-    // Validasi real-time Nama Promo
+    // REAL-TIME VALIDATION
     const namaPromo = document.getElementById('nama_promo');
     if (namaPromo) {
         namaPromo.addEventListener('blur', function() {
@@ -1676,30 +1359,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-// Validasi real-time Diskon
-const diskon = document.getElementById('diskon');
-if (diskon) {
-    diskon.addEventListener('blur', function() {
-        validateField('diskon', 'val-diskon', {
-            required: true,
-            minNum: 1,
-            maxNum: 100,
-            label: 'Diskon'
-        });
-    });
-    diskon.addEventListener('input', function() {
-        if (this.classList.contains('error')) {
+    const diskon = document.getElementById('diskon');
+    if (diskon) {
+        diskon.addEventListener('blur', function() {
             validateField('diskon', 'val-diskon', {
                 required: true,
                 minNum: 1,
                 maxNum: 100,
                 label: 'Diskon'
             });
-        }
-    });
-}
+        });
+        diskon.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField('diskon', 'val-diskon', {
+                    required: true,
+                    minNum: 1,
+                    maxNum: 100,
+                    label: 'Diskon'
+                });
+            }
+        });
+    }
 
-    // Validasi real-time Tanggal
     const tglM = document.getElementById('tgl_m');
     const tglS = document.getElementById('tgl_s');
     if (tglM) {
