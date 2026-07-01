@@ -207,7 +207,7 @@ $limit = 8;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-$f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
+$f_status = $_GET['f_status'] ?? 'all';
 $f_sort = $_GET['f_sort'] ?? 'ID_Lapangan';
 
 // Memanggil Stored Procedure untuk pagination
@@ -216,12 +216,24 @@ $params_sp = array($f_status, $f_sort, intval($offset), intval($limit));
 
 $query = safeQuery($conn, $query_sql, $params_sp);
 
-// Ambil jumlah data terfilter (Hasil 1 dari SP)
-$row_count = safeFetch($query);
-$total_lapangan = intval($row_count['TotalCount'] ?? 0);
+if ($query === false || $query === null) {
+    // SP gagal — graceful fallback, jangan crash
+    $total_lapangan = 0;
+    $total_pages = 1;
+    $page = 1;
+    $query = null;
+} else {
+    // Ambil jumlah data terfilter (Hasil 1 dari SP)
+    $row_count = safeFetch($query);
+    $total_lapangan = intval($row_count['TotalCount'] ?? 0);
 
-// Geser ke list data lapangan terpaginasi (Hasil 2 dari SP)
-sqlsrv_next_result($query);
+    // Geser ke list data lapangan terpaginasi (Hasil 2 dari SP)
+    sqlsrv_next_result($query);
+
+    // Hitung ulang halaman berdasarkan total data terfilter
+    $total_pages = max(1, ceil($total_lapangan / $limit));
+    $page = min($page, $total_pages);
+}
 
 // Hitung ulang halaman berdasarkan total data terfilter
 $total_pages = max(1, ceil($total_lapangan / $limit));
@@ -1605,11 +1617,9 @@ if (isset($_GET['f_status']))
                                 <div class="filter-group">
                                     <label>Status</label>
                                     <select name="f_status" class="filter-input">
-                                        <option value="">Semua Status</option>
-                                        <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF
-                                        </option>
-                                        <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>
-                                            MAINTENANCE</option>
+                                        <option value="all" <?= ($_GET['f_status'] ?? 'all') === 'all' ? 'selected' : '' ?>>Semua Status</option>
+                                        <option value="aktif" <?= ($_GET['f_status'] ?? '') === 'aktif' ? 'selected' : '' ?>>AKTIF</option>
+                                        <option value="nonaktif" <?= ($_GET['f_status'] ?? '') === 'nonaktif' ? 'selected' : '' ?>>MAINTENANCE</option>
                                     </select>
                                 </div>
                                 <div class="filter-group">
