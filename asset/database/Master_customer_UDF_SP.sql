@@ -1,14 +1,3 @@
-    -- 1. UDF: Mengambil jumlah booking pending (untuk lonceng notifikasi)
-    CREATE OR ALTER FUNCTION dbo.fn_GetPendingBookingCount()
-    RETURNS INT
-    AS
-    BEGIN
-        DECLARE @Count INT;
-        SELECT @Count = COUNT(*) FROM dbo.Booking WHERE Status = 0;
-        RETURN ISNULL(@Count, 0);
-    END;
-    GO
-
     -- 2. UDF: Mengambil statistik customer aktif/nonaktif
     CREATE OR ALTER FUNCTION dbo.fn_GetCustomerStats()
     RETURNS TABLE

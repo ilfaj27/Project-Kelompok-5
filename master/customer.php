@@ -76,14 +76,6 @@ $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-// Ambil data pending untuk lonceng notifikasi dari UDF
-$q_pending = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetPendingBookingCount() as t", [], false);
-$total_pending = 0;
-if ($q_pending !== false) {
-    $row_pending = safe_sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
-    $total_pending = $row_pending['t'] ?? 0;
-}
-
 $query_sql = "EXEC dbo.sp_ReadCustomerListWithCount @FilterStatus = ?, @FilterJK = ?, @SortBy = ?, @SortOrder = ?, @Offset = ?, @Limit = ?";
 $params_sp = array($filter_status, $filter_jk, $sort_by, $sort_order, intval($offset), intval($limit));
 
@@ -967,92 +959,7 @@ if ($query === false) {
 </style>
 </head>
 <body>
-<aside class="sidebar">
-    <a href="../dashboard/view_admin.php" class="sb-brand">
-        <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div>
-            <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">SISTEM MANAGEMEN</div>
-        </div>
-    </a>
-    <div class="sb-section-label">Operasional</div>
-    <nav>
-        <a href="../dashboard/view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
-        </a>
-        <a href="customer.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Kelola Customer
-        </a>
-        <a href="lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Kelola Lapangan
-        </a>
-        <a href="fasilitas_lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
-        </a>
-        <a href="jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-            Kelola Jadwal
-        </a>
-        <a href="promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
-        </a>
-        <a href="tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
-        </a>
-        <a href="alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Transaksi</div>
-    <nav>
-        <a href="../transaksi/booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Kelola Booking
-        </a>
-        <a href="../transaksi/langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
-            Kelola Langganan
-        </a>
-        <a href="../transaksi/pembelian.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
-            Kelola Pembelian Alat
-        </a>
-        <a href="../transaksi/pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
-            Kelola Pembatalan
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile/profile.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-            Profil Saya
-        </a>
-    </nav>
-
-    <div class="sb-bottom">
-        <div class="sb-user">
-            <div class="sb-avatar">
-                <?php if (!empty($sidebar_photo)): ?>
-                    <img src="<?= $sidebar_photo ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
-                <?php endif; ?>
-            </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
-            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
-        </div>
-    </div>
-</aside>
+<?php include '../includes/sidebar.php'; ?>
 
 <main class="main">
     <?php include '../includes/topbar.php'; ?>
@@ -1147,13 +1054,6 @@ if ($query === false) {
             </div>
         </div>
 
-        <?php if ($query_error): ?>
-        <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
-            <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
-            <p style="color:#666;font-size:11px;margin:5px 0 0;">Error: <?= htmlspecialchars($query_error_msg) ?></p>
-        </div>
-        <?php else: ?>
-
         <div class="card">
             <div class="table-wrap">
                 <table class="data-table" id="tbl">
@@ -1223,7 +1123,6 @@ if ($query === false) {
         </div>
         <?php else: ?>
         <div class="pagination-wrap"><div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_cust ?></strong> dari <strong><?= $total_cust ?></strong> data</div></div>
-        <?php endif; ?>
         <?php endif; ?>
     </div>
 </main>
