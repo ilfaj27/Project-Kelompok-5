@@ -877,7 +877,7 @@ input[type="checkbox"]:hover {
 
 
 /* ═══════════════════════════════════════════
-   PENGATURAN KOORDINAT PARTIKEL (GLOBAL)
+   PENGATURAN KOORDINAT PARTIKEL (GLOBAL)a
    ═══════════════════════════════════════════ */
 .float-ball:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; width: 30px; height: 30px; }
 .float-ball:nth-child(2) { left: 85%; top: 15%; animation-delay: 2s; width: 15px; height: 15px; }
