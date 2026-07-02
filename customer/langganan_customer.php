@@ -1413,10 +1413,11 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
 <!-- NAVBAR -->
 <nav>
-    <a href="view_customer.php" class="nav-logo">
+    <a href="../index.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
+        <a href="../index.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php" class="active">Member</a>
@@ -1655,9 +1656,9 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul>
-                <li><a href="view_customer.php">Beranda</a></li>
+                <li><a href="../index.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="pembatalan_customer.php">Jadwal</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
                 <li><a href="langganan_customer.php">Member</a></li>
                 <li><a href="pembelian_alat.php">Pembelian</a></li>
             </ul>

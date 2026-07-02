@@ -2167,6 +2167,7 @@ if (!$has_member) {
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
+            <a href="../index.php">Beranda</a>
             <a href="booking_customer.php" class="active">Booking</a>
             <a href="pembatalan_customer.php">Pembatalan</a>
             <a href="langganan_customer.php">Member</a>

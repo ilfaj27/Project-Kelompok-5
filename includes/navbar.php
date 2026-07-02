@@ -7,6 +7,7 @@ $prefix = isset($path_prefix) ? $path_prefix : '';
         <img src="<?= $prefix ?>asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-menu">
+        <a href="<?= $prefix ?>index.php" class="active">Beranda</a>
         <a href="<?= $prefix ?>customer/booking_customer.php">Booking</a>
         <a href="<?= $prefix ?>customer/pembatalan_customer.php">Pembatalan</a>
         <a href="<?= $prefix ?>customer/langganan_customer.php">Member</a>
