@@ -138,85 +138,11 @@ if (isset($_POST['reset_password'])) {
         margin-top: 150px !important;  /* <-- Mengatur jarak turunnya dari atas agar pas */
         }
 
-        .feat-bar-item:nth-child(1) {
-            animation: slideUp 0.5s ease-out 1s both;
-        }
-
-        .feat-bar-item:nth-child(2) {
-            animation: slideUp 0.5s ease-out 1.15s both;
-        }
-
-        .feat-bar-item:nth-child(3) {
-            animation: slideUp 0.5s ease-out 1.3s both;
-        }
 
         .footer-brand .logo span {
             color: var(--orange);
         }
 
-        .float-ball:nth-child(1) {
-            left: 10%;
-            top: 20%;
-            animation-delay: 0s;
-            width: 30px;
-            height: 30px;
-        }
-
-        .float-ball:nth-child(2) {
-            left: 85%;
-            top: 15%;
-            animation-delay: 2s;
-            width: 15px;
-            height: 15px;
-        }
-
-        .float-ball:nth-child(3) {
-            left: 70%;
-            top: 60%;
-            animation-delay: 4s;
-            width: 25px;
-            height: 25px;
-        }
-
-        .float-ball:nth-child(4) {
-            left: 20%;
-            top: 70%;
-            animation-delay: 6s;
-            width: 18px;
-            height: 18px;
-        }
-
-        .float-ball:nth-child(5) {
-            left: 50%;
-            top: 40%;
-            animation-delay: 8s;
-            width: 22px;
-            height: 22px;
-        }
-
-        .float-ball:nth-child(6) {
-            left: 90%;
-            top: 80%;
-            animation-delay: 10s;
-            width: 28px;
-            height: 28px;
-        }
-
-        .float-ball:nth-child(7) {
-            left: 5%;
-            top: 50%;
-            animation-delay: 12s;
-            width: 16px;
-            height: 16px;
-        }
-
-        .float-ball:nth-child(8) {
-            left: 40%;
-            top: 10%;
-            animation-delay: 14s;
-            width: 20px;
-            height: 20px;
-        }
 
         @media (max-width: 992px) {
             .auth-hero-wrapper {
