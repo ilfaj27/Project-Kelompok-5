@@ -41,6 +41,28 @@ if (!empty($profile_photo)) {
 }
 
 // ============================================================================
+// AUTO-COMPLETE BOOKING (OTOMATIS SELESAI)
+// ============================================================================
+// Cek semua booking dengan status 1 (Berhasil) yang jadwalnya sudah lewat
+// dan otomatis ubah statusnya menjadi 2 (Selesai)
+$auto_complete_sql = "SELECT B.ID_Booking, J.Tanggal, J.Jam_Selesai 
+                      FROM Booking B 
+                      INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
+                      WHERE B.Status = 1 
+                      AND (J.Tanggal < CAST(GETDATE() AS DATE) 
+                           OR (J.Tanggal = CAST(GETDATE() AS DATE) 
+                               AND J.Jam_Selesai <= CAST(GETDATE() AS TIME)))";
+$q_auto = sqlsrv_query($conn, $auto_complete_sql);
+if ($q_auto) {
+    while ($row_auto = sqlsrv_fetch_array($q_auto, SQLSRV_FETCH_ASSOC)) {
+        sqlsrv_query($conn, 
+            "UPDATE Booking SET Status = 2, Modified_By = 'SYSTEM_AUTO', Modified_Date = GETDATE() WHERE ID_Booking = ?",
+            array($row_auto['ID_Booking'])
+        );
+    }
+}
+
+// ============================================================================
 // STATUS BOOKING
 // ============================================================================
 $status_labels = [
@@ -64,24 +86,6 @@ if (isset($_POST['konfirmasi_bayar'])) {
         exit();
     } else {
         header("Location: booking.php?status=error&msg=Gagal mengkonfirmasi pembayaran.");
-        exit();
-    }
-}
-
-// ============================================================================
-// PROSES UPDATE STATUS SELESAI
-// ============================================================================
-if (isset($_POST['selesai_booking'])) {
-    $id_booking = $_POST['id_booking'];
-    $stmt = sqlsrv_query($conn, 
-        "UPDATE Booking SET Status = 2, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ? AND Status = 1",
-        array($nama, $id_booking)
-    );
-    if ($stmt) {
-        header("Location: booking.php?status=success&msg=Booking telah diselesaikan.");
-        exit();
-    } else {
-        header("Location: booking.php?status=error&msg=Gagal menyelesaikan booking.");
         exit();
     }
 }
@@ -636,6 +640,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
             <strong>Peran Karyawan:</strong> Customer membuat booking melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer. 
             <span style="color: var(--muted);">Booking baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
+            <br><span style="color: var(--green); font-weight: 700;"><i class="fa-solid fa-robot"></i> Status "Selesai" akan otomatis terupdate ketika waktu bermain sudah lewat.</span>
         </div>
     </div>
 
@@ -708,8 +713,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                                     <?php if ($b['Status'] == 0): ?>
                                         <button class="btn-icon success" onclick="confirmBayar(<?= $b['ID_Booking'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
                                         <button class="btn-icon danger" onclick="confirmBatal(<?= $b['ID_Booking'] ?>)" title="Batalkan"><i class="fa-solid fa-xmark"></i></button>
-                                    <?php elseif ($b['Status'] == 1): ?>
-                                        <button class="btn-icon success" onclick="confirmSelesai(<?= $b['ID_Booking'] ?>)" title="Selesaikan"><i class="fa-solid fa-flag-checkered"></i></button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -792,10 +795,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 <form method="POST" id="formKonfirmasi" style="display: none;">
     <input type="hidden" name="id_booking" id="konfirmasiId">
     <input type="hidden" name="konfirmasi_bayar" value="1">
-</form>
-<form method="POST" id="formSelesai" style="display: none;">
-    <input type="hidden" name="id_booking" id="selesaiId">
-    <input type="hidden" name="selesai_booking" value="1">
 </form>
 <form method="POST" id="formBatal" style="display: none;">
     <input type="hidden" name="id_booking" id="batalId">
@@ -880,25 +879,6 @@ function confirmBayar(id) {
         if (result.isConfirmed) {
             document.getElementById('konfirmasiId').value = id;
             document.getElementById('formKonfirmasi').submit();
-        }
-    });
-}
-
-function confirmSelesai(id) {
-    Swal.fire({
-        title: 'Selesaikan Booking?',
-        html: 'Booking ini sudah selesai digunakan?<br><span style="color: var(--muted); font-size: 12px;">Status akan berubah menjadi <strong>Selesai</strong></span>',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonColor: '#3B82F6',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Selesai',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById('selesaiId').value = id;
-            document.getElementById('formSelesai').submit();
         }
     });
 }
