@@ -37,7 +37,7 @@ function isActive($page, $dir = '') {
 }
 
 .logo img {
-    height: 45px;
+    height: 70px;
     width: auto;
 }
 
