@@ -392,10 +392,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-success { background: var(--green-lt); color: var(--green); }
 .action-btns { display: flex; gap: 6px; }
-.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; transition: .2s; }
-.btn-icon:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.btn-icon.view:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
-.btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
+.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
+.btn-icon::before { content: ''; position: absolute; inset: 0; border-radius: 8px; opacity: 0; transition: opacity .25s ease; }
+.btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.btn-icon:active { transform: scale(0.95); }
+
+/* VIEW / DETAIL - Blue */
+.btn-icon.view { color: var(--blue); border-color: rgba(59,130,246,.25); background: var(--blue-lt); }
+.btn-icon.view::before { background: var(--blue); opacity: 0; }
+.btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
+
+/* SUCCESS / CHECK - Green */
+.btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
+.btn-icon.success::before { background: var(--green); opacity: 0; }
+.btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+
+/* EDIT / PEN - Orange */
+.btn-icon.edit { color: var(--orange); border-color: rgba(255,69,0,.25); background: var(--orange-lt); }
+.btn-icon.edit::before { background: var(--orange); opacity: 0; }
+.btn-icon.edit:hover { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 14px rgba(255,69,0,.35); }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -552,12 +567,144 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     </div>
 </header>
 
+<div class="content">
+
+    <!-- STAT CARDS -->
+    <div class="stat-grid">
+        <div class="stat-card sc-orange">
+            <div class="stat-header">
+                <span class="stat-label">Total Pengajuan</span>
+                <div class="stat-icon-wrap si-orange"><i class="fa-solid fa-file-circle-xmark"></i></div>
+            </div>
+            <div class="stat-value"><?= $stats['total'] ?></div>
+        </div>
+        <div class="stat-card sc-yellow">
+            <div class="stat-header">
+                <span class="stat-label">Menunggu Refund</span>
+                <div class="stat-icon-wrap si-yellow"><i class="fa-solid fa-clock"></i></div>
+            </div>
+            <div class="stat-value"><?= $stats['menunggu'] ?></div>
+        </div>
+        <div class="stat-card sc-green">
+            <div class="stat-header">
+                <span class="stat-label">Refund Selesai</span>
+                <div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div>
+            </div>
+            <div class="stat-value"><?= $stats['selesai'] ?></div>
+        </div>
+        <div class="stat-card sc-blue">
+            <div class="stat-header">
+                <span class="stat-label">Total Denda</span>
+                <div class="stat-icon-wrap si-blue"><i class="fa-solid fa-money-bill-wave"></i></div>
+            </div>
+            <div class="stat-value"><?= rupiahFormat($stats['total_denda']) ?></div>
+        </div>
+        <div class="stat-card sc-red">
+            <div class="stat-header">
+                <span class="stat-label">Total Refund</span>
+                <div class="stat-icon-wrap si-red"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+            </div>
+            <div class="stat-value"><?= rupiahFormat($stats['total_refund']) ?></div>
+        </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="action-bar">
+        <form method="GET" class="filter-group" style="flex:1;">
+            <select name="filter_status" class="filter-input" style="min-width:160px;">
+                <option value="all" <?= $filter_status === '' || $filter_status === 'all' ? 'selected' : '' ?>>Semua Status</option>
+                <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>Menunggu Transfer</option>
+                <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>Selesai Ditransfer</option>
+            </select>
+            <input type="text" name="filter_customer" class="filter-input" placeholder="Cari nama customer..." value="<?= htmlspecialchars($filter_customer) ?>" style="min-width:200px;">
+            <input type="date" name="filter_tanggal" class="filter-input" value="<?= htmlspecialchars($filter_tanggal) ?>">
+            <button type="submit" class="btn-orange"><i class="fa-solid fa-filter"></i> Filter</button>
+            <a href="pembatalan.php" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
+        </form>
+    </div>
+
+    <!-- DATA TABLE -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-table-list"></i> Daftar Pengajuan Pembatalan</div>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">No</th>
+                        <th style="text-align: center;">Pelanggan</th>
+                        <th style="text-align: center;">Lapangan & Jadwal</th>
+                        <th style="text-align: right;">Tanggal Batal</th>
+                        <th style="text-align: right;">Denda / Refund</th>
+                        <th style="text-align: center;">Status</th>
+                        <th style="text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($pembatalan_list)): ?>
+                        <?php foreach ($pembatalan_list as $index => $p): 
+                            $no = (($page - 1) * $limit) + $index + 1;
+                            $statusInfo = $status_labels[$p['StatusRefund']] ?? $status_labels[0];
+                        ?>
+                        <tr>
+                            <td style="text-align: center;"><?= $no ?></td>
+                            <td style="text-align: center;">
+                                <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
+                                <div class="cell-detail"><?= htmlspecialchars($p['Email'] ?? '') ?></div>
+                            </td>
+                            <td style="text-align: center;">
+                                <div class="cell-name"><?= htmlspecialchars($p['Nama_Lapangan']) ?></div>
+                                <div class="cell-detail">
+                                    <?= formatTanggal($p['Tanggal']) ?> • <?= formatJam($p['Jam_Mulai']) ?> - <?= formatJam($p['Jam_Selesai']) ?>
+                                </div>
+                            </td>
+                            <td style="text-align: right;"><?= formatTanggal($p['Tanggal_Batal']) ?></td>
+                            <td style="text-align: right;">
+                                <div style="font-size:12px; font-weight:700; color:var(--red);">Denda: <?= rupiahFormat($p['Biaya_Batal']) ?></div>
+                                <div style="font-size:11px; color:var(--green); font-weight:600;">Refund: <?= rupiahFormat($p['Nominal_Refund']) ?></div>
+                                <div style="font-size:10px; color:var(--muted);"><?= htmlspecialchars($p['Metode_Refund']) ?></div>
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="status-pill <?= $statusInfo['class'] ?>">
+                                    <i class="fa-solid <?= $statusInfo['icon'] ?>"></i> <?= $statusInfo['label'] ?>
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-btns" style="justify-content:center;">
+                                    <button class="btn-icon view" onclick="showDetail(<?= $p['ID_Pembatalan'] ?>)" title="Lihat Detail">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <?php if ($p['StatusRefund'] == 0): ?>
+                                        <button class="btn-icon success" onclick="confirmRefund(<?= $p['ID_Pembatalan'] ?>, '<?= htmlspecialchars($p['Metode_Refund']) ?>', <?= $p['Nominal_Refund'] ?>)" title="Konfirmasi Refund">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                        <button class="btn-icon edit" onclick="editPembatalan(<?= $p['ID_Pembatalan'] ?>)" title="Edit Data">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="7" style="text-align:center; padding:40px; color:var(--muted);">
+                                <i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; display:block;"></i>
+                                <span style="font-size:13px; font-weight:600;">Tidak ada data pembatalan.</span>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- HIDDEN FORMS -->
     <form method="POST" id="formRefund" style="display: none;">
         <input type="hidden" name="id_pembatalan" id="refundId">
         <input type="hidden" name="konfirmasi_refund" value="1">
     </form>
-
     <!-- PAGINATION -->
     <?php if ($total_pages > 1): ?>
     <div class="pagination-wrap">
@@ -592,9 +739,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data</div>
     </div>
     <?php endif; ?>
+
 </div>
 </main>
-
 <!-- MODAL DETAIL -->
 <div class="modal-overlay" id="modalDetail">
     <div class="modal">
@@ -769,26 +916,6 @@ if (statusMsg && msgText) {
     });
     window.history.replaceState({}, document.title, window.location.pathname);
 }
-
-        if (statusMsg && msgText) {
-            const isSuccess = statusMsg === 'success';
-            Swal.fire({
-                icon: isSuccess ? 'success' : 'error',
-                title: isSuccess ? 'Berhasil!' : 'Gagal!',
-                text: msgText,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                showCloseButton: true,
-                background: '#ffffff',
-                color: '#1c1c1e',
-                iconColor: isSuccess ? '#10B981' : '#EF4444',
-                customClass: { popup: 'swal-toast' }
-            });
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
 
     </script>
 </body>

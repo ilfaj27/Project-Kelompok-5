@@ -430,11 +430,28 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .action-btns { display: flex; gap: 6px; }
-.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; transition: .2s; }
-.btn-icon:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.btn-icon.view:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
-.btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
-.btn-icon.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
+.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
+.btn-icon::before { content: ''; position: absolute; inset: 0; border-radius: 8px; opacity: 0; transition: opacity .25s ease; }
+.btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.btn-icon:active { transform: scale(0.95); }
+
+/* VIEW / DETAIL - Blue */
+.btn-icon.view { color: var(--blue); border-color: rgba(59,130,246,.25); background: var(--blue-lt); }
+.btn-icon.view::before { background: var(--blue); opacity: 0; }
+.btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
+.btn-icon.view:hover::before { opacity: 0; }
+
+/* SUCCESS / CHECK - Green */
+.btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
+.btn-icon.success::before { background: var(--green); opacity: 0; }
+.btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+.btn-icon.success:hover::before { opacity: 0; }
+
+/* DANGER / CANCEL - Red */
+.btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
+.btn-icon.danger::before { background: var(--red); opacity: 0; }
+.btn-icon.danger:hover { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 14px rgba(239,68,68,.35); }
+.btn-icon.danger:hover::before { opacity: 0; }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -655,12 +672,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <thead>
                     <tr>
                         <th style="width: 70px; text-align: center;">No.</th>
-                        <th>Customer</th>
-                        <th>Lapangan & Jadwal</th>
-                        <th>Tanggal Booking</th>
-                        <th>Metode Bayar</th>
-                        <th>Total Bayar</th>
-                        <th>Status</th>
+                        <th style="text-align: center;">Customer</th>
+                        <th style="text-align: center;">Lapangan & Jadwal</th>
+                        <th style="text-align: right;">Tanggal Booking</th>
+                        <th style="text-align: center;">Metode Bayar</th>
+                        <th style="text-align: right;">Total Bayar</th>
+                        <th style="text-align: center;">Status</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -674,18 +691,18 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                         ?>
                         <tr>
                             <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td>
+                            <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($b['Email']) ?></div>
                             </td>
-                            <td>
+                            <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
                                 <div class="cell-detail"><?= $tanggal_jadwal ?> | <?= $jam_mulai ?> - <?= $jam_selesai ?></div>
                             </td>
-                            <td><?= formatTanggal($b['Tanggal_Booking']) ?></td>
-                            <td><?= $b['Metode_Pembayaran'] ?></td>
-                            <td class="cell-price"><?= rupiahFormat($b['Total_Bayar']) ?></td>
-                            <td><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
+                            <td style="text-align: right;"><?= formatTanggal($b['Tanggal_Booking']) ?></td>
+                            <td style="text-align: center;"><?= $b['Metode_Pembayaran'] ?></td>
+                            <td class="cell-price" style="text-align: right;"><?= rupiahFormat($b['Total_Bayar']) ?></td>
+                            <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
                             <td>
                                 <div class="action-btns">
                                     <button class="btn-icon view" onclick="showDetail(<?= $b['ID_Booking'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
