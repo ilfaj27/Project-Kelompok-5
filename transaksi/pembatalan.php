@@ -152,7 +152,12 @@ $sql_pembatalan = "SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alas
                    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
                    LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
                    $sql_where
-                   ORDER BY P.Created_Date DESC
+                   ORDER BY 
+                    CASE 
+                        WHEN P.Status = 0 THEN 0
+                        WHEN P.Status = 1 THEN 1
+                    END ASC,
+                    P.Tanggal_Batal DESC
                    OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
 $params_with_paging = array_merge($params, [$offset, $limit]);

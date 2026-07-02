@@ -156,7 +156,12 @@ $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan,
                 INNER JOIN Customer C ON BA.ID_Customer = C.ID_Customer
                 LEFT JOIN Karyawan K ON BA.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY BA.Created_Date DESC
+                ORDER BY 
+                    CASE 
+                        WHEN BA.Status = 0 THEN 0
+                        WHEN BA.Status = 1 THEN 1
+                    END ASC,
+                    BA.Tanggal_Beli DESC
                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
 $params_with_paging = array_merge($params, [$offset, $limit]);

@@ -126,7 +126,7 @@ if (isset($_POST['batal_booking'])) {
 }
 
 // ============================================================================
-// AMBIL DATA BOOKING
+// AMBIL DATA BOOKING - URUTAN KHUSUS
 // ============================================================================
 $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
@@ -170,6 +170,7 @@ $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
+// URUTAN: Menunggu (0) paling atas, Dibatalkan (3) kedua, sisanya by Tanggal_Booking DESC
 $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, B.ID_Promo, 
                        B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
                        B.Created_Date, B.Modified_Date,
@@ -185,7 +186,14 @@ $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, 
                 LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
                 LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY B.Created_Date DESC
+                ORDER BY 
+                    CASE 
+                        WHEN B.Status = 0 THEN 0
+                        WHEN B.Status = 1 THEN 1
+                        WHEN B.Status = 2 THEN 2
+                        WHEN B.Status = 3 THEN 3
+                    END ASC,
+                    B.Tanggal_Booking DESC
                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
 $params_with_paging = array_merge($params, [$offset, $limit]);
@@ -435,23 +443,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 .btn-icon:active { transform: scale(0.95); }
 
-/* VIEW / DETAIL - Blue */
 .btn-icon.view { color: var(--blue); border-color: rgba(59,130,246,.25); background: var(--blue-lt); }
-.btn-icon.view::before { background: var(--blue); opacity: 0; }
 .btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
-.btn-icon.view:hover::before { opacity: 0; }
 
-/* SUCCESS / CHECK - Green */
 .btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
-.btn-icon.success::before { background: var(--green); opacity: 0; }
 .btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
-.btn-icon.success:hover::before { opacity: 0; }
 
-/* DANGER / CANCEL - Red */
 .btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
-.btn-icon.danger::before { background: var(--red); opacity: 0; }
 .btn-icon.danger:hover { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 14px rgba(239,68,68,.35); }
-.btn-icon.danger:hover::before { opacity: 0; }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -557,9 +556,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="sb-section-label">Akun</div>
     <nav>
         <a href="../profile/profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
-    </a>
-        </nav>
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
+        </a>
+    </nav>
 
     <div class="sb-bottom">
         <div class="sb-user">

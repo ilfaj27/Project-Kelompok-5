@@ -150,7 +150,14 @@ $sql_langganan = "SELECT L.ID_Langganan, L.ID_Customer, L.ID_Karyawan, L.ID_Tipe
                 INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
                 LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY L.Created_Date DESC
+                ORDER BY 
+                    CASE 
+                        WHEN L.Status = 0 THEN 0
+                        WHEN L.Status = 1 THEN 1
+                        WHEN L.Status = 2 THEN 2
+                        WHEN L.Status = 3 THEN 3
+                    END ASC,
+                    L.Tanggal_Mulai DESC
                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
 $params_with_paging = array_merge($params, [$offset, $limit]);
