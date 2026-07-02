@@ -843,7 +843,7 @@ function showDetail(id) {
 
     const html = `
         <div class="detail-grid">
-            <div class="detail-item"><div class="detail-label">ID Booking</div><div class="detail-value">#${booking.ID_Booking}</div></div>
+            
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
             <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${booking.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${booking.Email} | ${booking.No_Telepon}</div></div>
             <div class="detail-item"><div class="detail-label">Lapangan</div><div class="detail-value">${booking.Nama_Lapangan}</div></div>
