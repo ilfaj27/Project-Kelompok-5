@@ -11,7 +11,7 @@ $nama = "";
 $username = "";
 $email = "";
 $telp = "";
-$jk_input = "1"; // Default Laki-laki
+$jk_input = ""; // <-- DIUBAH: kosongkan default, biarkan user memilih
 $alamat = "";
 $tgl_lahir = "";
 $tmp_lahir = "";
@@ -105,6 +105,10 @@ if (isset($_POST['register'])) {
         }
     }
 }
+
+// --- HITUNG TANGGAL MAX UNTUK USIA MINIMAL 10 TAHUN ---
+// Saat ini 2026-07-03, jadi max date = 2016-07-03 (usia minimal 10 tahun)
+$max_date = date('Y-m-d', strtotime('-10 years'));
 ?>
 
 <!DOCTYPE html>
@@ -163,6 +167,72 @@ if (isset($_POST['register'])) {
 
         .footer-brand .logo span {
             color: var(--orange);
+        }
+
+        /* ====== STYLE BARU UNTUK JENIS KELAMIN ====== */
+        .radio-group-container {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .radio-group-container .radio-card {
+            flex: 1;
+            min-width: 120px;
+            cursor: pointer;
+        }
+
+        .radio-group-container .radio-card input[type="radio"] {
+            display: none;
+        }
+
+        .radio-group-container .radio-card .radio-custom-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #94a3b8; /* abu-abu */
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+
+        .radio-group-container .radio-card .radio-custom-box i {
+            font-size: 16px;
+        }
+
+        /* Hover state */
+        .radio-group-container .radio-card:hover .radio-custom-box {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+        }
+
+        /* Checked state - warna aktif */
+        .radio-group-container .radio-card input[type="radio"]:checked + .radio-custom-box {
+            border-color: #FF5400;
+            background: #fff7ed;
+            color: #FF5400;
+            box-shadow: 0 0 0 3px rgba(255, 84, 0, 0.15);
+        }
+
+        /* Placeholder / belum dipilih state */
+        .radio-group-container .radio-card input[type="radio"]:not(:checked) + .radio-custom-box {
+            color: #94a3b8; /* abu-abu */
+        }
+
+        /* Error state */
+        .radio-group-container.error .radio-custom-box {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .radio-group-container.error-active ~ .error-text {
+            display: block;
         }
 
         @media (max-width: 992px) {
@@ -280,7 +350,7 @@ if (isset($_POST['register'])) {
 
                             <div class="input-group">
                                 <label>Jenis Kelamin<span style="color: red;">*</span></label>
-                                <div class="radio-group-container">
+                                <div class="radio-group-container" id="jkContainer">
                                     <label class="radio-card">
                                         <input type="radio" name="jk" value="1" <?= ($jk_input === '1' || $jk_input === 1) ? 'checked' : '' ?>>
                                         <span class="radio-custom-box">
@@ -302,7 +372,10 @@ if (isset($_POST['register'])) {
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-cake-candles icon-left"></i>
                                     <input type="date" name="tanggal_lahir" id="tglLahirField"
-                                        value="<?= htmlspecialchars($tgl_lahir) ?>">
+                                        value="<?= htmlspecialchars($tgl_lahir) ?>"
+                                        max="<?= $max_date ?>"
+                                        min="1900-01-01"
+                                        onfocus="this.showPicker()">
                                 </div>
                                 <span class="error-text" id="tglLahirError"></span>
                             </div>
@@ -431,6 +504,8 @@ if (isset($_POST['register'])) {
             const tglLahir = document.getElementById('tglLahirField');
             const tmpLahir = document.getElementById('tmpLahirField');
             const alamat = document.getElementById('alamatField');
+            const jkContainer = document.getElementById('jkContainer');
+            const jkRadios = document.querySelectorAll('input[name="jk"]');
 
             const username = document.getElementById('usernameField');
             const email = document.getElementById('emailField');
@@ -442,21 +517,32 @@ if (isset($_POST['register'])) {
             const tglLahirError = document.getElementById('tglLahirError');
             const tmpLahirError = document.getElementById('tmpLahirError');
             const alamatError = document.getElementById('alamatError');
+            const jkError = document.getElementById('jkError');
             const usernameError = document.getElementById('usernameError');
             const emailError = document.getElementById('emailError');
             const passwordError = document.getElementById('passwordError');
             const passwordConfirmError = document.getElementById('passwordConfirmError');
 
             function setValidationError(inputEl, errorEl, message) {
-                inputEl.parentElement.classList.add('error');
-                inputEl.parentElement.parentElement.classList.add('error-active');
+                if (inputEl.classList.contains('radio-group-container')) {
+                    inputEl.classList.add('error');
+                    inputEl.classList.add('error-active');
+                } else {
+                    inputEl.parentElement.classList.add('error');
+                    inputEl.parentElement.parentElement.classList.add('error-active');
+                }
                 errorEl.textContent = message;
                 errorEl.style.display = 'block';
             }
 
             function clearValidationError(inputEl, errorEl) {
-                inputEl.parentElement.classList.remove('error');
-                inputEl.parentElement.parentElement.classList.remove('error-active');
+                if (inputEl.classList.contains('radio-group-container')) {
+                    inputEl.classList.remove('error');
+                    inputEl.classList.remove('error-active');
+                } else {
+                    inputEl.parentElement.classList.remove('error');
+                    inputEl.parentElement.parentElement.classList.remove('error-active');
+                }
                 errorEl.style.display = 'none';
             }
 
@@ -472,6 +558,13 @@ if (isset($_POST['register'])) {
                 telp.value = telp.value.replace(/[^0-9]/g, '');
             });
 
+            // Clear jk error saat user memilih salah satu radio
+            jkRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    clearValidationError(jkContainer, jkError);
+                });
+            });
+
             btnNext.addEventListener('click', () => {
                 let isStep1Valid = true;
 
@@ -482,11 +575,21 @@ if (isset($_POST['register'])) {
                     clearValidationError(nama, namaError);
                 }
 
+                // Validasi Jenis Kelamin - belum dipilih?
+                const jkSelected = document.querySelector('input[name="jk"]:checked');
+                if (!jkSelected) {
+                    setValidationError(jkContainer, jkError, 'Jenis kelamin wajib dipilih.');
+                    isStep1Valid = false;
+                } else {
+                    clearValidationError(jkContainer, jkError);
+                }
+
                 const tglVal = tglLahir.value.trim();
                 if (tglVal === '') {
                     setValidationError(tglLahir, tglLahirError, 'Tanggal lahir wajib diisi.');
                     isStep1Valid = false;
                 } else {
+                    // Validasi usia minimal 10 tahun (max date sudah diatur di HTML, tapi tetap dicek JS)
                     const birthDate = new Date(tglVal);
                     const today = new Date();
                     const age = today.getFullYear() - birthDate.getFullYear();
