@@ -288,6 +288,18 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             from { width: 0; }
             to { width: 100%; }
         }
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(4px); }
+        }
+        @keyframes searchPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
+            50% { box-shadow: 0 0 0 4px rgba(255, 90, 31, 0.15); }
+        }
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         /* ═══ REVEAL ═══ */
         .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
         .reveal.active{opacity:1;transform:translateY(0)}
@@ -845,11 +857,39 @@ nav {
 
         /* ---- TIPE MEMBER CARDS ---- */
         .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
             gap: 24px;
+            padding: 8px 4px;
+            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .pricing-grid::-webkit-scrollbar { display: none; }
+        .pricing-scroll-wrapper {
+            position: relative;
+            overflow: hidden;
             margin-bottom: 60px;
-            perspective: 1000px;
+        }
+        .pricing-scroll-wrapper::before,
+        .pricing-scroll-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            pointer-events: none;
+            z-index: 2;
+            transition: opacity 0.3s ease;
+        }
+        .pricing-scroll-wrapper::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--light-bg), transparent);
+        }
+        .pricing-scroll-wrapper::after {
+            right: 0;
+            background: linear-gradient(-90deg, var(--light-bg), transparent);
         }
         .pricing-card {
             background: var(--white);
@@ -1076,7 +1116,8 @@ nav {
 
         /* ---- RESPONSIVE ---- */
         @media(max-width: 1100px) {
-            .pricing-grid { grid-template-columns: 1fr; }
+            .pricing-grid { gap: 16px; }
+            .pricing-card { min-width: 280px !important; }
             .hero { flex-direction: column; padding: 40px; }
             .member-status-card { min-width: auto; width: 100%; }
             .main-container { padding: 40px; }
@@ -1591,16 +1632,37 @@ nav {
             </div>
         </div>
 
-        <div class="pricing-grid reveal-stagger">
-            <?php 
-            $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
-            $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
-            foreach ($tipe_member_list as $tipe): 
-                $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
-                $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
-                $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
-            ?>
-            <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>">
+        <!-- Search & Scroll Controls -->
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; animation: fadeInUp 0.6s ease-out both;">
+            <div style="position: relative; flex: 1; max-width: 400px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px;"></i>
+                <input type="text" id="searchTipeMember" placeholder="Cari tipe member..." 
+                    style="width: 100%; padding: 12px 16px 12px 42px; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); background: #fff; outline: none; transition: all 0.3s ease;"
+                    onfocus="this.style.borderColor='var(--orange)'; this.style.boxShadow='0 0 0 3px var(--orange-glow)';"
+                    onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none';"
+                    oninput="filterTipeMember(this.value)">
+            </div>
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                <button type="button" onclick="scrollPricing('left')" class="scroll-arrow" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);" onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button type="button" onclick="scrollPricing('right')" class="scroll-arrow" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);" onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="pricing-scroll-wrapper" style="position: relative; overflow: hidden; margin-bottom: 60px;">
+            <div class="pricing-grid reveal-stagger" id="pricingGrid" style="display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 8px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+                <?php 
+                $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
+                $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
+                foreach ($tipe_member_list as $tipe): 
+                    $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
+                    $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
+                    $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
+                ?>
+            <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>" data-nama="<?php echo strtolower(htmlspecialchars($tipe['Nama_Tipe'])); ?>" data-harga="<?php echo $tipe['Harga_Member']; ?>" style="min-width: 320px; flex-shrink: 0; scroll-snap-align: start;">
                 <?php if ($is_recommended): ?>
                 <div class="popular-badge">POPULER</div>
                 <?php endif; ?>
@@ -1640,6 +1702,7 @@ nav {
                 </button>
             </div>
             <?php endforeach; ?>
+            </div>
         </div>
     </section>
 
@@ -1934,6 +1997,114 @@ window.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             loader.classList.add('hidden');
         }, 500);
+    }
+
+    // Initialize scroll arrow visibility
+    updateScrollArrows();
+});
+
+/* ─── HORIZONTAL SCROLL FUNCTIONS ─── */
+function scrollPricing(direction) {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    const scrollAmount = 340; // card width + gap
+    if (direction === 'left') {
+        grid.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+        grid.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+}
+
+function updateScrollArrows() {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+
+    const leftArrow = document.querySelector('.scroll-arrow:first-child');
+    const rightArrow = document.querySelector('.scroll-arrow:last-child');
+
+    if (leftArrow) {
+        leftArrow.style.opacity = grid.scrollLeft > 10 ? '1' : '0.4';
+        leftArrow.style.pointerEvents = grid.scrollLeft > 10 ? 'auto' : 'none';
+    }
+    if (rightArrow) {
+        const canScrollRight = grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 10;
+        rightArrow.style.opacity = canScrollRight ? '1' : '0.4';
+        rightArrow.style.pointerEvents = canScrollRight ? 'auto' : 'none';
+    }
+}
+
+// Update arrows on scroll
+const pricingGrid = document.getElementById('pricingGrid');
+if (pricingGrid) {
+    pricingGrid.addEventListener('scroll', updateScrollArrows);
+    window.addEventListener('resize', updateScrollArrows);
+}
+
+/* ─── SEARCH FILTER FUNCTION ─── */
+function filterTipeMember(query) {
+    const cards = document.querySelectorAll('.pricing-card');
+    const grid = document.getElementById('pricingGrid');
+    query = query.toLowerCase().trim();
+
+    let visibleCount = 0;
+    let firstVisible = null;
+
+    cards.forEach(card => {
+        const nama = card.getAttribute('data-nama') || '';
+        const harga = card.getAttribute('data-harga') || '';
+
+        if (nama.includes(query) || harga.includes(query)) {
+            card.style.display = 'block';
+            card.style.animation = 'cardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px) scale(0.95)';
+
+            // Stagger animation
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0) scale(1)';
+            }, visibleCount * 100);
+
+            if (!firstVisible) firstVisible = card;
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Scroll to first visible card
+    if (firstVisible && grid) {
+        setTimeout(() => {
+            firstVisible.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+        }, 100);
+    }
+
+    // Show "no results" message if needed
+    let noResults = document.getElementById('noResultsMsg');
+    if (visibleCount === 0) {
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'noResultsMsg';
+            noResults.style.cssText = 'width: 100%; text-align: center; padding: 40px; color: var(--muted); font-size: 14px; animation: fadeInUp 0.5s ease-out;';
+            noResults.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.5;"></i>Tidak ada tipe member yang cocok dengan pencarian Anda.';
+            grid.appendChild(noResults);
+        }
+        noResults.style.display = 'block';
+    } else if (noResults) {
+        noResults.style.display = 'none';
+    }
+}
+
+/* ─── KEYBOARD NAVIGATION ─── */
+document.addEventListener('keydown', (e) => {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        scrollPricing('left');
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        scrollPricing('right');
     }
 });
 
