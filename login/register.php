@@ -108,7 +108,7 @@ if (isset($_POST['register'])) {
 
 // --- HITUNG TANGGAL MAX UNTUK USIA MINIMAL 10 TAHUN ---
 // Saat ini 2026-07-03, jadi max date = 2016-07-03 (usia minimal 10 tahun)
-$max_date = date('Y-m-d', strtotime('-10 years'));
+$max_date = date('Y-m-d'); // Max date is today, age validation handled in JS
 ?>
 
 <!DOCTYPE html>
@@ -490,6 +490,9 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Tanggal Lahir picker - no auto-fill, calendar opens freely
+            const tglLahirField = document.getElementById('tglLahirField');
+
             const step1 = document.getElementById('step1');
             const step2 = document.getElementById('step2');
             const btnNext = document.getElementById('btnNext');
@@ -589,14 +592,17 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     setValidationError(tglLahir, tglLahirError, 'Tanggal lahir wajib diisi.');
                     isStep1Valid = false;
                 } else {
-                    // Validasi usia minimal 10 tahun (max date sudah diatur di HTML, tapi tetap dicek JS)
+                    // Validasi usia minimal 10 tahun
                     const birthDate = new Date(tglVal);
                     const today = new Date();
+                    const minBirthDate = new Date();
+                    minBirthDate.setFullYear(today.getFullYear() - 10);
+
                     const age = today.getFullYear() - birthDate.getFullYear();
                     const monthDiff = today.getMonth() - birthDate.getMonth();
                     const actualAge = (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) ? age - 1 : age;
 
-                    if (actualAge < 10) {
+                    if (birthDate > minBirthDate) {
                         setValidationError(tglLahir, tglLahirError, 'Usia minimal 10 tahun.');
                         isStep1Valid = false;
                     } else if (actualAge > 100) {
