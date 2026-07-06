@@ -50,55 +50,61 @@
     END;
     GO
 
-    -- 6. SP: Membaca list customer terpaginasi sekaligus menghitung total datanya
-    CREATE OR ALTER PROCEDURE dbo.sp_ReadCustomerListWithCount
-        @FilterStatus VARCHAR(10),
-        @FilterJK INT,
-        @SortBy VARCHAR(50),
-        @SortOrder VARCHAR(10),
-        @Offset INT,
-        @Limit INT
-    AS
-    BEGIN
-        SET NOCOUNT ON;
+   -- ==========================================================================================
+-- 6. SP: Membaca list customer terpaginasi sekaligus melakukan pencarian data (Search)
+-- ==========================================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ReadCustomerListWithCount
+    @FilterStatus VARCHAR(10),
+    @FilterJK INT,
+    @SortBy VARCHAR(50),
+    @SortOrder VARCHAR(10),
+    @Offset INT,
+    @Limit INT,
+    @Search VARCHAR(100) = '' -- 1. TAMBAHKAN PARAMETER KE-7 INI (Default kosong '')
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-        -- Hasil 1: Total Record terfilter (untuk penentuan jumlah halaman pagination)
-        SELECT COUNT(*) AS TotalCount
-        FROM dbo.Customer
-        WHERE Is_Deleted = 0
-        AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND Status = 1) OR (@FilterStatus = 'nonaktif' AND Status = 0))
-        AND (@FilterJK = -1 OR Jenis_Kelamin = @FilterJK);
+    -- Hasil 1: Total Record terfilter (untuk penentuan jumlah halaman pagination)
+    SELECT COUNT(*) AS TotalCount
+    FROM dbo.Customer
+    WHERE Is_Deleted = 0
+    AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND Status = 1) OR (@FilterStatus = 'nonaktif' AND Status = 0))
+    AND (@FilterJK = -1 OR Jenis_Kelamin = @FilterJK)
+    -- 2. TAMBAHKAN KONDISI FILTER PENCARIAN DI SINI
+    AND (@Search = '' OR Nama_Customer LIKE '%' + @Search + '%' OR Email LIKE '%' + @Search + '%' OR No_Telepon LIKE '%' + @Search + '%');
 
-        -- Hasil 2: List Data terpaginasi
-        SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status 
-        FROM dbo.Customer
-        WHERE Is_Deleted = 0
-        AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND Status = 1) OR (@FilterStatus = 'nonaktif' AND Status = 0))
-        AND (@FilterJK = -1 OR Jenis_Kelamin = @FilterJK)
-        ORDER BY 
-            CASE WHEN @SortOrder = 'ASC' THEN
-                CASE 
-                    WHEN @SortBy = 'Nama_Customer' THEN Nama_Customer
-                    WHEN @SortBy = 'Email' THEN Email
-                    WHEN @SortBy = 'No_Telepon' THEN No_Telepon
-                    WHEN @SortBy = 'Alamat' THEN Alamat
-                    ELSE CAST(ID_Customer AS VARCHAR)
-                END
-            END ASC,
-            CASE WHEN @SortOrder = 'DESC' THEN
-                CASE 
-                    WHEN @SortBy = 'Nama_Customer' THEN Nama_Customer
-                    WHEN @SortBy = 'Email' THEN Email
-                    WHEN @SortBy = 'No_Telepon' THEN No_Telepon
-                    WHEN @SortBy = 'Alamat' THEN Alamat
-                    ELSE CAST(ID_Customer AS VARCHAR)
-                END
-            END DESC,
-            ID_Customer ASC
-        OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
-    END;
-    GO
-
+    -- Hasil 2: List Data terpaginasi
+    SELECT ID_Customer, Nama_Customer, Jenis_Kelamin, Tanggal_Lahir, Tempat_Lahir, Alamat, No_Telepon, Email, Status 
+    FROM dbo.Customer
+    WHERE Is_Deleted = 0
+    AND (@FilterStatus = 'all' OR (@FilterStatus = 'aktif' AND Status = 1) OR (@FilterStatus = 'nonaktif' AND Status = 0))
+    AND (@FilterJK = -1 OR Jenis_Kelamin = @FilterJK)
+    -- 3. TAMBAHKAN KONDISI FILTER PENCARIAN DI SINI JUGA
+    AND (@Search = '' OR Nama_Customer LIKE '%' + @Search + '%' OR Email LIKE '%' + @Search + '%' OR No_Telepon LIKE '%' + @Search + '%')
+    ORDER BY 
+        CASE WHEN @SortOrder = 'ASC' THEN
+            CASE 
+                WHEN @SortBy = 'Nama_Customer' THEN Nama_Customer
+                WHEN @SortBy = 'Email' THEN Email
+                WHEN @SortBy = 'No_Telepon' THEN No_Telepon
+                WHEN @SortBy = 'Alamat' THEN Alamat
+                ELSE CAST(ID_Customer AS VARCHAR)
+            END
+        END ASC,
+        CASE WHEN @SortOrder = 'DESC' THEN
+            CASE 
+                WHEN @SortBy = 'Nama_Customer' THEN Nama_Customer
+                WHEN @SortBy = 'Email' THEN Email
+                WHEN @SortBy = 'No_Telepon' THEN No_Telepon
+                WHEN @SortBy = 'Alamat' THEN Alamat
+                ELSE CAST(ID_Customer AS VARCHAR)
+            END
+        END DESC,
+        ID_Customer ASC
+    OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
+END;
+GO
 
     -- SP untuk Memeriksa Duplikasi Username / Email / Telepon (Read)
     CREATE OR ALTER PROCEDURE dbo.sp_CheckCustomerDuplicate

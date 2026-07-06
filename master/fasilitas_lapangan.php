@@ -15,14 +15,13 @@ $current_page = 'fasilitas';
 $topbar_title = 'Kelola Fasilitas';
 $topbar_breadcrumb = 'Operasional / Fasilitas Lapangan';
 
-//  AJAX Handler Detail & Edit)
+// --- (AJAX Handler Detail & Edit) ---
 if (isset($_GET['ajax_detail_id'])) {
     header('Content-Type: application/json');
     $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [intval($_GET['ajax_detail_id'])]);
     if ($r) {
         $detail_data = safeFetch($r);
         if ($detail_data) {
-            $detail_data['Harga_Sewa_Rupiah'] = rupiah($detail_data['Harga_Sewa']);
             echo json_encode(['status' => 'success', 'data' => $detail_data]);
         } else {
             echo json_encode(['status' => 'error', 'msg' => 'Data fasilitas tidak ditemukan.']);
@@ -33,36 +32,49 @@ if (isset($_GET['ajax_detail_id'])) {
     exit();
 }
 
-// PROSES CRUD
+// PROSES CRUD (SIMPAN / EDIT)
 if (isset($_POST['save_fasilitas'])) {
     $id = isset($_POST['id_fas']) ? intval($_POST['id_fas']) : 0;
-    $id_lapangan = intval($_POST['id_lapangan']);
     $nama_fasilitas = trim($_POST['nama_fasilitas']);
     $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
+    $stok_total = isset($_POST['stok_total']) ? intval($_POST['stok_total']) : 0;
 
-    // ── VALIDASI FORMAT HANYA HURUF DAN SPASI ──
+    $errors = [];
+    // Validasi format nama dan detail
     if (!preg_match('/^[a-zA-Z\s]+$/', $nama_fasilitas)) {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Nama fasilitas hanya boleh berisi huruf dan spasi!");
-        exit();
+        $errors[] = "Nama fasilitas hanya boleh berisi huruf dan spasi!";
     }
     if (!preg_match('/^[a-zA-Z\s]+$/', $detail_fasilitas)) {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Detail fasilitas hanya boleh berisi huruf dan spasi!");
-        exit();
+        $errors[] = "Detail fasilitas hanya boleh berisi huruf dan spasi!";
+    }
+    if ($stok_total <= 0) {
+        $errors[] = "Stok total harus lebih dari 0!";
     }
 
-    // ── VALIDASI DUPLIKAT DI LAPANGAN YANG SAMA ──
-    $q_check = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasOnCourtDuplicate ?, ?, ?", [$nama_fasilitas, $id_lapangan, $id]);
-    if ($q_check && safeFetch($q_check)) {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Fasilitas sudah ada di lapangan ini!");
-        exit();
+    if (empty($errors)) {
+        // Cek duplikasi nama fasilitas secara global (Menggunakan SP baru)
+        $q_check = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasDuplicate ?, ?", [$nama_fasilitas, $id]);
+        if ($q_check && safeFetch($q_check)) {
+            $errors[] = "Nama fasilitas sudah terdaftar di sistem!";
+        }
     }
 
-    if (isset($_POST['edit_mode']) && $id > 0) {
-        safeQuery($conn, "EXEC dbo.sp_UpdateFasilitas ?, ?, ?, ?, ?", [$id, $id_lapangan, $nama_fasilitas, $detail_fasilitas, $nama]);
-        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil diperbarui!");
+    if (empty($errors)) {
+        if (isset($_POST['edit_mode']) && $id > 0) {
+            // EXEC sp_UpdateFasilitas memiliki 5 parameter sekarang
+            $result = safeQuery($conn, "EXEC dbo.sp_UpdateFasilitas ?, ?, ?, ?, ?", [$id, $nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
+            if ($result !== false) {
+                header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil diperbarui!");
+            } else {
+                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal memperbarui fasilitas. Stok baru tidak boleh kurang dari jumlah terpasang!");
+            }
+        } else {
+            // EXEC sp_CreateFasilitas memiliki 4 parameter sekarang (tanpa ID_Lapangan)
+            safeQuery($conn, "EXEC dbo.sp_CreateFasilitas ?, ?, ?, ?", [$nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
+            header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
+        }
     } else {
-        safeQuery($conn, "EXEC dbo.sp_CreateFasilitas ?, ?, ?, ?", [$id_lapangan, $nama_fasilitas, $detail_fasilitas, $nama]);
-        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode(implode(' | ', $errors)));
     }
     exit();
 }
@@ -118,14 +130,18 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
 $f_lapangan = isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '' ? $_GET['f_lapangan'] : 'all';
 $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
-$f_sort = $_GET['f_sort'] ?? 'nomor_asc';
+$f_sort = $_GET['f_sort'] ?? 'nama_asc';
+
+$search = isset($_GET['src']) ? trim($_GET['src']) : '';
+
+
 
 // Menghitung offset paging
 $offset = ($page - 1) * $limit;
 
-// Memanggil SP List Utama terpaginasi
-$query_sql = "EXEC dbo.sp_ReadFasilitasListWithCount ?, ?, ?, ?, ?";
-$params_sp = array($f_lapangan, $f_status, $f_sort, intval($offset), intval($limit));
+// Memanggil SP List Utama terpaginasi dengan mengirimkan 6 parameter (termasuk $search)
+$query_sql = "EXEC dbo.sp_ReadFasilitasListWithCount ?, ?, ?, ?, ?, ?";
+$params_sp = array($f_lapangan, $f_status, $f_sort, intval($offset), intval($limit), $search);
 
 $query = safeQuery($conn, $query_sql, $params_sp);
 
@@ -140,12 +156,6 @@ sqlsrv_next_result($query);
 $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 
-$q_pending = safeQuery($conn, "SELECT dbo.fn_GetPendingBookingCount() as t", []);
-$total_pending = 0;
-if ($q_pending) {
-    $row_pending = safeFetch($q_pending);
-    $total_pending = $row_pending['t'] ?? 0;
-}
 
 $filter_url = "";
 if (isset($_GET['f_sort']))
@@ -154,6 +164,9 @@ if (isset($_GET['f_lapangan']))
     $filter_url .= "&f_lapangan=" . urlencode($_GET['f_lapangan']);
 if (isset($_GET['f_status']))
     $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
+if (!empty($search)) {
+    $filter_url .= "&src=" . urlencode($search);
+}
 
 
 ?>
@@ -267,7 +280,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow Condensed', sans-serif;
+            font-family: 'Barlow', sans-serif;
             outline: none;
             transition: all .2s;
             color: var(--text);
@@ -327,6 +340,7 @@ if (isset($_GET['f_status']))
         .data-table th:nth-child(1),
         .data-table td:nth-child(1) {
             text-align: center !important;
+            padding-left: 65px !important;
             width: 8%;
             font-size: 15px;
             font-weight: 700;
@@ -336,7 +350,8 @@ if (isset($_GET['f_status']))
         .data-table th:nth-child(2),
         .data-table td:nth-child(2) {
             width: 32%;
-            text-align: center !important;
+            text-align: left !important;
+            padding-left: 135px !important;
         }
 
         .fas-name {
@@ -351,23 +366,11 @@ if (isset($_GET['f_status']))
             margin-top: 2px;
         }
 
-        /* 3. Kolom Lapangan */
+        /* 3. Kolom Stok (Sisa/Total) */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
             width: 22%;
             text-align: center !important;
-        }
-
-        .lap-name {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text);
-        }
-
-        .lap-detail {
-            font-size: 11px;
-            color: var(--muted);
         }
 
         /* 4. Kolom Status (Tengah Presisi) */
@@ -398,6 +401,7 @@ if (isset($_GET['f_status']))
         .data-table td:nth-child(5) {
             width: 20%;
             text-align: Center !important;
+            /* Menggunakan CENTER */
         }
 
         /* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */
@@ -650,7 +654,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow Condensed', sans-serif;
+            font-family: 'Barlow', sans-serif;
             margin-bottom: 16px;
             outline: none;
             transition: all .2s;
@@ -664,12 +668,6 @@ if (isset($_GET['f_status']))
 
         .modal-input::placeholder {
             color: #9CA3AF;
-        }
-
-        .modal-input:read-only {
-            background: var(--border-lt);
-            color: var(--muted);
-            cursor: not-allowed;
         }
 
         .modal-input.error {
@@ -797,7 +795,7 @@ if (isset($_GET['f_status']))
             border-radius: 10px;
             font-size: 13px;
             font-weight: 700;
-            font-family: 'Barlow Condensed', sans-serif;
+            font-family: 'Barlow', sans-serif;
             text-decoration: none;
             cursor: pointer;
             transition: all .2s ease;
@@ -829,17 +827,6 @@ if (isset($_GET['f_status']))
 
         .page-btn i {
             font-size: 11px;
-        }
-
-        .page-ellipsis {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 36px;
-            height: 36px;
-            color: var(--muted);
-            font-size: 13px;
-            font-weight: 800;
         }
 
         .empty-state {
@@ -953,7 +940,7 @@ if (isset($_GET['f_status']))
             border: 1.5px solid var(--border);
             border-radius: 10px;
             font-size: 13px;
-            font-family: 'Barlow Condensed', sans-serif;
+            font-family: 'Barlow', sans-serif;
             outline: none;
             transition: all .2s;
             color: var(--text);
@@ -1104,14 +1091,21 @@ if (isset($_GET['f_status']))
             color: var(--text);
         }
 
-        .dropdown-wrap.active .dropdown-menu {
-            display: block !important;
-        }
 
-
-        select.modal-input {
-            background-color: #FFFFFF !important;
-            cursor: pointer !important;
+        .btn-clear-search {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @media(max-width: 768px) {
@@ -1153,17 +1147,10 @@ if (isset($_GET['f_status']))
                     <!-- Hidden inputs untuk edit mode -->
                     <div id="hiddenInputsArea"></div>
 
-                    <label class="modal-label">Lapangan <span class="required">*</span></label>
-                    <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
-                        <option value="">Pilih Lapangan</option>
-                        <?php foreach ($lapangan_list as $lap): ?>
-                            <option value="<?= $lap['ID_Lapangan'] ?>">
-                                <?= htmlspecialchars($lap['Nama_Lapangan']) ?> - <?= rupiah($lap['Harga_Sewa']) ?>/jam
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div class="val-msg" id="val-id_lapangan"><i class="fa-solid fa-circle-exclamation"></i> Pilih
-                        lapangan</div>
+                    <label class="modal-label">Stok Total <span class="required">*</span></label>
+                    <input type="number" name="stok_total" id="stok_total" class="modal-input" required min="1"
+                        placeholder="Contoh: 15" autocomplete="off">
+                    <div class="val-msg" id="val-stok_total"></div>
 
                     <label class="modal-label">Nama Fasilitas <span class="required">*</span></label>
                     <input type="text" name="nama_fasilitas" id="nama_fasilitas" class="modal-input" required
@@ -1173,8 +1160,7 @@ if (isset($_GET['f_status']))
                     <label class="modal-label">Detail Fasilitas <span class="required">*</span></label>
                     <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input" required
                         maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
-                    <div class="val-msg" id="val-detail_fasilitas"><i class="fa-solid fa-circle-exclamation"></i> Detail
-                        fasilitas wajib diisi</div>
+                    <div class="val-msg" id="val-detail_fasilitas"></div>
 
                     <button type="submit" name="save_fasilitas" class="btn-submit" id="btnSubmitForm">
                         <i class="fa-solid fa-plus"></i> Tambah Fasilitas
@@ -1201,17 +1187,16 @@ if (isset($_GET['f_status']))
                     <div class="detail-main-name" id="det_nama_title">-</div>
                 </div>
                 <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-layer-group"></i> Lapangan</span>
-                    <span class="info-val" id="det_lapangan" style="font-weight:700;">-</span>
+                    <span class="info-key"><i class="fa-solid fa-layer-group"></i> Stok Total</span>
+                    <span class="info-val" id="det_stok_total" style="font-weight:800; color:var(--text);">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-box-archive"></i> Stok Tersedia</span>
+                    <span class="info-val" id="det_stok_tersedia" style="font-weight:800; color:var(--green);">-</span>
                 </div>
                 <div class="info-row">
                     <span class="info-key"><i class="fa-solid fa-circle-info"></i> Detail Fasilitas</span>
                     <span class="info-val" id="det_detail" style="font-weight:700;">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Sewa Lapangan</span>
-                    <span class="info-val" id="det_harga"
-                        style="font-family:'Barlow Condensed', sans-serif; font-size:18px; color:var(--orange); font-weight:800;">-</span>
                 </div>
                 <div class="info-row" style="border-bottom:none;">
                     <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status Fasilitas</span>
@@ -1252,7 +1237,14 @@ if (isset($_GET['f_status']))
             <div class="action-bar">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="src" placeholder="Cari fasilitas..." onkeyup="searchTable()">
+                    <input type="text" id="src" placeholder="Cari fasilitas... (Tekan Enter)"
+                        onkeypress="handleSearch(event)" value="<?= htmlspecialchars($_GET['src'] ?? '') ?>">
+
+                    <?php if (!empty($search)): ?>
+                        <button type="button" onclick="clearSearch()" class="btn-clear-search">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    <?php endif; ?>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
@@ -1286,19 +1278,18 @@ if (isset($_GET['f_status']))
                                 </div>
                                 <div class="filter-group">
                                     <label>Urutkan</label>
-                                    <!-- ID dihapus, diganti Nomor (atas ke bawah / bawah ke atas) -->
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nomor_asc" <?= ($_GET['f_sort'] ?? '') === 'nomor_asc' ? 'selected' : '' ?>>Nomor Naik</option>
-                                        <option value="nomor_desc" <?= ($_GET['f_sort'] ?? '') === 'nomor_desc' ? 'selected' : '' ?>>Nomor Turun</option>
-                                        <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama (A - Z)</option>
-                                        <option value="lapangan_asc" <?= ($_GET['f_sort'] ?? '') === 'lapangan_asc' ? 'selected' : '' ?>>Lapangan (A - Z)</option>
+                                        <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama Fasilitas (A - Z)</option>
+                                        <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Fasilitas (Z - A)</option>
+                                        <option value="stok_desc" <?= ($_GET['f_sort'] ?? '') === 'stok_desc' ? 'selected' : '' ?>>Stok Terbanyak</option>
+                                        <option value="stok_asc" <?= ($_GET['f_sort'] ?? '') === 'stok_asc' ? 'selected' : '' ?>>Stok Tersedikit</option>
                                     </select>
                                 </div>
                                 <div class="filter-buttons">
-                                    <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
-                                            class="fa-solid fa-rotate-left"></i> Reset</button>
                                     <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i>
                                         Terapkan</button>
+                                    <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
+                                            class="fa-solid fa-rotate-left"></i> Reset</button>
                                 </div>
                             </form>
                         </div>
@@ -1315,9 +1306,9 @@ if (isset($_GET['f_status']))
                             <tr>
                                 <th style="width: 80px;">No</th>
                                 <th>Nama Fasilitas</th>
-                                <th>Lapangan</th>
+                                <th style="width: 150px;">Stok (Sisa/Total)</th>
                                 <th style="width: 150px;">Status</th>
-                                <th style="text-align: left; width: 180px;">Aksi</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1329,12 +1320,19 @@ if (isset($_GET['f_status']))
                                     $has_data = true;
                                     ?>
                                     <tr>
-                                        <td style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);"><?= $no++ ?></td>
+                                        <td
+                                            style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);">
+                                            <?= $no++ ?>
+                                        </td>
                                         <td>
                                             <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
                                         </td>
                                         <td>
-                                            <div class="fas-name"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
+                                            <div
+                                                style="font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:15px; color:var(--text);">
+                                                <span style="color: var(--green);"><?= intval($row['Stok_Tersedia']) ?></span> /
+                                                <span><?= intval($row['Stok_Total']) ?></span>
+                                            </div>
                                         </td>
                                         <td>
                                             <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
@@ -1381,66 +1379,50 @@ if (isset($_GET['f_status']))
                 </div>
             </div>
 
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
+            <!-- PAGINATION -->
+            <div class="pagination-wrap">
+                <div class="pagination-info">
+                    <?php if ($total_data > 0): ?>
+                        Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
                         <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong>
                         data
-                    </div>
-                    <div class="pagination-nav">
-                        <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angles-left"></i></a>
-                        <a href="?page=<?= $page - 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
-                        <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                            <a href="?page=<?= $i ?><?= $filter_url ?>"
-                                class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
-                        <?php endfor; ?>
-                        <a href="?page=<?= $page + 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angle-right"></i></a>
-                        <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angles-right"></i></a>
-                    </div>
+                    <?php else: ?>
+                        Menampilkan <strong>0</strong> data
+                    <?php endif; ?>
                 </div>
-            <?php else: ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari
-                        <strong><?= $total_data ?></strong> data
-                    </div>
+
+                <div class="pagination-nav">
+                    <!-- Tombol First -->
+                    <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    <!-- Tombol Prev -->
+                    <a href="?page=<?= max(1, $page - 1) ?><?= $filter_url ?>"
+                        class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angle-left"></i>
+                    </a>
+                    <!-- Nomor Halaman -->
+                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                        <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+                    <!-- Tombol Next -->
+                    <a href="?page=<?= min($total_pages, $page + 1) ?><?= $filter_url ?>"
+                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </a>
+                    <!-- Tombol Last -->
+                    <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
+                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
                 </div>
-            <?php endif; ?>
+            </div>
         </div>
     </main>
     <script src="../asset/js/global.js"></script>
     <script>
-
-        // ============================================
-        // MODAL FUNCTIONS
-        // ============================================
-        function closeModal() {
-            window.location.href = 'fasilitas_lapangan.php';
-        }
-
-        // ============================================
-        // SEARCH TABLE
-        // ============================================
-        function searchTable() {
-            var input = document.getElementById('src').value.toUpperCase();
-            var rows = document.getElementById('tbl').getElementsByTagName('tr');
-            for (var i = 1; i < rows.length; i++) {
-                var tdName = rows[i].getElementsByTagName('td')[1];
-                var tdLap = rows[i].getElementsByTagName('td')[2];
-                if (tdName || tdLap) {
-                    var match = false;
-                    if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-                    if (tdLap && tdLap.textContent.toUpperCase().indexOf(input) > -1) match = true;
-                    rows[i].style.display = match ? '' : 'none';
-                }
-            }
-        }
-
         // ============================================
         // VALIDASI FORM - REAL TIME & SUBMIT
         // ============================================
@@ -1489,9 +1471,10 @@ if (isset($_GET['f_status']))
         function validateForm() {
             let valid = true;
 
-            if (!validateField('id_lapangan', 'val-id_lapangan', {
+            // Validasi Input Stok Total (Baru)
+            if (!validateField('stok_total', 'val-stok_total', {
                 required: true,
-                label: 'Lapangan'
+                label: 'Stok total'
             })) valid = false;
 
             if (!validateField('nama_fasilitas', 'val-nama_fasilitas', {
@@ -1510,26 +1493,6 @@ if (isset($_GET['f_status']))
             })) valid = false;
 
             return valid;
-        }
-
-        // ============================================
-        // NOTIFIKASI TOAST
-        // ============================================
-        function showToast(type, title, message) {
-            Swal.fire({
-                icon: type,
-                title: title,
-                text: message,
-                timer: 3000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                timerProgressBar: true,
-                showCloseButton: true,
-                customClass: {
-                    popup: 'colored-toast'
-                }
-            });
         }
 
         // ============================================
@@ -1652,10 +1615,10 @@ if (isset($_GET['f_status']))
             window.location.href = 'fasilitas_lapangan.php';
         }
 
-            // ============================================
-            // REAL-TIME VALIDATION EVENT LISTENERS
-            // ============================================
-            document.addEventListener('DOMContentLoaded', function () {
+        // ============================================
+        // REAL-TIME VALIDATION EVENT LISTENERS
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function () {
             const namaFas = document.getElementById('nama_fasilitas');
             if (namaFas) {
                 namaFas.addEventListener('blur', function () {
@@ -1701,16 +1664,6 @@ if (isset($_GET['f_status']))
                     }
                 });
             }
-
-            const lapangan = document.getElementById('id_lapangan');
-            if (lapangan) {
-                lapangan.addEventListener('change', function () {
-                    validateField('id_lapangan', 'val-id_lapangan', {
-                        required: true,
-                        label: 'Lapangan'
-                    });
-                });
-            }
         });
 
         // Fungsi Buka Form Tambah Baru
@@ -1740,8 +1693,7 @@ if (isset($_GET['f_status']))
                     if (res.status === 'success') {
                         const data = res.data;
 
-                        // Isi input form secara otomatis
-                        document.getElementById('id_lapangan').value = data.ID_Lapangan;
+                        document.getElementById('stok_total').value = data.Stok_Total; // Isi ke Stok Total
                         document.getElementById('nama_fasilitas').value = data.Nama_Fasilitas;
                         document.getElementById('detail_fasilitas').value = data.Detail_Fasilitas;
 
@@ -1777,9 +1729,9 @@ if (isset($_GET['f_status']))
 
                         // Tulis nilai ke dalam kolom modal detail secara dinamis
                         document.getElementById('det_nama_title').innerText = data.Nama_Fasilitas;
-                        document.getElementById('det_lapangan').innerText = data.Nama_Lapangan;
                         document.getElementById('det_detail').innerText = data.Detail_Fasilitas ? data.Detail_Fasilitas : '-';
-                        document.getElementById('det_harga').innerText = data.Harga_Sewa_Rupiah;
+                        document.getElementById('det_stok_total').innerText = data.Stok_Total + ' unit';
+                        document.getElementById('det_stok_tersedia').innerText = data.Stok_Tersedia + ' unit';
 
                         // Pengaturan warna badge status keaktifan
                         const pill = document.getElementById('det_status_pill');
@@ -1803,6 +1755,29 @@ if (isset($_GET['f_status']))
         // Fungsi Menutup Modal Secara Langsung
         function closeModalDirect(modalId) {
             document.getElementById(modalId).classList.remove('open');
+        }
+
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                const keyword = document.getElementById('src').value.trim();
+                const urlParams = new URLSearchParams(window.location.search);
+
+                if (keyword) {
+                    urlParams.set('src', keyword);
+                } else {
+                    urlParams.delete('src');
+                }
+
+                urlParams.set('page', 1); // Reset kembali ke halaman 1
+                window.location.href = 'fasilitas_lapangan.php?' + urlParams.toString();
+            }
+        }
+
+        function clearSearch() {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.delete('src'); // Hapus kata kunci pencarian
+            urlParams.set('page', 1); // Reset kembali ke halaman 1
+            window.location.href = 'fasilitas_lapangan.php?' + urlParams.toString();
         }
 
     </script>

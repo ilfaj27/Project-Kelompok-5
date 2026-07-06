@@ -288,6 +288,18 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             from { width: 0; }
             to { width: 100%; }
         }
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(4px); }
+        }
+        @keyframes searchPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
+            50% { box-shadow: 0 0 0 4px rgba(255, 90, 31, 0.15); }
+        }
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         /* ═══ REVEAL ═══ */
         .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
         .reveal.active{opacity:1;transform:translateY(0)}
@@ -301,213 +313,225 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         .scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--primary),#FF8C42);z-index:9999;transform-origin:left;transform:scaleX(0);transition:transform 0.1s ease-out}
 
         /* ---- NAVBAR ---- */
-        nav {
-            background: var(--white);
-            padding: 0 80px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 76px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid #E5E5EA;
-            animation: fadeInDown .6s ease-out forwards;
-        }
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            gap: 10px;
-            transition: transform .3s ease;
-            animation: fadeInDown 0.5s ease-out both;
-        }
-        .nav-logo:hover { transform: scale(1.05); }
-        .nav-logo img {
-            height: 70px;
-            width: auto;
-            transition: transform .5s cubic-bezier(.34,1.56,.64,1);
-            animation: rotateIn 0.6s ease-out 0.2s both;
-        }
-        .nav-logo:hover img { transform: rotate(5deg) scale(1.1); }
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .nav-links a {
-            color: #636366;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 20px;
-            transition: var(--transition-smooth);
-            position: relative;
-            overflow: hidden;
-        }
-        .nav-links a::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 0;
-            height: 2px;
-            background: var(--primary);
-            transition: var(--transition-smooth);
-            transform: translateX(-50%);
-        }
-        .nav-links a:hover { color: #1C1C1E; transform: translateY(-2px); }
-        .nav-links a:hover::before { width: 60%; }
-        .nav-links a.active { color: var(--primary); font-weight: 600; }
-        .nav-links a.active::before { width: 60%; }
-        .nav-links a {
-            animation: fadeInDown 0.5s ease-out both;
-            opacity: 0;
-        }
-        .nav-links a:nth-child(1) { animation-delay: 0.1s; }
-        .nav-links a:nth-child(2) { animation-delay: 0.15s; }
-        .nav-links a:nth-child(3) { animation-delay: 0.2s; }
-        .nav-links a:nth-child(4) { animation-delay: 0.25s; }
-        .nav-links a:nth-child(5) { animation-delay: 0.3s; }
-        .nav-links a:nth-child(6) { animation-delay: 0.35s; }
-        .nav-links a:nth-child(7) { animation-delay: 0.4s; }
+nav {
+    background: #FFFFFF;
+    padding: 0 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 76px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid #E5E5EA;
+}
+.nav-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    gap: 10px;
+    transition: transform .3s ease;
+}
+.nav-logo:hover { transform: scale(1.05); }
+.nav-logo img {
+    height: 70px;
+    width: auto;
+    transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+.nav-logo:hover img { transform: rotate(5deg) scale(1.1); }
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.nav-links a {
+    color: #636366;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+.nav-links a::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: #FF5200;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-50%);
+}
+.nav-links a:hover {
+    color: #1C1C1E;
+    transform: translateY(-2px);
+}
+.nav-links a:hover::before { width: 60%; }
+.nav-links a.active {
+    color: #FF5200;
+    font-weight: 600;
+}
+.nav-links a.active::before { width: 60%; }
+.nav-user-container {
+    position: relative;
+    height: 76px;
+    display: flex;
+    align-items: center;
+}
+.nav-user {
+    background: #F2F2F7;
+    border: 1px solid #E5E5EA;
+    padding: 8px 16px;
+    border-radius: 50px;
+    color: #1C1C1E;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav-user:hover {
+    background: #E5E5EA;
+    border-color: #FF5200;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(255, 82, 0, .15);
+}
+.nav-user img.user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    transition: transform .3s ease;
+}
+.nav-user:hover img.user-avatar { transform: scale(1.15); }
+.nav-user i.user-icon {
+    font-size: 16px;
+    color: #FF5200;
+    transition: transform .3s ease;
+}
+.nav-user:hover i.user-icon { transform: scale(1.2); }
+.nav-user i.arrow {
+    font-size: 11px;
+    color: #8E8E93;
+    transition: .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.nav-user-container:hover i.arrow {
+    transform: rotate(180deg);
+    color: #FF5200;
+}
+.dropdown-menu {
+    position: absolute;
+    top: 85%;
+    right: 0;
+    background: #16161a;
+    min-width: 220px;
+    border-radius: 12px;
+    border: 1px solid #2d2d33;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 8px 0;
+    display: none;
+    z-index: 1001;
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav-user-container:hover .dropdown-menu {
+    display: block;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.dropdown-menu .user-info-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid #2d2d33;
+    margin-bottom: 6px;
+}
+.dropdown-menu .user-info-header span { display: block; }
+.dropdown-menu .user-info-header .u-name {
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 700;
+}
+.dropdown-menu .user-info-header .u-role {
+    color: #8E8E93;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+.dropdown-menu a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    color: #c5c5ca;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all .25s cubic-bezier(.16, 1, .3, 1);
+    position: relative;
+    overflow: hidden;
+}
+.dropdown-menu a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    background: #FF5200;
+    transform: scaleY(0);
+    transition: transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.dropdown-menu a i {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+    transition: transform .3s ease;
+}
+.dropdown-menu a:hover {
+    background: #222227;
+    color: #FF5200;
+    padding-left: 28px;
+}
+.dropdown-menu a:hover::after { transform: scaleY(1); }
+.dropdown-menu a:hover i { transform: scale(1.2); }
+.dropdown-divider {
+    height: 1px;
+    background: #2d2d33;
+    margin: 6px 0;
+}
+.dropdown-menu a.logout:hover { color: #ff3b30; }
+.dropdown-menu a.logout:hover::after { background: #ff3b30; }
 
-        .nav-user-container {
-            position: relative;
-            height: 76px;
-            display: flex;
-            align-items: center;
-        }
-        .nav-user {
-            background: #F2F2F7;
-            border: 1px solid #E5E5EA;
-            padding: 8px 16px;
-            border-radius: 50px;
-            color: #1C1C1E;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: var(--transition-smooth);
-        }
-        .nav-user:hover { background: #E5E5EA; border-color: var(--primary); transform: scale(1.02); box-shadow: 0 4px 12px rgba(255,82,0,.15); }
-        .nav-user img.user-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-            transition: transform .3s ease;
-        }
-        .nav-user:hover img.user-avatar { transform: scale(1.15); }
-        .nav-user i.user-icon {
-            font-size: 16px;
-            color: var(--primary);
-            transition: transform .3s ease;
-        }
-        .nav-user:hover i.user-icon { transform: scale(1.2); }
-        .nav-user i.arrow { 
-            font-size: 11px; 
-            color: #8E8E93; 
-            transition: .3s cubic-bezier(.34,1.56,.64,1);
-        }
-        .nav-user-container:hover i.arrow { 
-            transform: rotate(180deg); 
-            color: var(--primary); 
-        }
-        .dropdown-menu {
-            position: absolute;
-            top: 85%;
-            right: 0;
-            background: #16161a;
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid #2d2d33;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            padding: 8px 0;
-            display: none; 
-            z-index: 1001;
-            transform-origin: top right;
-            opacity: 0;
-            transform: translateY(-10px) scale(0.95);
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .nav-user-container:hover .dropdown-menu {
-            display: block;
-            opacity: 1;
-            transform: translateY(0) scale(1);
-            animation: fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards;
-        }
-        .dropdown-menu .user-info-header {
-            padding: 12px 20px;
-            border-bottom: 1px solid #2d2d33;
-            margin-bottom: 6px;
-        }
-        .dropdown-menu .user-info-header span {
-            display: block;
-        }
-        .dropdown-menu .user-info-header .u-name {
-            color: var(--white);
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .dropdown-menu .user-info-header .u-role {
-            color: var(--text-gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-        .dropdown-menu a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            color: #c5c5ca;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all .25s cubic-bezier(.16,1,.3,1);
-            position: relative;
-            overflow: hidden;
-        }
-        .dropdown-menu a::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 3px;
-            height: 100%;
-            background: var(--primary);
-            transform: scaleY(0);
-            transition: transform .25s cubic-bezier(.16,1,.3,1);
-        }
-        .dropdown-menu a i { 
-            font-size: 14px; 
-            width: 16px; 
-            text-align: center; 
-            transition: transform .3s ease;
-        }
-        .dropdown-menu a:hover {
-            background: #222227;
-            color: var(--primary);
-            padding-left: 28px;
-        }
-        .dropdown-menu a:hover::after { transform: scaleY(1); }
-        .dropdown-menu a:hover i { transform: scale(1.2); }
-        .dropdown-divider {
-            height: 1px;
-            background: #2d2d33;
-            margin: 6px 0;
-        }
-        .dropdown-menu a.logout:hover { 
-            color: #ff3b30; 
-        }
-        .dropdown-menu a.logout:hover::after { background: #ff3b30; }
+/* ---- MEMBER BADGE ---- */
+.member-badge-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(52, 199, 89, .10);
+    border: 1px solid #34C759;
+    color: #34C759;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 8px;
+}
 
-        /* ---- MEMBER BADGE ---- */
+@media(max-width: 1100px) {
+    nav { padding: 0 40px; }
+}
+@media(max-width: 768px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+}
         .member-badge-nav {
             display: inline-flex;
             align-items: center;
@@ -833,11 +857,39 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
         /* ---- TIPE MEMBER CARDS ---- */
         .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
             gap: 24px;
+            padding: 8px 4px;
+            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .pricing-grid::-webkit-scrollbar { display: none; }
+        .pricing-scroll-wrapper {
+            position: relative;
+            overflow: hidden;
             margin-bottom: 60px;
-            perspective: 1000px;
+        }
+        .pricing-scroll-wrapper::before,
+        .pricing-scroll-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            pointer-events: none;
+            z-index: 2;
+            transition: opacity 0.3s ease;
+        }
+        .pricing-scroll-wrapper::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--light-bg), transparent);
+        }
+        .pricing-scroll-wrapper::after {
+            right: 0;
+            background: linear-gradient(-90deg, var(--light-bg), transparent);
         }
         .pricing-card {
             background: var(--white);
@@ -1064,7 +1116,8 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
         /* ---- RESPONSIVE ---- */
         @media(max-width: 1100px) {
-            .pricing-grid { grid-template-columns: 1fr; }
+            .pricing-grid { gap: 16px; }
+            .pricing-card { min-width: 280px !important; }
             .hero { flex-direction: column; padding: 40px; }
             .member-status-card { min-width: auto; width: 100%; }
             .main-container { padding: 40px; }
@@ -1413,16 +1466,16 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
 <!-- NAVBAR -->
 <nav>
-    <a href="view_customer.php" class="nav-logo">
+    <a href="../index.php" class="nav-logo">
         <img src="../asset/image/logo2.png" alt="HoopBall">
     </a>
     <div class="nav-links">
+        <a href="../index.php">Beranda</a>
         <a href="booking_customer.php">Booking</a>
         <a href="pembatalan_customer.php">Pembatalan</a>
         <a href="langganan_customer.php" class="active">Member</a>
         <a href="pembelian_alat.php">Pembelian</a>
     </div>
-
     <div class="nav-user-container">
         <div class="nav-user">
             <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
@@ -1579,16 +1632,37 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             </div>
         </div>
 
-        <div class="pricing-grid reveal-stagger">
-            <?php 
-            $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
-            $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
-            foreach ($tipe_member_list as $tipe): 
-                $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
-                $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
-                $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
-            ?>
-            <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>">
+        <!-- Search & Scroll Controls -->
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; animation: fadeInUp 0.6s ease-out both;">
+            <div style="position: relative; flex: 1; max-width: 400px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px;"></i>
+                <input type="text" id="searchTipeMember" placeholder="Cari tipe member..." 
+                    style="width: 100%; padding: 12px 16px 12px 42px; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); background: #fff; outline: none; transition: all 0.3s ease;"
+                    onfocus="this.style.borderColor='var(--orange)'; this.style.boxShadow='0 0 0 3px var(--orange-glow)';"
+                    onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none';"
+                    oninput="filterTipeMember(this.value)">
+            </div>
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                <button type="button" onclick="scrollPricing('left')" class="scroll-arrow" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);" onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button type="button" onclick="scrollPricing('right')" class="scroll-arrow" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);" onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="pricing-scroll-wrapper" style="position: relative; overflow: hidden; margin-bottom: 60px;">
+            <div class="pricing-grid reveal-stagger" id="pricingGrid" style="display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 8px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+                <?php 
+                $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
+                $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
+                foreach ($tipe_member_list as $tipe): 
+                    $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
+                    $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
+                    $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
+                ?>
+            <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>" data-nama="<?php echo strtolower(htmlspecialchars($tipe['Nama_Tipe'])); ?>" data-harga="<?php echo $tipe['Harga_Member']; ?>" style="min-width: 320px; flex-shrink: 0; scroll-snap-align: start;">
                 <?php if ($is_recommended): ?>
                 <div class="popular-badge">POPULER</div>
                 <?php endif; ?>
@@ -1628,6 +1702,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
                 </button>
             </div>
             <?php endforeach; ?>
+            </div>
         </div>
     </section>
 
@@ -1655,9 +1730,9 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         <div class="footer-col">
             <h4>Navigasi</h4>
             <ul>
-                <li><a href="view_customer.php">Beranda</a></li>
+                <li><a href="../index.php">Beranda</a></li>
                 <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="pembatalan_customer.php">Jadwal</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
                 <li><a href="langganan_customer.php">Member</a></li>
                 <li><a href="pembelian_alat.php">Pembelian</a></li>
             </ul>
@@ -1922,6 +1997,114 @@ window.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             loader.classList.add('hidden');
         }, 500);
+    }
+
+    // Initialize scroll arrow visibility
+    updateScrollArrows();
+});
+
+/* ─── HORIZONTAL SCROLL FUNCTIONS ─── */
+function scrollPricing(direction) {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    const scrollAmount = 340; // card width + gap
+    if (direction === 'left') {
+        grid.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+        grid.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+}
+
+function updateScrollArrows() {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+
+    const leftArrow = document.querySelector('.scroll-arrow:first-child');
+    const rightArrow = document.querySelector('.scroll-arrow:last-child');
+
+    if (leftArrow) {
+        leftArrow.style.opacity = grid.scrollLeft > 10 ? '1' : '0.4';
+        leftArrow.style.pointerEvents = grid.scrollLeft > 10 ? 'auto' : 'none';
+    }
+    if (rightArrow) {
+        const canScrollRight = grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 10;
+        rightArrow.style.opacity = canScrollRight ? '1' : '0.4';
+        rightArrow.style.pointerEvents = canScrollRight ? 'auto' : 'none';
+    }
+}
+
+// Update arrows on scroll
+const pricingGrid = document.getElementById('pricingGrid');
+if (pricingGrid) {
+    pricingGrid.addEventListener('scroll', updateScrollArrows);
+    window.addEventListener('resize', updateScrollArrows);
+}
+
+/* ─── SEARCH FILTER FUNCTION ─── */
+function filterTipeMember(query) {
+    const cards = document.querySelectorAll('.pricing-card');
+    const grid = document.getElementById('pricingGrid');
+    query = query.toLowerCase().trim();
+
+    let visibleCount = 0;
+    let firstVisible = null;
+
+    cards.forEach(card => {
+        const nama = card.getAttribute('data-nama') || '';
+        const harga = card.getAttribute('data-harga') || '';
+
+        if (nama.includes(query) || harga.includes(query)) {
+            card.style.display = 'block';
+            card.style.animation = 'cardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px) scale(0.95)';
+
+            // Stagger animation
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0) scale(1)';
+            }, visibleCount * 100);
+
+            if (!firstVisible) firstVisible = card;
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Scroll to first visible card
+    if (firstVisible && grid) {
+        setTimeout(() => {
+            firstVisible.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+        }, 100);
+    }
+
+    // Show "no results" message if needed
+    let noResults = document.getElementById('noResultsMsg');
+    if (visibleCount === 0) {
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'noResultsMsg';
+            noResults.style.cssText = 'width: 100%; text-align: center; padding: 40px; color: var(--muted); font-size: 14px; animation: fadeInUp 0.5s ease-out;';
+            noResults.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.5;"></i>Tidak ada tipe member yang cocok dengan pencarian Anda.';
+            grid.appendChild(noResults);
+        }
+        noResults.style.display = 'block';
+    } else if (noResults) {
+        noResults.style.display = 'none';
+    }
+}
+
+/* ─── KEYBOARD NAVIGATION ─── */
+document.addEventListener('keydown', (e) => {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        scrollPricing('left');
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        scrollPricing('right');
     }
 });
 

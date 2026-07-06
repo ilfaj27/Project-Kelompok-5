@@ -41,6 +41,28 @@ if (!empty($profile_photo)) {
 }
 
 // ============================================================================
+// AUTO-COMPLETE BOOKING (OTOMATIS SELESAI)
+// ============================================================================
+// Cek semua booking dengan status 1 (Berhasil) yang jadwalnya sudah lewat
+// dan otomatis ubah statusnya menjadi 2 (Selesai)
+$auto_complete_sql = "SELECT B.ID_Booking, J.Tanggal, J.Jam_Selesai 
+                      FROM Booking B 
+                      INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
+                      WHERE B.Status = 1 
+                      AND (J.Tanggal < CAST(GETDATE() AS DATE) 
+                           OR (J.Tanggal = CAST(GETDATE() AS DATE) 
+                               AND J.Jam_Selesai <= CAST(GETDATE() AS TIME)))";
+$q_auto = sqlsrv_query($conn, $auto_complete_sql);
+if ($q_auto) {
+    while ($row_auto = sqlsrv_fetch_array($q_auto, SQLSRV_FETCH_ASSOC)) {
+        sqlsrv_query($conn, 
+            "UPDATE Booking SET Status = 2, Modified_By = 'SYSTEM_AUTO', Modified_Date = GETDATE() WHERE ID_Booking = ?",
+            array($row_auto['ID_Booking'])
+        );
+    }
+}
+
+// ============================================================================
 // STATUS BOOKING
 // ============================================================================
 $status_labels = [
@@ -64,24 +86,6 @@ if (isset($_POST['konfirmasi_bayar'])) {
         exit();
     } else {
         header("Location: booking.php?status=error&msg=Gagal mengkonfirmasi pembayaran.");
-        exit();
-    }
-}
-
-// ============================================================================
-// PROSES UPDATE STATUS SELESAI
-// ============================================================================
-if (isset($_POST['selesai_booking'])) {
-    $id_booking = $_POST['id_booking'];
-    $stmt = sqlsrv_query($conn, 
-        "UPDATE Booking SET Status = 2, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ? AND Status = 1",
-        array($nama, $id_booking)
-    );
-    if ($stmt) {
-        header("Location: booking.php?status=success&msg=Booking telah diselesaikan.");
-        exit();
-    } else {
-        header("Location: booking.php?status=error&msg=Gagal menyelesaikan booking.");
         exit();
     }
 }
@@ -126,7 +130,7 @@ if (isset($_POST['batal_booking'])) {
 }
 
 // ============================================================================
-// AMBIL DATA BOOKING
+// AMBIL DATA BOOKING - URUTAN KHUSUS
 // ============================================================================
 $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
@@ -170,6 +174,7 @@ $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
+// URUTAN: Menunggu (0) paling atas, Dibatalkan (3) kedua, sisanya by Tanggal_Booking DESC
 $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, B.ID_Promo, 
                        B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
                        B.Created_Date, B.Modified_Date,
@@ -185,7 +190,14 @@ $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, 
                 LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
                 LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
                 $sql_where
-                ORDER BY B.Created_Date DESC
+                ORDER BY 
+                    CASE 
+                        WHEN B.Status = 0 THEN 0
+                        WHEN B.Status = 1 THEN 1
+                        WHEN B.Status = 2 THEN 2
+                        WHEN B.Status = 3 THEN 3
+                    END ASC,
+                    B.Tanggal_Booking DESC
                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
 $params_with_paging = array_merge($params, [$offset, $limit]);
@@ -430,11 +442,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .action-btns { display: flex; gap: 6px; }
-.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; transition: .2s; }
-.btn-icon:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.btn-icon.view:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
-.btn-icon.success:hover { border-color: var(--green); color: var(--green); background: var(--green-lt); }
-.btn-icon.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-lt); }
+.btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
+.btn-icon::before { content: ''; position: absolute; inset: 0; border-radius: 8px; opacity: 0; transition: opacity .25s ease; }
+.btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.btn-icon:active { transform: scale(0.95); }
+
+.btn-icon.view { color: var(--blue); border-color: rgba(59,130,246,.25); background: var(--blue-lt); }
+.btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
+
+.btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
+.btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+
+.btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
+.btn-icon.danger:hover { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 14px rgba(239,68,68,.35); }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -540,9 +560,9 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <div class="sb-section-label">Akun</div>
     <nav>
         <a href="../profile/profile.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
-    </a>
-        </nav>
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
+        </a>
+    </nav>
 
     <div class="sb-bottom">
         <div class="sb-user">
@@ -620,6 +640,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
             <strong>Peran Karyawan:</strong> Customer membuat booking melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer. 
             <span style="color: var(--muted);">Booking baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
+            <br><span style="color: var(--green); font-weight: 700;"><i class="fa-solid fa-robot"></i> Status "Selesai" akan otomatis terupdate ketika waktu bermain sudah lewat.</span>
         </div>
     </div>
 
@@ -655,12 +676,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <thead>
                     <tr>
                         <th style="width: 70px; text-align: center;">No.</th>
-                        <th>Customer</th>
-                        <th>Lapangan & Jadwal</th>
-                        <th>Tanggal Booking</th>
-                        <th>Metode Bayar</th>
-                        <th>Total Bayar</th>
-                        <th>Status</th>
+                        <th style="text-align: center;">Customer</th>
+                        <th style="text-align: center;">Lapangan & Jadwal</th>
+                        <th style="text-align: right;">Tanggal Booking</th>
+                        <th style="text-align: center;">Metode Bayar</th>
+                        <th style="text-align: right;">Total Bayar</th>
+                        <th style="text-align: center;">Status</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -674,26 +695,24 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                         ?>
                         <tr>
                             <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td>
+                            <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($b['Email']) ?></div>
                             </td>
-                            <td>
+                            <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
                                 <div class="cell-detail"><?= $tanggal_jadwal ?> | <?= $jam_mulai ?> - <?= $jam_selesai ?></div>
                             </td>
-                            <td><?= formatTanggal($b['Tanggal_Booking']) ?></td>
-                            <td><?= $b['Metode_Pembayaran'] ?></td>
-                            <td class="cell-price"><?= rupiahFormat($b['Total_Bayar']) ?></td>
-                            <td><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
+                            <td style="text-align: right;"><?= formatTanggal($b['Tanggal_Booking']) ?></td>
+                            <td style="text-align: center;"><?= $b['Metode_Pembayaran'] ?></td>
+                            <td class="cell-price" style="text-align: right;"><?= rupiahFormat($b['Total_Bayar']) ?></td>
+                            <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
                             <td>
                                 <div class="action-btns">
                                     <button class="btn-icon view" onclick="showDetail(<?= $b['ID_Booking'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
                                     <?php if ($b['Status'] == 0): ?>
                                         <button class="btn-icon success" onclick="confirmBayar(<?= $b['ID_Booking'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
                                         <button class="btn-icon danger" onclick="confirmBatal(<?= $b['ID_Booking'] ?>)" title="Batalkan"><i class="fa-solid fa-xmark"></i></button>
-                                    <?php elseif ($b['Status'] == 1): ?>
-                                        <button class="btn-icon success" onclick="confirmSelesai(<?= $b['ID_Booking'] ?>)" title="Selesaikan"><i class="fa-solid fa-flag-checkered"></i></button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -777,10 +796,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <input type="hidden" name="id_booking" id="konfirmasiId">
     <input type="hidden" name="konfirmasi_bayar" value="1">
 </form>
-<form method="POST" id="formSelesai" style="display: none;">
-    <input type="hidden" name="id_booking" id="selesaiId">
-    <input type="hidden" name="selesai_booking" value="1">
-</form>
 <form method="POST" id="formBatal" style="display: none;">
     <input type="hidden" name="id_booking" id="batalId">
     <input type="hidden" name="alasan_batal" id="batalAlasan">
@@ -828,7 +843,7 @@ function showDetail(id) {
 
     const html = `
         <div class="detail-grid">
-            <div class="detail-item"><div class="detail-label">ID Booking</div><div class="detail-value">#${booking.ID_Booking}</div></div>
+            
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
             <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${booking.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${booking.Email} | ${booking.No_Telepon}</div></div>
             <div class="detail-item"><div class="detail-label">Lapangan</div><div class="detail-value">${booking.Nama_Lapangan}</div></div>
@@ -864,25 +879,6 @@ function confirmBayar(id) {
         if (result.isConfirmed) {
             document.getElementById('konfirmasiId').value = id;
             document.getElementById('formKonfirmasi').submit();
-        }
-    });
-}
-
-function confirmSelesai(id) {
-    Swal.fire({
-        title: 'Selesaikan Booking?',
-        html: 'Booking ini sudah selesai digunakan?<br><span style="color: var(--muted); font-size: 12px;">Status akan berubah menjadi <strong>Selesai</strong></span>',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonColor: '#3B82F6',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Selesai',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById('selesaiId').value = id;
-            document.getElementById('formSelesai').submit();
         }
     });
 }
