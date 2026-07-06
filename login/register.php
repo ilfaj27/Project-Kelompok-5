@@ -106,9 +106,8 @@ if (isset($_POST['register'])) {
     }
 }
 
-// --- HITUNG TANGGAL MAX UNTUK USIA MINIMAL 10 TAHUN ---
-// Saat ini 2026-07-03, jadi max date = 2016-07-03 (usia minimal 10 tahun)
-$max_date = date('Y-m-d'); // Max date is today, age validation handled in JS
+// Mengurangi tanggal hari ini sebanyak 10 tahun
+$max_date = date('Y-m-d', strtotime('-10 years'));
 ?>
 
 <!DOCTYPE html>
