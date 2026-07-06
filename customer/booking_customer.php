@@ -3,6 +3,12 @@
  * Halaman Booking Lapangan - Customer
  * Tema visual disamakan dengan landing page (index.php): warna oranye,
  * font Barlow / Barlow Condensed, dan konvensi radius/shadow yang sama.
+ *
+ * Alur booking mengikuti pola "keranjang": setiap lapangan menampilkan
+ * dropdown jadwal miliknya sendiri (jadwal tersedia & yang sudah dibooking
+ * tampil sekaligus), pelanggan bisa langsung memilih beberapa slot jam
+ * sekaligus (lintas lapangan/lintas jam) dan setiap klik langsung masuk
+ * ke keranjang, baru kemudian checkout dari panel keranjang.
  */
 ob_start();
 if (session_status() === PHP_SESSION_NONE) {
@@ -121,11 +127,11 @@ function generateJadwalOtomatis($conn) {
         $list[] = $r['ID_Lapangan'];
     }
 
-    $slots = [
-        ['07:00:00', '08:00:00'], ['08:00:00', '09:00:00'], ['09:00:00', '10:00:00'], ['10:00:00', '11:00:00'],
-        ['11:00:00', '12:00:00'], ['12:00:00', '13:00:00'], ['13:00:00', '14:00:00'], ['14:00:00', '15:00:00'],
-        ['15:00:00', '16:00:00'], ['16:00:00', '17:00:00'], ['17:00:00', '18:00:00'], ['18:00:00', '19:00:00'],
-        ['19:00:00', '20:00:00'], ['20:00:00', '21:00:00'], ['21:00:00', '22:00:00'], ['22:00:00', '23:00:00'],
+        $slots = [
+        ['08:30:00', '09:30:00'], ['09:30:00', '10:30:00'], ['10:30:00', '11:30:00'], ['11:30:00', '12:30:00'],
+        ['12:30:00', '13:30:00'], ['13:30:00', '14:30:00'], ['14:30:00', '15:30:00'], ['15:30:00', '16:30:00'],
+        ['16:30:00', '17:30:00'], ['17:30:00', '18:30:00'], ['18:30:00', '19:30:00'], ['19:30:00', '20:30:00'],
+        ['20:30:00', '21:30:00'], ['21:30:00', '22:30:00'], ['22:30:00', '23:30:00'], ['23:30:00', '00:00:00'],
     ];
 
     for ($i = 0; $i < 7; $i++) {
@@ -148,70 +154,53 @@ generateJadwalOtomatis($conn);
 if (isset($_GET['action'])) {
     header('Content-Type: application/json');
 
-    // --- Ambil slot 1 jam yang tersedia ---
-    if ($_GET['action'] == 'get_slots' && isset($_GET['court_id']) && isset($_GET['tanggal'])) {
+    // --- Ambil SELURUH jadwal 1 hari untuk satu lapangan, lengkap dengan status
+    //     (tersedia / sudah dibooking / waktu sudah lewat) supaya dropdown di
+    //     bawah tiap lapangan bisa menampilkan semuanya sekaligus. ---
+    if ($_GET['action'] == 'get_all_slots' && isset($_GET['court_id']) && isset($_GET['tanggal'])) {
         $cid     = intval($_GET['court_id']);
         $tanggal = $_GET['tanggal'];
 
         $st = sqlsrv_query($conn,
-            "SELECT ID_Jadwal,Tanggal,Jam_Mulai,Jam_Selesai FROM Jadwal
-             WHERE ID_Lapangan=? AND Status=1 AND Is_Deleted=0 AND Tanggal=?
-             AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking)
-             AND (Tanggal>CAST(GETDATE() AS DATE) OR (Tanggal=CAST(GETDATE() AS DATE) AND Jam_Mulai>CAST(GETDATE() AS TIME)))
-             ORDER BY Jam_Mulai ASC", array($cid, $tanggal));
+            "SELECT J.ID_Jadwal, J.Jam_Mulai, J.Jam_Selesai, J.Status,
+                    CASE WHEN B.ID_Booking IS NOT NULL THEN 1 ELSE 0 END AS Ada_Booking
+             FROM Jadwal J
+             LEFT JOIN Booking B ON B.ID_Jadwal = J.ID_Jadwal
+             WHERE J.ID_Lapangan=? AND J.Is_Deleted=0 AND J.Tanggal=?
+             ORDER BY J.Jam_Mulai ASC", array($cid, $tanggal));
 
-        $slots = [];
+        $slots    = [];
+        $now_date = date('Y-m-d');
+        $now_time = date('H:i:s');
+
         if ($st) {
             while ($r = sqlsrv_fetch_array($st, SQLSRV_FETCH_ASSOC)) {
-                $tgl     = ($r['Tanggal'] instanceof DateTime) ? $r['Tanggal']->format('Y-m-d') : $r['Tanggal'];
-                $mulai   = ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i') : substr($r['Jam_Mulai'], 0, 5);
-                $selesai = ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i') : substr($r['Jam_Selesai'], 0, 5);
-                $slots[] = ['ID_Jadwal' => $r['ID_Jadwal'], 'Tanggal' => $tgl, 'Jam_Mulai' => $mulai, 'Jam_Selesai' => $selesai];
+                $mulai   = ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i:s') : $r['Jam_Mulai'];
+                $selesai = ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i:s') : $r['Jam_Selesai'];
+
+                $sudahDibooking = ($r['Status'] == 0 || $r['Ada_Booking'] == 1);
+
+                if ($sudahDibooking) {
+                    $status = 'dibooking';
+                } elseif ($tanggal == $now_date && $mulai <= $now_time) {
+                    $status = 'lewat';
+                } else {
+                    $status = 'tersedia';
+                }
+
+                $slots[] = [
+                    'ID_Jadwal'   => $r['ID_Jadwal'],
+                    'Jam_Mulai'   => substr($mulai, 0, 5),
+                    'Jam_Selesai' => substr($selesai, 0, 5),
+                    'Status'      => $status,
+                ];
             }
         }
         echo json_encode($slots);
         exit();
     }
 
-    // --- Ambil blok 3 jam berurutan yang tersedia ---
-    if ($_GET['action'] == 'get_3h_blocks' && isset($_GET['court_id']) && isset($_GET['tanggal'])) {
-        $cid     = intval($_GET['court_id']);
-        $tanggal = $_GET['tanggal'];
-
-        $st = sqlsrv_query($conn,
-            "SELECT ID_Jadwal,Jam_Mulai,Jam_Selesai FROM Jadwal
-             WHERE ID_Lapangan=? AND Status=1 AND Is_Deleted=0 AND Tanggal=?
-             AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking)
-             AND (Tanggal>CAST(GETDATE() AS DATE) OR (Tanggal=CAST(GETDATE() AS DATE) AND Jam_Mulai>CAST(GETDATE() AS TIME)))
-             ORDER BY Jam_Mulai ASC", array($cid, $tanggal));
-
-        $slots = [];
-        if ($st) {
-            while ($r = sqlsrv_fetch_array($st, SQLSRV_FETCH_ASSOC)) {
-                $mulai   = ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i:s') : $r['Jam_Mulai'];
-                $selesai = ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i:s') : $r['Jam_Selesai'];
-                $slots[] = ['ID_Jadwal' => $r['ID_Jadwal'], 'Jam_Mulai' => $mulai, 'Jam_Selesai' => $selesai];
-            }
-        }
-
-        $blocks = [];
-        for ($i = 0; $i <= count($slots) - 3; $i++) {
-            $s1 = $slots[$i]; $s2 = $slots[$i + 1]; $s3 = $slots[$i + 2];
-            $end1 = strtotime($s1['Jam_Selesai']); $start2 = strtotime($s2['Jam_Mulai']);
-            $end2 = strtotime($s2['Jam_Selesai']); $start3 = strtotime($s3['Jam_Mulai']);
-
-            if ($end1 == $start2 && $end2 == $start3) {
-                $blocks[] = [
-                    'ID_Jadwal_1' => $s1['ID_Jadwal'], 'ID_Jadwal_2' => $s2['ID_Jadwal'], 'ID_Jadwal_3' => $s3['ID_Jadwal'],
-                    'Jam_Mulai'   => substr($s1['Jam_Mulai'], 0, 5), 'Jam_Selesai' => substr($s3['Jam_Selesai'], 0, 5), 'Duration' => 3,
-                ];
-            }
-        }
-        echo json_encode($blocks);
-        exit();
-    }
-
-    // --- Proses checkout / pembuatan booking ---
+    // --- Proses checkout / pembuatan booking untuk seluruh isi keranjang ---
     if ($_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) $input = $_POST;
@@ -232,13 +221,25 @@ if (isset($_GET['action'])) {
         }
 
         try {
+            // Validasi tiap slot & ambil harga dari data master (bukan dari input client)
+            // supaya total pembayaran tidak bisa dimanipulasi dari sisi browser.
+            $items    = [];
+            $sum_base = 0;
+
             foreach ($id_jadwal_list as $jid) {
-                $chk    = sqlsrv_query($conn, "SELECT Status,ID_Lapangan FROM Jadwal WHERE ID_Jadwal=?", array($jid));
-                $jadwal = null;
-                if ($chk) $jadwal = sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC);
-                if (!$jadwal || $jadwal['Status'] != 1) {
+                $chk = sqlsrv_query($conn,
+                    "SELECT J.Status, J.ID_Lapangan, L.Harga_Sewa
+                     FROM Jadwal J INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+                     WHERE J.ID_Jadwal=?", array($jid));
+                $row = $chk ? sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC) : null;
+
+                if (!$row || $row['Status'] != 1) {
                     throw new Exception("Maaf, salah satu slot jadwal sudah terbooking atau tidak tersedia.");
                 }
+
+                $harga     = floatval($row['Harga_Sewa']);
+                $items[]   = ['id_jadwal' => $jid, 'harga' => $harga];
+                $sum_base += $harga;
             }
 
             $kq = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status=1 AND Is_Deleted=0 ORDER BY ID_Karyawan ASC");
@@ -248,19 +249,29 @@ if (isset($_GET['action'])) {
                 if ($kd) $id_karyawan = $kd['ID_Karyawan'];
             }
 
-            $by       = $_SESSION['nama'] ?? 'CUSTOMER';
-            $first_jid = $id_jadwal_list[0];
+            $by = $_SESSION['nama'] ?? 'CUSTOMER';
 
-            $ins = sqlsrv_query($conn, "INSERT INTO Booking(ID_Customer,ID_Karyawan,ID_Jadwal,ID_Promo,Tanggal_Booking,Metode_Pembayaran,Total_Bayar,Status,Created_By,Created_Date) VALUES(?,?,?,?,CAST(GETDATE() AS DATE),?,?,0,?,GETDATE())",
-                array($id_customer, $id_karyawan, $first_jid, $id_promo, $metode, $total, $by));
+            // Diskon (member/promo) dibagi rata ke tiap baris booking supaya total akhir
+            // tetap sama dengan yang disetujui pelanggan, tanpa membuat baris manapun negatif.
+            $discount_remaining = max(0, $sum_base - $total);
 
-            if ($ins === false) {
-                $e = sqlsrv_errors();
-                throw new Exception("Terjadi kendala koneksi database (Kode: " . ($e[0]['code'] ?? 0) . "). Silakan hubungi operator.");
-            }
+            foreach ($items as $item) {
+                $row_total = $item['harga'];
+                if ($discount_remaining > 0) {
+                    $take = min($discount_remaining, $row_total);
+                    $row_total -= $take;
+                    $discount_remaining -= $take;
+                }
 
-            foreach ($id_jadwal_list as $jid) {
-                $upd = sqlsrv_query($conn, "UPDATE Jadwal SET Status=0,Modified_By=?,Modified_Date=GETDATE() WHERE ID_Jadwal=?", array($by, $jid));
+                $ins = sqlsrv_query($conn, "INSERT INTO Booking(ID_Customer,ID_Karyawan,ID_Jadwal,ID_Promo,Tanggal_Booking,Metode_Pembayaran,Total_Bayar,Status,Created_By,Created_Date) VALUES(?,?,?,?,CAST(GETDATE() AS DATE),?,?,0,?,GETDATE())",
+                    array($id_customer, $id_karyawan, $item['id_jadwal'], $id_promo, $metode, $row_total, $by));
+
+                if ($ins === false) {
+                    $e = sqlsrv_errors();
+                    throw new Exception("Terjadi kendala koneksi database (Kode: " . ($e[0]['code'] ?? 0) . "). Silakan hubungi operator.");
+                }
+
+                $upd = sqlsrv_query($conn, "UPDATE Jadwal SET Status=0,Modified_By=?,Modified_Date=GETDATE() WHERE ID_Jadwal=?", array($by, $item['id_jadwal']));
                 if ($upd === false) {
                     throw new Exception("Gagal memperbarui status jadwal.");
                 }
@@ -386,9 +397,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .court-section{margin-bottom:28px}
 .court-section-label{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .court-section-label i{color:var(--orange)}
-.court-card{background:var(--card-bg);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow:hidden;display:flex;margin-bottom:16px;transition:var(--transition);cursor:pointer}
-.court-card:hover{border-color:var(--orange);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
-.court-card.selected{border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-glow),var(--shadow-md)}
+.court-card{background:var(--card-bg);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow:hidden;margin-bottom:16px;transition:var(--transition)}
+.court-card:hover{box-shadow:var(--shadow-lg)}
+.court-card-top{display:flex}
 .court-img-wrap{width:200px;min-height:160px;flex-shrink:0;position:relative;overflow:hidden;background:linear-gradient(135deg,#FFF7ED 0%,#FFEDD5 100%)}
 .court-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform 0.5s ease}
 .court-card:hover .court-img-wrap img{transform:scale(1.05)}
@@ -402,42 +413,52 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .court-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .court-price{font-size:18px;font-weight:800;color:var(--orange)}
 .court-price span{font-size:12px;font-weight:600;color:var(--text-muted)}
-.court-btn{background:var(--orange);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:6px}
-.court-btn:hover{background:var(--orange-dark);transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,84,0,0.3)}
-.slots-section{display:none;margin-bottom:28px;animation:fadeInUp 0.4s ease-out}
-.slots-section.active{display:block}
-.slots-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
-.slots-title{font-size:14px;font-weight:700;color:var(--dark)}
-.slots-subtitle{font-size:12px;color:var(--text-muted);font-weight:500}
-.duration-toggle{display:flex;gap:4px;background:var(--border-light);padding:4px;border-radius:10px}
-.duration-btn{padding:8px 16px;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text-secondary);transition:var(--transition)}
-.duration-btn.active{background:var(--card-bg);color:var(--orange);box-shadow:var(--shadow-sm)}
-.slots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-.slot-item{padding:14px 8px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);text-align:center;cursor:pointer;transition:var(--transition);position:relative}
-.slot-item:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:var(--shadow-md)}
-.slot-item.selected{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 16px rgba(255,84,0,0.3)}
-.slot-time{font-size:13px;font-weight:700}
-.slot-status{font-size:10px;font-weight:600;margin-top:4px;padding:2px 8px;border-radius:10px;display:inline-block}
-.slot-item:not(.selected) .slot-status.available{background:var(--green-light);color:var(--green)}
-.slot-item.selected .slot-status{background:rgba(255,255,255,0.2);color:#fff}
-.slot-price{font-size:11px;font-weight:600;margin-top:4px;color:var(--text-muted)}
-.slot-item.selected .slot-price{color:rgba(255,255,255,0.8)}
-.summary-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card-bg);border-top:1px solid var(--border-color);padding:16px 20px;display:none;align-items:center;justify-content:space-between;gap:16px;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.08)}
-.summary-bar.active{display:flex}
-.summary-info{flex:1}
-.summary-info-label{font-size:11px;color:var(--text-muted);font-weight:600}
-.summary-info-value{font-size:14px;font-weight:700;color:var(--dark)}
-.summary-price{text-align:right}
-.summary-price-label{font-size:11px;color:var(--text-muted);font-weight:600}
-.summary-price-value{font-size:20px;font-weight:800;color:var(--orange)}
-.summary-btn{background:var(--orange);color:#fff;border:none;padding:12px 28px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:var(--transition);white-space:nowrap}
-.summary-btn:hover{background:var(--orange-dark);transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,84,0,0.3)}
+.court-slots-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--orange);color:#fff;padding:12px 20px;margin-top:4px;cursor:pointer;font-weight:700;font-size:13px;transition:var(--transition)}
+.court-slots-toggle:hover{background:var(--orange-dark)}
+.court-slots-toggle .toggle-icon{transition:transform 0.3s ease}
+.court-slots-toggle .toggle-icon.rotated{transform:rotate(180deg)}
+.court-slots-grid{display:none;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px 20px 20px}
+.court-slots-grid.open{display:grid}
+.mini-slot{position:relative;padding:12px 6px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);text-align:center;cursor:pointer;transition:var(--transition)}
+.mini-slot:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.mini-slot.selected{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 16px rgba(255,84,0,0.3)}
+.mini-slot.dibooking,.mini-slot.lewat{background:var(--border-light);border-color:var(--border-light);color:var(--text-muted);cursor:not-allowed}
+.mini-slot.dibooking:hover,.mini-slot.lewat:hover{transform:none;box-shadow:none;border-color:var(--border-light)}
+.mini-time{font-size:12px;font-weight:700}
+.mini-status{font-size:9px;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:0.3px}
+.mini-slot:not(.dibooking):not(.lewat):not(.selected) .mini-status{color:var(--green)}
+.mini-slot.selected .mini-status{color:rgba(255,255,255,0.85)}
+.mini-price{font-size:10px;font-weight:600;margin-top:4px;color:var(--text-muted)}
+.mini-slot.selected .mini-price{color:rgba(255,255,255,0.85)}
+.mini-check{position:absolute;top:-7px;right:-7px;width:18px;height:18px;background:#fff;color:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;box-shadow:var(--shadow-sm)}
+.cart-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--orange);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:var(--shadow-lg);transition:var(--transition);z-index:200}
+.cart-fab:hover{background:var(--orange-dark);transform:translateY(-2px)}
+.cart-fab.hidden{display:none}
+.cart-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;padding:0 4px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.cart-panel-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:300;display:none}
+.cart-panel-overlay.active{display:block}
+.cart-panel{position:fixed;top:0;right:-380px;width:360px;max-width:90vw;height:100%;background:var(--card-bg);z-index:301;transition:right 0.3s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,0.15)}
+.cart-panel.active{right:0}
+.cart-panel-header{padding:20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
+.cart-panel-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--dark);text-transform:uppercase;letter-spacing:0.5px}
+.cart-panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+.cart-group-title{font-size:12px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px}
+.cart-group-title:first-child{margin-top:0}
+.cart-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-light);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px}
+.cart-item-info{font-size:12px;color:var(--dark);font-weight:600;line-height:1.5}
+.cart-item-info small{display:block;color:var(--text-muted);font-weight:500;margin-top:2px}
+.cart-item-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:6px;flex-shrink:0}
+.cart-empty{text-align:center;color:var(--text-muted);padding:60px 20px;font-size:13px;line-height:1.6}
+.cart-empty i{display:block;margin-bottom:12px;opacity:0.4}
+.cart-panel-footer{padding:16px 20px 20px;border-top:1px solid var(--border-color)}
+.cart-total-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.cart-total-label{font-size:12px;color:var(--text-muted);font-weight:600}
+.cart-total-value{font-size:20px;font-weight:800;color:var(--orange)}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
 .modal-overlay.active{display:flex;animation:fadeIn 0.2s ease-out}
 .modal-card{background:var(--card-bg);border-radius:var(--radius-lg);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:slideUp 0.3s ease-out}
 @keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .modal-header{padding:24px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
 .modal-title{font-size:16px;font-weight:700;color:var(--dark)}
 .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--border-light);color:var(--text-muted);cursor:pointer;font-size:14px;transition:var(--transition)}
@@ -445,10 +466,10 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .modal-body{padding:24px}
 .modal-footer{padding:16px 24px 24px;display:flex;gap:10px}
 .modal-footer .btn-full{flex:1}
-.detail-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)}
+.detail-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-light)}
 .detail-row:last-child{border-bottom:none}
 .detail-label{font-size:13px;color:var(--text-secondary);font-weight:500}
-.detail-value{font-size:13px;font-weight:700;color:var(--dark)}
+.detail-value{font-size:13px;font-weight:700;color:var(--dark);text-align:right}
 .detail-value.price{color:var(--orange);font-size:15px}
 .detail-value.discount{color:var(--green)}
 .detail-total{background:var(--orange-light);border-radius:var(--radius-md);padding:16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center}
@@ -493,23 +514,18 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .total-box{background:var(--border-light);border-radius:var(--radius-md);padding:16px;text-align:center;margin-bottom:20px}
 .total-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase}
 .total-amount{font-size:28px;font-weight:800;color:var(--orange);margin-top:4px}
-.loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty-state{text-align:center;padding:40px;color:var(--text-muted)}
-.empty-state i{font-size:40px;margin-bottom:12px;opacity:0.5}
-.empty-state p{font-size:14px;font-weight:600}
+.empty-state{text-align:center;padding:24px;color:var(--text-muted)}
+.empty-state i{font-size:32px;margin-bottom:10px;opacity:0.5}
+.empty-state p{font-size:13px;font-weight:600}
 @media(max-width:768px){
 .booking-container{padding:16px 12px 100px}
-.court-card{flex-direction:column}
+.court-card-top{flex-direction:column}
 .court-img-wrap{width:100%;height:180px}
-.slots-grid{grid-template-columns:repeat(3,1fr)}
-.summary-bar{flex-direction:column;gap:10px;padding:12px 16px}
-.summary-info,.summary-price{text-align:center;width:100%}
-.summary-btn{width:100%}
-.slots-header{flex-direction:column;align-items:flex-start}
+.court-slots-grid{grid-template-columns:repeat(3,1fr)}
 }
 @media(max-width:480px){
-.slots-grid{grid-template-columns:repeat(2,1fr)}
+.court-slots-grid{grid-template-columns:repeat(2,1fr)}
+.cart-panel{width:100%;max-width:100%}
 }
 </style>
 </head>
@@ -518,7 +534,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 <div class="booking-container">
 <div class="booking-header">
 <h1><i class="fa-solid fa-basketball"></i> Pilih Lapangan</h1>
-<p>Pilih tanggal, lapangan, dan jam yang tersedia untuk booking.</p>
+<p>Pilih tanggal, buka jadwal tiap lapangan, lalu klik jam yang tersedia untuk langsung menambahkannya ke keranjang.</p>
 </div>
 <div class="date-section">
 <div class="date-section-label"><i class="fa-solid fa-calendar-days"></i> Pilih Tanggal</div>
@@ -545,7 +561,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
     $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
     $fasilitas = $lapanganFasilitas[$cId] ?? [];
 ?>
-<div class="court-card" id="court-<?= $cId ?>" data-id="<?= $cId ?>" data-price="<?= $cPrice ?>" data-name="<?= $cName ?>" data-img="<?= $img ?>" onclick="selectCourt(<?= $cId ?>)">
+<div class="court-card" id="court-<?= $cId ?>" data-id="<?= $cId ?>" data-price="<?= $cPrice ?>" data-name="<?= $cName ?>">
+<div class="court-card-top">
 <div class="court-img-wrap">
 <?php if ($img): ?><img src="<?= $img ?>" alt="<?= $cName ?>" loading="lazy">
 <?php else: ?><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-basketball" style="font-size:40px;color:var(--orange);opacity:0.4"></i></div><?php endif; ?>
@@ -568,41 +585,43 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 </div>
 <div class="court-footer">
 <div class="court-price">Rp <?= number_format($cPrice, 0, ',', '.') ?> <span>/ jam</span></div>
-<button class="court-btn" id="btn-court-<?= $cId ?>" onclick="event.stopPropagation();selectCourt(<?= $cId ?>)"><i class="fa-solid fa-calendar-check"></i> Pilih Jadwal</button>
 </div>
 </div>
+</div>
+<div class="court-slots-toggle" onclick="toggleCourtSlots('<?= $cId ?>')">
+<span><i class="fa-solid fa-calendar-check"></i> <span id="slotsCount-<?= $cId ?>">Memuat jadwal...</span></span>
+<i class="fa-solid fa-chevron-down toggle-icon" id="toggleIcon-<?= $cId ?>"></i>
+</div>
+<div class="court-slots-grid" id="courtSlots-<?= $cId ?>"></div>
 </div>
 <?php endforeach; ?>
 <?php else: ?>
 <div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Tidak ada lapangan aktif saat ini.</p></div>
 <?php endif; ?>
 </div>
-<div class="slots-section" id="slotsSection">
-<div class="slots-header">
-<div>
-<div class="slots-title" id="slotsTitle">Pilih Jam Bermain</div>
-<div class="slots-subtitle" id="slotsSubtitle">Pilih durasi dan slot yang tersedia</div>
 </div>
-<div class="duration-toggle">
-<button class="duration-btn active" data-duration="1" onclick="setDuration(1)">1 Jam</button>
-<button class="duration-btn" data-duration="2" onclick="setDuration(2)">2 Jam</button>
-<button class="duration-btn" data-duration="3" onclick="setDuration(3)">3 Jam</button>
+
+<button class="cart-fab hidden" id="cartFab" onclick="openCartPanel()">
+<i class="fa-solid fa-cart-shopping"></i>
+<span class="cart-badge" id="cartBadge">0</span>
+</button>
+
+<div class="cart-panel-overlay" id="cartPanelOverlay" onclick="closeCartPanel()"></div>
+<div class="cart-panel" id="cartPanel">
+<div class="cart-panel-header">
+<div class="cart-panel-title">Jadwal Dipilih</div>
+<button class="modal-close" onclick="closeCartPanel()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+<div class="cart-panel-body" id="cartPanelBody"></div>
+<div class="cart-panel-footer" id="cartTotalFooter" style="display:none">
+<div class="cart-total-row">
+<span class="cart-total-label" id="cartTotalCount">0 jadwal dipilih</span>
+<span class="cart-total-value" id="cartTotalValue">Rp 0</span>
+</div>
+<button class="btn-primary" onclick="openBookingModalFromCart()"><i class="fa-solid fa-arrow-right"></i> Selanjutnya</button>
 </div>
 </div>
-<div class="slots-grid" id="slotsGrid"></div>
-</div>
-</div>
-<div class="summary-bar" id="summaryBar">
-<div class="summary-info">
-<div class="summary-info-label">Booking Detail</div>
-<div class="summary-info-value" id="summaryDetail">-</div>
-</div>
-<div class="summary-price">
-<div class="summary-price-label">Total</div>
-<div class="summary-price-value" id="summaryTotal">Rp 0</div>
-</div>
-<button class="summary-btn" onclick="openBookingModal()"><i class="fa-solid fa-arrow-right"></i> Lanjutkan</button>
-</div>
+
 <div class="modal-overlay" id="bookingModal">
 <div class="modal-card">
 <div class="modal-header">
@@ -610,11 +629,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 <button class="modal-close" onclick="closeModal('bookingModal')"><i class="fa-solid fa-xmark"></i></button>
 </div>
 <div class="modal-body">
-<div class="detail-row"><span class="detail-label">Lapangan</span><span class="detail-value" id="modalCourt">-</span></div>
-<div class="detail-row"><span class="detail-label">Tanggal</span><span class="detail-value" id="modalDate">-</span></div>
-<div class="detail-row"><span class="detail-label">Waktu</span><span class="detail-value" id="modalTime">-</span></div>
-<div class="detail-row"><span class="detail-label">Durasi</span><span class="detail-value" id="modalDuration">-</span></div>
-<div class="detail-row"><span class="detail-label">Harga Sewa</span><span class="detail-value price" id="modalBasePrice">Rp 0</span></div>
+<div id="modalItemsList"></div>
 <?php if ($has_member): ?>
 <div class="detail-row"><span class="detail-label">Diskon Member (<?= htmlspecialchars($member_tipe) ?>)</span><span class="detail-value discount" id="modalDiscount">-Rp <?= number_format($member_discount, 0, ',', '.') ?></span></div>
 <div class="promo-section"><div class="promo-locked"><i class="fa-solid fa-lock"></i> Promo tidak dapat digunakan karena member aktif</div></div>
@@ -690,115 +705,187 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 </div>
 <script>
 let selectedDate = '<?= $dateList[0]['value'] ?>';
-let selectedCourtId = null, selectedCourtPrice = 0, selectedCourtName = '', selectedCourtImg = '';
-let selectedDuration = 1;
-let selectedSlots = [];
-let selectedSlotTime = '';
 let selectedPaymentMethod = 'Transfer Bank';
 let isMember = <?= $has_member ? 'true' : 'false' ?>;
 let memberDiscount = <?= $member_discount ?>;
 let countdownInterval;
+let cart = []; // { idJadwal, courtId, courtName, price, tanggal, tanggalLabel, jamMulai, jamSelesai }
 
 function formatRupiah(n) {
     return 'Rp ' + Math.max(0, n).toLocaleString('id-ID');
+}
+
+function getSelectedDateLabel() {
+    const chip = document.querySelector('.date-chip.active');
+    if (!chip) return selectedDate;
+    return `${chip.querySelector('.day-name').innerText}, ${chip.querySelector('.day-num').innerText} ${chip.querySelector('.month-name').innerText}`;
 }
 
 function selectDate(el, dateVal) {
     document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
     el.classList.add('active');
     selectedDate = dateVal;
-    if (selectedCourtId) loadSlots(selectedCourtId, selectedDate);
+    reloadAllCourtSlots();
 }
 
-function selectCourt(courtId) {
-    document.querySelectorAll('.court-card').forEach(c => c.classList.remove('selected'));
-    document.querySelectorAll('.court-btn').forEach(b => { b.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Pilih Jadwal'; });
-    const card = document.getElementById('court-' + courtId);
-    card.classList.add('selected');
-    document.getElementById('btn-court-' + courtId).innerHTML = '<i class="fa-solid fa-check"></i> Terpilih';
-    selectedCourtId = courtId;
-    selectedCourtPrice = parseFloat(card.dataset.price);
-    selectedCourtName = card.dataset.name;
-    selectedCourtImg = card.dataset.img;
-    const slotsSection = document.getElementById('slotsSection');
-    slotsSection.classList.add('active');
-    document.getElementById('slotsTitle').innerText = 'Pilih Jam - ' + selectedCourtName;
-    slotsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    loadSlots(courtId, selectedDate);
+function reloadAllCourtSlots() {
+    document.querySelectorAll('.court-card').forEach(card => loadCourtSlots(card.dataset.id));
 }
 
-function loadSlots(courtId, tanggal) {
-    const grid = document.getElementById('slotsGrid');
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="loading-spinner" style="border-color:var(--border-color);border-top-color:var(--orange)"></div><p style="margin-top:12px">Memuat jadwal...</p></div>';
-    selectedSlots = [];
-    updateSummaryBar();
-    const endpoint = selectedDuration === 3
-        ? `booking_customer.php?action=get_3h_blocks&court_id=${courtId}&tanggal=${tanggal}`
-        : `booking_customer.php?action=get_slots&court_id=${courtId}&tanggal=${tanggal}`;
-    fetch(endpoint)
+function loadCourtSlots(courtId) {
+    const countLabel = document.getElementById('slotsCount-' + courtId);
+    countLabel.innerText = 'Memuat jadwal...';
+    fetch(`booking_customer.php?action=get_all_slots&court_id=${courtId}&tanggal=${selectedDate}`)
         .then(r => r.json())
-        .then(data => { renderSlots(data); })
-        .catch(() => {
-            grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-triangle-exclamation"></i><p>Gagal memuat jadwal. Silakan coba lagi.</p></div>';
-        });
+        .then(data => renderCourtSlots(courtId, data))
+        .catch(() => { countLabel.innerText = 'Gagal memuat jadwal'; });
 }
 
-function renderSlots(slots) {
-    const grid = document.getElementById('slotsGrid');
+function toggleCourtSlots(courtId) {
+    const grid = document.getElementById('courtSlots-' + courtId);
+    const icon = document.getElementById('toggleIcon-' + courtId);
+    grid.classList.toggle('open');
+    icon.classList.toggle('rotated');
+}
+
+function renderCourtSlots(courtId, slots) {
+    const grid = document.getElementById('courtSlots-' + courtId);
+    const countLabel = document.getElementById('slotsCount-' + courtId);
+    const availableCount = slots.filter(s => s.Status === 'tersedia').length;
+    countLabel.innerText = availableCount + ' Jadwal Tersedia';
+
     if (slots.length === 0) {
-        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-calendar-xmark"></i><p>Tidak ada slot tersedia untuk tanggal ini.</p></div>';
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fa-solid fa-calendar-xmark"></i><p>Tidak ada jadwal untuk tanggal ini.</p></div>';
         return;
     }
+
+    const courtCard = document.getElementById('court-' + courtId);
+    const price = parseFloat(courtCard.dataset.price);
+    const courtName = courtCard.dataset.name;
+
     grid.innerHTML = '';
-    slots.forEach((slot, idx) => {
+    slots.forEach(slot => {
         const el = document.createElement('div');
-        el.className = 'slot-item';
-        el.dataset.index = idx;
-        let timeLabel, priceLabel;
-        if (selectedDuration === 3 && slot.Jam_Mulai && slot.Jam_Selesai) {
-            timeLabel = `${slot.Jam_Mulai} - ${slot.Jam_Selesai}`;
-            priceLabel = formatRupiah(selectedCourtPrice * 3);
-        } else {
-            timeLabel = `${slot.Jam_Mulai} - ${slot.Jam_Selesai}`;
-            priceLabel = formatRupiah(selectedCourtPrice * selectedDuration);
+        const isSelected = cart.some(c => c.idJadwal == slot.ID_Jadwal);
+        el.className = 'mini-slot' + (slot.Status !== 'tersedia' ? ' ' + slot.Status : '') + (isSelected ? ' selected' : '');
+        el.dataset.idJadwal = slot.ID_Jadwal;
+
+        let statusLabel = 'Tersedia';
+        if (slot.Status === 'dibooking') statusLabel = 'Sedang Dibooking';
+        else if (slot.Status === 'lewat') statusLabel = 'Waktu Terlewat';
+
+        el.innerHTML = `
+            ${isSelected ? '<div class="mini-check"><i class="fa-solid fa-check"></i></div>' : ''}
+            <div class="mini-time">${slot.Jam_Mulai} - ${slot.Jam_Selesai}</div>
+            <div class="mini-status">${statusLabel}</div>
+            <div class="mini-price">${formatRupiah(price)}</div>
+        `;
+
+        if (slot.Status === 'tersedia') {
+            el.addEventListener('click', () => toggleSlotSelect(el, courtId, courtName, price, slot.ID_Jadwal, slot.Jam_Mulai, slot.Jam_Selesai));
         }
-        el.innerHTML = `<div class="slot-time">${timeLabel}</div><div class="slot-status available">Tersedia</div><div class="slot-price">${priceLabel}</div>`;
-        el.addEventListener('click', () => selectSlot(idx, slot));
         grid.appendChild(el);
     });
 }
 
-function setDuration(dur) {
-    selectedDuration = dur;
-    document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.duration-btn[data-duration="${dur}"]`).classList.add('active');
-    if (selectedCourtId) loadSlots(selectedCourtId, selectedDate);
-}
-
-function selectSlot(index, slot) {
-    document.querySelectorAll('.slot-item').forEach(s => s.classList.remove('selected'));
-    const items = document.querySelectorAll('.slot-item');
-    if (items[index]) items[index].classList.add('selected');
-    if (selectedDuration === 3 && slot.ID_Jadwal_1) {
-        selectedSlots = [slot.ID_Jadwal_1, slot.ID_Jadwal_2, slot.ID_Jadwal_3];
-        selectedSlotTime = `${slot.Jam_Mulai} - ${slot.Jam_Selesai}`;
+function toggleSlotSelect(el, courtId, courtName, price, idJadwal, jamMulai, jamSelesai) {
+    const idx = cart.findIndex(c => c.idJadwal == idJadwal);
+    if (idx >= 0) {
+        cart.splice(idx, 1);
+        el.classList.remove('selected');
+        const chk = el.querySelector('.mini-check');
+        if (chk) chk.remove();
     } else {
-        selectedSlots = [slot.ID_Jadwal];
-        selectedSlotTime = `${slot.Jam_Mulai} - ${slot.Jam_Selesai}`;
+        cart.push({
+            idJadwal, courtId, courtName, price,
+            tanggal: selectedDate,
+            tanggalLabel: getSelectedDateLabel(),
+            jamMulai, jamSelesai
+        });
+        el.classList.add('selected');
+        const check = document.createElement('div');
+        check.className = 'mini-check';
+        check.innerHTML = '<i class="fa-solid fa-check"></i>';
+        el.prepend(check);
     }
-    updateSummaryBar();
+    updateCartUI();
 }
 
-function updateSummaryBar() {
-    const bar = document.getElementById('summaryBar');
-    if (selectedSlots.length === 0) { bar.classList.remove('active'); return; }
-    bar.classList.add('active');
-    const basePrice = selectedCourtPrice * selectedDuration;
-    let discount = 0;
-    if (isMember) discount = memberDiscount;
-    const total = Math.max(0, basePrice - discount);
-    document.getElementById('summaryDetail').innerText = `${selectedCourtName} | ${selectedSlotTime} | ${selectedDuration} jam`;
-    document.getElementById('summaryTotal').innerText = formatRupiah(total);
+function removeFromCart(idJadwal) {
+    const item = cart.find(c => c.idJadwal == idJadwal);
+    cart = cart.filter(c => c.idJadwal != idJadwal);
+    if (item) {
+        const grid = document.getElementById('courtSlots-' + item.courtId);
+        const el = grid ? grid.querySelector(`[data-id-jadwal="${idJadwal}"]`) : null;
+        if (el) {
+            el.classList.remove('selected');
+            const chk = el.querySelector('.mini-check');
+            if (chk) chk.remove();
+        }
+    }
+    updateCartUI();
+    renderCartPanel();
+}
+
+function updateCartUI() {
+    const fab = document.getElementById('cartFab');
+    const badge = document.getElementById('cartBadge');
+    if (cart.length > 0) {
+        fab.classList.remove('hidden');
+        badge.innerText = cart.length;
+    } else {
+        fab.classList.add('hidden');
+    }
+    if (document.getElementById('cartPanel').classList.contains('active')) {
+        renderCartPanel();
+    }
+}
+
+function renderCartPanel() {
+    const body = document.getElementById('cartPanelBody');
+    const footer = document.getElementById('cartTotalFooter');
+
+    if (cart.length === 0) {
+        body.innerHTML = '<div class="cart-empty"><i class="fa-solid fa-cart-shopping" style="font-size:36px"></i>Keranjang masih kosong.<br>Pilih jadwal yang tersedia untuk mulai booking.</div>';
+        footer.style.display = 'none';
+        return;
+    }
+    footer.style.display = 'block';
+
+    const groups = {};
+    cart.forEach(item => {
+        if (!groups[item.courtName]) groups[item.courtName] = [];
+        groups[item.courtName].push(item);
+    });
+
+    let html = '';
+    Object.keys(groups).forEach(courtName => {
+        html += `<div class="cart-group-title">${courtName}</div>`;
+        groups[courtName].forEach(item => {
+            html += `
+                <div class="cart-item">
+                    <div class="cart-item-info">${item.tanggalLabel} &bull; ${item.jamMulai} - ${item.jamSelesai}<small>${formatRupiah(item.price)}</small></div>
+                    <button class="cart-item-remove" onclick="removeFromCart(${item.idJadwal})"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `;
+        });
+    });
+    body.innerHTML = html;
+
+    const total = cart.reduce((s, c) => s + c.price, 0);
+    document.getElementById('cartTotalValue').innerText = formatRupiah(total);
+    document.getElementById('cartTotalCount').innerText = cart.length + ' jadwal dipilih';
+}
+
+function openCartPanel() {
+    renderCartPanel();
+    document.getElementById('cartPanel').classList.add('active');
+    document.getElementById('cartPanelOverlay').classList.add('active');
+}
+
+function closeCartPanel() {
+    document.getElementById('cartPanel').classList.remove('active');
+    document.getElementById('cartPanelOverlay').classList.remove('active');
 }
 
 function openModal(id) {
@@ -816,22 +903,29 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function (e) { if (e.target === this) closeModal(this.id); });
 });
 
-function openBookingModal() {
-    if (selectedSlots.length === 0) return;
-    const basePrice = selectedCourtPrice * selectedDuration;
-    let discount = 0;
-    if (isMember) discount = memberDiscount;
+function openBookingModalFromCart() {
+    if (cart.length === 0) return;
+    closeCartPanel();
+
+    let html = '';
+    cart.forEach(item => {
+        html += `
+            <div class="detail-row">
+                <span class="detail-label">${item.courtName}<br>${item.tanggalLabel}, ${item.jamMulai}-${item.jamSelesai}</span>
+                <span class="detail-value">${formatRupiah(item.price)}</span>
+            </div>
+        `;
+    });
+    document.getElementById('modalItemsList').innerHTML = html;
+
+    const basePrice = cart.reduce((s, c) => s + c.price, 0);
+    let discount = isMember ? memberDiscount : 0;
     const total = Math.max(0, basePrice - discount);
-    const dateChip = document.querySelector('.date-chip.active');
-    const dateText = dateChip
-        ? `${dateChip.querySelector('.day-name').innerText}, ${dateChip.querySelector('.day-num').innerText} ${dateChip.querySelector('.month-name').innerText}`
-        : selectedDate;
-    document.getElementById('modalCourt').innerText = selectedCourtName;
-    document.getElementById('modalDate').innerText = dateText;
-    document.getElementById('modalTime').innerText = selectedSlotTime;
-    document.getElementById('modalDuration').innerText = selectedDuration + ' Jam';
-    document.getElementById('modalBasePrice').innerText = formatRupiah(basePrice);
-    if (!isMember) document.getElementById('modalPromoDiscount').innerText = '-Rp 0';
+
+    if (!isMember && promoSelect) {
+        promoSelect.selectedIndex = 0;
+        document.getElementById('modalPromoDiscount').innerText = '-Rp 0';
+    }
     document.getElementById('modalTotal').innerText = formatRupiah(total);
     openModal('bookingModal');
 }
@@ -847,15 +941,15 @@ if (promoSelect) {
     promoSelect.addEventListener('change', function () {
         const opt = this.options[this.selectedIndex];
         const discount = parseFloat(opt.getAttribute('data-discount') || 0);
-        const basePrice = selectedCourtPrice * selectedDuration;
+        const basePrice = cart.reduce((s, c) => s + c.price, 0);
         const total = Math.max(0, basePrice - discount);
         document.getElementById('modalPromoDiscount').innerText = '-Rp ' + discount.toLocaleString('id-ID');
         document.getElementById('modalTotal').innerText = formatRupiah(total);
     });
 }
 
-function confirmBooking() {
-    const basePrice = selectedCourtPrice * selectedDuration;
+function getCheckoutBreakdown() {
+    const basePrice = cart.reduce((s, c) => s + c.price, 0);
     let discount = 0, idPromo = null;
     if (isMember) {
         discount = memberDiscount;
@@ -866,7 +960,11 @@ function confirmBooking() {
             idPromo = opt.value;
         }
     }
-    const total = Math.max(0, basePrice - discount);
+    return { total: Math.max(0, basePrice - discount), idPromo };
+}
+
+function confirmBooking() {
+    const { total } = getCheckoutBreakdown();
     closeModal('bookingModal');
     document.getElementById('paymentTotal').innerText = formatRupiah(total);
     showPaymentTab('va');
@@ -882,7 +980,8 @@ function showPaymentTab(tab) {
     if (tab === 'qris') {
         const totalText = document.getElementById('paymentTotal').innerText;
         const totalNum = parseInt(totalText.replace(/[^0-9]/g, ''));
-        document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('HOOPBALL-PAYMENT-' + selectedSlots[0] + '-' + totalNum)}`;
+        const firstId = cart.length ? cart[0].idJadwal : 0;
+        document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('HOOPBALL-PAYMENT-' + firstId + '-' + totalNum)}`;
     }
 }
 
@@ -908,27 +1007,25 @@ function copyVA() {
 function finishPayment() {
     clearInterval(countdownInterval);
     closeModal('paymentModal');
-    const basePrice = selectedCourtPrice * selectedDuration;
-    let discount = 0, idPromo = null;
-    if (isMember) {
-        discount = memberDiscount;
-    } else if (promoSelect) {
-        const opt = promoSelect.options[promoSelect.selectedIndex];
-        if (opt && opt.value !== '0') {
-            discount = parseFloat(opt.getAttribute('data-discount') || 0);
-            idPromo = opt.value;
-        }
-    }
-    const total = Math.max(0, basePrice - discount);
+    const { total, idPromo } = getCheckoutBreakdown();
+
     Swal.fire({ title: 'Memproses...', text: 'Sedang memverifikasi pembayaran Anda', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
+
     fetch('booking_customer.php?action=checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_jadwal_list: selectedSlots, id_promo: idPromo, metode_pembayaran: selectedPaymentMethod, total_bayar: total, duration: selectedDuration })
+        body: JSON.stringify({
+            id_jadwal_list: cart.map(c => c.idJadwal),
+            id_promo: idPromo,
+            metode_pembayaran: selectedPaymentMethod,
+            total_bayar: total
+        })
     })
         .then(r => r.json())
         .then(result => {
             if (result.success) {
+                cart = [];
+                updateCartUI();
                 Swal.fire({ icon: 'success', title: 'Booking Berhasil!', text: 'Pembayaran Anda sedang diverifikasi. Silakan cek riwayat booking di profil Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Selesai' })
                     .then(() => { location.reload(); });
             } else {
@@ -939,6 +1036,10 @@ function finishPayment() {
             Swal.fire({ icon: 'error', title: 'Koneksi Terputus', text: 'Gagal terhubung ke server. Periksa koneksi internet Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Coba Lagi' });
         });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    reloadAllCourtSlots();
+});
 
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status'), msg = urlParams.get('msg');
