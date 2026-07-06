@@ -14,6 +14,26 @@
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
+        <a href="tipe_member.php" 
+           class="sb-link <?= ($current_page === 'tipe_member') ? 'active' : '' ?>">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+            Kelola Tipe Member
+        </a>
+        <a href="fasilitas_lapangan.php" 
+           class="sb-link <?= ($current_page === 'fasilitas') ? 'active' : '' ?>">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+            Kelola Fasilitas
+        </a>
+        <a href="alat.php" 
+           class="sb-link <?= ($current_page === 'pembelian') ? 'active' : '' ?>">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+            Kelola Alat
+        </a>
+        <a href="promo.php" 
+           class="sb-link <?= ($current_page === 'promo') ? 'active' : '' ?>">
+            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+            Kelola Promo
+        </a>
         <a href="customer.php" 
            class="sb-link <?= ($current_page === 'customer') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
@@ -24,30 +44,10 @@
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Kelola Lapangan
         </a>
-        <a href="fasilitas_lapangan.php" 
-           class="sb-link <?= ($current_page === 'fasilitas') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
-        </a>
         <a href="jadwal.php" 
            class="sb-link <?= ($current_page === 'jadwal') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
             Kelola Jadwal
-        </a>
-        <a href="promo.php" 
-           class="sb-link <?= ($current_page === 'promo') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
-        </a>
-        <a href="tipe_member.php" 
-           class="sb-link <?= ($current_page === 'tipe_member') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
-        </a>
-        <a href="alat.php" 
-           class="sb-link <?= ($current_page === 'pembelian') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
         </a>
     </nav>
 

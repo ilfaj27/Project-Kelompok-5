@@ -3,23 +3,39 @@ session_start();
 $path_prefix = "../";
 include '../includes/config.php';
 
-$res_status = "";
-$res_msg = "";
+$res_status = $_SESSION['res_status'] ?? "";
+$res_msg = $_SESSION['res_msg'] ?? "";
+unset($_SESSION['res_status'], $_SESSION['res_msg']);
+
+// JIKA USER SECARA EKSPLISIT MEMINTA RESET TAMPILAN (MISAL KLIK BATAL ATAU AKSES BARU)
+if (isset($_GET['clean'])) {
+    unset($_SESSION['simulated_otp']);
+    unset($_SESSION['temp_customer_id']);
+    unset($_SESSION['temp_customer_email']);
+    unset($_SESSION['otp_expiry']);
+    unset($_SESSION['reset_id_customer']);
+
+    // Alihkan ke URL bersih tanpa parameter ?clean
+    header("Location: forgot-password.php");
+    exit();
+}
+
 $is_verified = isset($_SESSION['reset_id_customer']);
+$redirect_to_login = false;
+$otp_sent = isset($_SESSION['simulated_otp']);
 
-$username_input = "";
-$tanggal_input = "";
-$nominal_input = "";
+// JIKA HALAMAN DIAKSES SEGAR (GET REQUEST) DAN BELUM ADA OTP YANG DIKIRIM, BARU BERSIHKAN SESI
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_SESSION['simulated_otp'])) {
+    unset($_SESSION['simulated_otp'], $_SESSION['temp_customer_id'], $_SESSION['temp_customer_email'], $_SESSION['otp_expiry'], $_SESSION['reset_id_customer']);
+    $otp_sent = false;
+}
 
-// TAHAP 1: VERIFIKASI KEAMANAN DATA AKUN & RIWAYAT TRANSAKSI
-if (isset($_POST['verify_account'])) {
-    $username_input = trim($_POST['username_input'] ?? '');
-    $nominal_input = trim($_POST['nominal_input'] ?? '');
-    $tanggal_input = trim($_POST['tanggal_input'] ?? '');
+// TAHAP 1A: MEMINTA OTP BERDASARKAN EMAIL (CEK DATABASE)
+if (isset($_POST['request_otp'])) {
+    $email_input = trim($_POST['email_input'] ?? '');
 
-    $sql = "SELECT ID_Customer FROM Customer 
-            WHERE Username = ? AND Is_Deleted = 0";
-    $params = array($username_input);
+    $sql = "SELECT ID_Customer, Email FROM Customer WHERE Email = ? AND Is_Deleted = 0";
+    $params = array($email_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt === false) {
@@ -28,55 +44,55 @@ if (isset($_POST['verify_account'])) {
     } else {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
-            $id_customer = $row['ID_Customer'];
+            // Email terdaftar
+            $otp_code = "123456";
 
-            $sql_booking = "SELECT TOP 1 Tanggal_Booking, Total_Bayar 
-                            FROM Booking 
-                            WHERE ID_Customer = ? 
-                            ORDER BY Tanggal_Booking DESC";
-            $stmt_booking = sqlsrv_query($conn, $sql_booking, array($id_customer));
+            $_SESSION['simulated_otp'] = $otp_code;
+            $_SESSION['temp_customer_id'] = $row['ID_Customer'];
+            $_SESSION['temp_customer_email'] = $row['Email'];
+            $_SESSION['otp_expiry'] = time() + (5 * 60);
 
-            if ($stmt_booking === false) {
-                $res_status = "error";
-                $res_msg = "Terjadi kesalahan saat memverifikasi riwayat transaksi.";
-            } else {
-                $row_booking = sqlsrv_fetch_array($stmt_booking, SQLSRV_FETCH_ASSOC);
+            // Simpan status sukses ke sesi untuk ditampilkan sekali saja
+            $_SESSION['res_status'] = "success";
+            $_SESSION['res_msg'] = "Kode OTP telah dikirim ke email " . htmlspecialchars($row['Email']);
 
-                if ($row_booking) {
-                    $db_tanggal = $row_booking['Tanggal_Booking'];
-                    if ($db_tanggal instanceof DateTime) {
-                        $db_tanggal_str = $db_tanggal->format('Y-m-d');
-                    } else {
-                        $db_tanggal_str = date('Y-m-d', strtotime($db_tanggal));
-                    }
-
-                    $db_nominal = (int) $row_booking['Total_Bayar'];
-                    $clean_nominal_input = (int) preg_replace('/[^0-9]/', '', $nominal_input);
-
-                    if ($db_tanggal_str === $tanggal_input && $db_nominal === $clean_nominal_input) {
-                        $is_verified = true;
-                        $_SESSION['reset_id_customer'] = $id_customer;
-                    } else {
-                        $res_status = "error";
-                        $res_msg = "Data verifikasi salah. Detail riwayat transaksi terakhir tidak cocok!";
-                    }
-                } else {
-                    $clean_nominal_input = (int) preg_replace('/[^0-9]/', '', $nominal_input);
-                    if (empty($tanggal_input) && $clean_nominal_input === 0) {
-                        $is_verified = true;
-                        $_SESSION['reset_id_customer'] = $id_customer;
-                    } else {
-                        $res_status = "error";
-                        $res_msg = "Data verifikasi salah. Akun Anda belum memiliki riwayat transaksi.";
-                    }
-                }
-            }
+            // SEGERA ALIHKAN (REDIRECT) AGAR SIKLUS POST BERAKHIR
+            header("Location: forgot-password.php");
+            exit();
         } else {
+            // Email tidak terdaftar
             $res_status = "error";
-            $res_msg = "Data verifikasi salah. Nama pengguna tidak ditemukan!";
+            $res_msg = "Alamat email tidak terdaftar.";
         }
     }
 }
+
+// TAHAP 1B: VERIFIKASI INPUT KODE OTP
+if (isset($_POST['verify_otp'])) {
+    $otp_input = trim($_POST['otp_input'] ?? '');
+
+    if (isset($_SESSION['simulated_otp']) && isset($_SESSION['temp_customer_id'])) {
+        if (time() > $_SESSION['otp_expiry']) {
+            $res_status = "error";
+            $res_msg = "Kode OTP telah kedaluwarsa. Silakan ajukan kembali.";
+            unset($_SESSION['simulated_otp'], $_SESSION['temp_customer_id'], $_SESSION['temp_customer_email'], $_SESSION['otp_expiry']);
+            $otp_sent = false;
+        } else if ($otp_input === $_SESSION['simulated_otp']) {
+            $is_verified = true;
+            $_SESSION['reset_id_customer'] = $_SESSION['temp_customer_id'];
+
+            // Hapus sesi OTP sementara
+            unset($_SESSION['simulated_otp'], $_SESSION['temp_customer_id'], $_SESSION['temp_customer_email'], $_SESSION['otp_expiry']);
+
+            $res_status = "success";
+            $res_msg = "Verifikasi berhasil! Silakan tentukan kata sandi baru Anda.";
+        } else {
+            $res_status = "error";
+            $res_msg = "Kode OTP yang Anda masukkan salah.";
+        }
+    }
+}
+
 
 // TAHAP 2: RESET/UPDATE KATA SANDI BARU
 if (isset($_POST['reset_password'])) {
@@ -106,6 +122,7 @@ if (isset($_POST['reset_password'])) {
                 unset($_SESSION['reset_id_customer']);
                 $res_status = "success";
                 $res_msg = "Kata Sandi Berhasil Diperbarui! Silakan Login Kembali.";
+                $redirect_to_login = true;
             } else {
                 $res_status = "error";
                 $res_msg = "Gagal memperbarui kata sandi di sistem database.";
@@ -132,10 +149,11 @@ if (isset($_POST['reset_password'])) {
     <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-
         .auth-info {
-        align-self: start !important; /* <-- Menempelkan posisi ke bagian atas */
-        margin-top: 150px !important;  /* <-- Mengatur jarak turunnya dari atas agar pas */
+            align-self: start !important;
+            /* <-- Menempelkan posisi ke bagian atas */
+            margin-top: 150px !important;
+            /* <-- Mengatur jarak turunnya dari atas agar pas */
         }
 
 
@@ -191,46 +209,51 @@ if (isset($_POST['reset_password'])) {
                 <h3>Lupa Kata Sandi</h3>
 
                 <?php if (!$is_verified): ?>
-                    <span class="card-subtitle">Silakan isi data keamanan akun Anda.</span>
-                    <form method="POST" id="verifyForm" novalidate>
-                        <!-- USERNAME -->
-                        <div class="input-group">
-                            <label>Nama Pengguna Terdaftar</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-signature icon-left"></i>
-                                <input type="text" name="username_input" id="usernameField" placeholder="budi_hoops"
-                                    value="<?= htmlspecialchars($username_input) ?>">
-                            </div>
-                            <span class="error-text" id="usernameError"></span>
-                        </div>
 
-                        <!-- TANGGAL BOOKING TERAKHIR -->
-                        <div class="input-group">
-                            <label>Tanggal Booking Terakhir</label>
-                            <div class="input-wrapper">
-                                <i class="fa-regular fa-calendar-days icon-left"></i>
-                                <input type="date" name="tanggal_input" id="tanggalField"
-                                    value="<?= htmlspecialchars($tanggal_input) ?>">
+                    <?php if (!$otp_sent): ?>
+                        <!-- FORM TAHAP 1: INPUT EMAIL -->
+                        <span class="card-subtitle">Masukkan alamat email Anda yang terdaftar.</span>
+                        <form method="POST" id="requestOtpForm" novalidate>
+                            <div class="input-group">
+                                <label>Email Terdaftar</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-envelope icon-left"></i>
+                                    <!-- Tambahkan id="emailField" di bawah ini -->
+                                    <input type="text" name="email_input" id="emailField" placeholder="contoh: dimas@mail.com"
+                                        required>
+                                </div>
+                                <!-- TAMBAHKAN ELEMEN ERROR TEXT INI -->
+                                <span class="error-text" id="emailError" style="display: none;"></span>
                             </div>
-                            <span class="error-text" id="tanggalError"></span>
-                        </div>
-
-                        <!-- NOMINAL PEMBAYARAN TERAKHIR -->
-                        <div class="input-group">
-                            <label>Nominal Pembayaran Terakhir (Rupiah)</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-money-bill-wave icon-left"></i>
-                                <input type="text" name="nominal_input" id="nominalField" placeholder="Contoh: 150000"
-                                    maxlength="10" value="<?= htmlspecialchars($nominal_input) ?>">
+                            <button type="submit" name="request_otp" class="btn-submit" style="margin-top: 10px;">Kirim
+                                OTP</button>
+                            <p class="card-footer">Kembali ke halaman <a href="login.php">Masuk</a></p>
+                        </form>
+                    <?php else: ?>
+                        <!-- FORM TAHAP 2: INPUT KODE OTP -->
+                        <?php
+                        $display_email = $_SESSION['temp_customer_email'] ?? 'email terdaftar';
+                        ?>
+                        <span class="card-subtitle" style="color:var(--orange);">Kode OTP telah dikirim ke email
+                            <b><?= htmlspecialchars($display_email) ?></b></span>
+                        <form method="POST" id="verifyOtpForm" novalidate>
+                            <div class="input-group">
+                                <label>Masukkan Kode OTP</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-solid fa-shield-halved icon-left"></i>
+                                    <input type="text" name="otp_input" id="otpField" maxlength="6" placeholder="6 Digit Angka"
+                                        required style="text-align: center; letter-spacing: 5px; font-weight: bold;">
+                                </div>
+                                <span class="error-text" id="otpError" style="display: none;"></span>
                             </div>
-                            <span class="error-text" id="nominalError"></span>
-                        </div>
+                            <button type="submit" name="verify_otp" class="btn-submit" style="margin-top: 10px;">Verifikasi
+                                OTP</button>
+                            <p class="card-footer">Ganti email? <a href="forgot-password.php?clean=1">Batal</a></p>
+                        </form>
+                    <?php endif; ?>
 
-                        <button type="submit" name="verify_account" class="btn-submit" style="margin-top: 10px;">Verifikasi
-                            Akun</button>
-                        <p class="card-footer">Kembali ke halaman <a href="login.php">Masuk</a></p>
-                    </form>
                 <?php else: ?>
+                    <!-- FORM TAHAP 3: ATUR ULANG KATA SANDI BARU -->
                     <span class="card-subtitle" style="color:var(--orange);"><b>Akun Terverifikasi!</b> Tulis Kata Sandi
                         baru.</span>
                     <form method="POST" id="resetForm" novalidate>
@@ -280,17 +303,18 @@ if (isset($_POST['reset_password'])) {
                 color: '#1e293b',
                 confirmButtonColor: '#FF5400'
             }).then(() => {
-                <?php if ($res_status == "success"): ?>
+                // Hanya redirect ke login jika variabel $redirect_to_login bernilai true
+                <?php if ($res_status == "success" && $redirect_to_login): ?>
                     window.location.href = 'login.php';
                 <?php endif; ?>
             });
         <?php endif; ?>
     </script>
 
-    <!-- VALIDASI JAVASCRIPT & EVENT HANDLERS -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
+    
             function setValidationError(inputEl, errorEl, message) {
                 inputEl.parentElement.classList.add('error');
                 inputEl.parentElement.parentElement.classList.add('error-active');
@@ -299,62 +323,33 @@ if (isset($_POST['reset_password'])) {
             }
 
             function clearValidationError(inputEl, errorEl) {
-                inputEl.parentElement.classList.remove('error');
-                inputEl.parentElement.parentElement.classList.remove('error-active');
+                if (inputEl.parentElement) {
+                    inputEl.parentElement.classList.remove('error');
+                    inputEl.parentElement.parentElement.classList.remove('error-active');
+                }
                 errorEl.style.display = 'none';
             }
 
-            const verifyForm = document.getElementById('verifyForm');
-            if (verifyForm) {
-                const username = document.getElementById('usernameField');
-                const tanggal = document.getElementById('tanggalField');
-                const nominal = document.getElementById('nominalField');
+            // ==========================================
+            // VALIDASI FORM EMAIL (TAHAP 1) SECARA INLINE
+            // ==========================================
+            const requestOtpForm = document.getElementById('requestOtpForm');
+            if (requestOtpForm) {
+                const emailField = document.getElementById('emailField');
+                const emailError = document.getElementById('emailError');
 
-                const usernameError = document.getElementById('usernameError');
-                const tanggalError = document.getElementById('tanggalError');
-                const nominalError = document.getElementById('nominalError');
-
-                nominal.addEventListener('input', () => {
-                    nominal.value = nominal.value.replace(/[^0-9]/g, '');
-                });
-
-                verifyForm.addEventListener('submit', function (e) {
+                requestOtpForm.addEventListener('submit', function (e) {
                     let isValid = true;
+                    const emailVal = emailField.value.trim();
 
-                    const usernameVal = username.value.trim();
-                    const usernamePattern = /^[a-zA-Z0-9\._]+$/;
-
-                    if (usernameVal === '') {
-                        setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
-                        isValid = false;
-                    } else if (usernameVal.length < 3 || usernameVal.length > 30) {
-                        setValidationError(username, usernameError, 'Nama Pengguna minimal 3 karakter dan maksimal 30 karakter.');
-                        isValid = false;
-                    } else if (username.value.includes(' ')) {
-                        setValidationError(username, usernameError, 'Nama Pengguna tidak boleh menggunakan spasi.');
-                        isValid = false;
-                    } else if (!usernamePattern.test(usernameVal)) {
-                        setValidationError(username, usernameError, 'Nama Pengguna hanya boleh berisi huruf, angka, titik (.), dan underscore (_).');
+                    if (emailVal === '') {
+                        setValidationError(emailField, emailError, 'Email wajib diisi.');
                         isValid = false;
                     } else {
-                        clearValidationError(username, usernameError);
+                        clearValidationError(emailField, emailError);
                     }
 
-                    if (tanggal.value === '') {
-                        setValidationError(tanggal, tanggalError, 'Tanggal booking terakhir wajib diisi.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(tanggal, tanggalError);
-                    }
-
-                    const nominalVal = nominal.value.trim();
-                    if (nominalVal === '') {
-                        setValidationError(nominal, nominalError, 'Nominal pembayaran terakhir wajib diisi.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(nominal, nominalError);
-                    }
-
+                    // Jika tidak valid, batalkan submit dan beri efek guncang (shake)
                     if (!isValid) {
                         e.preventDefault();
                         const card = document.querySelector('.auth-card');
@@ -364,79 +359,114 @@ if (isset($_POST['reset_password'])) {
                     }
                 });
 
-                const fieldsVerify = [
-                    { el: username, err: usernameError },
-                    { el: tanggal, err: tanggalError },
-                    { el: nominal, err: nominalError }
-                ];
-                fieldsVerify.forEach(field => {
-                    field.el.addEventListener('input', () => {
-                        clearValidationError(field.el, field.err);
-                    });
+                // Hapus warna merah saat user mulai mengetik ulang
+                emailField.addEventListener('input', () => {
+                    clearValidationError(emailField, emailError);
                 });
             }
 
-            const resetForm = document.getElementById('resetForm');
-            if (resetForm) {
-                const password = document.getElementById('passwordInput');
-                const passwordConfirm = document.getElementById('passwordConfirmInput');
+            // ==========================================
+        // VALIDASI FORM OTP (TAHAP 2) SECARA INLINE
+        // ==========================================
+        const verifyOtpForm = document.getElementById('verifyOtpForm');
+        if (verifyOtpForm) {
+            const otpField = document.getElementById('otpField');
+            const otpError = document.getElementById('otpError');
 
-                const passwordError = document.getElementById('passwordError');
-                const passwordConfirmError = document.getElementById('passwordConfirmError');
+            verifyOtpForm.addEventListener('submit', function (e) {
+                let isValid = true;
+                const otpVal = otpField.value.trim();
 
-                resetForm.addEventListener('submit', function (e) {
-                    let isValid = true;
-                    const hasLetter = /[a-zA-Z]/;
-                    const hasNumber = /[0-9]/;
-                    const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'password123'];
+                if (otpVal === '') {
+                    setValidationError(otpField, otpError, 'Kode OTP wajib diisi.');
+                    isValid = false;
+                } else if (otpVal.length < 6) {
+                    setValidationError(otpField, otpError, 'Kode OTP harus berisi 6 digit angka.');
+                    isValid = false;
+                } else {
+                    clearValidationError(otpField, otpError);
+                }
 
-                    const passwordVal = password.value.trim();
-                    if (passwordVal === '') {
-                        setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
-                        isValid = false;
-                    } else if (passwordVal.length < 8 || passwordVal.length > 50) {
-                        setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
-                        isValid = false;
-                    } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
-                        setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');
-                        isValid = false;
-                    } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
-                        setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak (seperti 12345678 atau password123). Gunakan kombinasi lain.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(password, passwordError);
-                    }
+                // Jika tidak valid, batalkan submit dan getarkan kartu
+                if (!isValid) {
+                    e.preventDefault();
+                    const card = document.querySelector('.auth-card');
+                    card.classList.remove('shake');
+                    void card.offsetWidth;
+                    card.classList.add('shake');
+                }
+            });
 
-                    const passwordConfirmVal = passwordConfirm.value.trim();
-                    if (passwordConfirmVal === '') {
-                        setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi wajib diisi.');
-                        isValid = false;
-                    } else if (passwordConfirmVal !== passwordVal) {
-                        setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi tidak cocok.');
-                        isValid = false;
-                    } else {
-                        clearValidationError(passwordConfirm, passwordConfirmError);
-                    }
+            // Menghapus tanda error saat user mengetik & membatasi input hanya angka
+            otpField.addEventListener('input', () => {
+                clearValidationError(otpField, otpError);
+                otpField.value = otpField.value.replace(/[^0-9]/g, ''); // Hanya izinkan angka
+            });
+        }
 
-                    if (!isValid) {
-                        e.preventDefault();
-                        const card = document.querySelector('.auth-card');
-                        card.classList.remove('shake');
-                        void card.offsetWidth;
-                        card.classList.add('shake');
-                    }
+        // VALIDASI FORM RESET KATA SANDI BARU
+        const resetForm = document.getElementById('resetForm');
+        if (resetForm) {
+            const password = document.getElementById('passwordInput');
+            const passwordConfirm = document.getElementById('passwordConfirmInput');
+
+            const passwordError = document.getElementById('passwordError');
+            const passwordConfirmError = document.getElementById('passwordConfirmError');
+
+            resetForm.addEventListener('submit', function (e) {
+                let isValid = true;
+                const hasLetter = /[a-zA-Z]/;
+                const hasNumber = /[0-9]/;
+                const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'password123'];
+
+                const passwordVal = password.value.trim();
+                if (passwordVal === '') {
+                    setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
+                    isValid = false;
+                } else if (passwordVal.length < 8 || passwordVal.length > 50) {
+                    setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
+                    isValid = false;
+                } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
+                    setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');
+                    isValid = false;
+                } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
+                    setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak. Gunakan kombinasi lain.');
+                    isValid = false;
+                } else {
+                    clearValidationError(password, passwordError);
+                }
+
+                const passwordConfirmVal = passwordConfirm.value.trim();
+                if (passwordConfirmVal === '') {
+                    setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi wajib diisi.');
+                    isValid = false;
+                } else if (passwordConfirmVal !== passwordVal) {
+                    setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi tidak cocok.');
+                    isValid = false;
+                } else {
+                    clearValidationError(passwordConfirm, passwordConfirmError);
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                    const card = document.querySelector('.auth-card');
+                    card.classList.remove('shake');
+                    void card.offsetWidth;
+                    card.classList.add('shake');
+                }
+            });
+
+            const fieldsReset = [
+                { el: password, err: passwordError },
+                { el: passwordConfirm, err: passwordConfirmError }
+            ];
+            fieldsReset.forEach(field => {
+                field.el.addEventListener('input', () => {
+                    clearValidationError(field.el, field.err);
                 });
+            });
+        }
 
-                const fieldsReset = [
-                    { el: password, err: passwordError },
-                    { el: passwordConfirm, err: passwordConfirmError }
-                ];
-                fieldsReset.forEach(field => {
-                    field.el.addEventListener('input', () => {
-                        clearValidationError(field.el, field.err);
-                    });
-                });
-            }
         });
 
         function togglePassword() {

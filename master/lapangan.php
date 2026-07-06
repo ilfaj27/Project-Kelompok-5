@@ -28,9 +28,7 @@ function getPhotoUrl($photo_path)
 {
     if (empty($photo_path))
         return '';
-    $path = str_replace('../', '', $photo_path);
-    $path = ltrim($path, '/');
-    return '../' . $path;
+    return '../' . ltrim(str_replace('../', '', $photo_path), '/');
 }
 
 function getUploadDirectory()
@@ -42,29 +40,27 @@ function getUploadDirectory()
     return $upload_dir;
 }
 
-function processPhotoUpload($file, $edit_data = null)
+function processPhotoUpload($file, $fallback_photo = '')
 {
     $upload_dir = getUploadDirectory();
     if (!isset($file) || empty($file['name'])) {
-        return ($edit_data && !empty($edit_data['Photo_Lapangan'])) ? $edit_data['Photo_Lapangan'] : '';
+        return $fallback_photo;
     }
-    if (!is_dir($upload_dir)) {
-        @mkdir($upload_dir, 0755, true);
-    }
+
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
     if (!in_array($file_ext, $allowed_ext)) {
-        return ($edit_data ? $edit_data['Photo_Lapangan'] : '');
+        return $fallback_photo;
     }
     if ($file['size'] > 5 * 1024 * 1024) {
-        return ($edit_data ? $edit_data['Photo_Lapangan'] : '');
+        return $fallback_photo;
     }
     $new_file_name = 'lapangan_' . time() . '_' . uniqid() . '.' . $file_ext;
     $target_path = $upload_dir . $new_file_name;
     if (move_uploaded_file($file['tmp_name'], $target_path)) {
         return 'asset/image/' . $new_file_name;
     }
-    return ($edit_data && !empty($edit_data['Photo_Lapangan'])) ? $edit_data['Photo_Lapangan'] : '';
+    return $fallback_photo;
 }
 
 // --- (AJAX Handler Detail & Edit) ---
@@ -76,6 +72,20 @@ if (isset($_GET['ajax_detail_id'])) {
         if ($detail_data) {
             $detail_data['Harga_Sewa_Rupiah'] = rupiah($detail_data['Harga_Sewa']);
             $detail_data['Photo_Lapangan_Url'] = getPhotoUrl($detail_data['Photo_Lapangan']);
+
+            // AMBIL DAFTAR FASILITAS YANG TERPASANG (Result Set Ke-2 dari SP)
+            $assigned_facilities = [];
+            if (sqlsrv_next_result($r)) {
+                while ($fac_row = safeFetch($r)) {
+                    $assigned_facilities[] = [
+                        'ID_Fasilitas' => intval($fac_row['ID_Fasilitas']),
+                        'Nama_Fasilitas' => $fac_row['Nama_Fasilitas'],
+                        'Jumlah_Digunakan' => intval($fac_row['Jumlah_Digunakan'])
+                    ];
+                }
+            }
+            $detail_data['Fasilitas'] = $assigned_facilities;
+
             echo json_encode(['status' => 'success', 'data' => $detail_data]);
         } else {
             echo json_encode(['status' => 'error', 'msg' => 'Data lapangan tidak ditemukan.']);
@@ -86,14 +96,13 @@ if (isset($_GET['ajax_detail_id'])) {
     exit();
 }
 
-
 // PROSES SIMPAN (TAMBAH/EDIT)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_lapangan'])) {
     $id = isset($_POST['id_lap']) ? intval($_POST['id_lap']) : 0;
     $nama_lapangan = trim($_POST['nama_lapangan'] ?? '');
     $harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_sewa'] ?? ''));
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
-    $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
+    $edit_photo_path = trim($_POST['edit_photo_path'] ?? '');
 
     $errors = [];
     if ($nama_lapangan === '') {
@@ -105,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_lapangan'])) {
     } elseif (!preg_match('/^[a-zA-Z\s]+$/', $nama_lapangan)) {
         $errors[] = 'Nama lapangan hanya boleh huruf dan spasi.';
     }
-    if ($harga_raw === '' || !is_numeric($harga_raw)) {
-        $errors[] = 'Harga sewa harus berupa angka.';
+    if ($harga_raw === '') {
+        $errors[] = 'Harga sewa wajib diisi dan berupa angka.';
     } else {
         $harga_num = intval($harga_raw);
         if ($harga_num < 10000) {
@@ -126,15 +135,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_lapangan'])) {
 
     if (empty($errors)) {
         $harga_sewa = number_format(floatval($harga_raw), 2, '.', '');
-        $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Lapangan' => $edit_photo_path] : null;
-        $photo_lapangan = processPhotoUpload($_FILES['photo_lapangan'] ?? null, $edit_data_for_photo);
+        $photo_lapangan = processPhotoUpload($_FILES['photo_lapangan'] ?? null, $edit_photo_path);
+
+        // Mengumpulkan pilihan fasilitas dari dropdown multi-select (tanpa input qty)
+        $selected_facilities = [];
+        if (isset($_POST['use_facility']) && is_array($_POST['use_facility'])) {
+            foreach ($_POST['use_facility'] as $id_fac) {
+                $id_fac = intval($id_fac);
+                if ($id_fac > 0) {
+                    $selected_facilities[] = [
+                        'id' => $id_fac,
+                        'qty' => 1 // Diatur default ke 1 karena pilihan jumlah stok ditiadakan
+                    ];
+                }
+            }
+        }
+        $facilities_json = !empty($selected_facilities) ? json_encode($selected_facilities) : null;
+
+        // Deklarasi parameter dasar (digunakan oleh Create dan Update)
+        $params = [$nama_lapangan, $harga_sewa, $photo_lapangan, $nama, $facilities_json];
 
         if ($edit_mode && $id > 0) {
-            $sql = "EXEC dbo.sp_UpdateLapangan ?, ?, ?, ?, ?";
-            $params = [$id, $nama_lapangan, $harga_sewa, $photo_lapangan, $nama];
+            $sql = "EXEC dbo.sp_UpdateLapangan ?, ?, ?, ?, ?, ?";
+            array_unshift($params, $id); // Menyisipkan $id ke urutan pertama di dalam array $params
         } else {
-            $sql = "EXEC dbo.sp_CreateLapangan ?, ?, ?, ?";
-            $params = [$nama_lapangan, $harga_sewa, $photo_lapangan, $nama];
+            $sql = "EXEC dbo.sp_CreateLapangan ?, ?, ?, ?, ?";
         }
 
         $result = safeQuery($conn, $sql, $params);
@@ -200,7 +225,7 @@ $stats = safeFetch($q_stats);
 
 $cnt_ready = $stats['Aktif'] ?? 0;
 $cnt_maint = $stats['Maintenance'] ?? 0;
-$total_lapangan = $stats['Total'] ?? 0;
+$total_semua_lapangan = $stats['Total'] ?? 0;
 
 // PAGING
 $limit = 8;
@@ -209,29 +234,47 @@ $offset = ($page - 1) * $limit;
 
 $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
 $f_sort = $_GET['f_sort'] ?? 'ID_Lapangan';
+$search = isset($_GET['src']) ? trim($_GET['src']) : '';
 
-// Memanggil Stored Procedure untuk pagination
-$query_sql = "EXEC dbo.sp_ReadLapanganListWithCount @FilterStatus = ?, @SortBy = ?, @Offset = ?, @Limit = ?";
-$params_sp = array($f_status, $f_sort, intval($offset), intval($limit));
+$query_sql = "EXEC dbo.sp_ReadLapanganListWithCount @FilterStatus = ?, @SortBy = ?, @Offset = ?, @Limit = ?, @Search = ?";
+$params_sp = array($f_status, $f_sort, intval($offset), intval($limit), $search);
 
 $query = safeQuery($conn, $query_sql, $params_sp);
+$total_lapangan = 0;
 
-// Ambil jumlah data terfilter (Hasil 1 dari SP)
-$row_count = safeFetch($query);
-$total_lapangan = intval($row_count['TotalCount'] ?? 0);
+if ($query) {
+    // Ambil jumlah data terfilter (Hasil 1 dari SP)
+    $row_count = safeFetch($query);
+    $total_lapangan = intval($row_count['TotalCount'] ?? 0);
 
-// Geser ke list data lapangan terpaginasi (Hasil 2 dari SP)
-sqlsrv_next_result($query);
+    // Geser ke list data lapangan terpaginasi (Hasil 2 dari SP)
+    sqlsrv_next_result($query);
+}
 
 // Hitung ulang halaman berdasarkan total data terfilter
 $total_pages = max(1, ceil($total_lapangan / $limit));
 $page = min($page, $total_pages);
 
 $filter_url = "";
-if (isset($_GET['f_sort']))
+if (isset($_GET['f_sort'])) {
     $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_status']))
+}
+if (isset($_GET['f_status'])) {
     $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
+}
+if (!empty($search)) {
+    $filter_url .= "&src=" . urlencode($search);
+}
+
+
+// Ambil daftar fasilitas aktif untuk ditampilkan sebagai pilihan
+$master_facilities = [];
+$q_fac = safeQuery($conn, "SELECT ID_Fasilitas, Nama_Fasilitas FROM dbo.Fasilitas_Lapangan WHERE Is_Deleted = 0 AND Status = 1");
+if ($q_fac) {
+    while ($f_row = safeFetch($q_fac)) {
+        $master_facilities[] = $f_row;
+    }
+}
 
 ?>
 <!DOCTYPE html>
@@ -247,7 +290,6 @@ if (isset($_GET['f_status']))
     <link rel="stylesheet" href="../asset/css/global.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-
         .content {
             padding: 32px 40px;
             flex: 1;
@@ -345,7 +387,8 @@ if (isset($_GET['f_status']))
 
         .search-box input {
             width: 100%;
-            padding: 10px 14px 10px 40px;
+            padding: 10px 40px 10px 40px;
+            /* Padding kanan diubah menjadi 40px */
             background: var(--card-bg);
             border: 1.5px solid var(--border);
             border-radius: 10px;
@@ -363,6 +406,23 @@ if (isset($_GET['f_status']))
 
         .search-box input::placeholder {
             color: #9CA3AF;
+        }
+
+        /* Class baru untuk tombol X */
+        .btn-clear-search {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* ===== CARD GRID - KONSISTEN DENGAN FASILITAS ===== */
@@ -387,6 +447,7 @@ if (isset($_GET['f_status']))
             transform: translateY(-4px);
             box-shadow: 0 12px 32px rgba(0, 0, 0, .12);
             border-color: var(--orange);
+            background-color: #FFEDD5 !important;
         }
 
         .lapangan-card:nth-child(odd) {
@@ -397,9 +458,6 @@ if (isset($_GET['f_status']))
             background-color: #FFFFFF;
         }
 
-        .lapangan-card:hover {
-            background-color: #FFEDD5 !important;
-        }
 
         .lapangan-card-photo-wrap {
             position: relative;
@@ -410,9 +468,13 @@ if (isset($_GET['f_status']))
         }
 
         .lapangan-card-photo-wrap img {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
+            z-index: 1;
             transition: transform .3s ease;
             display: block;
         }
@@ -490,13 +552,9 @@ if (isset($_GET['f_status']))
             right: 8px;
             display: flex;
             gap: 6px;
-            opacity: 0;
-            transition: opacity .2s ease;
-            z-index: 3;
-        }
-
-        .lapangan-card:hover .lapangan-card-actions {
             opacity: 1;
+            /* Selalu muncul permanen */
+            z-index: 3;
         }
 
         .lapangan-card-action-btn {
@@ -771,7 +829,7 @@ if (isset($_GET['f_status']))
             border-radius: 10px;
             font-size: 13px;
             font-family: 'Barlow', sans-serif;
-            margin-bottom: 4px;
+            margin-bottom: 18px;
             outline: none;
             transition: all .2s;
             color: var(--text);
@@ -951,7 +1009,10 @@ if (isset($_GET['f_status']))
             font-size: 11px;
             color: var(--red);
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-top: -12px;
+            /* Menarik teks eror agar lebih dekat dengan input di atasnya */
+            margin-bottom: 18px;
+            /* Memberikan jarak 18px sebelum masuk ke kolom berikutnya */
             display: none;
             min-height: 16px;
         }
@@ -1059,32 +1120,6 @@ if (isset($_GET['f_status']))
             font-size: 18px;
             font-weight: 800;
             color: var(--text);
-        }
-
-        .detail-status-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        .detail-status-aktif {
-            background: var(--green-lt);
-            color: var(--green);
-        }
-
-        .detail-status-nonaktif {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-
-        .detail-status-text {
-            font-size: 14px;
-            font-weight: 800;
-            text-transform: uppercase;
         }
 
         .detail-status-badge {
@@ -1454,6 +1489,134 @@ if (isset($_GET['f_status']))
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Custom Multi-select Dropdown dengan Checkbox */
+        .multiselect-dropdown {
+            position: relative;
+            width: 100%;
+            margin-bottom: 18px;
+            /* Menyelaraskan jarak dropdown agar konsisten 18px */
+        }
+
+        .multiselect-header {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        .multiselect-header:hover {
+            border-color: var(--orange);
+        }
+
+        .multiselect-content {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            width: 100%;
+            background: #fff;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            padding: 6px 0;
+        }
+
+        .multiselect-content.open {
+            display: block;
+        }
+
+        .multiselect-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-md);
+            margin: 0;
+        }
+
+        .multiselect-item:hover {
+            background: #FAFBFD;
+        }
+
+        .multiselect-item input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--orange);
+        }
+
+        /* Efek merah eror pada dropdown header */
+        .multiselect-header.error {
+            border-color: var(--red) !important;
+            box-shadow: 0 0 0 3px var(--red-lt) !important;
+        }
+
+
+        .empty-note-facilities {
+            font-size: 12px;
+            color: var(--muted);
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        /* ===== CSS BOX TUNGGAL FASILITAS (IDENTIK DENGAN BOX TARIF) ===== */
+        .detail-facilities-card {
+            background: #FAFBFD;
+            border: 1px solid var(--border-lt);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 20px;
+            transition: all .2s ease;
+            text-align: left;
+        }
+
+        /* Efek Hover Oranye berpendar persis seperti box tarif di atasnya */
+        .detail-facilities-card:hover {
+            background: #ffffff;
+            border-color: var(--orange);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .02);
+        }
+
+        /* Layout List Teks di dalam Box tunggal */
+        .detail-facilities-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* Membagi list menjadi 2 kolom teks yang rapi */
+            gap: 8px 16px;
+            margin-top: 12px;
+        }
+
+        .facility-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .facility-item i {
+            color: var(--orange);
+            font-size: 11px;
+        }
     </style>
 </head>
 
@@ -1480,8 +1643,7 @@ if (isset($_GET['f_status']))
                     <div class="photo-upload-area" id="uploadArea">
                         <input type="file" name="photo_lapangan" id="photo_lapangan"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                            onchange="handlePhotoUpload(this)"
-                            style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:5;">
+                            onchange="handlePhotoUpload(this)">
 
                         <img class="photo-upload-preview" id="previewImg" style="display:none;" alt="Preview">
                         <button type="button" class="photo-upload-remove" id="removeBtn"
@@ -1507,6 +1669,30 @@ if (isset($_GET['f_status']))
                         placeholder="Contoh: 100000" autocomplete="off">
                     <div class="val-msg" id="val-harga_sewa"></div>
 
+                    <!-- PILIHAN FASILITAS (DROPDOWN MULTI-SELECT) -->
+                    <label class="modal-label">Fasilitas Lapangan <span style="color:red">*</span></label>
+                    <div class="multiselect-dropdown" id="facilityDropdown">
+                        <div class="multiselect-header" onclick="toggleMultiselect(event)">
+                            <span id="multiselectLabel">Pilih Fasilitas Lapangan</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--muted);"></i>
+                        </div>
+                        <div class="multiselect-content" id="multiselectContent">
+                            <?php if (!empty($master_facilities)): ?>
+                                <?php foreach ($master_facilities as $fac): ?>
+                                    <label class="multiselect-item" for="chk_fac_<?= $fac['ID_Fasilitas'] ?>">
+                                        <input type="checkbox" name="use_facility[]" value="<?= $fac['ID_Fasilitas'] ?>"
+                                            id="chk_fac_<?= $fac['ID_Fasilitas'] ?>" class="facility-checkbox"
+                                            onchange="updateMultiselectHeader()">
+                                        <?= htmlspecialchars($fac['Nama_Fasilitas']) ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="padding: 12px; font-size: 12px; text-align: center; color: var(--muted);">Belum
+                                    ada master fasilitas aktif terdaftar.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="val-msg" id="val-facilities"></div>
                     <button type="submit" class="btn-submit" id="btnSubmitForm">
                         <i class="fa-solid fa-plus"></i> Tambah Lapangan
                     </button>
@@ -1556,6 +1742,17 @@ if (isset($_GET['f_status']))
                     </div>
                 </div>
 
+                <!-- FASILITAS TERPASANG DI LAPANGAN (BERSIH DARI INLINE STYLE) -->
+                <div class="detail-facilities-card">
+                    <div class="detail-info-label">
+                        <i class="fa-solid fa-couch"></i> Fasilitas Terpasang
+                    </div>
+                    <div id="det_facilities_list">
+                        -
+                    </div>
+                </div>
+
+
                 <button type="button" onclick="closeModalDirect('modalDetail')" class="btn-submit"
                     style="background:#0D1117; margin-top: 10px;">
                     <i class="fa-solid fa-arrow-left"></i> Kembali
@@ -1583,14 +1780,23 @@ if (isset($_GET['f_status']))
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> MAINTENANCE <span
                             class="chip-val"><?= $cnt_maint ?></span></div>
                     <div class="stat-chip chip-blue"><i class="fa-solid fa-layer-group"></i> TOTAL <span
-                            class="chip-val"><?= $total_lapangan ?></span></div>
+                            class="chip-val"><?= $total_semua_lapangan ?></span></div>
+                    <!-- Menggunakan variabel baru -->
                 </div>
             </div>
 
             <div class="action-bar">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="src" placeholder="Cari lapangan..." onkeyup="searchGrid()">
+                    <input type="text" id="src" placeholder="Cari lapangan... (Tekan Enter)"
+                        onkeypress="handleSearch(event)" value="<?= htmlspecialchars($_GET['src'] ?? '') ?>">
+
+                    <!-- Tombol Reset Cepat (X) bersih dari CSS Inline -->
+                    <?php if (!empty($search)): ?>
+                        <button type="button" onclick="clearSearch()" class="btn-clear-search">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    <?php endif; ?>
                 </div>
                 <div style="display:flex;gap:12px;align-items:center;">
                     <div class="filter-dropdown-wrap">
@@ -1621,10 +1827,10 @@ if (isset($_GET['f_status']))
                                     </select>
                                 </div>
                                 <div class="filter-buttons">
-                                    <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
-                                            class="fa-solid fa-rotate-left"></i> Reset</button>
                                     <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i>
                                         Terapkan</button>
+                                    <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
+                                            class="fa-solid fa-rotate-left"></i> Reset</button>
                                 </div>
                             </form>
                         </div>
@@ -1654,14 +1860,12 @@ if (isset($_GET['f_status']))
                                 <?php if (!empty($photo_url)): ?>
                                     <img src="<?= htmlspecialchars($photo_url) ?>"
                                         alt="<?= htmlspecialchars($row['Nama_Lapangan']) ?>" loading="lazy"
-                                        style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"
                                         onerror="this.style.display='none';">
                                 <?php endif; ?>
-                                <span class="lapangan-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>"
-                                    style="z-index:2;">
+                                <span class="lapangan-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>">
                                     <span class="badge-dot"></span> <?= $is_aktif ? 'AKTIF' : 'MAINTENANCE' ?>
                                 </span>
-                                <div class="lapangan-card-actions" style="z-index:3;">
+                                <div class="lapangan-card-actions">
                                     <button type="button"
                                         onclick="event.stopPropagation(); showDetail('<?= intval($row['ID_Lapangan']) ?>')"
                                         class="lapangan-card-action-btn ac-btn-view" title="Lihat Detail"><i
@@ -1712,45 +1916,53 @@ if (isset($_GET['f_status']))
             </div>
 
             <!-- PAGINATION -->
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">
+            <div class="pagination-wrap">
+                <div class="pagination-info">
+                    <?php if ($total_lapangan > 0): ?>
                         Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
                         <strong><?= min($page * $limit, $total_lapangan) ?></strong>
                         dari <strong><?= $total_lapangan ?></strong> data
-                    </div>
-                    <div class="pagination-nav">
-                        <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angles-left"></i></a>
-                        <a href="?page=<?= $page - 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
-                        <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                            <a href="?page=<?= $i ?><?= $filter_url ?>"
-                                class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
-                        <?php endfor; ?>
-                        <a href="?page=<?= $page + 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angle-right"></i></a>
-                        <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i
-                                class="fa-solid fa-angles-right"></i></a>
-                    </div>
+                    <?php else: ?>
+                        Menampilkan <strong>0</strong> data
+                    <?php endif; ?>
                 </div>
-            <?php else: ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">
-                        Menampilkan <strong>1</strong> - <strong><?= $total_lapangan ?></strong>
-                        dari <strong><?= $total_lapangan ?></strong> data
-                    </div>
+
+                <div class="pagination-nav">
+                    <!-- Tombol First/Awal -->
+                    <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+
+                    <!-- Tombol Prev/Sebelumnya -->
+                    <a href="?page=<?= max(1, $page - 1) ?><?= $filter_url ?>"
+                        class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angle-left"></i>
+                    </a>
+
+                    <!-- Nomor Halaman -->
+                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                        <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+
+                    <!-- Tombol Next/Selanjutnya -->
+                    <a href="?page=<?= min($total_pages, $page + 1) ?><?= $filter_url ?>"
+                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </a>
+
+                    <!-- Tombol Last/Akhir -->
+                    <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
+                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
                 </div>
-            <?php endif; ?>
+            </div>
         </div>
     </main>
     <script src="../asset/js/global.js"></script>
     <script>
-        function closeModal() {
-            window.location.href = 'lapangan.php';
-        }
 
         function handlePhotoUpload(input) {
             if (!input.files || !input.files[0]) return;
@@ -1798,20 +2010,15 @@ if (isset($_GET['f_status']))
             if (removeBtn) removeBtn.style.display = 'none';
         }
 
-        function searchGrid() {
-            var filter = document.getElementById('src').value.toLowerCase();
-            var cards = document.querySelectorAll('.lapangan-card');
-            cards.forEach(function (card) {
-                var name = card.getAttribute('data-name') || '';
-                card.style.display = name.indexOf(filter) > -1 ? '' : 'none';
-            });
-        }
-
         function validateForm() {
             var valid = true;
+
+            // 1. Reset semua status eror terlebih dahulu
             document.querySelectorAll('.modal-input').forEach(function (el) { el.classList.remove('error'); });
+            document.querySelectorAll('.multiselect-header').forEach(function (el) { el.classList.remove('error'); });
             document.querySelectorAll('.val-msg').forEach(function (el) { el.classList.remove('show'); el.innerHTML = ''; });
 
+            // 2. Validasi Nama Lapangan
             var nama = document.getElementById('nama_lapangan');
             var valNama = document.getElementById('val-nama_lapangan');
             if (nama && valNama) {
@@ -1829,6 +2036,7 @@ if (isset($_GET['f_status']))
                 }
             }
 
+            // 3. Validasi Harga Sewa
             var harga = document.getElementById('harga_sewa');
             var valHarga = document.getElementById('val-harga_sewa');
             if (harga && valHarga) {
@@ -1846,8 +2054,25 @@ if (isset($_GET['f_status']))
                 }
             }
 
+            // 4. Validasi Fasilitas (WAJIB DI ATAS LINE RETURN FALSE)
+            var checkboxes = document.querySelectorAll('.facility-checkbox');
+            var valFacilities = document.getElementById('val-facilities');
+            var dropdownHeader = document.querySelector('.multiselect-header');
+            var anyChecked = Array.from(checkboxes).some(function (chk) { return chk.checked; });
+
+            if (!anyChecked) {
+                if (dropdownHeader && valFacilities) {
+                    dropdownHeader.classList.add('error'); // Menggunakan class CSS agar konsisten
+                    valFacilities.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Fasilitas lapangan wajib dipilih minimal satu.';
+                    valFacilities.classList.add('show');
+                }
+                valid = false;
+            }
+
+            // 5. JIKA ADA YANG EROR, BARU HENTIKAN SUBMIT FORM
             if (!valid) return false;
 
+            // Proses loading spinner tombol jika form sukses divalidasi
             var btn = document.getElementById('btnSubmitForm');
             if (btn) {
                 btn.disabled = true;
@@ -1962,7 +2187,6 @@ if (isset($_GET['f_status']))
             window.location.href = 'lapangan.php';
         }
 
-        // Buka Modal Form Tambah Baru
         function showAddForm() {
             document.getElementById('formLapangan').reset();
             document.getElementById('hiddenInputsArea').innerHTML = '';
@@ -1970,12 +2194,15 @@ if (isset($_GET['f_status']))
 
             // Reset Visual Error
             document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.multiselect-header').forEach(el => el.classList.remove('error'));
             document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
 
             document.getElementById('formModalTitle').innerText = 'Tambah Lapangan Baru';
             document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Lapangan';
 
             document.getElementById('modalLapangan').classList.add('open');
+
+            updateMultiselectHeader();
         }
 
         // Buka Modal Form Edit Data (AJAX)
@@ -2013,9 +2240,21 @@ if (isset($_GET['f_status']))
                             removePhoto();
                         }
 
-                        // Reset visual error
-                        document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
-                        document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+                        // RESET SEMUA CHECKBOX FASILITAS MENJADI KOSONG (UNCHECKED)
+                        document.querySelectorAll('.facility-checkbox').forEach(chk => chk.checked = false);
+
+                        // CENTANG KEMBALI FASILITAS YANG SUDAH TERPASANG DI DATABASE
+                        if (data.Fasilitas && data.Fasilitas.length > 0) {
+                            data.Fasilitas.forEach(fac => {
+                                const chk = document.getElementById('chk_fac_' + fac.ID_Fasilitas);
+                                if (chk) {
+                                    chk.checked = true;
+                                }
+                            });
+                        }
+
+                        // Perbarui tampilan teks header dropdown multi-select
+                        updateMultiselectHeader();
 
                         document.getElementById('formModalTitle').innerText = 'Edit Lapangan';
                         document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
@@ -2065,6 +2304,26 @@ if (isset($_GET['f_status']))
                         document.getElementById('det_harga_val').innerText = data.Harga_Sewa_Rupiah;
                         document.getElementById('det_tarif_secondary').innerHTML = `${data.Harga_Sewa_Rupiah} <span style="font-size:11px; font-weight:500; color:var(--muted);">/jam</span>`;
 
+                        // RENDER DAFTAR FASILITAS YANG TERPASANG DI LAPANGAN (BARU)
+                        const detFacList = document.getElementById('det_facilities_list');
+                        if (detFacList) {
+                            if (data.Fasilitas && data.Fasilitas.length > 0) {
+                                let facHtml = '<div class="detail-facilities-list">';
+                                data.Fasilitas.forEach(fac => {
+                                    facHtml += `
+                                        <div class="facility-item">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                            <span>${fac.Nama_Fasilitas}</span>
+                                        </div>
+                                    `;
+                                });
+                                facHtml += '</div>';
+                                detFacList.innerHTML = facHtml;
+                            } else {
+                                detFacList.innerHTML = '<span class="empty-note-facilities">Tidak ada fasilitas terpasang</span>';
+                            }
+                        }
+
                         document.getElementById('modalDetail').classList.add('open');
                     } else {
                         Swal.fire('Gagal!', res.msg, 'error');
@@ -2075,6 +2334,73 @@ if (isset($_GET['f_status']))
         // Tutup Modal secara Langsung
         function closeModalDirect(modalId) {
             document.getElementById(modalId).classList.remove('open');
+        }
+
+        // Fungsi membuka & menutup dropdown list
+        function toggleMultiselect(event) {
+            event.stopPropagation();
+            const content = document.getElementById('multiselectContent');
+            if (content) {
+                content.classList.toggle('open');
+            }
+        }
+
+        // Fungsi memperbarui teks header dropdown berdasarkan jumlah yang diceklis
+        function updateMultiselectHeader() {
+            const selectedCount = document.querySelectorAll('.facility-checkbox:checked').length;
+            const label = document.getElementById('multiselectLabel');
+            const valFacilities = document.getElementById('val-facilities');
+            const dropdownHeader = document.querySelector('.multiselect-header');
+
+            if (label) {
+                if (selectedCount === 0) {
+                    label.innerText = 'Pilih Fasilitas Lapangan';
+                } else {
+                    label.innerText = selectedCount + ' Fasilitas Terpilih';
+                }
+            }
+
+            // Hapus pesan eror secara real-time jika sudah ada yang dicentang
+            if (selectedCount > 0) {
+                if (valFacilities && dropdownHeader) {
+                    dropdownHeader.classList.remove('error'); // Menghapus class error
+                    valFacilities.innerHTML = '';
+                    valFacilities.classList.remove('show');
+                }
+            }
+        }
+
+        // Menutup dropdown otomatis jika mengklik area lain di luar dropdown
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('facilityDropdown');
+            const content = document.getElementById('multiselectContent');
+            if (dropdown && content && !dropdown.contains(e.target)) {
+                content.classList.remove('open');
+            }
+        });
+
+        // Fungsi pencarian global server-side dengan tombol Enter
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                const keyword = document.getElementById('src').value.trim();
+                const urlParams = new URLSearchParams(window.location.search);
+
+                if (keyword) {
+                    urlParams.set('src', keyword);
+                } else {
+                    urlParams.delete('src');
+                }
+
+                urlParams.set('page', 1); // Reset ke halaman 1 setiap kali mencari data baru
+                window.location.href = 'lapangan.php?' + urlParams.toString();
+            }
+        }
+
+        function clearSearch() {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.delete('src'); // Hapus kata kunci pencarian
+            urlParams.set('page', 1); // Reset kembali ke halaman 1
+            window.location.href = 'lapangan.php?' + urlParams.toString();
         }
 
     </script>
