@@ -61,111 +61,145 @@ if ($q_lap) {
     }
 }
 
-if (isset($_POST['save_jadwal'])) {
-    $id = isset($_POST['id_jadwal']) ? trim($_POST['id_jadwal']) : '';
-    $id_lapangan = $_POST['id_lapangan'];
-    $tanggal = $_POST['tanggal'];
-    $jam_mulai = $_POST['jam_mulai'];
-    $jam_selesai = $_POST['jam_selesai'];
+// ===== KONFIGURASI JAM OPERASIONAL =====
+// Jadwal 1 jam bulat: 08:00-09:00, 09:00-10:00, ..., 23:00-00:00
+define('OPS_JAM_MULAI_AWAL', 8);   // 08:00
+define('OPS_JAM_MULAI_AKHIR', 23); // 23:00 (slot terakhir 23:00-00:00)
 
-    if (empty($id_lapangan)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Lapangan wajib dipilih.");
-        exit();
+// Helper: dari jam mulai (H:i) hitung jam selesai +1 jam. "23:00" -> "00:00"
+function hitungJamSelesai($jam_mulai) {
+    list($h, $m) = explode(':', $jam_mulai);
+    $h = intval($h) + 1;
+    if ($h >= 24) $h = 0;
+    return sprintf('%02d:%02d', $h, intval($m));
+}
+
+// Helper: bikin daftar semua jam mulai valid ["08:00", "09:00", ... "23:00"]
+function daftarJamOperasional() {
+    $out = [];
+    for ($h = OPS_JAM_MULAI_AWAL; $h <= OPS_JAM_MULAI_AKHIR; $h++) {
+        $out[] = sprintf('%02d:00', $h);
     }
-    if (empty($tanggal)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Tanggal wajib diisi.");
-        exit();
-    }
+    return $out;
+}
+
+// ===== SAVE (INSERT / EDIT) SATU SLOT JADWAL =====
+if (isset($_POST['save_jadwal'])) {
+    $id          = isset($_POST['id_jadwal']) ? trim($_POST['id_jadwal']) : '';
+    $id_lapangan = $_POST['id_lapangan'] ?? '';
+    $tanggal     = $_POST['tanggal'] ?? '';
+    $jam_mulai   = $_POST['jam_mulai'] ?? '';
+    $edit_mode   = isset($_POST['edit_mode']);
+
+    // Default redirect target: kembali ke tanggal yang dipilih
+    $back_url = 'jadwal.php' . ($tanggal ? '?tanggal=' . urlencode($tanggal) : '');
+
+    if (empty($id_lapangan)) { header("Location: $back_url&status=error&msg=" . urlencode('Lapangan wajib dipilih.')); exit(); }
+    if (empty($tanggal))     { header("Location: $back_url&status=error&msg=" . urlencode('Tanggal wajib diisi.'));    exit(); }
+    if (empty($jam_mulai))   { header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai wajib dipilih.')); exit(); }
+
     $hari_ini = date('Y-m-d');
     if ($tanggal < $hari_ini) {
-        header("Location: jadwal.php?page=1&status=error&msg=Tanggal tidak boleh kurang dari hari ini.");
-        exit();
+        header("Location: $back_url&status=error&msg=" . urlencode('Tanggal tidak boleh kurang dari hari ini.')); exit();
     }
-    // ===== VALIDASI JAM REAL-TIME (SERVER-SIDE) =====
-    if ($tanggal == $hari_ini) {
+
+    // Jam mulai harus bulat jam & dalam jam operasional
+    if (!in_array($jam_mulai, daftarJamOperasional(), true)) {
+        header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai harus jam bulat antara 08:00 - 23:00.')); exit();
+    }
+
+    // Kalau hari ini: jam mulai harus lebih besar dari jam sekarang
+    if ($tanggal === $hari_ini) {
         $jam_sekarang = date('H:i');
         if ($jam_mulai <= $jam_sekarang) {
-            header("Location: jadwal.php?page=1&status=error&msg=Jam mulai harus lebih besar dari jam sekarang (" . $jam_sekarang . " WIB).");
-            exit();
+            header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai harus lebih besar dari jam sekarang (' . $jam_sekarang . ' WIB).')); exit();
         }
     }
-    // =================================================
-    // ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
-    if ($jam_mulai < '08:30') {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam operasional dimulai pukul 08:30 WIB.");
-        exit();
-    }
-    if ($jam_selesai > '00:00' && $jam_selesai < '08:30') {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam operasional berakhir pukul 00:00 WIB.");
-        exit();
-    }
-    // =====================================================
-    if (empty($jam_mulai)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam mulai wajib diisi.");
-        exit();
-    }
-    if (empty($jam_selesai)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai wajib diisi.");
-        exit();
-    }
-    // ===== VALIDASI JAM SELESAI MAKSIMAL 00:00 =====
-    if ($jam_selesai > '00:00' && $jam_mulai > $jam_selesai) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai maksimal 00:00 WIB. Penyewaan tutup setelah tengah malam.");
-        exit();
-    }
-    // ================================================
-    // ===== VALIDASI MINIMAL 1 JAM (SERVER-SIDE) =====
-    $mulai_ts = strtotime($tanggal . ' ' . $jam_mulai);
-    if ($jam_selesai == '00:00') {
-        $selesai_ts = strtotime($tanggal . ' ' . $jam_selesai . ' +1 day');
-    } else {
-        $selesai_ts = strtotime($tanggal . ' ' . $jam_selesai);
-    }
-    $selisih_jam = ($selesai_ts - $mulai_ts) / 3600;
-    if ($selisih_jam < 1) {
-        header("Location: jadwal.php?page=1&status=error&msg=Durasi jadwal minimal 1 jam.");
-        exit();
-    }
-    // ================================================
-    if ($jam_selesai != '00:00' && $jam_selesai <= $jam_mulai) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jam selesai harus lebih besar dari jam mulai.");
-        exit();
-    }
 
-    $selesai_compare = ($jam_selesai == '00:00') ? '24:00' : $jam_selesai;
-    $sql_check_bentrok = "SELECT ID_Jadwal FROM Jadwal 
-                          WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
-                          AND NOT (
-                              (CASE WHEN Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), Jam_Selesai, 108) END) <= ?
-                              OR CONVERT(VARCHAR(5), Jam_Mulai, 108) >= ?
-                          )";
-    $q_check = safeQuery($conn, $sql_check_bentrok, [$id_lapangan, $tanggal, $id, $jam_mulai, $selesai_compare]);
+    // Auto-calc jam selesai = jam mulai + 1 jam
+    $jam_selesai = hitungJamSelesai($jam_mulai);
 
+    // Cek bentrok (kecuali edit dirinya sendiri)
+    $selesai_cmp = ($jam_selesai === '00:00') ? '24:00' : $jam_selesai;
+    $sql_check = "SELECT ID_Jadwal FROM Jadwal
+                  WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
+                    AND NOT (
+                        (CASE WHEN Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), Jam_Selesai, 108) END) <= ?
+                        OR CONVERT(VARCHAR(5), Jam_Mulai, 108) >= ?
+                    )";
+    $q_check = safeQuery($conn, $sql_check, [$id_lapangan, $tanggal, ($id === '' ? 0 : $id), $jam_mulai, $selesai_cmp]);
     if ($q_check && safeFetch($q_check)) {
-        header("Location: jadwal.php?page=1&status=error&msg=Jadwal tidak boleh bentrok dengan jadwal lain pada lapangan yang sama.");
-        exit();
+        header("Location: $back_url&status=error&msg=" . urlencode('Slot ini sudah ada di lapangan tersebut. Pilih jam lain.')); exit();
     }
 
-    if (isset($_POST['edit_mode'])) {
-        safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?", [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
-        header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil diperbarui!");
+    if ($edit_mode) {
+        safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?",
+            [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        header("Location: $back_url&status=success&msg=" . urlencode('Jadwal berhasil diperbarui!'));
     } else {
-        safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?", [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
-        header("Location: jadwal.php?page=1&status=success&msg=Jadwal baru berhasil ditambahkan!");
+        safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
+            [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        header("Location: $back_url&status=success&msg=" . urlencode('Slot ' . $jam_mulai . ' - ' . $jam_selesai . ' berhasil ditambahkan!'));
     }
     exit();
+}
+
+// ===== BULK GENERATE: bikin semua slot yang belum ada untuk 1 lapangan + 1 tanggal =====
+if (isset($_POST['generate_all'])) {
+    $id_lapangan = $_POST['id_lapangan'] ?? '';
+    $tanggal     = $_POST['tanggal'] ?? '';
+    $back_url = 'jadwal.php' . ($tanggal ? '?tanggal=' . urlencode($tanggal) : '');
+
+    if (empty($id_lapangan) || empty($tanggal)) {
+        header("Location: $back_url&status=error&msg=" . urlencode('Lapangan & tanggal wajib untuk generate slot.')); exit();
+    }
+    if ($tanggal < date('Y-m-d')) {
+        header("Location: $back_url&status=error&msg=" . urlencode('Tidak bisa generate slot untuk tanggal lampau.')); exit();
+    }
+
+    // Ambil slot yang sudah ada supaya di-skip
+    $existing = [];
+    $q_exist = safeQuery($conn, "SELECT CONVERT(VARCHAR(5), Jam_Mulai, 108) AS jm FROM Jadwal WHERE ID_Lapangan = ? AND Tanggal = ? AND Is_Deleted = 0", [$id_lapangan, $tanggal]);
+    if ($q_exist) {
+        while ($r = sqlsrv_fetch_array($q_exist, SQLSRV_FETCH_ASSOC)) $existing[$r['jm']] = true;
+    }
+
+    // Kalau tanggal hari ini, skip jam yang udah lewat
+    $skip_before = ($tanggal === date('Y-m-d')) ? date('H:i') : null;
+
+    $inserted = 0; $skipped = 0;
+    foreach (daftarJamOperasional() as $jam_mulai) {
+        if (isset($existing[$jam_mulai])) { $skipped++; continue; }
+        if ($skip_before !== null && $jam_mulai <= $skip_before) { $skipped++; continue; }
+        $jam_selesai = hitungJamSelesai($jam_mulai);
+        $r = safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
+            [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        if ($r !== null) $inserted++;
+    }
+    $msg = $inserted . ' slot berhasil dibuat.' . ($skipped > 0 ? ' (' . $skipped . ' slot sudah ada / dilewati)' : '');
+    header("Location: $back_url&status=success&msg=" . urlencode($msg));
+    exit();
+}
+
+// Helper: bangun query string untuk pertahankan tanggal/lapangan state saat redirect
+function keepStateQS() {
+    $qs = [];
+    if (!empty($_GET['tanggal']))    $qs[] = 'tanggal=' . urlencode($_GET['tanggal']);
+    if (!empty($_GET['f_lapangan'])) $qs[] = 'f_lapangan=' . urlencode($_GET['f_lapangan']);
+    if (!empty($_GET['view']))       $qs[] = 'view=' . urlencode($_GET['view']);
+    return $qs ? '&' . implode('&', $qs) : '';
 }
 
 if (isset($_GET['toggle_id'])) {
     $s_baru = ($_GET['s'] == 1) ? 0 : 1;
     safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @Status=?, @Modified_By=?", [$_GET['toggle_id'], $s_baru, $nama]);
-    header("Location: jadwal.php?page=1&status=success&msg=Status jadwal berhasil diubah!");
+    header("Location: jadwal.php?status=success&msg=" . urlencode('Status jadwal berhasil diubah!') . keepStateQS());
     exit();
 }
 
 if (isset($_GET['delete_id'])) {
     safeQuery($conn, "EXEC SP_Jadwal_Delete @ID_Jadwal=?, @Deleted_By=?", [$_GET['delete_id'], $nama]);
-    header("Location: jadwal.php?page=1&status=success&msg=Jadwal berhasil dihapus!");
+    header("Location: jadwal.php?status=success&msg=" . urlencode('Jadwal berhasil dihapus!') . keepStateQS());
     exit();
 }
 
@@ -187,104 +221,130 @@ if (isset($_GET['detail_id'])) {
 
 $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
-$where_clauses = ["j.Is_Deleted = 0"];
-$params = [];
+// ===== VIEW MODE: upcoming (default) atau history =====
+$view_mode = ($_GET['view'] ?? 'upcoming') === 'history' ? 'history' : 'upcoming';
+$today = date('Y-m-d');
 
-if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
-    $where_clauses[] = "j.Status = ?";
-    $params[] = intval($_GET['f_status']);
+// Tanggal terpilih (untuk mode upcoming). Default = hari ini.
+$selected_date = $_GET['tanggal'] ?? $today;
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selected_date)) $selected_date = $today;
+if ($view_mode === 'upcoming' && $selected_date < $today) $selected_date = $today;
+
+// Filter lapangan opsional
+$filter_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? intval($_GET['f_lapangan']) : null;
+
+// Prefill untuk modal tambah (dari klik "+ Buat" di grid)
+$prefill_lapangan = $_GET['pf_lap']  ?? '';
+$prefill_jam      = $_GET['pf_jam']  ?? '';
+
+// ===== STATS: hitung jadwal upcoming (tanggal >= hari ini) =====
+$aktif_count = 0; $nonaktif_count = 0; $total_upcoming = 0; $total_history = 0;
+$q_stats = safeQuery($conn, "
+    SELECT
+        SUM(CASE WHEN j.Status = 1 AND j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Aktif,
+        SUM(CASE WHEN j.Status = 0 AND j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Nonaktif,
+        SUM(CASE WHEN j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Upcoming,
+        SUM(CASE WHEN j.Tanggal <  CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Riwayat
+    FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
+    WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0
+", []);
+if ($q_stats) {
+    $row = safeFetch($q_stats);
+    if ($row) {
+        $aktif_count    = intval($row['Aktif']    ?? 0);
+        $nonaktif_count = intval($row['Nonaktif'] ?? 0);
+        $total_upcoming = intval($row['Upcoming'] ?? 0);
+        $total_history  = intval($row['Riwayat']  ?? 0);
+    }
 }
-if (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') {
-    $where_clauses[] = "j.ID_Lapangan = ?";
-    $params[] = $_GET['f_lapangan'];
+$total_jadwal = $total_upcoming; // stat chip "TOTAL" = upcoming
+
+// ===== LOAD DATA GRID (mode upcoming: 1 tanggal, per lapangan) =====
+$slots_by_lap = [];   // [lap_id][ "HH:MM" ] = row jadwal
+$booking_flags = [];  // [id_jadwal] = true kalau ada booking aktif
+if ($view_mode === 'upcoming') {
+    $sql_grid = "
+        SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal,
+               j.Jam_Mulai, j.Jam_Selesai, j.Status,
+               CONVERT(VARCHAR(5), j.Jam_Mulai, 108) AS JamMulaiStr
+        FROM Jadwal j
+        JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
+        WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0
+          AND j.Tanggal = ?
+          " . ($filter_lapangan ? "AND j.ID_Lapangan = ?" : "") . "
+        ORDER BY l.Nama_Lapangan, j.Jam_Mulai";
+    $params_grid = $filter_lapangan ? [$selected_date, $filter_lapangan] : [$selected_date];
+    $q_grid = safeQuery($conn, $sql_grid, $params_grid);
+    if ($q_grid) {
+        $ids = [];
+        while ($r = sqlsrv_fetch_array($q_grid, SQLSRV_FETCH_ASSOC)) {
+            $slots_by_lap[$r['ID_Lapangan']][$r['JamMulaiStr']] = $r;
+            $ids[] = $r['ID_Jadwal'];
+        }
+        // cek booking aktif (Status 0=pending, 1=confirmed) — biar slot yg sudah dipesan gak diotak-atik
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $q_bk = safeQuery($conn, "SELECT ID_Jadwal FROM Booking WHERE ID_Jadwal IN ($placeholders) AND Status IN (0,1)", $ids);
+            if ($q_bk) {
+                while ($rb = sqlsrv_fetch_array($q_bk, SQLSRV_FETCH_ASSOC)) {
+                    $booking_flags[$rb['ID_Jadwal']] = true;
+                }
+            }
+        }
+    }
 }
 
-$where_sql = implode(" AND ", $where_clauses);
-
-$sort_by = "j.Tanggal DESC, j.Jam_Mulai ASC";
-if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'tanggal_asc') $sort_by = "j.Tanggal ASC, j.Jam_Mulai ASC";
-    elseif ($_GET['f_sort'] === 'lapangan_asc') $sort_by = "l.Nama_Lapangan ASC";
-}
-
-$q_total = safeQuery($conn, "EXEC SP_Jadwal_Count", []);
-$total_jadwal = 0;
-if ($q_total) {
-    $row = safeFetch($q_total);
-    $total_jadwal = $row['t'] ?? 0;
-}
-
-$q_aktif = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=1", []);
-$aktif_count = 0;
-if ($q_aktif) {
-    $row = safeFetch($q_aktif);
-    $aktif_count = $row['t'] ?? 0;
-}
-
-$q_nonaktif = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=0", []);
-$nonaktif_count = 0;
-if ($q_nonaktif) {
-    $row = safeFetch($q_nonaktif);
-    $nonaktif_count = $row['t'] ?? 0;
-}
-
-$limit = 10;
+// ===== LOAD DATA (mode history: paginated list, semua jadwal tanggal < hari ini) =====
+$history_rows = [];
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$hist_limit = 20;
+$hist_total = 0;
+$hist_total_pages = 1;
+if ($view_mode === 'history') {
+    $sql_hist_count = "SELECT COUNT(*) AS t FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
+                       WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0 AND j.Tanggal < CAST(GETDATE() AS DATE)
+                       " . ($filter_lapangan ? "AND j.ID_Lapangan = ?" : "");
+    $params_c = $filter_lapangan ? [$filter_lapangan] : [];
+    $q_hc = safeQuery($conn, $sql_hist_count, $params_c);
+    if ($q_hc) { $row = safeFetch($q_hc); $hist_total = intval($row['t'] ?? 0); }
+    $hist_total_pages = max(1, (int)ceil($hist_total / $hist_limit));
+    $page = min($page, $hist_total_pages);
+    $offset = ($page - 1) * $hist_limit;
 
-// Hitung total data pakai SP (dengan filter)
-$q_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
-$q_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? $_GET['f_lapangan'] : null;
-
-$q_count = safeQuery($conn, "EXEC SP_Jadwal_Count @StatusFilter=?, @LapanganFilter=?", [$q_status, $q_lapangan]);
-$total_data = 0;
-if ($q_count) {
-    $row = safeFetch($q_count);
-    $total_data = $row['t'] ?? 0;
+    $sql_hist = "SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal,
+                        j.Jam_Mulai, j.Jam_Selesai, j.Status
+                 FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
+                 WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0 AND j.Tanggal < CAST(GETDATE() AS DATE)
+                 " . ($filter_lapangan ? "AND j.ID_Lapangan = ? " : "") . "
+                 ORDER BY j.Tanggal DESC, j.Jam_Mulai ASC
+                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+    $params_h = $filter_lapangan ? [$filter_lapangan, $offset, $hist_limit] : [$offset, $hist_limit];
+    $q_h = safeQuery($conn, $sql_hist, $params_h);
+    if ($q_h) while ($r = sqlsrv_fetch_array($q_h, SQLSRV_FETCH_ASSOC)) $history_rows[] = $r;
 }
 
-$total_pages = max(1, ceil($total_data / $limit));
-$page = min($page, $total_pages);
-$offset = ($page - 1) * $limit;
+// URL param helper untuk pertahankan state saat pindah halaman
+$state_url = '';
+if ($filter_lapangan) $state_url .= '&f_lapangan=' . $filter_lapangan;
+if ($view_mode === 'history') $state_url .= '&view=history';
+if ($view_mode === 'upcoming' && $selected_date !== $today) $state_url .= '&tanggal=' . urlencode($selected_date);
 
-// Query data pakai SP (dengan filter + pagination)
-$q_sort = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'tanggal_desc';
-$query = safeQuery($conn, "EXEC SP_Jadwal_SelectFiltered @StatusFilter=?, @LapanganFilter=?, @SortBy=?, @PageNumber=?, @PageSize=?", 
-    [$q_status, $q_lapangan, $q_sort, $page, $limit]);
-
-$q_pending = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0", []);
-$total_pending = 0;
-if ($q_pending) {
-    $row = safeFetch($q_pending);
-    $total_pending = $row['t'] ?? 0;   // ✅ BENER: kolomnya 't'
+// Daftar 7 tanggal buat date scroller (mulai dari selected_date - 3 hari, tapi minimal hari ini)
+$scroller_start = new DateTime($selected_date);
+$scroller_start->modify('-3 days');
+if ($scroller_start < new DateTime($today)) $scroller_start = new DateTime($today);
+$scroller_dates = [];
+for ($i = 0; $i < 7; $i++) {
+    $d = clone $scroller_start; $d->modify("+$i days");
+    $scroller_dates[] = $d->format('Y-m-d');
 }
-
-$filter_url = "";
-if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
-if (isset($_GET['f_lapangan'])) $filter_url .= "&f_lapangan=" . urlencode($_GET['f_lapangan']);
-
-// ===== PAGINATION =====
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$limit = 10;
-$offset = ($page - 1) * $limit;
-
-// Hitung total data
-$q_count = safeQuery($conn, "EXEC SP_Jadwal_Count", []);
-$total_data = 0;
-if ($q_count) {
-    $row = safeFetch($q_count);
-    $total_data = $row['t'] ?? 0;
+$hari_pendek = ['Sun'=>'Min','Mon'=>'Sen','Tue'=>'Sel','Wed'=>'Rab','Thu'=>'Kam','Fri'=>'Jum','Sat'=>'Sab'];
+$bulan_pendek = ['01'=>'Jan','02'=>'Feb','03'=>'Mar','04'=>'Apr','05'=>'Mei','06'=>'Jun','07'=>'Jul','08'=>'Agu','09'=>'Sep','10'=>'Okt','11'=>'Nov','12'=>'Des'];
+function labelHariID($tgl, $hari_pendek) { return $hari_pendek[date('D', strtotime($tgl))]; }
+function labelTanggalPanjang($tgl, $bulan_pendek) {
+    $parts = explode('-', $tgl);
+    return intval($parts[2]) . ' ' . $bulan_pendek[$parts[1]];
 }
-$total_pages = ceil($total_data / $limit);
-
-// Query data jadwal dengan filter
-$q_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
-$q_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? $_GET['f_lapangan'] : null;
-$q_sort = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'tanggal_desc';
-
-$query = safeQuery($conn, "EXEC SP_Jadwal_SelectFiltered @StatusFilter=?, @LapanganFilter=?, @SortBy=?, @PageNumber=?, @PageSize=?", 
-    [$q_status, $q_lapangan, $q_sort, $page, $limit]);
-
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -340,7 +400,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); transition: all 0.3s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
 .sb-user:hover { background: rgba(255,255,255,.08); border-color: rgba(255,69,0,.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+.sb-avatar > img { position: absolute; inset: 0; z-index: 2; }
 .sb-user:hover .sb-avatar { transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
 .sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transition: transform 0.3s ease; }
 .sb-user:hover .sb-avatar img { transform: scale(1.1); }
@@ -394,12 +455,14 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-btn, .topbar-user { background-color: #FFFFFF !important; }
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
-.topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
-.topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
-.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
-.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
+.topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 6px; border-radius: 12px; cursor: pointer; transition: .2s; height: 46px; }
+.topbar-user:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(255,69,0,.08); }
+.t-avatar { width: 34px; height: 34px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; border: 2px solid var(--orange-lt); }
+.t-avatar i { position: relative; z-index: 1; }
+.t-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
+.t-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; line-height: 1; letter-spacing: .3px; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap.active .dropdown-menu { display: block !important; }
@@ -479,6 +542,79 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+
+/* ========= TAB VIEW: Upcoming vs Riwayat ========= */
+.jd-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 8px; flex-wrap: wrap; }
+.jd-tab { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--muted); font-size: 13px; font-weight: 700; transition: all .2s; }
+.jd-tab:hover { color: var(--text); background: var(--bg); }
+.jd-tab.active { background: var(--orange); color: #fff; box-shadow: 0 4px 12px rgba(255,69,0,.25); }
+.jd-tab-count { background: rgba(255,255,255,.28); color: inherit; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-family: 'Barlow Condensed'; font-weight: 800; }
+.jd-tab:not(.active) .jd-tab-count { background: var(--bg); color: var(--muted); }
+.jd-tab-filler { flex: 1; }
+.jd-inline-form { display: flex; align-items: center; gap: 10px; }
+.jd-inline-form label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.jd-select { padding: 8px 32px 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; font-size: 13px; font-family: 'Barlow'; font-weight: 700; color: var(--text); cursor: pointer; outline: none; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px; }
+.jd-select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
+
+/* ========= DATE SCROLLER ========= */
+.date-scroller { display: flex; align-items: stretch; gap: 8px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 20px; }
+.ds-arrow { display: flex; align-items: center; justify-content: center; width: 40px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text-md); text-decoration: none; transition: all .2s; flex-shrink: 0; }
+.ds-arrow:hover { background: var(--orange-lt); color: var(--orange); border-color: var(--orange); }
+.ds-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; flex: 1; }
+.ds-day { text-align: center; padding: 10px 6px; border-radius: 10px; text-decoration: none; color: var(--text-md); transition: all .2s; border: 1.5px solid transparent; cursor: pointer; }
+.ds-day:hover { background: var(--bg); }
+.ds-day.selected { background: var(--orange); color: #fff; border-color: var(--orange); box-shadow: 0 4px 14px rgba(255,69,0,.28); }
+.ds-day.is-today:not(.selected) { border-color: var(--orange-lt); background: var(--orange-lt); color: var(--orange); }
+.ds-hari { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; opacity: .8; }
+.ds-tgl { font-family: 'Barlow Condensed'; font-size: 20px; font-weight: 900; margin-top: 2px; letter-spacing: -.5px; }
+.ds-picker { display: flex; align-items: center; }
+.ds-picker input[type="date"] { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; font-size: 12px; font-family: 'Barlow'; font-weight: 700; color: var(--text); outline: none; cursor: pointer; }
+.ds-picker input[type="date"]:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
+
+/* ========= LAPANGAN BLOCK ========= */
+.lap-block { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.02); }
+.lap-block-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1.5px dashed var(--border); flex-wrap: wrap; }
+.lap-name { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -.3px; display: flex; align-items: center; gap: 10px; }
+.lap-name i { color: var(--orange); font-size: 18px; }
+.lap-sub { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+.lap-sub i { margin-right: 4px; }
+.lap-sub-sep { color: var(--border); }
+.btn-generate { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; background: linear-gradient(135deg, var(--orange), var(--orange-dk)); color: #fff; border: none; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; cursor: pointer; transition: all .2s; box-shadow: 0 4px 12px rgba(255,69,0,.25); font-family: 'Barlow'; }
+.btn-generate:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,69,0,.35); }
+.btn-generate i { font-size: 13px; }
+
+/* ========= SLOT GRID ========= */
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.slot-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; transition: all .2s; position: relative; text-decoration: none; }
+.slot-card .slot-time { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); letter-spacing: -.3px; }
+.slot-card .slot-dash { color: var(--muted); font-weight: 700; margin: 0 4px; }
+.slot-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.sb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sb-aktif { background: var(--green-lt); color: var(--green); }
+.sb-nonaktif { background: var(--red-lt); color: var(--red); }
+.sb-booked { background: rgba(107,114,128,.15); color: #4B5563; }
+.slot-actions { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--border-lt); }
+.slot-actions .btn-action { width: 28px; height: 28px; font-size: 11px; }
+.slot-aktif { border-color: rgba(16,185,129,.35); background: linear-gradient(180deg, rgba(16,185,129,.04), #fff 60%); }
+.slot-aktif:hover { border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.15); transform: translateY(-1px); }
+.slot-nonaktif { border-color: rgba(239,68,68,.25); background: linear-gradient(180deg, rgba(239,68,68,.04), #fff 60%); }
+.slot-nonaktif:hover { border-color: var(--red); }
+.slot-booked { border-color: rgba(107,114,128,.25); background: linear-gradient(180deg, rgba(107,114,128,.06), #fff 60%); }
+.slot-past { opacity: .55; }
+.slot-past .slot-actions { pointer-events: none; }
+.slot-empty { border-style: dashed; background: var(--bg); color: var(--muted); align-items: center; justify-content: center; text-align: center; min-height: 96px; cursor: pointer; }
+.slot-empty:hover { border-color: var(--orange); background: var(--orange-lt); color: var(--orange); }
+.slot-empty .slot-time { color: inherit; opacity: .9; }
+.slot-empty-cta { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.slot-empty-cta i { margin-right: 4px; }
+
+.jd-empty-big { text-align: center; padding: 60px 20px; background: var(--card-bg); border: 1px dashed var(--border); border-radius: 16px; color: var(--muted); }
+.jd-empty-big i { font-size: 48px; color: var(--border); margin-bottom: 12px; display: block; }
+.jd-empty-big div { font-size: 16px; font-weight: 700; color: var(--text); }
+.jd-empty-big p { font-size: 13px; margin-top: 6px; }
+
+/* Select in modal styled like a text input, with chevron */
+select.modal-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; padding-right: 40px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
 .modal-overlay.open { display: flex; }
@@ -631,13 +767,13 @@ input[type="time"].modal-input {
 </style>
 </head>
 <body>
-<!-- MODAL FORM JADWAL -->
+<!-- MODAL FORM JADWAL: Simplified — lapangan + tanggal + jam mulai (jam selesai otomatis +1 jam) -->
 <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalJadwal">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
             <div class="modal-subtitle">Kelola Jadwal</div>
-            <div class="modal-title"><?= $edit_data ? 'Edit Jadwal' : 'Tambah Jadwal Baru' ?></div>
+            <div class="modal-title"><?= $edit_data ? 'Edit Slot Jadwal' : 'Tambah Slot Jadwal' ?></div>
         </div>
         <div class="modal-body">
             <form method="POST" id="formJadwal" onsubmit="return validateForm()" novalidate>
@@ -649,8 +785,10 @@ input[type="time"].modal-input {
                 <label class="modal-label">Lapangan <span class="required">*</span></label>
                 <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
                     <option value="">Pilih Lapangan</option>
-                    <?php foreach ($lapangan_list as $lap): ?>
-                        <option value="<?= $lap['ID_Lapangan'] ?>" <?= (isset($edit_data['ID_Lapangan']) && $edit_data['ID_Lapangan'] == $lap['ID_Lapangan']) ? 'selected' : '' ?>>
+                    <?php
+                    $lap_sel = $edit_data['ID_Lapangan'] ?? $prefill_lapangan;
+                    foreach ($lapangan_list as $lap): ?>
+                        <option value="<?= $lap['ID_Lapangan'] ?>" <?= ($lap_sel == $lap['ID_Lapangan']) ? 'selected' : '' ?>>
                             <?= htmlspecialchars($lap['Nama_Lapangan']) ?>
                         </option>
                     <?php endforeach; ?>
@@ -658,37 +796,32 @@ input[type="time"].modal-input {
                 <div class="val-msg" id="val-id_lapangan"></div>
 
                 <label class="modal-label">Tanggal <span class="required">*</span></label>
-                <input type="date" name="tanggal" id="tanggal" class="modal-input" value="<?= isset($edit_data['Tanggal']) ? formatInputDate($edit_data['Tanggal']) : '' ?>" required>
+                <input type="date" name="tanggal" id="tanggal" class="modal-input"
+                       value="<?= isset($edit_data['Tanggal']) ? formatInputDate($edit_data['Tanggal']) : ($show_add ? htmlspecialchars($selected_date) : '') ?>"
+                       min="<?= $today ?>" required>
                 <div class="val-msg" id="val-tanggal"></div>
 
-                <!-- INFO JAM REAL-TIME -->
-                <div class="jam-info-box" id="jamInfoBox">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span id="jamInfoText">Jam mulai harus lebih besar dari jam sekarang</span>
-                </div>
+                <label class="modal-label">Jam Mulai <span class="required">*</span></label>
+                <select name="jam_mulai" id="jam_mulai" class="modal-input" required>
+                    <option value="">Pilih jam mulai</option>
+                    <?php
+                    $jam_sel = isset($edit_data['Jam_Mulai']) ? formatInputTime($edit_data['Jam_Mulai']) : $prefill_jam;
+                    foreach (daftarJamOperasional() as $jm):
+                        $jsel = hitungJamSelesai($jm);
+                    ?>
+                        <option value="<?= $jm ?>" <?= ($jam_sel === $jm) ? 'selected' : '' ?>><?= $jm ?> – <?= $jsel ?> WIB</option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="val-msg" id="val-jam_mulai"></div>
 
-                <div class="modal-grid-2">
-                    <div>
-                        <label class="modal-label">Jam Mulai <span class="required">*</span></label>
-                        <input type="time" name="jam_mulai" id="jam_mulai" class="modal-input" value="<?= isset($edit_data['Jam_Mulai']) ? formatInputTime($edit_data['Jam_Mulai']) : '' ?>" required>
-                        <div class="val-msg" id="val-jam_mulai"></div>
-                    </div>
-                    <div>
-                        <label class="modal-label">Jam Selesai <span class="required">*</span></label>
-                        <input type="time" name="jam_selesai" id="jam_selesai" class="modal-input" value="<?= isset($edit_data['Jam_Selesai']) ? formatInputTime($edit_data['Jam_Selesai']) : '' ?>" required>
-                        <div class="val-msg" id="val-jam_selesai"></div>
-                    </div>
-                </div>
-
-                <!-- INFO JAM OPERASIONAL -->
-                <div class="durasi-info-box" id="durasiInfoBox">
+                <div class="durasi-info-box">
                     <i class="fa-solid fa-clock"></i>
-                    <span>Jam operasional: <strong>08:30 - 00:00 WIB</strong> | Durasi minimal <strong>1 jam</strong></span>
+                    <span>Durasi otomatis <strong>1 jam</strong>. Jam operasional <strong>08:00 – 00:00 WIB</strong>.</span>
                 </div>
 
                 <button type="submit" name="save_jadwal" class="btn-submit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Jadwal' ?>
+                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Slot' ?>
                 </button>
                 <a onclick="closeModal()" class="btn-cancel">Batal</a>
             </form>
@@ -813,10 +946,9 @@ input[type="time"].modal-input {
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
+                <i class="fa-solid fa-user"></i>
                 <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
+                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
                 <?php endif; ?>
             </div>
             <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div></div>
@@ -840,21 +972,15 @@ input[type="time"].modal-input {
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            <a href="#" class="topbar-btn">
-                <i class="fa-solid fa-bell"></i>
-                <?php if($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
-            </a>
             <div class="dropdown-wrap" id="userDropdown">
                 <div class="topbar-user" onclick="toggleUserDropdown()">
                     <div class="t-avatar">
+                        <i class="fa-solid fa-user"></i>
                         <?php if (!empty($profile_photo)): ?>
-                            <img src="<?= $profile_photo ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fa-solid fa-user"></i>
+                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
                         <?php endif; ?>
                     </div>
-                    <div>
+                    <div class="t-info">
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
@@ -878,141 +1004,220 @@ input[type="time"].modal-input {
             <div class="stat-chips">
                 <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $aktif_count ?></span></div>
                 <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span class="chip-val"><?= $nonaktif_count ?></span></div>
-                <div class="stat-chip chip-blue"><i class="fa-solid fa-calendar-days"></i> TOTAL <span class="chip-val"><?= $total_jadwal ?></span></div>
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-calendar-days"></i> UPCOMING <span class="chip-val"><?= $total_upcoming ?></span></div>
             </div>
         </div>
 
-        <div class="action-bar">
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari jadwal..." onkeyup="searchTable()">
+        <!-- TAB VIEW: UPCOMING vs HISTORY -->
+        <div class="jd-tabs">
+            <a href="jadwal.php" class="jd-tab <?= $view_mode === 'upcoming' ? 'active' : '' ?>">
+                <i class="fa-solid fa-calendar-plus"></i> Jadwal Aktif
+                <span class="jd-tab-count"><?= $total_upcoming ?></span>
+            </a>
+            <a href="jadwal.php?view=history" class="jd-tab <?= $view_mode === 'history' ? 'active' : '' ?>">
+                <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Jadwal
+                <span class="jd-tab-count"><?= $total_history ?></span>
+            </a>
+            <div class="jd-tab-filler"></div>
+            <div class="jd-lapangan-filter">
+                <form method="GET" action="jadwal.php" class="jd-inline-form">
+                    <?php if ($view_mode === 'history'): ?><input type="hidden" name="view" value="history"><?php endif; ?>
+                    <?php if ($view_mode === 'upcoming' && $selected_date !== $today): ?><input type="hidden" name="tanggal" value="<?= htmlspecialchars($selected_date) ?>"><?php endif; ?>
+                    <label>Lapangan</label>
+                    <select name="f_lapangan" onchange="this.form.submit()" class="jd-select">
+                        <option value="">Semua Lapangan</option>
+                        <?php foreach ($lapangan_list as $lap): ?>
+                            <option value="<?= $lap['ID_Lapangan'] ?>" <?= $filter_lapangan == $lap['ID_Lapangan'] ? 'selected' : '' ?>><?= htmlspecialchars($lap['Nama_Lapangan']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
             </div>
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <div class="filter-dropdown-wrap">
-                    <button class="btn-filter" id="btnFilterToggle">
-                        <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
-                    </button>
-                    <div class="filter-card" id="filterCard">
-                        <h4>Filter Data</h4>
-                        <form method="GET" action="jadwal.php">
-                            <div class="filter-group">
-                                <label>Lapangan</label>
-                                <select name="f_lapangan" class="filter-input">
-                                    <option value="">Semua Lapangan</option>
-                                    <?php foreach ($lapangan_list as $lap): ?>
-                                        <option value="<?= $lap['ID_Lapangan'] ?>" <?= ($_GET['f_lapangan'] ?? '') == $lap['ID_Lapangan'] ? 'selected' : '' ?>><?= htmlspecialchars($lap['Nama_Lapangan']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Status</label>
-                                <select name="f_status" class="filter-input">
-                                    <option value="">Semua Status</option>
-                                    <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
-                                    <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>NONAKTIF</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Urutkan</label>
-                                <select name="f_sort" class="filter-input">
-                                    <option value="tanggal_asc" <?= ($_GET['f_sort'] ?? '') === 'tanggal_asc' ? 'selected' : '' ?>>Tanggal Terdekat</option>
-                                    <option value="lapangan_asc" <?= ($_GET['f_sort'] ?? '') === 'lapangan_asc' ? 'selected' : '' ?>>Lapangan A-Z</option>
-                                </select>
-                            </div>
-                            <div class="filter-buttons">
-                                <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-                                <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i> Terapkan</button>
-                            </div>
-                        </form>
+        </div>
+
+<?php if ($view_mode === 'upcoming'): ?>
+        <!-- ===== MODE UPCOMING: DATE SCROLLER + PER-LAPANGAN SLOT GRID ===== -->
+        <div class="date-scroller">
+            <?php
+            // Prev arrow: geser scroller 1 hari mundur (tapi jangan sebelum hari ini)
+            $prev_date = (new DateTime($scroller_dates[0]))->modify('-1 day')->format('Y-m-d');
+            if ($prev_date < $today) $prev_date = $today;
+            $next_date = (new DateTime(end($scroller_dates)))->modify('+1 day')->format('Y-m-d');
+            ?>
+            <a href="?tanggal=<?= $prev_date ?><?= $filter_lapangan ? '&f_lapangan=' . $filter_lapangan : '' ?>" class="ds-arrow" title="Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
+            <div class="ds-days">
+                <?php foreach ($scroller_dates as $d):
+                    $is_today = ($d === $today);
+                    $is_selected = ($d === $selected_date);
+                ?>
+                    <a href="?tanggal=<?= $d ?><?= $filter_lapangan ? '&f_lapangan=' . $filter_lapangan : '' ?>"
+                       class="ds-day <?= $is_selected ? 'selected' : '' ?> <?= $is_today ? 'is-today' : '' ?>">
+                        <div class="ds-hari"><?= labelHariID($d, $hari_pendek) ?><?= $is_today ? ' • Hari ini' : '' ?></div>
+                        <div class="ds-tgl"><?= labelTanggalPanjang($d, $bulan_pendek) ?></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <a href="?tanggal=<?= $next_date ?><?= $filter_lapangan ? '&f_lapangan=' . $filter_lapangan : '' ?>" class="ds-arrow" title="Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
+            <form method="GET" action="jadwal.php" class="ds-picker" onchange="this.submit()">
+                <?php if ($filter_lapangan): ?><input type="hidden" name="f_lapangan" value="<?= $filter_lapangan ?>"><?php endif; ?>
+                <input type="date" name="tanggal" value="<?= htmlspecialchars($selected_date) ?>" min="<?= $today ?>" title="Pilih tanggal">
+            </form>
+        </div>
+
+        <!-- Daftar per lapangan -->
+        <?php
+        $lapangan_shown = $filter_lapangan
+            ? array_values(array_filter($lapangan_list, fn($l) => $l['ID_Lapangan'] == $filter_lapangan))
+            : $lapangan_list;
+
+        if (empty($lapangan_shown)): ?>
+            <div class="jd-empty-big">
+                <i class="fa-solid fa-layer-group"></i>
+                <div>Belum ada lapangan aktif</div>
+                <p>Tambah lapangan dulu di menu "Kelola Lapangan" sebelum bikin jadwal.</p>
+            </div>
+        <?php else:
+            foreach ($lapangan_shown as $lap):
+                $lap_id = $lap['ID_Lapangan'];
+                $slots_lap = $slots_by_lap[$lap_id] ?? [];
+                $slot_aktif_count = 0;
+                foreach ($slots_lap as $s) if ($s['Status'] == 1) $slot_aktif_count++;
+                $all_hours = daftarJamOperasional();
+                $missing_count = 0;
+                foreach ($all_hours as $jm) if (!isset($slots_lap[$jm])) $missing_count++;
+                $sekarang = date('H:i');
+                $is_today_view = ($selected_date === $today);
+        ?>
+            <div class="lap-block">
+                <div class="lap-block-head">
+                    <div>
+                        <div class="lap-name"><i class="fa-solid fa-basketball"></i> <?= htmlspecialchars($lap['Nama_Lapangan']) ?></div>
+                        <div class="lap-sub">
+                            <span><i class="fa-solid fa-circle-check" style="color:var(--green);"></i> <?= $slot_aktif_count ?> slot tersedia</span>
+                            <span class="lap-sub-sep">•</span>
+                            <span><i class="fa-solid fa-money-bill" style="color:var(--orange);"></i> Rp <?= number_format($lap['Harga_Sewa'], 0, ',', '.') ?> / jam</span>
+                        </div>
                     </div>
+                    <?php if ($missing_count > 0): ?>
+                    <form method="POST" action="jadwal.php" class="lap-gen-form" onsubmit="return confirmGenerate(this, '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?>', <?= $missing_count ?>);">
+                        <input type="hidden" name="generate_all" value="1">
+                        <input type="hidden" name="id_lapangan" value="<?= $lap_id ?>">
+                        <input type="hidden" name="tanggal" value="<?= htmlspecialchars($selected_date) ?>">
+                        <button type="submit" class="btn-generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate <?= $missing_count ?> Slot Kosong</button>
+                    </form>
+                    <?php endif; ?>
                 </div>
-                <a href="jadwal.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
-            </div>
-        </div>
 
+                <div class="slot-grid">
+                    <?php foreach ($all_hours as $jm):
+                        $slot = $slots_lap[$jm] ?? null;
+                        $jam_selesai_lbl = hitungJamSelesai($jm);
+                        $sudah_lewat = ($is_today_view && $jm <= $sekarang);
+                        if ($slot):
+                            $is_aktif = ($slot['Status'] == 1);
+                            $is_booked = isset($booking_flags[$slot['ID_Jadwal']]);
+                            $slot_cls = $is_booked ? 'slot-booked' : ($is_aktif ? 'slot-aktif' : 'slot-nonaktif');
+                            if ($sudah_lewat && !$is_booked) $slot_cls .= ' slot-past';
+                    ?>
+                        <div class="slot-card <?= $slot_cls ?>">
+                            <div class="slot-time"><?= $jm ?> <span class="slot-dash">–</span> <?= $jam_selesai_lbl ?></div>
+                            <div class="slot-status">
+                                <?php if ($is_booked): ?>
+                                    <span class="slot-badge sb-booked"><i class="fa-solid fa-lock"></i> Terpesan</span>
+                                <?php elseif ($is_aktif): ?>
+                                    <span class="slot-badge sb-aktif"><span class="sb-dot"></span> Tersedia</span>
+                                <?php else: ?>
+                                    <span class="slot-badge sb-nonaktif"><span class="sb-dot"></span> Nonaktif</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="slot-actions">
+                                <?php if (!$is_booked): ?>
+                                    <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                        <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?> onchange="confirmToggle('<?= $slot['ID_Jadwal'] ?>', <?= $slot['Status'] ?>)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <a href="?detail_id=<?= $slot['ID_Jadwal'] ?><?= $state_url ?>" class="btn-action btn-view" title="Detail"><i class="fa-solid fa-eye"></i></a>
+                                    <button type="button" onclick="confirmDelete('<?= $slot['ID_Jadwal'] ?>', '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?> pukul <?= $jm ?>')" class="btn-action btn-delete" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
+                                <?php else: ?>
+                                    <a href="?detail_id=<?= $slot['ID_Jadwal'] ?><?= $state_url ?>" class="btn-action btn-view" title="Detail"><i class="fa-solid fa-eye"></i></a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php else:
+                        // Slot kosong (belum ada di DB)
+                        $can_create = !$sudah_lewat;
+                    ?>
+                        <?php if ($can_create): ?>
+                        <a href="?add=1&pf_lap=<?= $lap_id ?>&pf_jam=<?= urlencode($jm) ?>&tanggal=<?= urlencode($selected_date) ?><?= $filter_lapangan ? '&f_lapangan=' . $filter_lapangan : '' ?>" class="slot-card slot-empty">
+                            <div class="slot-time"><?= $jm ?> <span class="slot-dash">–</span> <?= $jam_selesai_lbl ?></div>
+                            <div class="slot-empty-cta"><i class="fa-solid fa-plus"></i> Buat slot</div>
+                        </a>
+                        <?php else: ?>
+                        <div class="slot-card slot-empty slot-past">
+                            <div class="slot-time"><?= $jm ?> <span class="slot-dash">–</span> <?= $jam_selesai_lbl ?></div>
+                            <div class="slot-empty-cta" style="color:#B0B7C3;"><i class="fa-solid fa-clock-rotate-left"></i> Lewat</div>
+                        </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endforeach; endif; ?>
+
+<?php else: ?>
+        <!-- ===== MODE HISTORY: TABEL PAGINATED ===== -->
         <div class="card">
             <div class="table-wrap">
-                <table class="data-table" id="tbl">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th style="width: 80px;">No</th>
                             <th>Lapangan</th>
-                            <th>Waktu (Jam)</th>
+                            <th style="width: 180px;">Tanggal</th>
+                            <th style="width: 200px;">Waktu (Jam)</th>
                             <th style="width: 150px;">Status</th>
-                            <th style="text-align: left; width: 180px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php
-                    $has_data = false;
-                    $no = $offset + 1;
-                    if ($query):
-                    while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                        $has_data = true;
-                        $mulai_formatted = formatInputTime($row['Jam_Mulai']);
-                        $selesai_formatted = formatInputTime($row['Jam_Selesai']);
+                    if (!empty($history_rows)):
+                        $no = ($page - 1) * $hist_limit + 1;
+                        foreach ($history_rows as $row):
                     ?>
                         <tr>
-                            <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
-                            <td>
-                                <div class="jadwal-lapangan"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div>
-                            </td>
-                            <td>
-                                <div class="jadwal-waktu"><?= $mulai_formatted ?> - <?= $selesai_formatted ?> WIB</div>
-                            </td>
+                            <td style="font-weight:700;"><?= $no++ ?></td>
+                            <td><div class="jadwal-lapangan"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div></td>
+                            <td><?= formatInputDate($row['Tanggal']) ?></td>
+                            <td><div class="jadwal-waktu"><?= formatInputTime($row['Jam_Mulai']) ?> - <?= formatInputTime($row['Jam_Selesai']) ?> WIB</div></td>
                             <td>
                                 <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
                                     <span class="sp-dot"></span>
                                     <?= $row['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
                                 </span>
                             </td>
-                            <td>
-                                <div class="actions">
-                                    <a href="?detail_id=<?= $row['ID_Jadwal'] ?>" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></a>
-                                    <a href="?edit_id=<?= $row['ID_Jadwal'] ?>" class="btn-action btn-edit" title="Edit Jadwal"><i class="fa-solid fa-pen-to-square"></i></a>
-                                    <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                        <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Jadwal'] ?>', <?= $row['Status'] ?>)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                    <button onclick="confirmDelete('<?= $row['ID_Jadwal'] ?>', '<?= htmlspecialchars($row['Nama_Lapangan']) ?>')" class="btn-action btn-delete" title="Hapus Jadwal"><i class="fa-solid fa-trash-can"></i></button>
-                                </div>
-                            </td>
                         </tr>
-                    <?php endwhile; endif; ?>
-                    <?php if (!$has_data): ?>
-                        <tr>
-                            <td colspan="5">
-                                <div class="empty-state">
-                                    <i class="fa-solid fa-calendar-days"></i>
-                                    <div>Belum ada data jadwal</div>
-                                    <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">Tambah jadwal baru untuk memulai</div>
-                                </div>
-                            </td>
-                        </tr>
+                    <?php endforeach; else: ?>
+                        <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-clock-rotate-left"></i><div>Belum ada riwayat jadwal</div></div></td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
-
-        <?php if ($total_pages > 1): ?>
+        <?php if ($hist_total_pages > 1): ?>
         <div class="pagination-wrap">
-            <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+            <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $hist_limit) + 1 ?></strong> - <strong><?= min($page * $hist_limit, $hist_total) ?></strong> dari <strong><?= $hist_total ?></strong> riwayat</div>
             <div class="pagination-nav">
-                <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
-                <a href="?page=<?= $page - 1 ?><?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
-                <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                    <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
+                <?php $qhs = "&view=history" . ($filter_lapangan ? "&f_lapangan=$filter_lapangan" : ""); ?>
+                <a href="?page=1<?= $qhs ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-left"></i></a>
+                <a href="?page=<?= $page - 1 ?><?= $qhs ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-left"></i></a>
+                <?php for ($i = max(1, $page - 2); $i <= min($hist_total_pages, $page + 2); $i++): ?>
+                    <a href="?page=<?= $i ?><?= $qhs ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
                 <?php endfor; ?>
-                <a href="?page=<?= $page + 1 ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-right"></i></a>
-                <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-right"></i></a>
+                <a href="?page=<?= $page + 1 ?><?= $qhs ?>" class="page-btn <?= $page >= $hist_total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angle-right"></i></a>
+                <a href="?page=<?= $hist_total_pages ?><?= $qhs ?>" class="page-btn <?= $page >= $hist_total_pages ? 'disabled' : '' ?>"><i class="fa-solid fa-angles-right"></i></a>
             </div>
         </div>
-        <?php else: ?>
-        <div class="pagination-wrap">
-            <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data</div>
-        </div>
         <?php endif; ?>
+<?php endif; ?>
     </div>
 </main>
 <script>
@@ -1044,21 +1249,11 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-function closeModal() { 
-    window.location.href = 'jadwal.php'; 
-}
-
-function searchTable() {
-    var input = document.getElementById('src').value.toUpperCase();
-    var rows = document.getElementById('tbl').getElementsByTagName('tr');
-    for (var i = 1; i < rows.length; i++) {
-        var tdName = rows[i].getElementsByTagName('td')[1];
-        if (tdName) {
-            var match = false;
-            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            rows[i].style.display = match ? '' : 'none';
-        }
-    }
+function closeModal() {
+    // Kembali ke halaman yang sama tapi buang parameter modal (edit_id/detail_id/add/pf_*)
+    var url = new URL(window.location.href);
+    ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
+    window.location.href = url.pathname + (url.search ? url.search : '');
 }
 
 function validateField(fieldId, valId, rules) {
@@ -1076,203 +1271,67 @@ function validateField(fieldId, valId, rules) {
     return true;
 }
 
-// ===== VALIDASI JAM REAL-TIME (CLIENT-SIDE) =====
-function getTodayDate() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
-}
-
 function getCurrentTime() {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    return h + ':' + min;
-}
-
-function checkJamRealTime() {
-    const tanggalField = document.getElementById('tanggal');
-    const jamMulaiField = document.getElementById('jam_mulai');
-    const jamInfoBox = document.getElementById('jamInfoBox');
-    const jamInfoText = document.getElementById('jamInfoText');
-    
-    if (!tanggalField || !jamMulaiField || !jamInfoBox) return;
-    
-    const selectedDate = tanggalField.value;
-    const today = getTodayDate();
-    const currentTime = getCurrentTime();
-    
-    if (selectedDate === today) {
-        jamInfoBox.classList.add('show');
-        jamInfoText.innerText = 'Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB)';
-        
-        jamMulaiField.setAttribute('min', currentTime);
-        
-        if (jamMulaiField.value && jamMulaiField.value <= currentTime) {
-            jamMulaiField.classList.add('error');
-            const valMsg = document.getElementById('val-jam_mulai');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB).';
-            valMsg.classList.add('show');
-            return false;
-        }
-    } else {
-        jamInfoBox.classList.remove('show');
-        jamMulaiField.removeAttribute('min');
-    }
-    return true;
-}
-
-// ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
-function checkJamOperasional() {
-    const jamMulaiField = document.getElementById('jam_mulai');
-    const jamSelesaiField = document.getElementById('jam_selesai');
-    const valMulai = document.getElementById('val-jam_mulai');
-    const valSelesai = document.getElementById('val-jam_selesai');
-
-    if (!jamMulaiField || !jamSelesaiField) return true;
-
-    let valid = true;
-
-    // Jam mulai minimal 08:30
-    if (jamMulaiField.value && jamMulaiField.value < '08:30') {
-        jamMulaiField.classList.add('error');
-        valMulai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional dimulai pukul 08:30 WIB.';
-        valMulai.classList.add('show');
-        valid = false;
-    }
-
-    // Jam selesai maksimal 00:00 (tengah malam), tidak boleh di antara 00:00-08:30
-    if (jamSelesaiField.value && jamSelesaiField.value > '00:00' && jamSelesaiField.value < '08:30') {
-        jamSelesaiField.classList.add('error');
-        valSelesai.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam operasional berakhir pukul 00:00 WIB.';
-        valSelesai.classList.add('show');
-        valid = false;
-    }
-
-    return valid;
-}
-// =====================================================
-
-// ===== VALIDASI DURASI MINIMAL 1 JAM =====
-function checkDurasiMinimal() {
-    const jamMulaiField = document.getElementById('jam_mulai');
-    const jamSelesaiField = document.getElementById('jam_selesai');
-    const valMsg = document.getElementById('val-jam_selesai');
-    
-    if (!jamMulaiField || !jamSelesaiField || !jamMulaiField.value || !jamSelesaiField.value) return true;
-    
-    const mulai = jamMulaiField.value;
-    const selesai = jamSelesaiField.value;
-    
-    const [h1, m1] = mulai.split(':').map(Number);
-    const [h2, m2] = selesai.split(':').map(Number);
-    
-    let selesaiMenit = h2 * 60 + m2;
-    if (selesai === '00:00') {
-        selesaiMenit = 24 * 60;
-    }
-    
-    const mulaiMenit = h1 * 60 + m1;
-    const selisihMenit = selesaiMenit - mulaiMenit;
-    const selisihJam = selisihMenit / 60;
-    
-    if (selisihJam < 1) {
-        jamSelesaiField.classList.add('error');
-        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Durasi minimal 1 jam.';
-        valMsg.classList.add('show');
-        return false;
-    }
-    return true;
-}
-
-// ===== VALIDASI BATAS JAM 00:00 =====
-function checkBatasJam() {
-    const jamMulaiField = document.getElementById('jam_mulai');
-    const jamSelesaiField = document.getElementById('jam_selesai');
-    const valMsg = document.getElementById('val-jam_selesai');
-    
-    if (!jamMulaiField || !jamSelesaiField || !jamMulaiField.value || !jamSelesaiField.value) return true;
-    
-    const mulai = jamMulaiField.value;
-    const selesai = jamSelesaiField.value;
-    
-    // Jika selesai !== '00:00' dan mulai > selesai → melewati tengah malam
-    if (selesai !== '00:00' && mulai > selesai) {
-        jamSelesaiField.classList.add('error');
-        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam selesai maksimal 00:00 WIB. Penyewaan tutup setelah tengah malam.';
-        valMsg.classList.add('show');
-        return false;
-    }
-    
-    return true;
+    return String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 }
 
 function validateForm() {
     let valid = true;
     document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
     document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
-    if (!validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' })) valid = false;
-    if (!validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' })) valid = false;
-    if (!validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' })) valid = false;
-    if (!validateField('jam_selesai', 'val-jam_selesai', { required: true, label: 'Jam selesai' })) valid = false;
-    if (valid) {
-        const tanggalField = document.getElementById('tanggal');
-        const tanggalVal = tanggalField.value;
-        const hariIni = new Date().toISOString().split('T')[0];
-        if (tanggalVal < hariIni) {
-            tanggalField.classList.add('error');
-            const valMsg = document.getElementById('val-tanggal');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal tidak boleh kurang dari hari ini.';
-            valMsg.classList.add('show');
-            valid = false;
-        }
-        // ===== VALIDASI JAM REAL-TIME =====
-        if (tanggalVal === hariIni) {
-            const currentTime = getCurrentTime();
-            const mulai = document.getElementById('jam_mulai').value;
-            if (mulai <= currentTime) {
-                document.getElementById('jam_mulai').classList.add('error');
-                const valMsg = document.getElementById('val-jam_mulai');
-                valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB).';
-                valMsg.classList.add('show');
-                valid = false;
-            }
-        }
-        // ====================================
-        const mulai = document.getElementById('jam_mulai').value;
-        const selesai = document.getElementById('jam_selesai').value;
-        
-        // ===== VALIDASI BATAS JAM 00:00 =====
-        if (!checkBatasJam()) {
-            valid = false;
-        }
-        // ====================================
-        
-        // ===== VALIDASI JAM SELESAI > JAM MULAI (kecuali 00:00) =====
-        if (selesai !== '00:00' && selesai <= mulai) {
-            document.getElementById('jam_selesai').classList.add('error');
-            const valMsg = document.getElementById('val-jam_selesai');
-            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam selesai harus lebih besar dari jam mulai.';
-            valMsg.classList.add('show');
-            valid = false;
-        }
-        // ====================================
-        
-        // ===== VALIDASI JAM OPERASIONAL (08:30 - 00:00) =====
-        if (!checkJamOperasional()) {
-            valid = false;
-        }
-        // =====================================================
 
-        // ===== VALIDASI DURASI MINIMAL 1 JAM =====
-        if (!checkDurasiMinimal()) {
+    if (!validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' })) valid = false;
+    if (!validateField('tanggal',     'val-tanggal',     { required: true, label: 'Tanggal'  })) valid = false;
+    if (!validateField('jam_mulai',   'val-jam_mulai',   { required: true, label: 'Jam mulai' })) valid = false;
+    if (!valid) return false;
+
+    const tanggalField = document.getElementById('tanggal');
+    const tanggalVal = tanggalField.value;
+    const hariIni = new Date().toISOString().split('T')[0];
+
+    if (tanggalVal < hariIni) {
+        tanggalField.classList.add('error');
+        const vm = document.getElementById('val-tanggal');
+        vm.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Tanggal tidak boleh kurang dari hari ini.';
+        vm.classList.add('show');
+        valid = false;
+    }
+
+    if (tanggalVal === hariIni) {
+        const currentTime = getCurrentTime();
+        const mulai = document.getElementById('jam_mulai').value;
+        if (mulai <= currentTime) {
+            document.getElementById('jam_mulai').classList.add('error');
+            const vm = document.getElementById('val-jam_mulai');
+            vm.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Jam mulai harus lebih besar dari jam sekarang (' + currentTime + ' WIB).';
+            vm.classList.add('show');
             valid = false;
         }
-        // =========================================
     }
     return valid;
+}
+
+function confirmGenerate(formEl, namaLap, jumlah) {
+    event.preventDefault();
+    Swal.fire({
+        title: 'Generate ' + jumlah + ' Slot?',
+        html: 'Semua slot 1-jam yang belum ada untuk <strong style="color:var(--orange)">' + namaLap + '</strong> pada tanggal ini akan dibuat sekaligus (status Aktif).',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#FF4500',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, generate!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        allowOutsideClick: false
+    }).then(function(result) {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: function(){ Swal.showLoading(); } });
+            formEl.submit();
+        }
+    });
+    return false;
 }
 
 function confirmToggle(id, status) {
@@ -1298,7 +1357,11 @@ function confirmToggle(id, status) {
                 didOpen: () => { Swal.showLoading(); }
             });
             setTimeout(() => {
-                window.location.href = '?toggle_id=' + id + '&s=' + status;
+                var url = new URL(window.location.href);
+                ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
+                url.searchParams.set('toggle_id', id);
+                url.searchParams.set('s', status);
+                window.location.href = url.pathname + '?' + url.searchParams.toString();
             }, 600);
         } else {
             var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
@@ -1328,7 +1391,10 @@ function confirmDelete(id, name) {
                 didOpen: () => { Swal.showLoading(); }
             });
             setTimeout(() => {
-                window.location.href = '?delete_id=' + id;
+                var url = new URL(window.location.href);
+                ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
+                url.searchParams.set('delete_id', id);
+                window.location.href = url.pathname + '?' + url.searchParams.toString();
             }, 600);
         }
     });
@@ -1378,40 +1444,13 @@ document.addEventListener('DOMContentLoaded', function() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     // ============================================
-    const idLapangan = document.getElementById('id_lapangan');
-    if (idLapangan) {
-        idLapangan.addEventListener('change', function() {
-            validateField('id_lapangan', 'val-id_lapangan', { required: true, label: 'Lapangan' });
+    ['id_lapangan','tanggal','jam_mulai'].forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el) el.addEventListener('change', function() {
+            var label = { id_lapangan: 'Lapangan', tanggal: 'Tanggal', jam_mulai: 'Jam mulai' }[fid];
+            validateField(fid, 'val-' + fid, { required: true, label: label });
         });
-    }
-    const tanggal = document.getElementById('tanggal');
-    if (tanggal) {
-        tanggal.addEventListener('change', function() {
-            validateField('tanggal', 'val-tanggal', { required: true, label: 'Tanggal' });
-            checkJamRealTime();
-        });
-    }
-    const jamMulai = document.getElementById('jam_mulai');
-    if (jamMulai) {
-        jamMulai.addEventListener('change', function() {
-            validateField('jam_mulai', 'val-jam_mulai', { required: true, label: 'Jam mulai' });
-            checkJamRealTime();
-            checkJamOperasional();
-            checkDurasiMinimal();
-            checkBatasJam();
-        });
-    }
-    const jamSelesai = document.getElementById('jam_selesai');
-    if (jamSelesai) {
-        jamSelesai.addEventListener('change', function() {
-            validateField('jam_selesai', 'val-jam_selesai', { required: true, label: 'Jam selesai' });
-            checkJamOperasional();
-            checkDurasiMinimal();
-            checkBatasJam();
-        });
-    }
-    
-    checkJamRealTime();
+    });
 });
 </script>
 </body>
