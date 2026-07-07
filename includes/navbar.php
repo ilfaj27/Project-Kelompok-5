@@ -87,7 +87,7 @@ function isActive($page, $dir = '') {
 }
 
 /* ═══════════════════════════════════════════
-   PROFILE DROPDOWN
+   LOGIN/JOIN BUTTONS
    ═══════════════════════════════════════════ */
 
 .nav-btns {
@@ -128,140 +128,257 @@ function isActive($page, $dir = '') {
     transform: translateY(-1px);
 }
 
-.profile-dropdown-container {
-    position: relative;
+/* ═══════════════════════════════════════════
+   PROFILE DROPDOWN - SAMA SEPERTI PEMBELIAN_ALAT.PHP
+   ═══════════════════════════════════════════ */
+
+/* CSS Variables */
+:root {
+    --primary: #FF5200;
+    --primary-hover: #E04800;
+    --text-gray: #8E8E93;
+    --white: #FFFFFF;
+    --green: #34C759;
+    --green-lt: rgba(52,199,89,0.10);
+    --transition-smooth: all 0.3s cubic-bezier(0.4,0,0.2,1);
 }
 
-.btn-profile-trigger {
+/* Nav User Container */
+.profile-dropdown-container {
+    position: relative;
+    height: 70px;
     display: flex;
     align-items: center;
-    gap: 8px;
+}
+
+/* Nav User Button */
+.btn-profile-trigger {
+    background: #F2F2F7;
+    border: 1px solid #E5E5EA;
     padding: 8px 16px;
-    background: transparent;
-    border: 2px solid rgba(255, 107, 53, 0.2);
     border-radius: 50px;
+    color: #1C1C1E;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: var(--transition-smooth);
     font-family: inherit;
 }
 
 .btn-profile-trigger:hover {
-    border-color: #FF6B35;
+    background: #E5E5EA;
+    border-color: var(--primary);
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(255,82,0,0.15);
 }
 
 .profile-dropdown-container.active .btn-profile-trigger {
-    border-color: #FF6B35;
-    background: rgba(255, 107, 53, 0.1);
+    border-color: var(--primary);
+    background: #E5E5EA;
 }
 
-.profile-icon-orange {
-    color: #FF6B35;
-    font-size: 24px;
+.btn-profile-trigger .profile-icon-orange {
+    font-size: 16px;
+    color: var(--primary);
+    transition: transform 0.3s ease;
 }
 
-.profile-trigger-name {
+.btn-profile-trigger:hover .profile-icon-orange {
+    transform: scale(1.2);
+}
+
+.btn-profile-trigger img.profile-icon-orange {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    font-size: unset;
+}
+
+.btn-profile-trigger:hover img.profile-icon-orange {
+    transform: scale(1.15);
+}
+
+.btn-profile-trigger .profile-trigger-name {
     font-size: 14px;
     font-weight: 600;
-    color: #333;
+    color: #1C1C1E;
     max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.chevron-icon {
-    color: #999;
-    font-size: 12px;
-    transition: transform 0.3s ease;
+.btn-profile-trigger .chevron-icon {
+    font-size: 11px;
+    color: #8E8E93;
+    transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.profile-dropdown-container.active .chevron-icon {
+.profile-dropdown-container.active .chevron-icon,
+.profile-dropdown-container:hover .chevron-icon {
     transform: rotate(180deg);
-    color: #FF6B35;
+    color: var(--primary);
 }
 
+/* Member Badge */
+.member-badge-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-lt);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Dropdown Menu */
 .profile-dropdown-menu {
     position: absolute;
-    top: calc(100% + 10px);
+    top: 85%;
     right: 0;
-    width: 260px;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: #16161a;
+    min-width: 220px;
+    border-radius: 12px;
+    border: 1px solid #2d2d33;
+    padding: 8px 0;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    overflow: hidden;
+    transform: translateY(-10px) scale(0.95);
+    transform-origin: top right;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1001;
 }
 
 .profile-dropdown-menu.show {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* User Info Header */
 .profile-dropdown-header {
-    padding: 20px;
-    background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%);
+    padding: 12px 20px;
+    border-bottom: 1px solid #2d2d33;
+    margin-bottom: 6px;
+    background: transparent;
 }
 
-.user-fullname {
+.profile-dropdown-header .user-fullname {
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 700;
     display: block;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 0;
 }
 
-.user-role {
-    display: inline-block;
-    color: rgba(255, 255, 255, 0.9);
+.profile-dropdown-header .user-role {
+    color: var(--text-gray);
     font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 1px;
     text-transform: uppercase;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 2px 10px;
-    border-radius: 20px;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    display: block;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
 }
 
-.profile-dropdown-divider {
-    height: 1px;
-    background: rgba(0, 0, 0, 0.06);
-}
-
+/* Dropdown Links */
 .profile-dropdown-list {
     list-style: none;
     margin: 0;
-    padding: 8px 0;
+    padding: 0;
+}
+
+.profile-dropdown-list li {
+    margin: 0;
+    padding: 0;
 }
 
 .profile-dropdown-list a {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 20px;
-    color: #555;
+    padding: 10px 20px;
+    color: #c5c5ca;
     text-decoration: none;
-    font-size: 14px;
-    transition: all 0.2s ease;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
 }
 
-.profile-dropdown-list a:hover {
-    background: rgba(255, 107, 53, 0.05);
-    color: #FF6B35;
+.profile-dropdown-list a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--primary);
+    transform: scaleY(0);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .profile-dropdown-list a i {
-    width: 20px;
+    font-size: 14px;
+    width: 16px;
     text-align: center;
-    color: #999;
+    color: inherit;
+    transition: transform 0.3s ease;
+}
+
+.profile-dropdown-list a:hover {
+    background: #222227;
+    color: var(--primary);
+    padding-left: 28px;
+}
+
+.profile-dropdown-list a:hover::after {
+    transform: scaleY(1);
 }
 
 .profile-dropdown-list a:hover i {
-    color: #FF6B35;
+    transform: scale(1.2);
+    color: inherit;
+}
+
+/* Logout special styling */
+.profile-dropdown-list a.logout:hover {
+    color: #ff3b30;
+}
+
+.profile-dropdown-list a.logout:hover::after {
+    background: #ff3b30;
+}
+
+/* Dropdown Divider */
+.profile-dropdown-divider {
+    height: 1px;
+    background: #2d2d33;
+    margin: 6px 0;
+}
+
+/* Animation keyframes */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(52,199,89,0.4); }
+    50% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(52,199,89,0); }
 }
 
 /* Spacer untuk navbar fixed */
@@ -290,17 +407,62 @@ function isActive($page, $dir = '') {
     </div>
     <div class="nav-btns">
         <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
+            <?php
+            // Ambil data customer untuk photo profile dan member
+            $nav_photo = '';
+            $nav_nama = $_SESSION['Nama_Customer'] ?? $_SESSION['nama'] ?? 'User';
+            $nav_has_member = false;
+            $nav_member_tipe = '';
+
+            if (isset($_SESSION['id_customer']) || isset($_SESSION['ID_Customer'])) {
+                $nav_id = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? '';
+                if (!empty($nav_id) && isset($conn)) {
+                    $nav_stmt = sqlsrv_query($conn, "SELECT Photo_Profile FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($nav_id));
+                    if ($nav_stmt) {
+                        $nav_data = sqlsrv_fetch_array($nav_stmt, SQLSRV_FETCH_ASSOC);
+                        $nav_photo = $nav_data['Photo_Profile'] ?? '';
+                    }
+                    // Cek member aktif
+                    $nav_member_check = sqlsrv_query($conn, 
+                        "SELECT TOP 1 T.Nama_Tipe FROM Langganan L INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe WHERE L.ID_Customer = ? AND L.Status = 1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai ORDER BY L.Tanggal_Selesai DESC", 
+                        array($nav_id)
+                    );
+                    if ($nav_member_check) {
+                        $nav_member_data = sqlsrv_fetch_array($nav_member_check, SQLSRV_FETCH_ASSOC);
+                        if ($nav_member_data) {
+                            $nav_has_member = true;
+                            $nav_member_tipe = $nav_member_data['Nama_Tipe'];
+                        }
+                    }
+                }
+            }
+
+            function navResolvePhoto($photo_path) {
+                if (empty($photo_path)) return '';
+                if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) return $photo_path;
+                if (strpos($photo_path, '../') === 0) return $photo_path;
+                if (strpos($photo_path, '/') === 0) return '..' . $photo_path;
+                return '../' . ltrim($photo_path, '/');
+            }
+            ?>
             <div class="profile-dropdown-container">
                 <button class="btn-profile-trigger" id="profileTrigger">
-                    <i class="fa-solid fa-circle-user profile-icon-orange"></i>
-                    <span class="profile-trigger-name"><?= htmlspecialchars($_SESSION['Nama_Customer'] ?? 'User') ?></span>
+                    <?php if (!empty($nav_photo) && file_exists(navResolvePhoto($nav_photo))): ?>
+                        <img src="<?= htmlspecialchars(navResolvePhoto($nav_photo)) ?>" alt="Avatar" class="profile-icon-orange">
+                    <?php else: ?>
+                        <i class="fa-solid fa-circle-user profile-icon-orange"></i>
+                    <?php endif; ?>
+                    <span class="profile-trigger-name"><?= htmlspecialchars($nav_nama) ?></span>
+                    <?php if ($nav_has_member): ?>
+                        <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?= htmlspecialchars($nav_member_tipe) ?></span>
+                    <?php endif; ?>
                     <i class="fa-solid fa-chevron-down chevron-icon"></i>
                 </button>
 
                 <div class="profile-dropdown-menu" id="profileDropdownMenu">
                     <div class="profile-dropdown-header">
-                        <span class="user-fullname"><?= htmlspecialchars($_SESSION['Nama_Customer'] ?? 'User') ?></span>
-                        <span class="user-role">CUSTOMER</span>
+                        <span class="user-fullname"><?= htmlspecialchars($nav_nama) ?></span>
+                        <span class="user-role">Customer <?= $nav_has_member ? '• Member ' . htmlspecialchars($nav_member_tipe) : '' ?></span>
                     </div>
                     <div class="profile-dropdown-divider"></div>
                     <ul class="profile-dropdown-list">
@@ -313,8 +475,8 @@ function isActive($page, $dir = '') {
                     <div class="profile-dropdown-divider"></div>
                     <ul class="profile-dropdown-list">
                         <li>
-                            <a href="<?= $prefix ?>login/logout.php">
-                                <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                            <a href="<?= $prefix ?>login/logout.php" class="logout">
+                                <i class="fa-solid fa-right-from-bracket"></i> Keluar
                             </a>
                         </li>
                     </ul>

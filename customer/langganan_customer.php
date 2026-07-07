@@ -16,35 +16,46 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
 }
 
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
-$nama_customer = $_SESSION['nama'] ?? 'Pelanggan';
 
 // ============================================================================
-// AMBIL DATA CUSTOMER
+// AMBIL DATA CUSTOMER (sama dengan pembatalan_customer.php)
 // ============================================================================
-$customer_data = null;
+$nama_customer = 'Pelanggan';
+$photo_profile = '';
+
 if (!empty($id_customer)) {
-    $stmt = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($id_customer));
-    if ($stmt) {
-        $customer_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    $cek_deleted = sqlsrv_query($conn,
+        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?",
+        array($id_customer)
+    );
+    if ($cek_deleted) {
+        $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
+        if ($row_cust) {
+            if ($row_cust['Is_Deleted'] == 1 || $row_cust['Status'] == 0) {
+                $_SESSION = array();
+                session_destroy();
+                setcookie('remember_me', '', time() - 3600, "/");
+                ob_end_clean();
+                header("Location: ../login/login.php?status=error&msg=Akun Anda telah dinonaktifkan.");
+                exit();
+            }
+            $nama_customer = $row_cust['Nama_Customer'] ?? 'Pelanggan';
+            $photo_profile = $row_cust['Photo_Profile'] ?? '';
+        }
     }
-}
-
-if (!$customer_data) {
-    header("Location: ../login/login.php?status=error&msg=Sesi tidak valid");
-    exit();
 }
 
 // ============================================================================
 // CEK STATUS MEMBER AKTIF
 // ============================================================================
 $member_aktif = null;
-$member_check = sqlsrv_query($conn, 
+$member_check = sqlsrv_query($conn,
     "SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
-     FROM Langganan L 
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
-     WHERE L.ID_Customer = ? AND L.Status = 1 
+     FROM Langganan L
+     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
+     WHERE L.ID_Customer = ? AND L.Status = 1
      AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
-     ORDER BY L.Tanggal_Selesai DESC", 
+     ORDER BY L.Tanggal_Selesai DESC",
     array($id_customer)
 );
 if ($member_check) {
@@ -58,10 +69,10 @@ $member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
 // AMBIL DATA TIPE MEMBER (yang aktif)
 // ============================================================================
 $tipe_member_list = [];
-$query_tipe = sqlsrv_query($conn, 
-    "SELECT ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status 
-     FROM Tipe_Member 
-     WHERE Status = 1 AND Is_Deleted = 0 
+$query_tipe = sqlsrv_query($conn,
+    "SELECT ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status
+     FROM Tipe_Member
+     WHERE Status = 1 AND Is_Deleted = 0
      ORDER BY Harga_Member ASC"
 );
 if ($query_tipe) {
@@ -71,7 +82,6 @@ if ($query_tipe) {
 }
 
 // ============================================================================
-// ============================================================================
 // PROSES PEMBELIAN LANGGANAN
 // ============================================================================
 $pembelian_msg = '';
@@ -80,54 +90,54 @@ $pembelian_error = '';
 if (isset($_POST['beli_langganan'])) {
     $id_tipe = $_POST['id_tipe'] ?? '';
     $metode_pembayaran = $_POST['metode_pembayaran'] ?? '';
-    
+
     if (empty($id_tipe) || empty($metode_pembayaran)) {
         $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
     } else {
-        $stmt_tipe = sqlsrv_query($conn, 
-            "SELECT * FROM Tipe_Member WHERE ID_Tipe = ? AND Status = 1 AND Is_Deleted = 0", 
+        $stmt_tipe = sqlsrv_query($conn,
+            "SELECT * FROM Tipe_Member WHERE ID_Tipe = ? AND Status = 1 AND Is_Deleted = 0",
             array($id_tipe)
         );
         $tipe_data = sqlsrv_fetch_array($stmt_tipe, SQLSRV_FETCH_ASSOC);
-        
+
         if (!$tipe_data) {
             $pembelian_error = 'Tipe member tidak valid!';
         } else {
             $cek_aktif = sqlsrv_query($conn,
-                "SELECT COUNT(*) as total FROM Langganan 
-                 WHERE ID_Customer = ? AND Status = 1 
+                "SELECT COUNT(*) as total FROM Langganan
+                 WHERE ID_Customer = ? AND Status = 1
                  AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai",
                 array($id_customer)
             );
             $row_aktif = sqlsrv_fetch_array($cek_aktif, SQLSRV_FETCH_ASSOC);
-            
+
             if ($row_aktif['total'] > 0) {
                 $pembelian_error = 'Anda masih memiliki langganan member aktif.';
             } else {
                 $cek_pending = sqlsrv_query($conn,
-                    "SELECT COUNT(*) as total FROM Langganan 
+                    "SELECT COUNT(*) as total FROM Langganan
                      WHERE ID_Customer = ? AND Status = 0",
                     array($id_customer)
                 );
                 $row_pending = sqlsrv_fetch_array($cek_pending, SQLSRV_FETCH_ASSOC);
-                
+
                 if ($row_pending['total'] > 0) {
                     $pembelian_error = 'Anda memiliki pendaftaran yang menunggu konfirmasi.';
                 } else {
                     $tanggal_mulai = date('Y-m-d');
                     $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
                     $total_bayar = $tipe_data['Harga_Member'];
-                    
+
                     $stmt_insert = sqlsrv_query($conn,
-                        "INSERT INTO Langganan 
-                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai, 
+                        "INSERT INTO Langganan
+                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai,
                           Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
                          OUTPUT INSERTED.ID_Langganan
                          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
-                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai, 
+                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai,
                               $total_bayar, $metode_pembayaran, $nama_customer)
                     );
-                    
+
                     if ($stmt_insert) {
                         $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
                         $last_id = $id_row['ID_Langganan'] ?? 0;
@@ -149,8 +159,8 @@ if (isset($_POST['beli_langganan'])) {
 $notif_status = $_GET['status'] ?? '';
 $notif_msg = $_GET['msg'] ?? '';
 
-function rupiahFormat($n) { 
-    return 'Rp ' . number_format($n, 0, ',', '.'); 
+function rupiahFormat($n) {
+    return 'Rp ' . number_format($n, 0, ',', '.');
 }
 
 function formatTanggal($tanggal) {
@@ -168,7 +178,33 @@ $status_labels = [
     3 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
 ];
 
-$photo_profile = $customer_data['Photo_Profile'] ?? '';
+/* ─── HELPER: RESOLVE PHOTO PATH (sama dengan pembatalan) ─── */
+function resolvePhotoPath($photo_path) {
+    if (empty($photo_path)) return '';
+    if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '../') === 0) {
+        return $photo_path;
+    }
+    if (strpos($photo_path, '/') === 0) {
+        return '..' . $photo_path;
+    }
+    return '../' . ltrim($photo_path, '/');
+}
+
+// Resolve profile photo path
+$resolvedPhotoProfile = resolvePhotoPath($photo_profile);
+
+// Generate initials fallback
+$initials = '';
+if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
+    $parts = explode(' ', $nama_customer);
+    $initials = strtoupper(substr($parts[0], 0, 1));
+    if (isset($parts[1])) {
+        $initials .= strtoupper(substr($parts[1], 0, 1));
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id" style="scroll-behavior: smooth;">
@@ -178,6 +214,7 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
     <title>Langganan Member | HoopBall</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
         :root {
@@ -233,7 +270,6 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         @keyframes countUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
         @keyframes drawLine{from{width:0}to{width:60px}}
 
-        
         @keyframes gradientShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -284,10 +320,6 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
             from { opacity: 0; transform: rotate(-10deg) scale(0.9); }
             to { opacity: 1; transform: rotate(0deg) scale(1); }
         }
-        @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
-        }
         @keyframes arrowBounce {
             0%, 100% { transform: translateX(0); }
             50% { transform: translateX(4px); }
@@ -295,10 +327,6 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         @keyframes searchPulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
             50% { box-shadow: 0 0 0 4px rgba(255, 90, 31, 0.15); }
-        }
-        @keyframes cardEnter {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         /* ═══ REVEAL ═══ */
         .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
@@ -312,239 +340,19 @@ $photo_profile = $customer_data['Photo_Profile'] ?? '';
         /* ═══ SCROLL PROGRESS ═══ */
         .scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--primary),#FF8C42);z-index:9999;transform-origin:left;transform:scaleX(0);transition:transform 0.1s ease-out}
 
-        /* ---- NAVBAR ---- */
-nav {
-    background: #FFFFFF;
-    padding: 0 80px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 76px;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    border-bottom: 1px solid #E5E5EA;
-}
-.nav-logo {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    gap: 10px;
-    transition: transform .3s ease;
-}
-.nav-logo:hover { transform: scale(1.05); }
-.nav-logo img {
-    height: 70px;
-    width: auto;
-    transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
-}
-.nav-logo:hover img { transform: rotate(5deg) scale(1.1); }
-.nav-links {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.nav-links a {
-    color: #636366;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 20px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-.nav-links a::before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 0;
-    height: 2px;
-    background: #FF5200;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(-50%);
-}
-.nav-links a:hover {
-    color: #1C1C1E;
-    transform: translateY(-2px);
-}
-.nav-links a:hover::before { width: 60%; }
-.nav-links a.active {
-    color: #FF5200;
-    font-weight: 600;
-}
-.nav-links a.active::before { width: 60%; }
-.nav-user-container {
-    position: relative;
-    height: 76px;
-    display: flex;
-    align-items: center;
-}
-.nav-user {
-    background: #F2F2F7;
-    border: 1px solid #E5E5EA;
-    padding: 8px 16px;
-    border-radius: 50px;
-    color: #1C1C1E;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.nav-user:hover {
-    background: #E5E5EA;
-    border-color: #FF5200;
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(255, 82, 0, .15);
-}
-.nav-user img.user-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
-    transition: transform .3s ease;
-}
-.nav-user:hover img.user-avatar { transform: scale(1.15); }
-.nav-user i.user-icon {
-    font-size: 16px;
-    color: #FF5200;
-    transition: transform .3s ease;
-}
-.nav-user:hover i.user-icon { transform: scale(1.2); }
-.nav-user i.arrow {
-    font-size: 11px;
-    color: #8E8E93;
-    transition: .3s cubic-bezier(.34, 1.56, .64, 1);
-}
-.nav-user-container:hover i.arrow {
-    transform: rotate(180deg);
-    color: #FF5200;
-}
-.dropdown-menu {
-    position: absolute;
-    top: 85%;
-    right: 0;
-    background: #16161a;
-    min-width: 220px;
-    border-radius: 12px;
-    border: 1px solid #2d2d33;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    padding: 8px 0;
-    display: none;
-    z-index: 1001;
-    transform-origin: top right;
-    opacity: 0;
-    transform: translateY(-10px) scale(0.95);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.nav-user-container:hover .dropdown-menu {
-    display: block;
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-.dropdown-menu .user-info-header {
-    padding: 12px 20px;
-    border-bottom: 1px solid #2d2d33;
-    margin-bottom: 6px;
-}
-.dropdown-menu .user-info-header span { display: block; }
-.dropdown-menu .user-info-header .u-name {
-    color: #FFFFFF;
-    font-size: 14px;
-    font-weight: 700;
-}
-.dropdown-menu .user-info-header .u-role {
-    color: #8E8E93;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
-}
-.dropdown-menu a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    color: #c5c5ca;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all .25s cubic-bezier(.16, 1, .3, 1);
-    position: relative;
-    overflow: hidden;
-}
-.dropdown-menu a::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 3px;
-    height: 100%;
-    background: #FF5200;
-    transform: scaleY(0);
-    transition: transform .25s cubic-bezier(.16, 1, .3, 1);
-}
-.dropdown-menu a i {
-    font-size: 14px;
-    width: 16px;
-    text-align: center;
-    transition: transform .3s ease;
-}
-.dropdown-menu a:hover {
-    background: #222227;
-    color: #FF5200;
-    padding-left: 28px;
-}
-.dropdown-menu a:hover::after { transform: scaleY(1); }
-.dropdown-menu a:hover i { transform: scale(1.2); }
-.dropdown-divider {
-    height: 1px;
-    background: #2d2d33;
-    margin: 6px 0;
-}
-.dropdown-menu a.logout:hover { color: #ff3b30; }
-.dropdown-menu a.logout:hover::after { background: #ff3b30; }
-
-/* ---- MEMBER BADGE ---- */
-.member-badge-nav {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(52, 199, 89, .10);
-    border: 1px solid #34C759;
-    color: #34C759;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 11px;
-    font-weight: 700;
-    margin-left: 8px;
-}
-
-@media(max-width: 1100px) {
-    nav { padding: 0 40px; }
-}
-@media(max-width: 768px) {
-    nav { padding: 0 20px; }
-    .nav-links { display: none; }
-}
-        .member-badge-nav {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--green-lt);
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 4px 12px;
-            border-radius: 50px;
-            font-size: 11px;
+        /* ═══ PROFILE AVATAR INITIALS ═══ */
+        .profile-avatar-initials {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--orange-hover));
+            color: #fff;
+            font-size: 10px;
             font-weight: 700;
-            margin-left: 8px;
-            animation: pulse 2s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
         /* ---- HERO SECTION ---- */
@@ -644,7 +452,6 @@ nav {
             color: #C0C0C5;
         }
 
-        
         /* ---- FLOATING BALLS ---- */
         .floating-ball {
             position: absolute;
@@ -695,7 +502,7 @@ nav {
             animation: glowPulse 4s ease-in-out infinite;
         }
 
-/* ---- MEMBER STATUS CARD ---- */
+        /* ---- MEMBER STATUS CARD ---- */
         .member-status-card {
             background: var(--white);
             border-radius: 16px;
@@ -940,10 +747,6 @@ nav {
             box-shadow: 0 20px 40px rgba(255,82,0,0.2);
             border-color: var(--primary);
         }
-        .pricing-card.recommended {
-            border-color: var(--primary);
-            box-shadow: 0 4px 20px rgba(255,82,0,.1);
-        }
         .popular-badge {
             position: absolute;
             top: -12px;
@@ -980,7 +783,7 @@ nav {
         .pricing-icon.silver { background: var(--blue-lt); color: var(--blue); }
         .pricing-icon.gold { background: var(--orange-lt); color: var(--orange); }
         .pricing-icon.platinum { background: var(--purple-lt); color: var(--purple); }
-        
+
         .pricing-name {
             font-size: 22px;
             font-weight: 800;
@@ -1121,12 +924,10 @@ nav {
             .hero { flex-direction: column; padding: 40px; }
             .member-status-card { min-width: auto; width: 100%; }
             .main-container { padding: 40px; }
-            nav { padding: 0 40px; }
         }
         @media(max-width: 768px) {
             .nav-links { display: none; }
             .main-container { padding: 20px; }
-            nav { padding: 0 20px; }
             .hero { padding: 30px 20px; }
             .hero-title { font-size: 28px; }
         }
@@ -1306,7 +1107,6 @@ nav {
         .btn-done-pay:hover i {
             transform: scale(1.2);
         }
-    
 
         /* ═══ PAGE LOADER ═══ */
         .page-loader {
@@ -1464,43 +1264,7 @@ nav {
 
 <div class="scroll-progress" id="scrollProgress"></div>
 
-<!-- NAVBAR -->
-<nav>
-    <a href="../index.php" class="nav-logo">
-        <img src="../asset/image/logo2.png" alt="HoopBall">
-    </a>
-    <div class="nav-links">
-        <a href="../index.php">Beranda</a>
-        <a href="booking_customer.php">Booking</a>
-        <a href="pembatalan_customer.php">Pembatalan</a>
-        <a href="langganan_customer.php" class="active">Member</a>
-        <a href="pembelian_alat.php">Pembelian</a>
-    </div>
-    <div class="nav-user-container">
-        <div class="nav-user">
-            <?php if (!empty($photo_profile) && file_exists($photo_profile)): ?>
-                <img src="<?php echo htmlspecialchars($photo_profile); ?>" alt="Avatar" class="user-avatar">
-            <?php else: ?>
-                <i class="fa-solid fa-circle-user user-icon"></i>
-            <?php endif; ?>
-            <span><?php echo htmlspecialchars($nama_customer); ?></span>
-            <?php if ($has_member): ?>
-                <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?php echo htmlspecialchars($member_tipe); ?></span>
-            <?php endif; ?>
-            <i class="fa-solid fa-chevron-down arrow"></i>
-        </div>
-        <div class="dropdown-menu">
-            <div class="user-info-header">
-                <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
-                <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
-            </div>
-            <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <div class="dropdown-divider"></div>
-            <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-        </div>
-    </div>
-</nav>
-
+<?php $path_prefix = '../'; include '../includes/navbar.php'; ?>
 <!-- HERO SECTION -->
 <section class="hero">
     <!-- Floating Balls Animation -->
@@ -1527,7 +1291,7 @@ nav {
             </div>
             <div class="member-status-text">
                 <h3>
-                    <?php 
+                    <?php
                     if ($has_member) {
                         echo 'Member ' . htmlspecialchars($member_tipe) . ' Aktif';
                     } elseif ($member_aktif) {
@@ -1538,7 +1302,7 @@ nav {
                     ?>
                 </h3>
                 <p>
-                    <?php 
+                    <?php
                     if ($has_member) {
                         echo 'Nikmati keuntungan member Anda';
                     } elseif ($member_aktif) {
@@ -1550,7 +1314,7 @@ nav {
                 </p>
             </div>
         </div>
-        
+
         <?php if ($has_member): ?>
         <div class="member-detail-row">
             <span class="member-detail-label">Tipe Member</span>
@@ -1571,7 +1335,7 @@ nav {
         <div class="member-detail-row">
             <span class="member-detail-label">Sisa Hari</span>
             <span class="member-detail-value green">
-               <?php 
+               <?php
                     $tgl_selesai = $member_aktif['Tanggal_Selesai'];
                     if (is_object($tgl_selesai) && method_exists($tgl_selesai, 'format')) {
                         $timestamp_selesai = $tgl_selesai->getTimestamp();
@@ -1636,7 +1400,7 @@ nav {
         <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; animation: fadeInUp 0.6s ease-out both;">
             <div style="position: relative; flex: 1; max-width: 400px;">
                 <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px;"></i>
-                <input type="text" id="searchTipeMember" placeholder="Cari tipe member..." 
+                <input type="text" id="searchTipeMember" placeholder="Cari tipe member..."
                     style="width: 100%; padding: 12px 16px 12px 42px; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); background: #fff; outline: none; transition: all 0.3s ease;"
                     onfocus="this.style.borderColor='var(--orange)'; this.style.boxShadow='0 0 0 3px var(--orange-glow)';"
                     onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none';"
@@ -1654,10 +1418,10 @@ nav {
 
         <div class="pricing-scroll-wrapper" style="position: relative; overflow: hidden; margin-bottom: 60px;">
             <div class="pricing-grid reveal-stagger" id="pricingGrid" style="display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 8px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
-                <?php 
+                <?php
                 $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
                 $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
-                foreach ($tipe_member_list as $tipe): 
+                foreach ($tipe_member_list as $tipe):
                     $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
                     $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
                     $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
@@ -1687,10 +1451,10 @@ nav {
                     <li><i class="fa-solid fa-check"></i> Diskon pembelian alat 5%</li>
                     <?php endif; ?>
                 </ul>
-                <button class="btn-pilih" 
+                <button class="btn-pilih"
                         onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
                         <?php echo ($has_member || $member_aktif) ? 'disabled' : ''; ?>>
-                    <?php 
+                    <?php
                     if ($has_member) {
                         echo 'Sudah Aktif';
                     } elseif ($member_aktif) {
@@ -1706,7 +1470,7 @@ nav {
         </div>
     </section>
 
-    
+
 
 
 </main>
@@ -1913,7 +1677,6 @@ nav {
         </form>
     </div>
 </div>
-
 
 <script>
 /* ─── ENHANCED ANIMATIONS (moved from head) ─── */

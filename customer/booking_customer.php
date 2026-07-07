@@ -375,17 +375,50 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border-color);border-radius:3px}
+
+/* ============ ANIMATIONS (disamakan dengan pembelian_alat.php / langganan_customer.php / pembatalan_customer.php) ============ */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,84,0,.35)}50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(255,84,0,0)}}
+@keyframes cardEnter{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes iconBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes loaderBounce{from{transform:translateY(0)}to{transform:translateY(-20px)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+
+/* ============ PAGE LOADER ============ */
+.page-loader{position:fixed;top:0;left:0;width:100%;height:100%;background:#0B0B0C;display:flex;align-items:center;justify-content:center;gap:8px;z-index:99999;transition:opacity 0.5s ease,visibility 0.5s ease}
+.page-loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.loader-ball{width:12px;height:12px;border-radius:50%;background:var(--orange);animation:loaderBounce 0.6s ease-in-out infinite alternate}
+.loader-ball:nth-child(2){animation-delay:0.2s}
+.loader-ball:nth-child(3){animation-delay:0.4s}
+
+/* ============ SCROLL PROGRESS ============ */
+.scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--orange),#FF8C42);z-index:9999;transform-origin:left;transform:scaleX(0);transition:transform 0.1s ease-out}
+
+/* ============ REVEAL ON SCROLL ============ */
+.reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
+.reveal.active{opacity:1;transform:translateY(0)}
+
 .booking-container{max-width:900px;margin:0 auto;padding:24px 20px 100px}
 .booking-header{margin-bottom:28px}
 .booking-header h1{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:10px}
-.booking-header h1 i{color:var(--orange);font-size:22px}
+.booking-header h1 i{color:var(--orange);font-size:22px;animation:iconBounce 2s ease-in-out infinite}
 .booking-header p{font-size:13px;color:var(--text-muted);margin-top:4px;font-weight:500}
 .date-section{margin-bottom:28px}
 .date-section-label{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .date-section-label i{color:var(--orange)}
 .date-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .date-scroll::-webkit-scrollbar{display:none}
-.date-chip{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);cursor:pointer;text-align:center;transition:var(--transition);position:relative}
+.date-chip{flex-shrink:0;min-width:64px;padding:12px 8px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);cursor:pointer;text-align:center;transition:var(--transition);position:relative;opacity:0;transform:translateY(20px);animation:fadeInUp 0.5s ease-out forwards}
+.date-chip:nth-child(1){animation-delay:0.05s}
+.date-chip:nth-child(2){animation-delay:0.1s}
+.date-chip:nth-child(3){animation-delay:0.15s}
+.date-chip:nth-child(4){animation-delay:0.2s}
+.date-chip:nth-child(5){animation-delay:0.25s}
+.date-chip:nth-child(6){animation-delay:0.3s}
+.date-chip:nth-child(7){animation-delay:0.35s}
 .date-chip:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:var(--shadow-md)}
 .date-chip.active{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 16px rgba(255,84,0,0.3)}
 .date-chip .day-name{font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:2px}
@@ -393,12 +426,14 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .date-chip .day-num{font-size:20px;font-weight:800;line-height:1}
 .date-chip .month-name{font-size:10px;font-weight:600;margin-top:2px}
 .date-chip.active .month-name{color:rgba(255,255,255,0.85)}
-.date-chip .today-badge{position:absolute;top:-6px;right:-6px;background:var(--orange);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px}
+.date-chip .today-badge{position:absolute;top:-6px;right:-6px;background:var(--orange);color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;animation:pulse 2s ease-in-out infinite}
 .court-section{margin-bottom:28px}
 .court-section-label{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .court-section-label i{color:var(--orange)}
-.court-card{background:var(--card-bg);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow:hidden;margin-bottom:16px;transition:var(--transition)}
-.court-card:hover{box-shadow:var(--shadow-lg)}
+.court-card{background:var(--card-bg);border-radius:var(--radius-lg);border:1px solid var(--border-color);overflow:hidden;margin-bottom:16px;transition:var(--transition);opacity:0;transform:translateY(30px) scale(0.95)}
+.court-card.visible{opacity:1;transform:translateY(0) scale(1)}
+.court-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-4px)}
+.court-card.visible:hover{transform:translateY(-4px) scale(1)}
 .court-card-top{display:flex}
 .court-img-wrap{width:200px;min-height:160px;flex-shrink:0;position:relative;overflow:hidden;background:linear-gradient(135deg,#FFF7ED 0%,#FFEDD5 100%)}
 .court-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform 0.5s ease}
@@ -411,15 +446,18 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .court-meta-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);font-weight:500}
 .court-meta-item i{font-size:11px;color:var(--orange)}
 .court-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.court-price{font-size:18px;font-weight:800;color:var(--orange)}
+.court-price{font-size:18px;font-weight:800;color:var(--orange);transition:var(--transition)}
+.court-card:hover .court-price{transform:scale(1.05)}
 .court-price span{font-size:12px;font-weight:600;color:var(--text-muted)}
-.court-slots-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--orange);color:#fff;padding:12px 20px;margin-top:4px;cursor:pointer;font-weight:700;font-size:13px;transition:var(--transition)}
+.court-slots-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--orange);color:#fff;padding:12px 20px;margin-top:4px;cursor:pointer;font-weight:700;font-size:13px;transition:var(--transition);position:relative;overflow:hidden}
+.court-slots-toggle::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.15);border-radius:50%;transform:translate(-50%,-50%);transition:width .5s,height .5s}
+.court-slots-toggle:hover::before{width:300px;height:300px}
 .court-slots-toggle:hover{background:var(--orange-dark)}
 .court-slots-toggle .toggle-icon{transition:transform 0.3s ease}
 .court-slots-toggle .toggle-icon.rotated{transform:rotate(180deg)}
 .court-slots-grid{display:none;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px 20px 20px}
 .court-slots-grid.open{display:grid}
-.mini-slot{position:relative;padding:12px 6px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);text-align:center;cursor:pointer;transition:var(--transition)}
+.mini-slot{position:relative;padding:12px 6px;border-radius:var(--radius-md);border:1.5px solid var(--border-color);background:var(--card-bg);text-align:center;cursor:pointer;transition:var(--transition);opacity:0;animation:scaleIn 0.3s ease-out forwards}
 .mini-slot:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:var(--shadow-sm)}
 .mini-slot.selected{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 16px rgba(255,84,0,0.3)}
 .mini-slot.dibooking,.mini-slot.lewat{background:var(--border-light);border-color:var(--border-light);color:var(--text-muted);cursor:not-allowed}
@@ -430,13 +468,13 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .mini-slot.selected .mini-status{color:rgba(255,255,255,0.85)}
 .mini-price{font-size:10px;font-weight:600;margin-top:4px;color:var(--text-muted)}
 .mini-slot.selected .mini-price{color:rgba(255,255,255,0.85)}
-.mini-check{position:absolute;top:-7px;right:-7px;width:18px;height:18px;background:#fff;color:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;box-shadow:var(--shadow-sm)}
-.cart-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--orange);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:var(--shadow-lg);transition:var(--transition);z-index:200}
+.mini-check{position:absolute;top:-7px;right:-7px;width:18px;height:18px;background:#fff;color:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;box-shadow:var(--shadow-sm);animation:scaleIn 0.2s ease-out}
+.cart-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--orange);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:var(--shadow-lg);transition:var(--transition);z-index:200;animation:pulse 2.5s ease-in-out infinite}
 .cart-fab:hover{background:var(--orange-dark);transform:translateY(-2px)}
 .cart-fab.hidden{display:none}
 .cart-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;padding:0 4px;border-radius:10px;display:flex;align-items:center;justify-content:center}
 .cart-panel-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:300;display:none}
-.cart-panel-overlay.active{display:block}
+.cart-panel-overlay.active{display:block;animation:fadeIn 0.2s ease-out}
 .cart-panel{position:fixed;top:0;right:-380px;width:360px;max-width:90vw;height:100%;background:var(--card-bg);z-index:301;transition:right 0.3s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,0.15)}
 .cart-panel.active{right:0}
 .cart-panel-header{padding:20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
@@ -444,25 +482,24 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .cart-panel-body{flex:1;overflow-y:auto;padding:16px 20px}
 .cart-group-title{font-size:12px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px}
 .cart-group-title:first-child{margin-top:0}
-.cart-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-light);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px}
+.cart-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-light);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;animation:fadeInUp 0.3s ease-out}
 .cart-item-info{font-size:12px;color:var(--dark);font-weight:600;line-height:1.5}
 .cart-item-info small{display:block;color:var(--text-muted);font-weight:500;margin-top:2px}
-.cart-item-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:6px;flex-shrink:0}
+.cart-item-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:6px;flex-shrink:0;transition:var(--transition)}
+.cart-item-remove:hover{transform:scale(1.15)}
 .cart-empty{text-align:center;color:var(--text-muted);padding:60px 20px;font-size:13px;line-height:1.6}
 .cart-empty i{display:block;margin-bottom:12px;opacity:0.4}
 .cart-panel-footer{padding:16px 20px 20px;border-top:1px solid var(--border-color)}
 .cart-total-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .cart-total-label{font-size:12px;color:var(--text-muted);font-weight:600}
-.cart-total-value{font-size:20px;font-weight:800;color:var(--orange)}
+.cart-total-value{font-size:20px;font-weight:800;color:var(--orange);animation:fadeInUp 0.3s ease-out}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
 .modal-overlay.active{display:flex;animation:fadeIn 0.2s ease-out}
 .modal-card{background:var(--card-bg);border-radius:var(--radius-lg);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:slideUp 0.3s ease-out}
-@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal-header{padding:24px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
 .modal-title{font-size:16px;font-weight:700;color:var(--dark)}
 .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--border-light);color:var(--text-muted);cursor:pointer;font-size:14px;transition:var(--transition)}
-.modal-close:hover{background:var(--red-light);color:var(--red)}
+.modal-close:hover{background:var(--red-light);color:var(--red);transform:rotate(90deg)}
 .modal-body{padding:24px}
 .modal-footer{padding:16px 24px 24px;display:flex;gap:10px}
 .modal-footer .btn-full{flex:1}
@@ -482,7 +519,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .payment-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition)}
 .payment-option.selected .payment-radio{border-color:var(--orange)}
 .payment-radio::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--orange);display:none}
-.payment-option.selected .payment-radio::after{display:block}
+.payment-option.selected .payment-radio::after{display:block;animation:scaleIn 0.2s ease-out}
 .payment-info{flex:1}
 .payment-name{font-size:13px;font-weight:700;color:var(--dark)}
 .payment-desc{font-size:11px;color:var(--text-muted);margin-top:2px}
@@ -493,7 +530,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .promo-select:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-glow)}
 .promo-locked{padding:12px 14px;background:var(--border-light);border-radius:var(--radius-md);font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:8px}
 .promo-locked i{color:#F59E0B}
-.btn-primary{background:var(--orange);color:#fff;border:none;padding:14px 24px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:var(--transition);display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn-primary{background:var(--orange);color:#fff;border:none;padding:14px 24px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:var(--transition);display:flex;align-items:center;justify-content:center;gap:8px;width:100%;position:relative;overflow:hidden}
+.btn-primary::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .6s,height .6s}
+.btn-primary:hover:not(:disabled)::before{width:400px;height:400px}
 .btn-primary:hover{background:var(--orange-dark);transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,84,0,0.3)}
 .btn-primary:disabled{background:var(--text-muted);cursor:not-allowed;transform:none;box-shadow:none}
 .btn-secondary{background:var(--border-light);color:var(--dark);border:none;padding:14px 24px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:var(--transition)}
@@ -509,11 +548,11 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .qris-box{text-align:center;padding:20px}
 .qris-img{width:180px;height:180px;object-fit:contain;margin:0 auto 16px;display:block}
 .countdown-box{background:var(--orange-light);border:1.5px solid var(--orange-glow);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px}
-.countdown-box i{color:var(--orange)}
+.countdown-box i{color:var(--orange);animation:pulse 2s infinite}
 .countdown-text{font-size:12px;font-weight:700;color:var(--orange)}
 .total-box{background:var(--border-light);border-radius:var(--radius-md);padding:16px;text-align:center;margin-bottom:20px}
 .total-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase}
-.total-amount{font-size:28px;font-weight:800;color:var(--orange);margin-top:4px}
+.total-amount{font-size:28px;font-weight:800;color:var(--orange);margin-top:4px;animation:fadeInUp 0.4s ease-out}
 .empty-state{text-align:center;padding:24px;color:var(--text-muted)}
 .empty-state i{font-size:32px;margin-bottom:10px;opacity:0.5}
 .empty-state p{font-size:13px;font-weight:600}
@@ -530,13 +569,22 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 </style>
 </head>
 <body>
+
+<div class="page-loader" id="pageLoader">
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+    <div class="loader-ball"></div>
+</div>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+
 <?php $path_prefix = '../'; include '../includes/navbar.php'; ?>
 <div class="booking-container">
-<div class="booking-header">
+<div class="booking-header reveal">
 <h1><i class="fa-solid fa-basketball"></i> Pilih Lapangan</h1>
 <p>Pilih tanggal, buka jadwal tiap lapangan, lalu klik jam yang tersedia untuk langsung menambahkannya ke keranjang.</p>
 </div>
-<div class="date-section">
+<div class="date-section reveal">
 <div class="date-section-label"><i class="fa-solid fa-calendar-days"></i> Pilih Tanggal</div>
 <div class="date-scroll" id="dateScroll">
 <?php foreach ($dateList as $idx => $d): ?>
@@ -550,7 +598,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 </div>
 </div>
 <div class="court-section">
-<div class="court-section-label"><i class="fa-solid fa-layer-group"></i> Pilih Lapangan</div>
+<div class="court-section-label reveal"><i class="fa-solid fa-layer-group"></i> Pilih Lapangan</div>
 <?php if (!empty($lapanganList)): ?>
 <?php foreach ($lapanganList as $idx => $lap):
     $cId = $lap['ID_Lapangan'];
@@ -764,11 +812,12 @@ function renderCourtSlots(courtId, slots) {
     const courtName = courtCard.dataset.name;
 
     grid.innerHTML = '';
-    slots.forEach(slot => {
+    slots.forEach((slot, index) => {
         const el = document.createElement('div');
         const isSelected = cart.some(c => c.idJadwal == slot.ID_Jadwal);
         el.className = 'mini-slot' + (slot.Status !== 'tersedia' ? ' ' + slot.Status : '') + (isSelected ? ' selected' : '');
         el.dataset.idJadwal = slot.ID_Jadwal;
+        el.style.animationDelay = (index * 0.03) + 's';
 
         let statusLabel = 'Tersedia';
         if (slot.Status === 'dibooking') statusLabel = 'Sedang Dibooking';
@@ -1039,6 +1088,36 @@ function finishPayment() {
 
 document.addEventListener('DOMContentLoaded', () => {
     reloadAllCourtSlots();
+
+    /* Entrance animation untuk kartu lapangan */
+    const cardObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => { entry.target.classList.add('visible'); }, index * 100);
+                cardObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.court-card').forEach(card => cardObserver.observe(card));
+
+    /* Reveal-on-scroll untuk header & label section */
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
+    }, { threshold: .1, rootMargin: '0px 0px -50px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+    /* Page loader */
+    const loader = document.getElementById('pageLoader');
+    if (loader) {
+        setTimeout(() => { loader.classList.add('hidden'); }, 500);
+    }
+});
+
+/* Scroll progress bar */
+window.addEventListener('scroll', () => {
+    const st = document.documentElement.scrollTop || document.body.scrollTop;
+    const sh = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    document.getElementById('scrollProgress').style.transform = `scaleX(${sh > 0 ? st / sh : 0})`;
 });
 
 const urlParams = new URLSearchParams(window.location.search);
