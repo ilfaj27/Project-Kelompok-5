@@ -94,10 +94,23 @@ function processPhotoUpload($file, $edit_data = null) {
     return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
 }
 
+// === KONFIGURASI KATEGORI & UKURAN ===
+// Kalau mau ubah daftar ukuran per kategori, cukup edit array ini (otomatis ikut ke form JS)
+$KATEGORI_SIZES = [
+    'Baju'        => ['S', 'M', 'L', 'XL', 'XXL'],
+    'Celana'      => ['S', 'M', 'L', 'XL', 'XXL'],
+    'Bola Basket' => ['Size 5', 'Size 6', 'Size 7'],
+    'Sepatu'      => ['38', '39', '40', '41', '42', '43', '44', '45'],
+    'Headband'    => ['All Size'],
+    'Kaos Kaki'   => ['All Size'],
+    'Lainnya'     => ['All Size'],
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
     $nama_alat = trim($_POST['nama_alat'] ?? '');
-    $stok_raw = preg_replace('/[^0-9]/', '', trim($_POST['stok'] ?? ''));
+    $kategori = trim($_POST['kategori'] ?? '');
+    $stok_size_raw = isset($_POST['stok_size']) && is_array($_POST['stok_size']) ? $_POST['stok_size'] : [];
     $harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_alat'] ?? ''));
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
     $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
@@ -108,14 +121,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     } elseif (strlen($nama_alat) > 25) {
         $errors[] = 'Nama alat maksimal 25 karakter.';
     }
-    if ($stok_raw === '' || !is_numeric($stok_raw)) {
-        $errors[] = 'Stok harus berupa angka.';
-    } else {
-        $stok_num = intval($stok_raw);
-        if ($stok_num <= 0) {
-            $errors[] = 'Stok tidak boleh 0 atau kurang dari 0.';
-        } elseif ($stok_num > 9999) {
-            $errors[] = 'Stok maksimal 9999.';
+    // Validasi kategori
+    if ($kategori === '' || !array_key_exists($kategori, $KATEGORI_SIZES)) {
+        $errors[] = 'Kategori alat wajib dipilih.';
+    }
+
+    // Validasi stok per ukuran (total stok = jumlah semua ukuran)
+    $sizes_clean = [];
+    $stok_total = 0;
+    if ($kategori !== '' && array_key_exists($kategori, $KATEGORI_SIZES)) {
+        foreach ($KATEGORI_SIZES[$kategori] as $ukuran) {
+            $val = trim($stok_size_raw[$ukuran] ?? '');
+            if ($val === '') $val = '0';
+            if (!preg_match('/^[0-9]+$/', $val)) {
+                $errors[] = 'Stok ukuran ' . $ukuran . ' harus berupa angka.';
+                continue;
+            }
+            $val_num = intval($val);
+            if ($val_num > 9999) {
+                $errors[] = 'Stok ukuran ' . $ukuran . ' maksimal 9999.';
+                continue;
+            }
+            $sizes_clean[$ukuran] = $val_num;
+            $stok_total += $val_num;
+        }
+        if ($stok_total <= 0) {
+            $errors[] = 'Minimal satu ukuran harus memiliki stok lebih dari 0.';
+        } elseif ($stok_total > 9999) {
+            $errors[] = 'Total stok semua ukuran maksimal 9999.';
         }
     }
     if ($harga_raw === '' || !is_numeric($harga_raw)) {
@@ -129,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         }
     }
     if (empty($errors)) {
-        $stok = intval($stok_raw);
+        $stok = $stok_total; // total stok = akumulasi stok semua ukuran
         $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
@@ -141,14 +174,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
 
     if (empty($errors)) {
         if ($edit_mode && $id > 0) {
-            $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Modified_By=?";
-            $params = [$id, $nama_alat, $stok, $harga_alat, $photo_alat, $nama];
+            $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Modified_By=?, @Kategori=?";
+            $params = [$id, $nama_alat, $stok, $harga_alat, $photo_alat, $nama, $kategori];
         } else {
-            $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Status=1, @Created_By=?";
-            $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama];
+            $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Status=1, @Created_By=?, @Kategori=?";
+            $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $kategori];
         }
         $result = safeQuery($conn, $sql, $params);
         if ($result !== false) {
+            // Tentukan ID alat yang barusan disimpan
+            $target_id = $id;
+            if (!$edit_mode) {
+                $row_new = safeFetch($result); // SP_Alat_Insert mengembalikan New_ID_Alat
+                if ($row_new && isset($row_new['New_ID_Alat'])) {
+                    $target_id = intval($row_new['New_ID_Alat']);
+                }
+                if ($target_id <= 0) {
+                    // Fallback: cari berdasarkan nama alat (nama unik karena ada CheckDuplicate)
+                    $q_fid = safeQuery($conn, "SELECT MAX(ID_Alat) AS mid FROM Alat WHERE Nama_Alat = ? AND Is_Deleted = 0", [$nama_alat]);
+                    if ($q_fid) {
+                        $row_fid = safeFetch($q_fid);
+                        if ($row_fid) $target_id = intval($row_fid['mid']);
+                    }
+                }
+            }
+
+            // Simpan stok per ukuran: hapus dulu semua, lalu insert ulang
+            if ($target_id > 0) {
+                safeQuery($conn, "EXEC SP_AlatSize_DeleteByAlat @ID_Alat = ?", [$target_id]);
+                foreach ($sizes_clean as $ukuran => $stok_ukuran) {
+                    if ($stok_ukuran > 0) {
+                        safeQuery($conn, "EXEC SP_AlatSize_Insert @ID_Alat = ?, @Ukuran = ?, @Stok = ?", [$target_id, $ukuran, $stok_ukuran]);
+                    }
+                }
+            }
+
             ob_end_clean();
             $msg = $edit_mode ? 'Data alat berhasil diperbarui!' : 'Alat baru berhasil ditambahkan!';
             header("Location: alat.php?status=success&msg=" . urlencode($msg));
@@ -201,19 +261,35 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
+// Helper: ambil stok per ukuran suatu alat -> ['S' => 5, 'M' => 10, ...]
+function getAlatSizes($conn, $id_alat) {
+    $sizes = [];
+    $r = safeQuery($conn, "EXEC SP_AlatSize_SelectByAlat @ID_Alat = ?", [intval($id_alat)]);
+    if ($r) {
+        while ($row = sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC)) {
+            $sizes[$row['Ukuran']] = intval($row['Stok']);
+        }
+    }
+    return $sizes;
+}
+
 $edit_data = null;
+$edit_sizes = [];
 if (isset($_GET['edit_id'])) {
     $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['edit_id'])]);
     if ($r) $edit_data = safeFetch($r);
+    if ($edit_data) $edit_sizes = getAlatSizes($conn, $edit_data['ID_Alat']);
 }
 
 $detail_data = null;
+$detail_sizes = [];
 $show_detail = false;
 if (isset($_GET['detail_id'])) {
     $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['detail_id'])]);
     if ($r) {
         $detail_data = safeFetch($r);
         $show_detail = ($detail_data !== false && $detail_data !== null);
+        if ($show_detail) $detail_sizes = getAlatSizes($conn, $detail_data['ID_Alat']);
     }
 }
 
@@ -267,10 +343,6 @@ if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
 } else {
     $query = safeQuery($conn, "EXEC SP_Alat_SelectFiltered @SortBy = ?, @PageNumber = ?, @PageSize = ?", [$sort_by_param, $page, $limit]);
 }
-
-$q_pending = safeQuery($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=0");
-$total_pending = 0;
-if ($q_pending) { $row = safeFetch($q_pending); $total_pending = $row['t'] ?? 0; }
 
 $filter_url = "";
 if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
@@ -333,7 +405,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
 .sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); transition: all 0.3s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
 .sb-user:hover { background: rgba(255,255,255,.08); border-color: rgba(255,69,0,.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
+.sb-avatar > img { position: absolute; inset: 0; z-index: 2; }
 .sb-user:hover .sb-avatar { transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
 .sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transition: transform 0.3s ease; }
 .sb-user:hover .sb-avatar img { transform: scale(1.1); }
@@ -386,13 +459,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
-.topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
-.topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
-.t-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
-.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
-.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
+.topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 6px; border-radius: 12px; cursor: pointer; transition: .2s; height: 46px; }
+.topbar-user:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(255,69,0,.08); }
+.t-avatar { width: 34px; height: 34px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; border: 2px solid var(--orange-lt); }
+.t-avatar i { position: relative; z-index: 1; }
+.t-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
+.t-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; line-height: 1; letter-spacing: .3px; }
+.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; flex-shrink: 0; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
 .dropdown-wrap.active .dropdown-menu { display: block; }
 .dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
@@ -556,6 +631,35 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
 .modal-label .required { color: var(--red); margin-left: 2px; font-size: 14px; font-weight: 900; }
 .modal-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; margin-bottom: 4px; outline: none; transition: all .2s; color: var(--text); }
+select.modal-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
+
+/* ===== STOK PER UKURAN (FORM) ===== */
+.size-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px; background: var(--bg); border: 1.5px dashed var(--border); border-radius: 12px; padding: 14px; margin-bottom: 8px; }
+.size-container.error { border-color: var(--red); background: var(--red-lt); }
+.size-hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-weight: 600; text-align: center; padding: 8px 0; }
+.size-hint i { color: var(--orange); margin-right: 6px; }
+.size-item { background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 10px; transition: all .2s; }
+.size-item:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
+.size-item-label { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; text-align: center; }
+.size-item input { width: 100%; border: none; outline: none; font-size: 14px; font-weight: 700; font-family: 'Barlow', sans-serif; text-align: center; color: var(--text); background: transparent; -moz-appearance: textfield; }
+.size-item input::-webkit-outer-spin-button, .size-item input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.size-item input::placeholder { color: #C4C9D0; font-weight: 500; }
+.size-total-row { display: flex; align-items: center; justify-content: space-between; background: var(--orange-lt); border: 1px solid rgba(255,69,0,.15); border-radius: 10px; padding: 10px 14px; margin-bottom: 4px; font-size: 12px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: .4px; }
+.size-total-val { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--orange); }
+
+/* ===== STOK PER UKURAN (DETAIL MODAL) ===== */
+.detail-size-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 16px 0 10px; display: flex; align-items: center; gap: 6px; }
+.detail-size-label i { color: var(--orange); font-size: 12px; }
+.detail-size-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+.detail-size-chip { background: var(--bg); border: 1px solid var(--border-lt); border-radius: 10px; padding: 8px 6px; text-align: center; transition: all .2s; }
+.detail-size-chip:hover { border-color: var(--orange); background: #fff; }
+.detail-size-chip .ds-size { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.detail-size-chip .ds-stok { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); line-height: 1.1; }
+.detail-size-chip .ds-stok span { font-size: 10px; font-weight: 600; color: var(--muted); font-family: 'Barlow', sans-serif; }
+.detail-kategori-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--blue-lt); color: var(--blue); border: 1px solid rgba(59,130,246,.2); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; margin-left: 6px; }
+
+/* ===== KATEGORI TAG DI KARTU ===== */
+.alat-card-cat { font-size: 10px; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
 .modal-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .modal-input::placeholder { color: #9CA3AF; }
 .modal-input.error { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-lt); }
@@ -869,11 +973,24 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                        placeholder="Contoh: Bola Basket SNI" autocomplete="off" maxlength="25">
                 <div class="val-msg" id="val-nama_alat"></div>
 
-                <label class="modal-label">Stok <span class="required">*</span></label>
-                <input type="number" name="stok" id="stok" class="modal-input"
-                       value="<?= htmlspecialchars($edit_data['Stok'] ?? '') ?>"
-                       placeholder="Contoh: 10" max="9999" autocomplete="off">
-                <div class="val-msg" id="val-stok"></div>
+                <label class="modal-label">Kategori Alat <span class="required">*</span></label>
+                <select name="kategori" id="kategori" class="modal-input" onchange="renderSizeInputs(this.value, null)">
+                    <option value="">-- Pilih Kategori --</option>
+                    <?php foreach (array_keys($KATEGORI_SIZES) as $kat): ?>
+                        <option value="<?= htmlspecialchars($kat) ?>" <?= (($edit_data['Kategori'] ?? '') === $kat) ? 'selected' : '' ?>><?= htmlspecialchars($kat) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="val-msg" id="val-kategori"></div>
+
+                <label class="modal-label">Stok per Ukuran <span class="required">*</span></label>
+                <div class="size-container" id="sizeContainer">
+                    <div class="size-hint"><i class="fa-solid fa-circle-info"></i> Pilih kategori terlebih dahulu untuk mengisi stok per ukuran.</div>
+                </div>
+                <div class="size-total-row">
+                    <span>Total Stok</span>
+                    <span class="size-total-val"><span id="totalStok">0</span> pcs</span>
+                </div>
+                <div class="val-msg" id="val-sizes"></div>
 
                 <label class="modal-label">Harga Jual <span class="required">*</span></label>
                 <input type="number" name="harga_alat" id="harga_alat" class="modal-input"
@@ -919,6 +1036,9 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
                         <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
                     </div>
+                    <div class="detail-kategori-badge">
+                        <i class="fa-solid fa-shapes"></i> <?= htmlspecialchars($detail_data['Kategori'] ?? 'Lainnya') ?>
+                    </div>
                 </div>
 
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
@@ -935,7 +1055,19 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     </div>
                 </div>
 
-                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117;">
+                <?php if (!empty($detail_sizes)): ?>
+                <div class="detail-size-label"><i class="fa-solid fa-ruler"></i> Detail Stok per Ukuran</div>
+                <div class="detail-size-grid">
+                    <?php foreach ($detail_sizes as $ukuran => $stok_ukuran): ?>
+                        <div class="detail-size-chip">
+                            <div class="ds-size"><?= htmlspecialchars($ukuran) ?></div>
+                            <div class="ds-stok"><?= intval($stok_ukuran) ?> <span>pcs</span></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+
+                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117; margin-top:20px;">
                     <i class="fa-solid fa-arrow-left"></i> Kembali
                 </button>
             <?php endif; ?>
@@ -977,10 +1109,9 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
+                <i class="fa-solid fa-user"></i>
                 <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
+                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
                 <?php endif; ?>
             </div>
             <div>
@@ -1009,21 +1140,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="clock-divider"></div>
                 <div class="clock-date" id="full-date">MEMUAT...</div>
             </div>
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-            <a href="#" class="topbar-btn">
-                <i class="fa-solid fa-bell"></i>
-                <?php if ($total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
-            </a>
             <div class="dropdown-wrap" id="userDropdown">
                 <div class="topbar-user" onclick="toggleUserDropdown()">
                     <div class="t-avatar">
+                        <i class="fa-solid fa-user"></i>
                         <?php if (!empty($profile_photo)): ?>
-                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fa-solid fa-user"></i>
+                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
                         <?php endif; ?>
                     </div>
-                    <div>
+                    <div class="t-info">
                         <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
                         <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
                     </div>
@@ -1132,6 +1257,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                     </div>
                 </div>
                 <div class="alat-card-info">
+                    <div class="alat-card-cat"><?= htmlspecialchars($row['Kategori'] ?? 'Lainnya') ?></div>
                     <div class="alat-card-name"><?= htmlspecialchars($row['Nama_Alat']) ?></div>
                     <div class="alat-card-price"><?= rupiah($row['Harga_Alat']) ?></div>
                     <div class="alat-card-meta">
@@ -1287,6 +1413,48 @@ function searchGrid() {
     });
 }
 
+// === KATEGORI & STOK PER UKURAN ===
+var SIZE_SETS = <?= json_encode($KATEGORI_SIZES) ?>;
+var EDIT_SIZES = <?= !empty($edit_sizes) ? json_encode($edit_sizes) : 'null' ?>;
+
+function renderSizeInputs(kategori, presets) {
+    var container = document.getElementById('sizeContainer');
+    if (!container) return;
+    container.classList.remove('error');
+    var valSizes = document.getElementById('val-sizes');
+    if (valSizes) { valSizes.classList.remove('show'); valSizes.innerHTML = ''; }
+
+    if (!kategori || !SIZE_SETS[kategori]) {
+        container.innerHTML = '<div class="size-hint"><i class="fa-solid fa-circle-info"></i> Pilih kategori terlebih dahulu untuk mengisi stok per ukuran.</div>';
+        updateTotalStok();
+        return;
+    }
+
+    var html = '';
+    SIZE_SETS[kategori].forEach(function(size) {
+        var val = (presets && presets[size] !== undefined) ? presets[size] : '';
+        html += '<div class="size-item">' +
+                    '<label class="size-item-label">' + size + '</label>' +
+                    '<input type="number" name="stok_size[' + size + ']" class="size-stok-input" ' +
+                           'value="' + val + '" placeholder="0" min="0" max="9999" ' +
+                           'autocomplete="off" oninput="updateTotalStok()">' +
+                '</div>';
+    });
+    container.innerHTML = html;
+    updateTotalStok();
+}
+
+function updateTotalStok() {
+    var total = 0;
+    document.querySelectorAll('.size-stok-input').forEach(function(inp) {
+        var v = parseInt(inp.value, 10);
+        if (!isNaN(v) && v > 0) total += v;
+    });
+    var el = document.getElementById('totalStok');
+    if (el) el.textContent = total;
+    return total;
+}
+
 function validateForm() {
     var valid = true;
     document.querySelectorAll('.modal-input').forEach(function(el) { el.classList.remove('error'); });
@@ -1310,19 +1478,40 @@ function validateForm() {
         }
     }
 
-    var stok = document.getElementById('stok');
-    var valStok = document.getElementById('val-stok');
-    if (stok && valStok) {
-        var vs = stok.value.trim();
-        var errStok = '';
-        if (vs === '') errStok = 'Stok wajib diisi.';
-        else if (!/^[0-9]+$/.test(vs)) errStok = 'Stok harus di atas 0.';
-        else if (parseInt(vs) <= 0) errStok = 'Stok tidak boleh 0 atau kurang dari 0.';
-        else if (parseInt(vs) > 9999) errStok = 'Stok maksimal 9999.';
-        if (errStok) {
-            stok.classList.add('error');
-            valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errStok;
-            valStok.classList.add('show');
+    // Validasi kategori
+    var kategori = document.getElementById('kategori');
+    var valKategori = document.getElementById('val-kategori');
+    if (kategori && valKategori) {
+        if (kategori.value === '') {
+            kategori.classList.add('error');
+            valKategori.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Kategori alat wajib dipilih.';
+            valKategori.classList.add('show');
+            valid = false;
+        }
+    }
+
+    // Validasi stok per ukuran
+    var sizeContainer = document.getElementById('sizeContainer');
+    var valSizes = document.getElementById('val-sizes');
+    if (kategori && kategori.value !== '' && sizeContainer && valSizes) {
+        var errSizes = '';
+        var totalStok = 0;
+        var adaInputInvalid = false;
+        document.querySelectorAll('.size-stok-input').forEach(function(inp) {
+            var v = inp.value.trim();
+            if (v === '') return; // kosong dianggap 0
+            if (!/^[0-9]+$/.test(v)) { adaInputInvalid = true; return; }
+            var n = parseInt(v, 10);
+            if (n > 9999) { adaInputInvalid = true; return; }
+            totalStok += n;
+        });
+        if (adaInputInvalid) errSizes = 'Stok per ukuran harus berupa angka antara 0 - 9999.';
+        else if (totalStok <= 0) errSizes = 'Minimal satu ukuran harus memiliki stok lebih dari 0.';
+        else if (totalStok > 9999) errSizes = 'Total stok semua ukuran maksimal 9999.';
+        if (errSizes) {
+            sizeContainer.classList.add('error');
+            valSizes.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errSizes;
+            valSizes.classList.add('show');
             valid = false;
         }
     }
@@ -1399,23 +1588,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    var stokEl = document.getElementById('stok');
-    if (stokEl) {
-        stokEl.addEventListener('input', function() {
-            var valStok = document.getElementById('val-stok');
-            var v = this.value.trim();
-            this.classList.remove('error'); valStok.classList.remove('show');
-            if (v !== '' && /^[0-9]+$/.test(v)) {
-                if (parseInt(v) <= 0) {
-                    this.classList.add('error');
-                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok tidak boleh 0 atau kurang dari 0.';
-                    valStok.classList.add('show');
-                } else if (parseInt(v) > 9999) {
-                    this.classList.add('error');
-                    valStok.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Stok maksimal 9999.';
-                    valStok.classList.add('show');
-                }
-            }
+    // Mode edit: langsung render input ukuran sesuai kategori + stok tersimpan
+    var kategoriEl = document.getElementById('kategori');
+    if (kategoriEl && kategoriEl.value !== '') {
+        renderSizeInputs(kategoriEl.value, EDIT_SIZES);
+    }
+    if (kategoriEl) {
+        kategoriEl.addEventListener('change', function() {
+            var valKategori = document.getElementById('val-kategori');
+            this.classList.remove('error');
+            if (valKategori) { valKategori.classList.remove('show'); valKategori.innerHTML = ''; }
         });
     }
 

@@ -232,7 +232,7 @@ $limit = 8;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-$f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
+$f_status = $_GET['f_status'] ?? 'all';
 $f_sort = $_GET['f_sort'] ?? 'ID_Lapangan';
 $search = isset($_GET['src']) ? trim($_GET['src']) : '';
 
@@ -1811,11 +1811,9 @@ if ($q_fac) {
                                 <div class="filter-group">
                                     <label>Status</label>
                                     <select name="f_status" class="filter-input">
-                                        <option value="">Semua Status</option>
-                                        <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF
-                                        </option>
-                                        <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>
-                                            MAINTENANCE</option>
+                                        <option value="all" <?= ($_GET['f_status'] ?? 'all') === 'all' ? 'selected' : '' ?>>Semua Status</option>
+                                        <option value="aktif" <?= ($_GET['f_status'] ?? '') === 'aktif' ? 'selected' : '' ?>>AKTIF</option>
+                                        <option value="nonaktif" <?= ($_GET['f_status'] ?? '') === 'nonaktif' ? 'selected' : '' ?>>MAINTENANCE</option>
                                     </select>
                                 </div>
                                 <div class="filter-group">
