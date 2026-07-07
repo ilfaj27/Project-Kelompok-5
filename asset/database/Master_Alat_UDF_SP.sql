@@ -323,3 +323,75 @@ EXEC SP_AlatSize_Insert @ID_Alat = 21, @Ukuran = 'XL', @Stok = 5;
 EXEC SP_AlatSize_SelectByAlat @ID_Alat = 21;
 */
 GO
+
+
+
+-- ============================================================
+-- Update_DetailBeli_Ukuran.sql
+-- OPTION A: Simpan UKURAN (size) yang dibeli customer sebagai
+--           catatan di detail pembelian.
+-- ============================================================
+-- Konteks:
+--   - Master Alat sudah punya tabel Alat_Size (stok per ukuran)
+--     dari Update_Alat_Kategori_Size.sql.
+--   - Di sini kita HANYA menambah kolom Ukuran ke Detail_Beli_Alat
+--     supaya karyawan tahu ukuran apa yang harus diserahkan.
+--   - Stok tetap dipotong dari total Alat.Stok lewat trigger lama
+--     (trg_DetailBeli_AutoUpdateStok) — TIDAK diubah.
+-- ============================================================
+-- Jalankan SETELAH database Hoopball + Update_Alat_Kategori_Size.sql
+-- ============================================================
+
+USE Hoopball;
+GO
+
+-- ------------------------------------------------------------
+-- 1. Tambah kolom Ukuran (nullable, default 'All Size')
+--    Nullable + default supaya data pembelian lama tetap valid.
+-- ------------------------------------------------------------
+IF COL_LENGTH('Detail_Beli_Alat', 'Ukuran') IS NULL
+BEGIN
+    ALTER TABLE Detail_Beli_Alat
+    ADD Ukuran VARCHAR(15) NULL
+        CONSTRAINT DF_DetailBeli_Ukuran DEFAULT 'All Size';
+END
+GO
+
+-- ------------------------------------------------------------
+-- 2. Backfill data lama: yang belum punya ukuran -> 'All Size'
+-- ------------------------------------------------------------
+UPDATE Detail_Beli_Alat
+SET Ukuran = 'All Size'
+WHERE Ukuran IS NULL;
+GO
+
+-- ------------------------------------------------------------
+-- CATATAN untuk tim:
+--   Primary Key Detail_Beli_Alat saat ini (ID_Alat, ID_Beli).
+--   Karena satu transaksi bisa beli 1 alat dalam 2 ukuran berbeda
+--   (misal Jersey S dan Jersey M dalam 1 checkout), maka baris kedua
+--   akan bentrok PK. PHP pembelian_alat.php sudah diatur untuk
+--   MENGGABUNGKAN item dengan (id_alat + ukuran) yang sama, dan tetap
+--   membuat baris terpisah untuk ukuran berbeda -> ini melanggar PK.
+--
+--   Solusi paling aman TANPA memecah PK: PHP menjumlahkan qty per
+--   (ID_Alat, ID_Beli) menjadi satu baris, dan menyimpan detail ukuran
+--   pada baris tsb. Namun bila diinginkan multi-ukuran per alat dalam
+--   satu nota, jalankan bagian OPSIONAL di bawah untuk memasukkan
+--   Ukuran ke dalam Primary Key.
+--
+--   >>> Secara default kami TIDAK menjalankan bagian opsional ini,
+--       karena mengubah PK berdampak ke trigger & halaman lain.
+--       PHP sudah menangani kasus umum dengan aman.
+-- ------------------------------------------------------------
+
+/*  ===== OPSIONAL: jadikan Ukuran bagian dari Primary Key =====
+    Hanya jalankan bila tim setuju & sudah mengetes trigger terkait.
+
+ALTER TABLE Detail_Beli_Alat DROP CONSTRAINT PK__Detail_B__...; -- ganti nama PK asli
+ALTER TABLE Detail_Beli_Alat
+    ALTER COLUMN Ukuran VARCHAR(15) NOT NULL;
+ALTER TABLE Detail_Beli_Alat
+    ADD CONSTRAINT PK_Detail_Beli_Alat PRIMARY KEY (ID_Alat, ID_Beli, Ukuran);
+*/
+GO

@@ -74,31 +74,48 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
     }
 
     try {
-        $valid_cart = [];
+        // Kelompokkan item cart per ID_Alat (karena PK Detail_Beli_Alat = ID_Alat + ID_Beli,
+        // satu alat dengan beberapa ukuran harus digabung jadi 1 baris detail).
+        // $grouped[id_alat] = ['jumlah'=>N, 'sizes'=>['S'=>2,'M'=>1], 'subtotal'=>..]
+        $grouped = [];
         $calculated_total = 0;
 
-        // 1. Validasi Stok
         foreach ($cart as $item) {
             $id_alat = intval($item['id_alat']);
-            $jumlah = intval($item['jumlah']);
+            $jumlah  = intval($item['jumlah']);
+            $ukuran  = trim($item['ukuran'] ?? 'All Size');
+            if ($ukuran === '') $ukuran = 'All Size';
+            if ($jumlah <= 0) continue;
 
-            $cek_stok = sqlsrv_query($conn, "SELECT Nama_Alat, Stok, Harga_Alat FROM Alat WHERE ID_Alat = ? AND Status = 1 AND Is_Deleted = 0", array($id_alat));
-            $alat_data = sqlsrv_fetch_array($cek_stok, SQLSRV_FETCH_ASSOC);
-
-            if (!$alat_data) {
-                throw new Exception("Salah satu alat tidak ditemukan.");
+            if (!isset($grouped[$id_alat])) {
+                $grouped[$id_alat] = ['jumlah' => 0, 'sizes' => [], 'subtotal' => 0];
             }
-            if ($alat_data['Stok'] < $jumlah) {
+            $grouped[$id_alat]['jumlah'] += $jumlah;
+            $grouped[$id_alat]['sizes'][$ukuran] = ($grouped[$id_alat]['sizes'][$ukuran] ?? 0) + $jumlah;
+        }
+
+        // 1. Validasi stok (total per alat + stok per ukuran kalau ada)
+        foreach ($grouped as $id_alat => $g) {
+            $cek = sqlsrv_query($conn, "SELECT Nama_Alat, Stok, Harga_Alat FROM Alat WHERE ID_Alat = ? AND Status = 1 AND Is_Deleted = 0", array($id_alat));
+            $alat_data = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
+            if (!$alat_data) throw new Exception("Salah satu alat tidak ditemukan.");
+            if ($alat_data['Stok'] < $g['jumlah']) {
                 throw new Exception("Stok " . $alat_data['Nama_Alat'] . " tidak mencukupi.");
             }
 
-            $subtotal = $alat_data['Harga_Alat'] * $jumlah;
+            // Validasi stok per ukuran (jika ukuran bukan 'All Size')
+            foreach ($g['sizes'] as $uk => $qty) {
+                if ($uk === 'All Size') continue;
+                $cek_size = sqlsrv_query($conn, "SELECT Stok FROM Alat_Size WHERE ID_Alat = ? AND Ukuran = ?", array($id_alat, $uk));
+                $size_row = $cek_size ? sqlsrv_fetch_array($cek_size, SQLSRV_FETCH_ASSOC) : null;
+                if ($size_row && $size_row['Stok'] < $qty) {
+                    throw new Exception("Stok " . $alat_data['Nama_Alat'] . " ukuran " . $uk . " tidak mencukupi (tersisa " . intval($size_row['Stok']) . ").");
+                }
+            }
+
+            $subtotal = $alat_data['Harga_Alat'] * $g['jumlah'];
+            $grouped[$id_alat]['subtotal'] = $subtotal;
             $calculated_total += $subtotal;
-            $valid_cart[] = [
-                'id_alat' => $id_alat,
-                'jumlah' => $jumlah,
-                'subtotal' => $subtotal
-            ];
         }
 
         // 2. Insert ke Beli_Alat (Status = 0 -> Menunggu Konfirmasi Karyawan)
@@ -106,23 +123,42 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
                      OUTPUT INSERTED.ID_Beli
                      VALUES (1, ?, GETDATE(), ?, ?, 0, ?, GETDATE())"; // Default Karyawan 1 untuk online
         $stmt_beli = sqlsrv_query($conn, $sql_beli, array($id_customer, $metode, $calculated_total, $nama_customer));
-
-        if ($stmt_beli === false) {
-            throw new Exception("Gagal membuat data pesanan utama.");
-        }
+        if ($stmt_beli === false) throw new Exception("Gagal membuat data pesanan utama.");
 
         $row_id = sqlsrv_fetch_array($stmt_beli, SQLSRV_FETCH_ASSOC);
         $id_beli = $row_id['ID_Beli'];
 
-        // 3. Insert Detail dan Potong Stok
-        foreach ($valid_cart as $item) {
-            $sql_detail = "INSERT INTO Detail_Beli_Alat (ID_Alat, ID_Beli, Jumlah, SubTotal) VALUES (?, ?, ?, ?)";
-            $stmt_detail = sqlsrv_query($conn, $sql_detail, array($item['id_alat'], $id_beli, $item['jumlah'], $item['subtotal']));
+        // 3. Insert detail (1 baris per alat) + update stok per ukuran (Alat_Size)
+        foreach ($grouped as $id_alat => $g) {
+            // Rangkai label ukuran, contoh: "S x2, M x1" atau "All Size"
+            $size_parts = [];
+            foreach ($g['sizes'] as $uk => $qty) $size_parts[] = $uk . ' x' . $qty;
+            $ukuran_label = implode(', ', $size_parts);
+            if (strlen($ukuran_label) > 15) {
+                // Kolom hanya VARCHAR(15): kalau kepanjangan, simpan ringkas
+                $ukuran_label = (count($g['sizes']) === 1) ? array_key_first($g['sizes']) : 'Multi';
+            }
+
+            $sql_detail = "INSERT INTO Detail_Beli_Alat (ID_Alat, ID_Beli, Jumlah, SubTotal, Ukuran) VALUES (?, ?, ?, ?, ?)";
+            $stmt_detail = sqlsrv_query($conn, $sql_detail, array($id_alat, $id_beli, $g['jumlah'], $g['subtotal'], $ukuran_label));
             if ($stmt_detail === false) throw new Exception("Gagal menyimpan detail alat.");
 
+            // Kurangi stok total Alat (perilaku sama seperti versi awal).
+            // CATATAN TIM: jika trigger trg_DetailBeli_AutoUpdateStok (BasisData_T.sql)
+            // diaktifkan, baris UPDATE di bawah akan menyebabkan stok terpotong DUA KALI.
+            // Aktifkan salah satu saja — trigger ATAU update manual ini.
             $sql_update_stok = "UPDATE Alat SET Stok = Stok - ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?";
-            $stmt_update = sqlsrv_query($conn, $sql_update_stok, array($item['jumlah'], $nama_customer, $item['id_alat']));
+            $stmt_update = sqlsrv_query($conn, $sql_update_stok, array($g['jumlah'], $nama_customer, $id_alat));
             if ($stmt_update === false) throw new Exception("Gagal memperbarui stok alat.");
+
+            // Kurangi stok per ukuran di Alat_Size supaya master alat ikut akurat.
+            foreach ($g['sizes'] as $uk => $qty) {
+                if ($uk === 'All Size') {
+                    sqlsrv_query($conn, "UPDATE Alat_Size SET Stok = CASE WHEN Stok >= ? THEN Stok - ? ELSE 0 END WHERE ID_Alat = ? AND Ukuran = 'All Size'", array($qty, $qty, $id_alat));
+                } else {
+                    sqlsrv_query($conn, "UPDATE Alat_Size SET Stok = CASE WHEN Stok >= ? THEN Stok - ? ELSE 0 END WHERE ID_Alat = ? AND Ukuran = ?", array($qty, $qty, $id_alat, $uk));
+                }
+            }
         }
 
         sqlsrv_commit($conn);
@@ -139,7 +175,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
 // ============================================================================
 $alat_list = [];
 $query_alat = sqlsrv_query($conn, 
-    "SELECT ID_Alat, Nama_Alat, Stok, Harga_Alat, Photo_Alat, Status 
+    "SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Alat, Photo_Alat, Status 
      FROM Alat 
      WHERE Status = 1 AND Is_Deleted = 0 AND Stok > 0
      ORDER BY Nama_Alat ASC"
@@ -147,6 +183,22 @@ $query_alat = sqlsrv_query($conn,
 if ($query_alat) {
     while ($row = sqlsrv_fetch_array($query_alat, SQLSRV_FETCH_ASSOC)) {
         $alat_list[] = $row;
+    }
+}
+
+// Ambil stok per ukuran untuk semua alat (buat pilihan size di kartu)
+// Hasil: $sizes_by_alat[ID_Alat] = [ ['Ukuran'=>'S','Stok'=>5], ... ]
+$sizes_by_alat = [];
+$query_sizes = sqlsrv_query($conn,
+    "SELECT s.ID_Alat, s.Ukuran, s.Stok
+     FROM Alat_Size s
+     INNER JOIN Alat a ON s.ID_Alat = a.ID_Alat
+     WHERE a.Status = 1 AND a.Is_Deleted = 0 AND s.Stok > 0
+     ORDER BY s.ID_Alat, s.ID_Alat_Size"
+);
+if ($query_sizes) {
+    while ($row = sqlsrv_fetch_array($query_sizes, SQLSRV_FETCH_ASSOC)) {
+        $sizes_by_alat[$row['ID_Alat']][] = ['Ukuran' => $row['Ukuran'], 'Stok' => intval($row['Stok'])];
     }
 }
 
@@ -323,6 +375,7 @@ function resolvePhotoPath($photo_path) {
     .cart-item:hover { background: rgba(255,82,0,0.02); transform: translateX(4px); }
     .cart-item-info { flex: 1; }
     .cart-item-name { font-size: 13px; font-weight: 700; color: #1C1C1E; }
+    .cart-item-size { display: inline-block; background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 10px; margin-left: 4px; vertical-align: middle; }
     .cart-item-qty { font-size: 11px; color: #8E8E93; }
     .cart-item-price { font-size: 13px; font-weight: 800; color: var(--shopee-orange); }
     .cart-item-remove { background: none; border: none; color: var(--red); cursor: pointer; font-size: 12px; margin-left: 8px; padding: 4px; border-radius: 4px; transition: 0.2s; }
@@ -370,8 +423,44 @@ function resolvePhotoPath($photo_path) {
     .alat-card-price { font-size: 20px; font-weight: 800; color: var(--orange); margin-bottom: 16px; transition: all 0.3s ease; }
 
     .alat-card-actions { display: flex; gap: 8px; align-items: center; }
-    .qty-input { width: 60px; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; text-align: center; font-family: inherit; outline: none; transition: .2s; }
-    .qty-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+
+    /* ═══ QUANTITY STEPPER (− / value / +) ═══ */
+    .qty-stepper { display: inline-flex; align-items: center; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; flex-shrink: 0; }
+    .qty-stepper:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+    .qty-btn { width: 34px; height: 40px; border: none; background: var(--orange-lt); color: var(--orange); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s ease; }
+    .qty-btn:hover:not(:disabled) { background: var(--orange); color: #fff; }
+    .qty-btn:active:not(:disabled) { transform: scale(0.9); }
+    .qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .qty-input { width: 42px; height: 40px; border: none; border-left: 1.5px solid var(--border); border-right: 1.5px solid var(--border); font-size: 14px; font-weight: 800; text-align: center; font-family: inherit; outline: none; color: var(--text-primary); background: #fff; -moz-appearance: textfield; }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* ═══ SIZE CHIPS ═══ */
+    .alat-card-size-group { margin-bottom: 14px; }
+    .alat-card-size-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+    .alat-card-sizes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .size-chip { min-width: 40px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
+    .size-chip:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); transform: translateY(-1px); }
+    .size-chip.selected { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 4px 12px rgba(255,90,31,0.28); }
+    .size-chip:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+
+    /* ═══ CATEGORY BADGE ON CARD ═══ */
+    .alat-card-kategori-badge { position: absolute; top: 12px; left: 12px; background: rgba(15,23,42,0.72); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; backdrop-filter: blur(4px); }
+
+    /* ═══ SEARCH BAR ═══ */
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .alat-search-wrap { position: relative; flex: 1; min-width: 260px; max-width: 420px; }
+    .alat-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+    .alat-search-input { width: 100%; padding: 13px 44px 13px 42px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 14px; font-family: inherit; font-weight: 500; outline: none; transition: all 0.2s ease; background: #fff; color: var(--text-primary); }
+    .alat-search-input:focus { border-color: var(--orange); box-shadow: 0 0 0 4px var(--orange-glow); }
+    .alat-search-input::placeholder { color: var(--muted); font-weight: 400; }
+    .alat-search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: none; background: var(--border-lt); color: var(--muted); border-radius: 50%; cursor: pointer; display: none; align-items: center; justify-content: center; transition: all 0.2s ease; }
+    .alat-search-clear:hover { background: var(--red-lt); color: var(--red); }
+    .alat-search-clear.show { display: flex; }
+    .alat-no-result { display: none; text-align: center; padding: 60px 20px; color: var(--muted); }
+    .alat-no-result.show { display: block; }
+    .alat-no-result i { font-size: 44px; opacity: 0.3; margin-bottom: 14px; display: block; }
+    .alat-no-result div { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .alat-no-result p { font-size: 13px; margin-top: 6px; }
 
     .btn-add-cart { flex: 1; background: var(--orange-lt); color: var(--orange); border: 1px solid var(--orange); padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; overflow: hidden; }
     .btn-add-cart::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
@@ -639,13 +728,32 @@ function resolvePhotoPath($photo_path) {
                 <h2 class="section-title"><i class="fa-solid fa-basketball" style="color:var(--primary)"></i> Daftar Alat</h2>
                 <p class="section-subtitle">Pilih perlengkapan basket yang Anda butuhkan.</p>
             </div>
+            <div class="alat-search-wrap">
+                <i class="fa-solid fa-magnifying-glass alat-search-icon"></i>
+                <input type="text" id="alatSearch" class="alat-search-input" placeholder="Cari alat, misalnya 'jersey' atau 'bola'..." autocomplete="off" oninput="filterAlat()">
+                <button type="button" id="alatSearchClear" class="alat-search-clear" onclick="clearAlatSearch()" title="Bersihkan"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <div class="alat-no-result" id="alatNoResult">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <div>Tidak ada alat yang cocok</div>
+            <p>Coba kata kunci lain, ya.</p>
         </div>
 
         <div class="alat-grid reveal-stagger" id="alatGrid">
             <?php foreach ($alat_list as $alat): 
                 $photo_url = resolvePhotoPath($alat['Photo_Alat']);
+                $alat_sizes = $sizes_by_alat[$alat['ID_Alat']] ?? [];
+                $kategori = $alat['Kategori'] ?? 'Lainnya';
+                // Alat dianggap "punya varian ukuran" kalau ukurannya bukan cuma 'All Size'
+                $has_real_sizes = false;
+                foreach ($alat_sizes as $sz) { if ($sz['Ukuran'] !== 'All Size') { $has_real_sizes = true; break; } }
             ?>
-            <div class="alat-card stagger-item" data-id="<?php echo $alat['ID_Alat']; ?>">
+            <div class="alat-card stagger-item"
+                 data-id="<?php echo $alat['ID_Alat']; ?>"
+                 data-name="<?php echo htmlspecialchars(strtolower($alat['Nama_Alat']), ENT_QUOTES); ?>"
+                 data-kategori="<?php echo htmlspecialchars(strtolower($kategori), ENT_QUOTES); ?>">
                 <div class="alat-card-photo-wrap">
                     <?php if (!empty($photo_url) && @file_exists($photo_url)): ?>
                         <img src="<?php echo htmlspecialchars($photo_url); ?>" alt="<?php echo htmlspecialchars($alat['Nama_Alat']); ?>">
@@ -654,6 +762,7 @@ function resolvePhotoPath($photo_path) {
                             <i class="fa-solid fa-toolbox"></i>
                         </div>
                     <?php endif; ?>
+                    <span class="alat-card-kategori-badge"><?php echo htmlspecialchars($kategori); ?></span>
                     <span class="alat-card-stok-badge">
                         Tersedia: <?php echo intval($alat['Stok']); ?>
                     </span>
@@ -661,10 +770,37 @@ function resolvePhotoPath($photo_path) {
                 <div class="alat-card-info">
                     <div class="alat-card-name"><?php echo htmlspecialchars($alat['Nama_Alat']); ?></div>
                     <div class="alat-card-price"><?php echo 'Rp ' . number_format($alat['Harga_Alat'], 0, ',', '.'); ?></div>
+
+                    <?php if ($has_real_sizes): ?>
+                    <div class="alat-card-size-group">
+                        <div class="alat-card-size-label">Pilih Ukuran</div>
+                        <div class="alat-card-sizes" id="sizes_<?php echo $alat['ID_Alat']; ?>">
+                            <?php foreach ($alat_sizes as $sz): ?>
+                                <button type="button" class="size-chip"
+                                        data-size="<?php echo htmlspecialchars($sz['Ukuran'], ENT_QUOTES); ?>"
+                                        data-stok="<?php echo $sz['Stok']; ?>"
+                                        onclick="selectSize(<?php echo $alat['ID_Alat']; ?>, this)">
+                                    <?php echo htmlspecialchars($sz['Ukuran']); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="alat-card-actions">
-                        <input type="number" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>" 
-                               value="1" min="1" max="<?php echo intval($alat['Stok']); ?>">
-                        <button class="btn-add-cart" onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>)">
+                        <div class="qty-stepper" data-id="<?php echo $alat['ID_Alat']; ?>">
+                            <button type="button" class="qty-btn qty-minus" onclick="stepQty(<?php echo $alat['ID_Alat']; ?>, -1)" aria-label="Kurangi">
+                                <i class="fa-solid fa-minus"></i>
+                            </button>
+                            <input type="text" inputmode="numeric" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>"
+                                   value="1" readonly
+                                   data-max="<?php echo intval($alat['Stok']); ?>">
+                            <button type="button" class="qty-btn qty-plus" onclick="stepQty(<?php echo $alat['ID_Alat']; ?>, 1)" aria-label="Tambah">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                        <button class="btn-add-cart"
+                                onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>, <?php echo $has_real_sizes ? 'true' : 'false'; ?>)">
                             <i class="fa-solid fa-plus"></i> Tambah
                         </button>
                     </div>
@@ -833,40 +969,116 @@ let cart = [];
 let checkoutTotalValue = 0;
 let selectedPaymentMethod = 'Transfer Bank';
 let countdownInterval;
+const selectedSizes = {}; // { idAlat: {size, stok} }
 
 function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
 }
 
-function addToCart(idAlat, namaAlat, harga, maxStok) {
+// ═══ SEARCH / FILTER ═══
+function filterAlat() {
+    const q = document.getElementById('alatSearch').value.trim().toLowerCase();
+    const clearBtn = document.getElementById('alatSearchClear');
+    clearBtn.classList.toggle('show', q.length > 0);
+
+    let visible = 0;
+    document.querySelectorAll('.alat-card').forEach(card => {
+        const name = card.getAttribute('data-name') || '';
+        const kat = card.getAttribute('data-kategori') || '';
+        const match = q === '' || name.includes(q) || kat.includes(q);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    document.getElementById('alatNoResult').classList.toggle('show', visible === 0);
+}
+
+function clearAlatSearch() {
+    const input = document.getElementById('alatSearch');
+    input.value = '';
+    input.focus();
+    filterAlat();
+}
+
+// ═══ SIZE SELECTION ═══
+function selectSize(idAlat, btn) {
+    const stok = parseInt(btn.getAttribute('data-stok')) || 0;
+    if (stok <= 0) return;
+    const group = document.getElementById('sizes_' + idAlat);
+    group.querySelectorAll('.size-chip').forEach(c => c.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedSizes[idAlat] = { size: btn.getAttribute('data-size'), stok: stok };
+
+    // Batasi qty ke stok ukuran terpilih
+    const qtyInput = document.getElementById('qty_' + idAlat);
+    if (qtyInput) {
+        qtyInput.setAttribute('data-max', stok);
+        if (parseInt(qtyInput.value) > stok) qtyInput.value = stok;
+        refreshStepper(idAlat);
+    }
+}
+
+// ═══ QUANTITY STEPPER ═══
+function stepQty(idAlat, delta) {
+    const input = document.getElementById('qty_' + idAlat);
+    const max = parseInt(input.getAttribute('data-max')) || 1;
+    let val = (parseInt(input.value) || 1) + delta;
+    if (val < 1) val = 1;
+    if (val > max) val = max;
+    input.value = val;
+    refreshStepper(idAlat);
+}
+
+function refreshStepper(idAlat) {
+    const input = document.getElementById('qty_' + idAlat);
+    const max = parseInt(input.getAttribute('data-max')) || 1;
+    const val = parseInt(input.value) || 1;
+    const stepper = document.querySelector('.qty-stepper[data-id="' + idAlat + '"]');
+    if (!stepper) return;
+    stepper.querySelector('.qty-minus').disabled = (val <= 1);
+    stepper.querySelector('.qty-plus').disabled = (val >= max);
+}
+
+function addToCart(idAlat, namaAlat, harga, maxStok, needsSize) {
     const qtyInput = document.getElementById('qty_' + idAlat);
     const qty = parseInt(qtyInput.value) || 1;
+
+    // Wajib pilih ukuran kalau alat punya varian ukuran
+    let ukuran = 'All Size';
+    if (needsSize) {
+        if (!selectedSizes[idAlat]) {
+            Swal.fire({ icon: 'warning', title: 'Pilih Ukuran Dulu', text: 'Silakan pilih ukuran untuk ' + namaAlat + '.', confirmButtonColor: '#FF5200' });
+            return;
+        }
+        ukuran = selectedSizes[idAlat].size;
+        maxStok = selectedSizes[idAlat].stok; // batas = stok ukuran itu
+    }
 
     if (qty <= 0 || qty > maxStok) {
         Swal.fire({ icon: 'warning', title: 'Jumlah Tidak Valid', text: 'Jumlah maksimal: ' + maxStok, confirmButtonColor: '#FF5200' });
         return;
     }
 
-    const existingIndex = cart.findIndex(item => item.id_alat === idAlat);
+    // Item unik berdasarkan alat + ukuran
+    const existingIndex = cart.findIndex(item => item.id_alat === idAlat && item.ukuran === ukuran);
 
     if (existingIndex >= 0) {
         const newQty = cart[existingIndex].jumlah + qty;
         if (newQty > maxStok) {
-            Swal.fire({ icon: 'warning', title: 'Stok Terbatas', text: 'Total barang di keranjang melebihi stok (' + maxStok + ')', confirmButtonColor: '#FF5200' });
+            Swal.fire({ icon: 'warning', title: 'Stok Terbatas', text: 'Total di keranjang melebihi stok ukuran ' + ukuran + ' (' + maxStok + ')', confirmButtonColor: '#FF5200' });
             return;
         }
         cart[existingIndex].jumlah = newQty;
         cart[existingIndex].subtotal = newQty * harga;
     } else {
-        cart.push({ id_alat: idAlat, nama_alat: namaAlat, harga: harga, jumlah: qty, subtotal: qty * harga });
+        cart.push({ id_alat: idAlat, nama_alat: namaAlat, harga: harga, jumlah: qty, subtotal: qty * harga, ukuran: ukuran });
     }
 
     updateCartUI();
 
+    const sizeLabel = (ukuran !== 'All Size') ? ' • Ukuran ' + ukuran : '';
     Swal.fire({
-        icon: 'success', title: 'Ditambahkan!', text: namaAlat + ' (' + qty + 'x)',
-        confirmButtonColor: '#FF5200', confirmButtonText: 'OK',
-        allowOutsideClick: false, allowEscapeKey: false
+        icon: 'success', title: 'Ditambahkan!', text: namaAlat + ' (' + qty + 'x)' + sizeLabel,
+        confirmButtonColor: '#FF5200', confirmButtonText: 'OK', timer: 1400, timerProgressBar: true
     });
 }
 
@@ -895,10 +1107,12 @@ function updateCartUI() {
 
     cart.forEach((item, index) => {
         total += item.subtotal;
+        const sizeBadge = (item.ukuran && item.ukuran !== 'All Size')
+            ? `<span class="cart-item-size">Ukuran ${item.ukuran}</span>` : '';
         html += `
             <div class="cart-item">
                 <div class="cart-item-info">
-                    <div class="cart-item-name">${item.nama_alat}</div>
+                    <div class="cart-item-name">${item.nama_alat} ${sizeBadge}</div>
                     <div class="cart-item-qty">${item.jumlah}x @ Rp ${item.harga.toLocaleString('id-ID')}</div>
                 </div>
                 <div class="cart-item-price">Rp ${item.subtotal.toLocaleString('id-ID')}</div>
@@ -923,11 +1137,12 @@ function openCheckoutModal() {
 
     let html = '';
     cart.forEach(item => {
+        const sizeTxt = (item.ukuran && item.ukuran !== 'All Size') ? ' • Ukuran ' + item.ukuran : '';
         html += `
         <div class="checkout-item-row">
             <div>
                 <div class="checkout-item-title">${item.nama_alat}</div>
-                <div class="checkout-item-sub">${item.jumlah}x @ ${formatRupiah(item.harga)}</div>
+                <div class="checkout-item-sub">${item.jumlah}x @ ${formatRupiah(item.harga)}${sizeTxt}</div>
             </div>
             <div class="checkout-item-price">${formatRupiah(item.subtotal)}</div>
         </div>`;
@@ -1097,29 +1312,45 @@ document.querySelectorAll('.alat-card').forEach(card => {
     cardObserver.observe(card);
 });
 
-// Add hover tilt effect to alat cards
+// Safety net: if IntersectionObserver doesn't fire (edge cases), reveal all cards after 1.2s
+setTimeout(() => {
+    document.querySelectorAll('.alat-card:not(.visible)').forEach(c => c.classList.add('visible'));
+}, 1200);
+
+// Add hover tilt effect to ALL alat cards (independent of scroll-reveal state)
 document.querySelectorAll('.alat-card').forEach(card => {
+    // Saat mouse masuk: matikan transition + delay bawaan stagger,
+    // supaya tilt langsung mengikuti cursor (bukan cuma pas cursor berhenti).
+    card.addEventListener('mouseenter', () => {
+        card.style.transition = 'none';
+    });
     card.addEventListener('mousemove', (e) => {
-        if (!card.classList.contains('visible')) return;
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const rotateX = (y - centerY) / 20;
-        const rotateY = (centerX - x) / 20;
+        const rotateX = (y - rect.height / 2) / 80;
+        const rotateY = (rect.width / 2 - x) / 80;
+        card.style.transition = 'none';
         card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.02)`;
     });
+    // Saat mouse keluar: pasang transition tanpa delay biar spring-back mulus,
+    // lalu reset transform.
     card.addEventListener('mouseleave', () => {
+        card.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
         card.style.transform = '';
     });
+});
+
+// Init quantity steppers (disable/enable +/- correctly on load)
+document.querySelectorAll('.qty-stepper').forEach(stepper => {
+    refreshStepper(stepper.getAttribute('data-id'));
 });
 
 // Add parallax effect to floating balls on mouse move
 document.querySelector('.hero').addEventListener('mousemove', (e) => {
     const balls = document.querySelectorAll('.floating-ball');
-    const x = (e.clientX / window.innerWidth - 0.5) * 20;
-    const y = (e.clientY / window.innerHeight - 0.5) * 20;
+    const x = (e.clientX / window.innerWidth - 0.5) * 50;
+    const y = (e.clientY / window.innerHeight - 0.5) * 50;
     balls.forEach((ball, i) => {
         const speed = (i + 1) * 0.5;
         ball.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
