@@ -1,63 +1,56 @@
 <?php
 // ============================================================================
-// BUFFER OUTPUT & SESSION SETUP
+// BUFFER OUTPUT & SESSION
 // ============================================================================
 ob_start();
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-include '../includes/auth_helper.php';
-include '../includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+include '../includes/config.php';
 
 // ============================================================================
 // CEK AKSES
 // ============================================================================
-cek_akses('customer');
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
+    header("Location: ../login/login.php");
+    exit();
+}
+
+$id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
+$nama_customer = $_SESSION['nama'] ?? 'Pelanggan';
 
 // ============================================================================
 // AMBIL DATA CUSTOMER
 // ============================================================================
-$id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
-$nama_customer = 'Pelanggan';
-$photo_profile = '';
-
+$customer_data = null;
 if (!empty($id_customer)) {
-    $cek_deleted = sqlsrv_query($conn, 
-        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
-        array($id_customer)
-    );
-    if ($cek_deleted) {
-        $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
-        if ($row_cust) {
-            if ($row_cust['Is_Deleted'] == 1 || $row_cust['Status'] == 0) {
-                $_SESSION = array();
-                session_destroy();
-                setcookie('remember_me', '', time() - 3600, "/");
-                ob_end_clean();
-                header("Location: ../login/login.php?status=error&msg=Akun Anda telah dinonaktifkan.");
-                exit();
-            }
-            $nama_customer = $row_cust['Nama_Customer'] ?? 'Pelanggan';
-            $photo_profile = $row_cust['Photo_Profile'] ?? '';
-        }
+    $stmt = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($id_customer));
+    if ($stmt) {
+        $customer_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     }
 }
 
-// Cek status member aktif untuk badge navigasi
-$member_data = null;
+if (!$customer_data) {
+    header("Location: ../login/login.php?status=error&msg=Sesi tidak valid");
+    exit();
+}
+
+$photo_profile = $customer_data['Photo_Profile'] ?? '';
+
+// Cek member aktif untuk badge
+$member_aktif = null;
 $member_check = sqlsrv_query($conn, 
-    "SELECT TOP 1 L.*, T.Nama_Tipe FROM Langganan L 
+    "SELECT TOP 1 L.*, T.Nama_Tipe 
+     FROM Langganan L 
      INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
      WHERE L.ID_Customer = ? AND L.Status = 1 
-     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai", 
+     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
+     ORDER BY L.Tanggal_Selesai DESC", 
     array($id_customer)
 );
 if ($member_check) {
-    $member_data = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
+    $member_aktif = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
 }
-$has_member = !empty($member_data);
-$member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
+$has_member = !empty($member_aktif);
+$member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
 
 // ============================================================================
 // AJAX HANDLER: PROSES CHECKOUT (STATUS = 0 / MENUNGGU KONFIRMASI)
@@ -226,7 +219,6 @@ function resolvePhotoPath($photo_path) {
 <title>Pembelian Alat | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link rel="stylesheet" href="../asset/css/navbar_footer.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
     /* ═══ SHARED ROOT VARIABLES ═══ */
@@ -299,6 +291,49 @@ function resolvePhotoPath($photo_path) {
     .loader-ball { width: 12px; height: 12px; border-radius: 50%; background: var(--primary); animation: loaderBounce 0.6s ease-in-out infinite alternate; }
     .loader-ball:nth-child(2) { animation-delay: 0.2s; }
     .loader-ball:nth-child(3) { animation-delay: 0.4s; }
+
+    /* ═══ NAVBAR ═══ */
+    nav{background:var(--white);padding:0 80px;display:flex;justify-content:space-between;align-items:center;height:76px;position:sticky;top:0;z-index:1000;border-bottom:1px solid #E5E5EA;animation:fadeInDown .6s ease-out forwards}
+    .nav-logo{display:flex;align-items:center;text-decoration:none;gap:10px;transition:transform .3s ease;animation: fadeInDown 0.5s ease-out both}
+    .nav-logo:hover{transform:scale(1.05)}
+    .nav-logo img{height:70px;width:auto;transition:transform .5s cubic-bezier(.34,1.56,.64,1);animation: rotateIn 0.6s ease-out 0.2s both}
+    .nav-logo:hover img{transform:rotate(5deg) scale(1.1)}
+    .nav-links{display:flex;align-items:center;gap:8px}
+    .nav-links a{color:#636366;text-decoration:none;font-size:14px;font-weight:500;padding:8px 16px;border-radius:20px;transition:var(--transition-smooth);position:relative;overflow:hidden;animation: fadeInDown 0.5s ease-out both;opacity:0}
+    .nav-links a::before{content:'';position:absolute;bottom:0;left:50%;width:0;height:2px;background:var(--primary);transition:var(--transition-smooth);transform:translateX(-50%)}
+    .nav-links a:hover{color:#1C1C1E;transform:translateY(-2px)}
+    .nav-links a:hover::before{width:60%}
+    .nav-links a.active{color:var(--primary);font-weight:600}
+    .nav-links a.active::before{width:60%}
+    .nav-links a:nth-child(1) { animation-delay: 0.1s; }
+    .nav-links a:nth-child(2) { animation-delay: 0.15s; }
+    .nav-links a:nth-child(3) { animation-delay: 0.2s; }
+    .nav-links a:nth-child(4) { animation-delay: 0.25s; }
+
+    .nav-user-container{position:relative;height:76px;display:flex;align-items:center}
+    .nav-user{background:#F2F2F7;border:1px solid #E5E5EA;padding:8px 16px;border-radius:50px;color:#1C1C1E;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition-smooth)}
+    .nav-user:hover{background:#E5E5EA;border-color:var(--primary);transform:scale(1.02);box-shadow:0 4px 12px rgba(255,82,0,.15)}
+    .nav-user img.user-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;transition:transform .3s ease}
+    .nav-user:hover img.user-avatar{transform:scale(1.15)}
+    .nav-user i.user-icon{font-size:16px;color:var(--primary);transition:transform .3s ease}
+    .nav-user:hover i.user-icon{transform:scale(1.2)}
+    .nav-user i.arrow{font-size:11px;color:#8E8E93;transition:.3s cubic-bezier(.34,1.56,.64,1)}
+    .nav-user-container:hover i.arrow{transform:rotate(180deg);color:var(--primary)}
+    .dropdown-menu{position:absolute;top:85%;right:0;background:#16161a;min-width:220px;border-radius:12px;border:1px solid #2d2d33;padding:8px 0;display:none;z-index:1001;transform-origin:top right;opacity:0;transform:translateY(-10px) scale(0.95);transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}
+    .nav-user-container:hover .dropdown-menu{display:block;opacity:1;transform:translateY(0) scale(1);animation:fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards}
+    .dropdown-menu .user-info-header{padding:12px 20px;border-bottom:1px solid #2d2d33;margin-bottom:6px}
+    .dropdown-menu .user-info-header .u-name{color:var(--white);font-size:14px;font-weight:700;display:block}
+    .dropdown-menu .user-info-header .u-role{color:var(--text-gray);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;display:block}
+    .dropdown-menu a{display:flex;align-items:center;gap:12px;padding:10px 20px;color:#c5c5ca;text-decoration:none;font-size:13px;font-weight:500;transition:all .25s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
+    .dropdown-menu a::after{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--primary);transform:scaleY(0);transition:transform .25s cubic-bezier(.16,1,.3,1)}
+    .dropdown-menu a i{font-size:14px;width:16px;text-align:center;transition:transform .3s ease}
+    .dropdown-menu a:hover{background:#222227;color:var(--primary);padding-left:28px}
+    .dropdown-menu a:hover::after{transform:scaleY(1)}
+    .dropdown-menu a:hover i{transform:scale(1.2)}
+    .dropdown-menu a.logout:hover{color:#ff3b30}
+    .dropdown-menu a.logout:hover::after{background:#ff3b30}
+    .dropdown-divider { height: 1px; background: #2d2d33; margin: 6px 0; }
+    .member-badge-nav{display:inline-flex;align-items:center;gap:6px;background:var(--green-lt);border:1px solid var(--green);color:var(--green);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;margin-left:8px;animation:pulse 2s ease-in-out infinite}
 
     /* ═══ HERO SECTION ═══ */
     .hero { background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 50%, #0d0d1a 100%); background-size: 200% 200%; animation: heroGradient 15s ease infinite; padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; min-height: 400px; }
@@ -388,8 +423,44 @@ function resolvePhotoPath($photo_path) {
     .alat-card-price { font-size: 20px; font-weight: 800; color: var(--orange); margin-bottom: 16px; transition: all 0.3s ease; }
 
     .alat-card-actions { display: flex; gap: 8px; align-items: center; }
-    .qty-input { width: 60px; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; text-align: center; font-family: inherit; outline: none; transition: .2s; }
-    .qty-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+
+    /* ═══ QUANTITY STEPPER (− / value / +) ═══ */
+    .qty-stepper { display: inline-flex; align-items: center; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; flex-shrink: 0; }
+    .qty-stepper:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+    .qty-btn { width: 34px; height: 40px; border: none; background: var(--orange-lt); color: var(--orange); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s ease; }
+    .qty-btn:hover:not(:disabled) { background: var(--orange); color: #fff; }
+    .qty-btn:active:not(:disabled) { transform: scale(0.9); }
+    .qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .qty-input { width: 42px; height: 40px; border: none; border-left: 1.5px solid var(--border); border-right: 1.5px solid var(--border); font-size: 14px; font-weight: 800; text-align: center; font-family: inherit; outline: none; color: var(--text-primary); background: #fff; -moz-appearance: textfield; }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* ═══ SIZE CHIPS ═══ */
+    .alat-card-size-group { margin-bottom: 14px; }
+    .alat-card-size-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+    .alat-card-sizes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .size-chip { min-width: 40px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
+    .size-chip:hover:not(:disabled) { border-color: var(--orange); color: var(--orange); transform: translateY(-1px); }
+    .size-chip.selected { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 4px 12px rgba(255,90,31,0.28); }
+    .size-chip:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+
+    /* ═══ CATEGORY BADGE ON CARD ═══ */
+    .alat-card-kategori-badge { position: absolute; top: 12px; left: 12px; background: rgba(15,23,42,0.72); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; backdrop-filter: blur(4px); }
+
+    /* ═══ SEARCH BAR ═══ */
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .alat-search-wrap { position: relative; flex: 1; min-width: 260px; max-width: 420px; }
+    .alat-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+    .alat-search-input { width: 100%; padding: 13px 44px 13px 42px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 14px; font-family: inherit; font-weight: 500; outline: none; transition: all 0.2s ease; background: #fff; color: var(--text-primary); }
+    .alat-search-input:focus { border-color: var(--orange); box-shadow: 0 0 0 4px var(--orange-glow); }
+    .alat-search-input::placeholder { color: var(--muted); font-weight: 400; }
+    .alat-search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: none; background: var(--border-lt); color: var(--muted); border-radius: 50%; cursor: pointer; display: none; align-items: center; justify-content: center; transition: all 0.2s ease; }
+    .alat-search-clear:hover { background: var(--red-lt); color: var(--red); }
+    .alat-search-clear.show { display: flex; }
+    .alat-no-result { display: none; text-align: center; padding: 60px 20px; color: var(--muted); }
+    .alat-no-result.show { display: block; }
+    .alat-no-result i { font-size: 44px; opacity: 0.3; margin-bottom: 14px; display: block; }
+    .alat-no-result div { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .alat-no-result p { font-size: 13px; margin-top: 6px; }
 
     .btn-add-cart { flex: 1; background: var(--orange-lt); color: var(--orange); border: 1px solid var(--orange); padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; overflow: hidden; }
     .btn-add-cart::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
@@ -567,7 +638,42 @@ function resolvePhotoPath($photo_path) {
 <div class="scroll-progress" id="scrollProgress"></div>
 
 <!-- NAVBAR -->
-<?php $path_prefix = '../'; include '../includes/navbar.php'; ?>
+<nav>
+    <a href="../index.php" class="nav-logo">
+        <img src="../asset/image/logo2.png" alt="HoopBall">
+    </a>
+    <div class="nav-links">
+        <a href="../index.php">Beranda</a>
+        <a href="booking_customer.php">Booking</a>
+        <a href="pembatalan_customer.php">Pembatalan</a>
+        <a href="langganan_customer.php">Member</a>
+        <a href="pembelian_alat.php" class="active">Pembelian</a>
+    </div>
+
+    <div class="nav-user-container">
+        <div class="nav-user">
+            <?php if (!empty($photo_profile) && file_exists(resolvePhotoPath($photo_profile))): ?>
+                <img src="<?php echo htmlspecialchars(resolvePhotoPath($photo_profile)); ?>" alt="Avatar" class="user-avatar">
+            <?php else: ?>
+                <i class="fa-solid fa-circle-user user-icon"></i>
+            <?php endif; ?>
+            <span><?php echo htmlspecialchars($nama_customer); ?></span>
+            <?php if ($has_member): ?>
+                <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?php echo htmlspecialchars($member_tipe); ?></span>
+            <?php endif; ?>
+            <i class="fa-solid fa-chevron-down arrow"></i>
+        </div>
+        <div class="dropdown-menu">
+            <div class="user-info-header">
+                <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
+                <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
+            </div>
+            <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
+            <div class="dropdown-divider"></div>
+            <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+        </div>
+    </div>
+</nav>
 
 <!-- HERO SECTION -->
 <section class="hero">
@@ -682,9 +788,19 @@ function resolvePhotoPath($photo_path) {
                     <?php endif; ?>
 
                     <div class="alat-card-actions">
-                        <input type="number" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>" 
-                               value="1" min="1" max="<?php echo intval($alat['Stok']); ?>">
-                        <button class="btn-add-cart" onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>)">
+                        <div class="qty-stepper" data-id="<?php echo $alat['ID_Alat']; ?>">
+                            <button type="button" class="qty-btn qty-minus" onclick="stepQty(<?php echo $alat['ID_Alat']; ?>, -1)" aria-label="Kurangi">
+                                <i class="fa-solid fa-minus"></i>
+                            </button>
+                            <input type="text" inputmode="numeric" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>"
+                                   value="1" readonly
+                                   data-max="<?php echo intval($alat['Stok']); ?>">
+                            <button type="button" class="qty-btn qty-plus" onclick="stepQty(<?php echo $alat['ID_Alat']; ?>, 1)" aria-label="Tambah">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                        <button class="btn-add-cart"
+                                onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>, <?php echo $has_real_sizes ? 'true' : 'false'; ?>)">
                             <i class="fa-solid fa-plus"></i> Tambah
                         </button>
                     </div>
@@ -704,7 +820,45 @@ function resolvePhotoPath($photo_path) {
 </main>
 
 <!-- FOOTER -->
-<?php include '../includes/footer.php'; ?>
+<footer>
+    <div class="footer-grid">
+        <div>
+            <div class="footer-logo"><img src="../asset/image/logo.png" alt="HoopBall"></div>
+            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <div class="social-links">
+                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+            </div>
+        </div>
+        <div class="footer-col">
+            <h4>Navigasi</h4>
+            <ul>
+                <li><a href="../index.php">Beranda</a></li>
+                <li><a href="booking_customer.php">Booking</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
+                <li><a href="langganan_customer.php">Member</a></li>
+                <li><a href="pembelian_alat.php">Pembelian</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Informasi</h4>
+            <ul>
+                <li><a href="#">Cara Pemesanan</a></li>
+                <li><a href="#">Syarat & Ketentuan</a></li>
+                <li><a href="#">FAQ</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Hubungi Kami</h4>
+            <div class="contact-item"><i class="fa-solid fa-location-dot"></i>Jl. Olahraga No. 10, Jakarta Selatan</div>
+            <div class="contact-item"><i class="fa-solid fa-phone"></i>+62 812-3456-7890</div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2025 HoopBall. All rights reserved.</p>
+    </div>
+</footer>
 
 <!-- MODAL 1: RINGKASAN CHECKOUT -->
 <div class="booking-modal-overlay" id="checkoutModal">
@@ -821,15 +975,6 @@ function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
 }
 
-function adjustQty(idAlat, delta, maxStok) {
-    const input = document.getElementById('qty_' + idAlat);
-    let current = parseInt(input.value) || 0;
-    let newVal = current + delta;
-    if (newVal < 0) newVal = 0;
-    if (newVal > maxStok) newVal = maxStok;
-    input.value = newVal;
-}
-
 // ═══ SEARCH / FILTER ═══
 function filterAlat() {
     const q = document.getElementById('alatSearch').value.trim().toLowerCase();
@@ -897,12 +1042,19 @@ function addToCart(idAlat, namaAlat, harga, maxStok, needsSize) {
     const qtyInput = document.getElementById('qty_' + idAlat);
     const qty = parseInt(qtyInput.value) || 1;
 
-    if (qty <= 0) {
-        Swal.fire({ icon: 'warning', title: 'Jumlah Tidak Valid', text: 'Silakan tentukan jumlah barang terlebih dahulu.', confirmButtonColor: '#FF5200' });
-        return;
+    // Wajib pilih ukuran kalau alat punya varian ukuran
+    let ukuran = 'All Size';
+    if (needsSize) {
+        if (!selectedSizes[idAlat]) {
+            Swal.fire({ icon: 'warning', title: 'Pilih Ukuran Dulu', text: 'Silakan pilih ukuran untuk ' + namaAlat + '.', confirmButtonColor: '#FF5200' });
+            return;
+        }
+        ukuran = selectedSizes[idAlat].size;
+        maxStok = selectedSizes[idAlat].stok; // batas = stok ukuran itu
     }
-    if (qty > maxStok) {
-        Swal.fire({ icon: 'warning', title: 'Stok Terbatas', text: 'Jumlah maksimal: ' + maxStok, confirmButtonColor: '#FF5200' });
+
+    if (qty <= 0 || qty > maxStok) {
+        Swal.fire({ icon: 'warning', title: 'Jumlah Tidak Valid', text: 'Jumlah maksimal: ' + maxStok, confirmButtonColor: '#FF5200' });
         return;
     }
 
@@ -1176,8 +1328,8 @@ document.querySelectorAll('.alat-card').forEach(card => {
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const rotateX = (y - rect.height / 2) / 80;
-        const rotateY = (rect.width / 2 - x) / 80;
+        const rotateX = (y - rect.height / 2) / 50;
+        const rotateY = (rect.width / 2 - x) / 50;
         card.style.transition = 'none';
         card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.02)`;
     });
@@ -1197,8 +1349,8 @@ document.querySelectorAll('.qty-stepper').forEach(stepper => {
 // Add parallax effect to floating balls on mouse move
 document.querySelector('.hero').addEventListener('mousemove', (e) => {
     const balls = document.querySelectorAll('.floating-ball');
-    const x = (e.clientX / window.innerWidth - 0.5) * 50;
-    const y = (e.clientY / window.innerHeight - 0.5) * 50;
+    const x = (e.clientX / window.innerWidth - 0.5) * 80;
+    const y = (e.clientY / window.innerHeight - 0.5) * 80;
     balls.forEach((ball, i) => {
         const speed = (i + 1) * 0.5;
         ball.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
