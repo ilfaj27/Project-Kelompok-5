@@ -176,19 +176,20 @@ END;
 GO
 
 -- ==========================================================================================
--- 9. SP: Membaca list fasilitas terpaginasi (Read - PERBAIKAN GROUP BY)
+-- 9. SP: Membaca list fasilitas terpaginasi dengan Fitur Pencarian (Search)
 -- ==========================================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReadFasilitasListWithCount
     @FilterLapangan VARCHAR(10),
     @FilterStatus VARCHAR(10),
     @SortBy VARCHAR(50),
     @Offset INT,
-    @Limit INT
+    @Limit INT,
+    @Search VARCHAR(100) = ''
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Hasil 1: Total Record terfilter (Menggunakan GROUP BY untuk keunikan data)
+    -- Hasil 1: Total Record terfilter
     SELECT COUNT(*) AS TotalCount
     FROM (
         SELECT f.ID_Fasilitas
@@ -197,22 +198,24 @@ BEGIN
         WHERE f.Is_Deleted = 0
           AND (@FilterLapangan = 'all' OR lf.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT))
           AND (@FilterStatus = 'all' OR f.Status = TRY_CAST(@FilterStatus AS INT))
+          AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%' OR f.Detail_Fasilitas LIKE '%' + @Search + '%')
         GROUP BY f.ID_Fasilitas
     ) AS UniqueFilteredFacilities;
 
-    -- Hasil 2: List Data terpaginasi (Menggunakan GROUP BY menggantikan DISTINCT)
+    -- Hasil 2: List Data terpaginasi dengan Logika Order By Baru
     SELECT f.ID_Fasilitas, f.Nama_Fasilitas, f.Detail_Fasilitas, f.Stok_Total, f.Stok_Tersedia, f.Status
     FROM dbo.Fasilitas_Lapangan f
     LEFT JOIN dbo.Detail_Lapangan_Fasilitas lf ON f.ID_Fasilitas = lf.ID_Fasilitas
     WHERE f.Is_Deleted = 0
       AND (@FilterLapangan = 'all' OR lf.ID_Lapangan = TRY_CAST(@FilterLapangan AS INT))
       AND (@FilterStatus = 'all' OR f.Status = TRY_CAST(@FilterStatus AS INT))
+      AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%' OR f.Detail_Fasilitas LIKE '%' + @Search + '%')
     GROUP BY f.ID_Fasilitas, f.Nama_Fasilitas, f.Detail_Fasilitas, f.Stok_Total, f.Stok_Tersedia, f.Status
     ORDER BY 
-        CASE WHEN @SortBy = 'nomor_asc' THEN f.ID_Fasilitas END ASC,
-        CASE WHEN @SortBy = 'nomor_desc' THEN f.ID_Fasilitas END DESC,
         CASE WHEN @SortBy = 'nama_asc' THEN f.Nama_Fasilitas END ASC,
+        CASE WHEN @SortBy = 'nama_desc' THEN f.Nama_Fasilitas END DESC,
         CASE WHEN @SortBy = 'stok_desc' THEN f.Stok_Total END DESC,
+        CASE WHEN @SortBy = 'stok_asc' THEN f.Stok_Total END ASC,
         f.ID_Fasilitas ASC
     OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
 END;

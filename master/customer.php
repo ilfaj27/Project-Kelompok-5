@@ -55,6 +55,9 @@ if (isset($_GET['detail_id'])) {
     }
 }
 
+// --- Tangkap parameter pencarian 'src' ---
+$search = isset($_GET['src']) ? trim($_GET['src']) : '';
+
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
 $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
 $filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : -1;
@@ -62,6 +65,12 @@ $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 
 $allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort)) $sort_by = 'ID_Customer';
+
+// --- Susun parameter URL untuk pagination secara dinamis ---
+$filter_url = "&sort=" . urlencode($sort_by) . "&order=" . urlencode($sort_order) . "&jk=" . urlencode($filter_jk) . "&status_filter=" . urlencode($filter_status);
+if (!empty($search)) {
+    $filter_url .= "&src=" . urlencode($search);
+}
 
 
 // --- STAT COUNTS & DASHBOARD (USING UDF) ---
@@ -76,8 +85,8 @@ $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $offset = ($page - 1) * $limit;
 
-$query_sql = "EXEC dbo.sp_ReadCustomerListWithCount @FilterStatus = ?, @FilterJK = ?, @SortBy = ?, @SortOrder = ?, @Offset = ?, @Limit = ?";
-$params_sp = array($filter_status, $filter_jk, $sort_by, $sort_order, intval($offset), intval($limit));
+$query_sql = "EXEC dbo.sp_ReadCustomerListWithCount @FilterStatus = ?, @FilterJK = ?, @SortBy = ?, @SortOrder = ?, @Offset = ?, @Limit = ?, @Search = ?";
+$params_sp = array($filter_status, $filter_jk, $sort_by, $sort_order, intval($offset), intval($limit), $search);
 
 $query = safe_sqlsrv_query($conn, $query_sql, $params_sp, false);
 
@@ -955,6 +964,22 @@ if ($query === false) {
      font-size: 14px;
 }
 
+.btn-clear-search {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 
 </style>
 </head>
@@ -979,7 +1004,14 @@ if ($query === false) {
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari customer..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari customer... (Tekan Enter)"
+                    onkeypress="handleSearch(event)" value="<?= htmlspecialchars($_GET['src'] ?? '') ?>">
+
+                <?php if (!empty($search)): ?>
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                <?php endif; ?>
             </div>
             <div class="action-right">
                 <div class="filter-wrap">
@@ -1108,22 +1140,57 @@ if ($query === false) {
             </div>
         </div>
 
-        <?php if ($total_pages > 1): ?>
+        <!-- PAGINATION -->
         <div class="pagination-wrap">
-            <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> - <strong><?= min($page * $limit, $total_cust) ?></strong> dari <strong><?= $total_cust ?></strong> data</div>
+            <div class="pagination-info">
+                <?php if ($total_cust > 0): ?>
+                    Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
+                    <strong><?= min($page * $limit, $total_cust) ?></strong> dari <strong><?= $total_cust ?></strong> data
+                <?php else: ?>
+                    Menampilkan <strong>0</strong> data
+                <?php endif; ?>
+            </div>
+
             <div class="pagination-nav">
-                <a href="?page=1&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
-                <a href="?page=<?= $page - 1 ?>&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya"><i class="fa-solid fa-angle-left"></i></a>
-                <?php $start_page = max(1, $page - 2); $end_page = min($total_pages, $page + 2); if ($end_page - $start_page < 4 && $total_pages >= 5) { if ($start_page == 1) { $end_page = min(5, $total_pages); } else { $start_page = max(1, $total_pages - 4); } } if ($start_page > 1): ?><a href="?page=1&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn">1</a><?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?><?php endif; ?>
-                <?php for ($i = $start_page; $i <= $end_page; $i++): ?><a href="?page=<?= $i ?>&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a><?php endfor; ?>
-                <?php if ($end_page < $total_pages): ?><?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?><a href="?page=<?= $total_pages ?>&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn"><?= $total_pages ?></a><?php endif; ?>
-                <a href="?page=<?= $page + 1 ?>&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya"><i class="fa-solid fa-angle-right"></i></a>
-                <a href="?page=<?= $total_pages ?>&sort=<?= $sort_by ?>&order=<?= $sort_order ?>&jk=<?= $filter_jk ?>&status_filter=<?= $filter_status ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
+                <!-- Tombol First -->
+                <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
+                    <i class="fa-solid fa-angles-left"></i>
+                </a>
+                <!-- Tombol Prev -->
+                <a href="?page=<?= max(1, $page - 1) ?><?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
+                    <i class="fa-solid fa-angle-left"></i>
+                </a>
+                <!-- Nomor Halaman -->
+                <?php 
+                $start_page = max(1, $page - 2); 
+                $end_page = min($total_pages, $page + 2); 
+                if ($end_page - $start_page < 4 && $total_pages >= 5) { 
+                    if ($start_page == 1) { $end_page = min(5, $total_pages); } else { $start_page = max(1, $total_pages - 4); } 
+                } 
+                if ($start_page > 1): ?>
+                    <a href="?page=1<?= $filter_url ?>" class="page-btn">1</a>
+                    <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                <?php endif; ?>
+
+                <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                    <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
+                <?php endfor; ?>
+
+                <?php if ($end_page < $total_pages): ?>
+                    <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                    <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn"><?= $total_pages ?></a>
+                <?php endif; ?>
+
+                <!-- Tombol Next -->
+                <a href="?page=<?= min($total_pages, $page + 1) ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
+                    <i class="fa-solid fa-angle-right"></i>
+                </a>
+                <!-- Tombol Last -->
+                <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
+                    <i class="fa-solid fa-angles-right"></i>
+                </a>
             </div>
         </div>
-        <?php else: ?>
-        <div class="pagination-wrap"><div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_cust ?></strong> dari <strong><?= $total_cust ?></strong> data</div></div>
-        <?php endif; ?>
     </div>
 </main>
 
@@ -1203,20 +1270,28 @@ function closeDetail() {
     window.location.href = 'customer.php'; 
 }
 
-// SEARCH TABLE
-function searchTable() {
-    var input = document.getElementById('src').value.toUpperCase();
-    var rows = document.getElementById('tbl').getElementsByTagName('tr');
-    for (var i = 1; i < rows.length; i++) {
-        var tdName = rows[i].getElementsByTagName('td')[1];
-        var tdEmail = rows[i].getElementsByTagName('td')[2];
-        if (tdName || tdEmail) {
-            var match = false;
-            if (tdName && tdName.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            if (tdEmail && tdEmail.textContent.toUpperCase().indexOf(input) > -1) match = true;
-            rows[i].style.display = match ? '' : 'none';
+// SEARCH FUNCTIONS
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        const keyword = document.getElementById('src').value.trim();
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (keyword) {
+            urlParams.set('src', keyword);
+        } else {
+            urlParams.delete('src');
         }
+
+        urlParams.set('page', 1); // Reset kembali ke halaman 1
+        window.location.href = 'customer.php?' + urlParams.toString();
     }
+}
+
+function clearSearch() {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.delete('src'); // Hapus kata kunci pencarian
+    urlParams.set('page', 1); // Reset kembali ke halaman 1
+    window.location.href = 'customer.php?' + urlParams.toString();
 }
 
 // TOGGLE CONFIRMATION - DIPERBAIKI

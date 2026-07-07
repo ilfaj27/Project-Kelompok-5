@@ -662,6 +662,7 @@ SELECT * FROM Alat;
 SELECT * FROM Booking;
 SELECT * FROM Langganan;
 SELECT * FROM Beli_Alat;
+SELECT * FROM Detail_Lapangan_Fasilitas
 SELECT * FROM Detail_Beli_Alat;
 SELECT * FROM Pembatalan_Booking;
 
