@@ -1181,16 +1181,55 @@ function getPhotoUrl($photo_path) {
             const sections = document.querySelectorAll('section[id], footer[id]');
             const navLinks = document.querySelectorAll('.nav-menu a');
 
-            window.addEventListener('scroll', () => {
-                let current = '';
+            // Mapping section ID ke nav link yang sesuai
+            const sectionToPage = {
+                'beranda': 'index.php',
+                'lapangan': 'booking_customer.php',
+                'jadwal': 'booking_customer.php',
+                'member': 'langganan_customer.php',
+                'alat-basket': 'pembelian_alat.php'
+            };
+
+            function updateActiveNav() {
+                let currentSection = '';
+                const scrollPos = window.pageYOffset + 150;
+
+                // Cari section yang sedang di viewport (dari atas ke bawah)
                 sections.forEach(s => {
-                    if (window.pageYOffset >= s.offsetTop - 150) current = s.id;
+                    if (scrollPos >= s.offsetTop) {
+                        currentSection = s.id;
+                    }
                 });
-                navLinks.forEach(a => {
-                    a.classList.remove('active');
-                    if (a.getAttribute('href') === `#${current}`) a.classList.add('active');
-                });
-            }, { passive: true });
+
+                // Reset semua active
+                navLinks.forEach(a => a.classList.remove('active'));
+
+                // Jika ada section yang aktif, tandai link yang sesuai
+                if (currentSection && sectionToPage[currentSection]) {
+                    const targetPage = sectionToPage[currentSection];
+                    navLinks.forEach(a => {
+                        const href = a.getAttribute('href');
+                        if (href && href.includes(targetPage)) {
+                            a.classList.add('active');
+                        }
+                    });
+                }
+
+                // Fallback: jika tidak ada yang aktif, default ke Beranda (index.php)
+                const hasActive = Array.from(navLinks).some(a => a.classList.contains('active'));
+                if (!hasActive) {
+                    navLinks.forEach(a => {
+                        const href = a.getAttribute('href');
+                        if (href && href.includes('index.php')) {
+                            a.classList.add('active');
+                        }
+                    });
+                }
+            }
+
+            window.addEventListener('scroll', updateActiveNav, { passive: true });
+            // Jalankan sekali saat load untuk set initial state
+            updateActiveNav();
         });
     </script>
 </body>
