@@ -337,6 +337,9 @@ function resolvePhotoPath($photo_path) {
     .alat-card-actions { display: flex; gap: 8px; align-items: center; }
     .qty-input { width: 60px; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; text-align: center; font-family: inherit; outline: none; transition: .2s; }
     .qty-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-glow); }
+    .qty-input::-webkit-outer-spin-button,
+    .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .qty-input[type=number] { -moz-appearance: textfield; }
 
     .btn-add-cart { flex: 1; background: var(--orange-lt); color: var(--orange); border: 1px solid var(--orange); padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; overflow: hidden; }
     .btn-add-cart::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
@@ -592,8 +595,12 @@ function resolvePhotoPath($photo_path) {
                     <div class="alat-card-name"><?php echo htmlspecialchars($alat['Nama_Alat']); ?></div>
                     <div class="alat-card-price"><?php echo 'Rp ' . number_format($alat['Harga_Alat'], 0, ',', '.'); ?></div>
                     <div class="alat-card-actions">
-                        <input type="number" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>" 
-                               value="1" min="1" max="<?php echo intval($alat['Stok']); ?>">
+                        <div class="qty-control" style="display:flex;align-items:center;gap:4px;border:1.5px solid var(--border);border-radius:10px;padding:2px;transition:.2s;" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <button type="button" class="qty-btn-minus" onclick="adjustQty(<?php echo $alat['ID_Alat']; ?>, -1, <?php echo intval($alat['Stok']); ?>)" style="width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--orange);font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s ease;" onmouseover="this.style.background='var(--orange-lt)'" onmouseout="this.style.background='transparent'">-</button>
+                            <input type="number" class="qty-input" id="qty_<?php echo $alat['ID_Alat']; ?>" 
+                                   value="0" min="0" max="<?php echo intval($alat['Stok']); ?>" style="width:40px;padding:6px 2px;border:none;border-radius:0;font-size:14px;font-weight:700;text-align:center;font-family:inherit;outline:none;-moz-appearance:textfield;" onfocus="this.style.color='var(--orange)'" onblur="this.style.color=''">
+                            <button type="button" class="qty-btn-plus" onclick="adjustQty(<?php echo $alat['ID_Alat']; ?>, 1, <?php echo intval($alat['Stok']); ?>)" style="width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--orange);font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s ease;" onmouseover="this.style.background='var(--orange-lt)'" onmouseout="this.style.background='transparent'">+</button>
+                        </div>
                         <button class="btn-add-cart" onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>)">
                             <i class="fa-solid fa-plus"></i> Tambah
                         </button>
@@ -730,12 +737,25 @@ function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
 }
 
+function adjustQty(idAlat, delta, maxStok) {
+    const input = document.getElementById('qty_' + idAlat);
+    let current = parseInt(input.value) || 0;
+    let newVal = current + delta;
+    if (newVal < 0) newVal = 0;
+    if (newVal > maxStok) newVal = maxStok;
+    input.value = newVal;
+}
+
 function addToCart(idAlat, namaAlat, harga, maxStok) {
     const qtyInput = document.getElementById('qty_' + idAlat);
-    const qty = parseInt(qtyInput.value) || 1;
+    const qty = parseInt(qtyInput.value) || 0;
 
-    if (qty <= 0 || qty > maxStok) {
-        Swal.fire({ icon: 'warning', title: 'Jumlah Tidak Valid', text: 'Jumlah maksimal: ' + maxStok, confirmButtonColor: '#FF5200' });
+    if (qty <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Jumlah Tidak Valid', text: 'Silakan tentukan jumlah barang terlebih dahulu.', confirmButtonColor: '#FF5200' });
+        return;
+    }
+    if (qty > maxStok) {
+        Swal.fire({ icon: 'warning', title: 'Stok Terbatas', text: 'Jumlah maksimal: ' + maxStok, confirmButtonColor: '#FF5200' });
         return;
     }
 
