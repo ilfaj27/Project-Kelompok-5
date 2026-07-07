@@ -627,6 +627,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
     </div>
 </div>
 
+<!-- FOOTER -->
 <?php include '../includes/footer.php'; ?>
 
 <script>

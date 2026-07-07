@@ -674,66 +674,7 @@ footer{padding:40px}
 </div>
 
 <!-- FOOTER -->
-<footer>
-    <div class="footer-grid">
-        <div>
-            <div class="footer-logo">
-                <img src="../asset/image/logo.png" alt="HoopBall">
-            </div>
-            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
-            <div class="social-links">
-                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
-            </div>
-        </div>
-
-        <div class="footer-col">
-            <h4>Navigasi</h4>
-            <ul>
-                <li><a href="../index.php">Beranda</a></li>
-                <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
-                <li><a href="langganan_customer.php">Member</a></li>
-                <li><a href="pembelian_alat.php">Pembelian</a></li>
-            </ul>
-        </div>
-
-        <div class="footer-col">
-            <h4>Informasi</h4>
-            <ul>
-                <li><a href="#">Cara Booking</a></li>
-                <li><a href="#">Syarat & Ketentuan</a></li>
-                <li><a href="#">Kebijakan Privasi</a></li>
-                <li><a href="#">FAQ</a></li>
-            </ul>
-        </div>
-
-        <div class="footer-col">
-            <h4>Hubungi Kami</h4>
-            <div class="contact-item">
-                <i class="fa-solid fa-location-dot"></i>
-                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-phone"></i>
-                +62 812-3456-7890
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-envelope"></i>
-                info@hoopball.id
-            </div>
-            <div class="contact-item">
-                <i class="fa-solid fa-clock"></i>
-                Setiap hari 07:00 - 23:00 WIB
-            </div>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <p>&copy; 2025 HoopBall. All rights reserved.</p>
-    </div>
-</footer>
+<?php include '../includes/footer.php'; ?>
 
 <button class="cart-fab hidden" id="cartFab" onclick="openCartPanel()">
 <i class="fa-solid fa-cart-shopping"></i>
