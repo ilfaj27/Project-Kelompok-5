@@ -15,7 +15,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
 }
 
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
-$nama_customer = $_SESSION['nama'] ?? 'Pelanggan';
+$nama_customer = 'Pelanggan'; // default, di-override dari DB di bawah
 
 // ============================================================================
 // AMBIL DATA CUSTOMER
@@ -33,6 +33,8 @@ if (!$customer_data) {
     exit();
 }
 
+// Ambil nama asli dari DB (kolom Nama_Customer) — konsisten dengan halaman Member.
+$nama_customer = $customer_data['Nama_Customer'] ?? 'Pelanggan';
 $photo_profile = $customer_data['Photo_Profile'] ?? '';
 
 // Cek member aktif untuk badge
@@ -219,6 +221,7 @@ function resolvePhotoPath($photo_path) {
 <title>Pembelian Alat | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../asset/css/navbar_footer.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
     /* ═══ SHARED ROOT VARIABLES ═══ */
@@ -292,48 +295,6 @@ function resolvePhotoPath($photo_path) {
     .loader-ball:nth-child(2) { animation-delay: 0.2s; }
     .loader-ball:nth-child(3) { animation-delay: 0.4s; }
 
-    /* ═══ NAVBAR ═══ */
-    nav{background:var(--white);padding:0 80px;display:flex;justify-content:space-between;align-items:center;height:76px;position:sticky;top:0;z-index:1000;border-bottom:1px solid #E5E5EA;animation:fadeInDown .6s ease-out forwards}
-    .nav-logo{display:flex;align-items:center;text-decoration:none;gap:10px;transition:transform .3s ease;animation: fadeInDown 0.5s ease-out both}
-    .nav-logo:hover{transform:scale(1.05)}
-    .nav-logo img{height:70px;width:auto;transition:transform .5s cubic-bezier(.34,1.56,.64,1);animation: rotateIn 0.6s ease-out 0.2s both}
-    .nav-logo:hover img{transform:rotate(5deg) scale(1.1)}
-    .nav-links{display:flex;align-items:center;gap:8px}
-    .nav-links a{color:#636366;text-decoration:none;font-size:14px;font-weight:500;padding:8px 16px;border-radius:20px;transition:var(--transition-smooth);position:relative;overflow:hidden;animation: fadeInDown 0.5s ease-out both;opacity:0}
-    .nav-links a::before{content:'';position:absolute;bottom:0;left:50%;width:0;height:2px;background:var(--primary);transition:var(--transition-smooth);transform:translateX(-50%)}
-    .nav-links a:hover{color:#1C1C1E;transform:translateY(-2px)}
-    .nav-links a:hover::before{width:60%}
-    .nav-links a.active{color:var(--primary);font-weight:600}
-    .nav-links a.active::before{width:60%}
-    .nav-links a:nth-child(1) { animation-delay: 0.1s; }
-    .nav-links a:nth-child(2) { animation-delay: 0.15s; }
-    .nav-links a:nth-child(3) { animation-delay: 0.2s; }
-    .nav-links a:nth-child(4) { animation-delay: 0.25s; }
-
-    .nav-user-container{position:relative;height:76px;display:flex;align-items:center}
-    .nav-user{background:#F2F2F7;border:1px solid #E5E5EA;padding:8px 16px;border-radius:50px;color:#1C1C1E;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition-smooth)}
-    .nav-user:hover{background:#E5E5EA;border-color:var(--primary);transform:scale(1.02);box-shadow:0 4px 12px rgba(255,82,0,.15)}
-    .nav-user img.user-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;transition:transform .3s ease}
-    .nav-user:hover img.user-avatar{transform:scale(1.15)}
-    .nav-user i.user-icon{font-size:16px;color:var(--primary);transition:transform .3s ease}
-    .nav-user:hover i.user-icon{transform:scale(1.2)}
-    .nav-user i.arrow{font-size:11px;color:#8E8E93;transition:.3s cubic-bezier(.34,1.56,.64,1)}
-    .nav-user-container:hover i.arrow{transform:rotate(180deg);color:var(--primary)}
-    .dropdown-menu{position:absolute;top:85%;right:0;background:#16161a;min-width:220px;border-radius:12px;border:1px solid #2d2d33;padding:8px 0;display:none;z-index:1001;transform-origin:top right;opacity:0;transform:translateY(-10px) scale(0.95);transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}
-    .nav-user-container:hover .dropdown-menu{display:block;opacity:1;transform:translateY(0) scale(1);animation:fadeInUp .3s cubic-bezier(.16,1,.3,1) forwards}
-    .dropdown-menu .user-info-header{padding:12px 20px;border-bottom:1px solid #2d2d33;margin-bottom:6px}
-    .dropdown-menu .user-info-header .u-name{color:var(--white);font-size:14px;font-weight:700;display:block}
-    .dropdown-menu .user-info-header .u-role{color:var(--text-gray);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;display:block}
-    .dropdown-menu a{display:flex;align-items:center;gap:12px;padding:10px 20px;color:#c5c5ca;text-decoration:none;font-size:13px;font-weight:500;transition:all .25s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
-    .dropdown-menu a::after{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--primary);transform:scaleY(0);transition:transform .25s cubic-bezier(.16,1,.3,1)}
-    .dropdown-menu a i{font-size:14px;width:16px;text-align:center;transition:transform .3s ease}
-    .dropdown-menu a:hover{background:#222227;color:var(--primary);padding-left:28px}
-    .dropdown-menu a:hover::after{transform:scaleY(1)}
-    .dropdown-menu a:hover i{transform:scale(1.2)}
-    .dropdown-menu a.logout:hover{color:#ff3b30}
-    .dropdown-menu a.logout:hover::after{background:#ff3b30}
-    .dropdown-divider { height: 1px; background: #2d2d33; margin: 6px 0; }
-    .member-badge-nav{display:inline-flex;align-items:center;gap:6px;background:var(--green-lt);border:1px solid var(--green);color:var(--green);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;margin-left:8px;animation:pulse 2s ease-in-out infinite}
 
     /* ═══ HERO SECTION ═══ */
     .hero { background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 50%, #0d0d1a 100%); background-size: 200% 200%; animation: heroGradient 15s ease infinite; padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; overflow: hidden; min-height: 400px; }
@@ -637,43 +598,8 @@ function resolvePhotoPath($photo_path) {
 
 <div class="scroll-progress" id="scrollProgress"></div>
 
-<!-- NAVBAR -->
-<nav>
-    <a href="../index.php" class="nav-logo">
-        <img src="../asset/image/logo2.png" alt="HoopBall">
-    </a>
-    <div class="nav-links">
-        <a href="../index.php">Beranda</a>
-        <a href="booking_customer.php">Booking</a>
-        <a href="pembatalan_customer.php">Pembatalan</a>
-        <a href="langganan_customer.php">Member</a>
-        <a href="pembelian_alat.php" class="active">Pembelian</a>
-    </div>
-
-    <div class="nav-user-container">
-        <div class="nav-user">
-            <?php if (!empty($photo_profile) && file_exists(resolvePhotoPath($photo_profile))): ?>
-                <img src="<?php echo htmlspecialchars(resolvePhotoPath($photo_profile)); ?>" alt="Avatar" class="user-avatar">
-            <?php else: ?>
-                <i class="fa-solid fa-circle-user user-icon"></i>
-            <?php endif; ?>
-            <span><?php echo htmlspecialchars($nama_customer); ?></span>
-            <?php if ($has_member): ?>
-                <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?php echo htmlspecialchars($member_tipe); ?></span>
-            <?php endif; ?>
-            <i class="fa-solid fa-chevron-down arrow"></i>
-        </div>
-        <div class="dropdown-menu">
-            <div class="user-info-header">
-                <span class="u-name"><?php echo htmlspecialchars($nama_customer); ?></span>
-                <span class="u-role">Customer <?php echo $has_member ? '• Member ' . htmlspecialchars($member_tipe) : ''; ?></span>
-            </div>
-            <a href="../profile/profile_customer.php"><i class="fa-solid fa-user"></i> Profil Saya</a>
-            <div class="dropdown-divider"></div>
-            <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-        </div>
-    </div>
-</nav>
+<!-- NAVBAR (pakai komponen bersama, sama seperti halaman customer lainnya) -->
+<?php $path_prefix = '../'; include '../includes/navbar.php'; ?>
 
 <!-- HERO SECTION -->
 <section class="hero">
