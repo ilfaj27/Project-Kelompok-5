@@ -556,11 +556,35 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 .empty-state{text-align:center;padding:24px;color:var(--text-muted)}
 .empty-state i{font-size:32px;margin-bottom:10px;opacity:0.5}
 .empty-state p{font-size:13px;font-weight:600}
+
+/* ============ FOOTER (disamakan dengan langganan_customer.php) ============ */
+footer{background:#0B0B0C;padding:60px 80px 30px;border-top:1px solid #222225;animation:fadeInUp 0.6s ease-out both}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr;gap:40px;max-width:1440px;margin:0 auto}
+.footer-logo img{height:50px;width:auto;margin-bottom:16px;transition:transform 0.3s ease}
+.footer-logo:hover img{transform:scale(1.05)}
+.footer-desc{font-size:14px;color:#8E8E93;line-height:1.6;margin-bottom:20px}
+.social-links{display:flex;gap:10px}
+.social-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid #222225;display:flex;align-items:center;justify-content:center;color:#8E8E93;text-decoration:none;font-size:14px;transition:all 0.3s ease}
+.social-btn:hover{background:var(--orange);border-color:var(--orange);color:#fff;transform:translateY(-2px)}
+.footer-col h4{font-size:14px;font-weight:700;color:#fff;margin-bottom:20px;text-transform:uppercase;letter-spacing:0.5px}
+.footer-col ul{list-style:none;padding:0}
+.footer-col ul li{margin-bottom:12px}
+.footer-col ul li a{color:#8E8E93;text-decoration:none;font-size:13px;transition:all 0.3s ease;display:inline-block}
+.footer-col ul li a:hover{color:var(--orange);transform:translateX(4px)}
+.contact-item{display:flex;align-items:flex-start;gap:10px;color:#8E8E93;font-size:13px;margin-bottom:12px;line-height:1.5}
+.contact-item i{color:var(--orange);font-size:14px;margin-top:2px;flex-shrink:0}
+.footer-bottom{border-top:1px solid #222225;margin-top:40px;padding-top:20px;text-align:center;color:#636366;font-size:12px}
 @media(max-width:768px){
 .booking-container{padding:16px 12px 100px}
 .court-card-top{flex-direction:column}
 .court-img-wrap{width:100%;height:180px}
 .court-slots-grid{grid-template-columns:repeat(3,1fr)}
+.footer-grid{grid-template-columns:1fr}
+footer{padding:30px 20px}
+}
+@media(max-width:1100px){
+.footer-grid{grid-template-columns:1fr 1fr;gap:30px}
+footer{padding:40px}
 }
 @media(max-width:480px){
 .court-slots-grid{grid-template-columns:repeat(2,1fr)}
@@ -648,6 +672,68 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 <?php endif; ?>
 </div>
 </div>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-grid">
+        <div>
+            <div class="footer-logo">
+                <img src="../asset/image/logo.png" alt="HoopBall">
+            </div>
+            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
+            <div class="social-links">
+                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
+                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+            </div>
+        </div>
+
+        <div class="footer-col">
+            <h4>Navigasi</h4>
+            <ul>
+                <li><a href="../index.php">Beranda</a></li>
+                <li><a href="booking_customer.php">Booking</a></li>
+                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
+                <li><a href="langganan_customer.php">Member</a></li>
+                <li><a href="pembelian_alat.php">Pembelian</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Informasi</h4>
+            <ul>
+                <li><a href="#">Cara Booking</a></li>
+                <li><a href="#">Syarat & Ketentuan</a></li>
+                <li><a href="#">Kebijakan Privasi</a></li>
+                <li><a href="#">FAQ</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Hubungi Kami</h4>
+            <div class="contact-item">
+                <i class="fa-solid fa-location-dot"></i>
+                Jl. Olahraga No. 10, Kebayoran Baru, Jakarta Selatan 12190
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-phone"></i>
+                +62 812-3456-7890
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-envelope"></i>
+                info@hoopball.id
+            </div>
+            <div class="contact-item">
+                <i class="fa-solid fa-clock"></i>
+                Setiap hari 07:00 - 23:00 WIB
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2025 HoopBall. All rights reserved.</p>
+    </div>
+</footer>
 
 <button class="cart-fab hidden" id="cartFab" onclick="openCartPanel()">
 <i class="fa-solid fa-cart-shopping"></i>
