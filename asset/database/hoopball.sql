@@ -384,6 +384,7 @@ CREATE TABLE Booking (
     ID_Promo            INT             NULL,
     Tanggal_Booking     DATE            NOT NULL,
     Metode_Pembayaran   VARCHAR(20)     NOT NULL,
+    Bukti_Pembayaran    VARCHAR(255)    NULL,
     Total_Bayar         DECIMAL(18,2)   NOT NULL,
     Status              INT             NOT NULL CHECK (Status IN (0,1,2,3)),
     Created_By          VARCHAR(50)     NOT NULL,
@@ -402,18 +403,17 @@ CREATE TABLE Booking (
 
 -- Status: 0 = Menunggu Konfirmasi, 1 = Berhasil, 2 = Selesai, 3 = Dibatalkan
 INSERT INTO Booking
-(ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date, Modified_By, Modified_Date) VALUES
-(1, 2, 1, NULL, '2024-05-30', 'Transfer Bank', 160000.00, 2, '1', '2024-05-30 10:00:00', '2', '2024-05-30 11:00:00'),
-(2, 2, 2, 2,    '2024-05-31', 'QRIS',          150000.00, 2, '2', '2024-05-31 09:00:00', '2', '2024-05-31 10:00:00'),
-(3, 3, 3, NULL, '2024-06-02', 'Transfer Bank', 200000.00, 2, '3', '2024-06-02 08:00:00', '3', '2024-06-02 09:00:00'),
-(4, 3, 4, 4,    '2024-06-04', 'QRIS',          188000.00, 1, '4', '2024-06-04 07:00:00', '3', '2024-06-04 08:00:00'),
-(5, 4, 5, NULL, '2024-06-06', 'Transfer Bank', 240000.00, 1, '5', '2024-06-06 14:00:00', '4', '2024-06-06 15:00:00'),
-(6, 4, 6, 2,    '2024-06-07', 'QRIS',          220000.00, 3, '6', '2024-06-07 09:00:00', '4', '2024-06-07 10:00:00'),
-(7, 2, 7, NULL, '2024-06-09', 'Transfer Bank', 300000.00, 1, '7', '2024-06-09 18:00:00', '2', '2024-06-09 19:00:00'),
-(8, 3, 8, 4,    '2024-06-11', 'QRIS',          288000.00, 0, '8', '2024-06-11 07:00:00', NULL, NULL),
-(1, 2, 9, NULL, '2024-06-14', 'Transfer Bank', 160000.00, 2, '1', '2024-06-14 12:00:00', '2', '2024-06-14 13:00:00'),
-(3, 5, 10, 2,   '2024-06-17', 'QRIS',          190000.00, 3, '3', '2024-06-17 18:00:00', '5', '2024-06-17 19:00:00');
-
+(ID_Customer, ID_Karyawan, ID_Jadwal, ID_Promo, Tanggal_Booking, Metode_Pembayaran, Bukti_Pembayaran, Total_Bayar, Status, Created_By, Created_Date, Modified_By, Modified_Date) VALUES
+(1, 2, 1, NULL, '2024-05-30', 'Transfer Bank', 'booking_1.jpg', 160000.00, 2, '1', '2024-05-30 10:00:00', '2', '2024-05-30 11:00:00'),
+(2, 2, 2, 2,    '2024-05-31', 'QRIS',          'booking_2.jpg', 150000.00, 2, '2', '2024-05-31 09:00:00', '2', '2024-05-31 10:00:00'),
+(3, 3, 3, NULL, '2024-06-02', 'Transfer Bank', 'booking_3.jpg', 200000.00, 2, '3', '2024-06-02 08:00:00', '3', '2024-06-02 09:00:00'),
+(4, 3, 4, 4,    '2024-06-04', 'QRIS',          'booking_4.jpg', 188000.00, 1, '4', '2024-06-04 07:00:00', '3', '2024-06-04 08:00:00'),
+(5, 4, 5, NULL, '2024-06-06', 'Transfer Bank', 'booking_5.jpg', 240000.00, 1, '5', '2024-06-06 14:00:00', '4', '2024-06-06 15:00:00'),
+(6, 4, 6, 2,    '2024-06-07', 'QRIS',          'booking_6.jpg', 220000.00, 3, '6', '2024-06-07 09:00:00', '4', '2024-06-07 10:00:00'),
+(7, 2, 7, NULL, '2024-06-09', 'Transfer Bank', 'booking_7.jpg', 300000.00, 1, '7', '2024-06-09 18:00:00', '2', '2024-06-09 19:00:00'),
+(8, 3, 8, 4,    '2024-06-11', 'QRIS',          'booking_8.jpg', 288000.00, 0, '8', '2024-06-11 07:00:00', NULL, NULL),
+(1, 2, 9, NULL, '2024-06-14', 'Transfer Bank', 'booking_9.jpg', 160000.00, 2, '1', '2024-06-14 12:00:00', '2', '2024-06-14 13:00:00'),
+(2, 3, 10, 2,   '2024-06-16', 'QRIS',          'booking_10.jpg', 150000.00, 1, '2', '2024-06-16 11:00:00', '3', '2024-06-16 12:00:00');
 
 -- ============================================================
 -- 9. TABEL TRANSAKSI: Pembatalan_Booking
@@ -427,6 +427,7 @@ CREATE TABLE Pembatalan_Booking (
     Biaya_Batal     DECIMAL(18,2)   NOT NULL,
     Nominal_Refund  DECIMAL(18,2)   NOT NULL,
     Metode_Refund   VARCHAR(20)     NOT NULL,
+    Bukti_Pembayaran VARCHAR(255)   NULL,
     Status          INT             NOT NULL CHECK (Status IN (0,1)),
     Created_By      VARCHAR(50)     NOT NULL,
     Created_Date    DATETIME        NOT NULL,
@@ -458,6 +459,7 @@ CREATE TABLE Langganan (
     Tanggal_Selesai     DATE            NOT NULL,
     Total_Bayar         DECIMAL(18,2)   NOT NULL,
     Metode_Pembayaran   VARCHAR(20)     NOT NULL,
+    Bukti_Pembayaran    VARCHAR(255)    NULL,
     Status              INT             NOT NULL CHECK (Status IN (0,1,2,3)),
     Created_By          VARCHAR(50)     NOT NULL,
     Created_Date        DATETIME        NOT NULL,
@@ -472,16 +474,16 @@ CREATE TABLE Langganan (
 -- Status: 0 = Menunggu Konfirmasi, 1 = Aktif, 2 = Berakhir, 3 = Ditolak
 INSERT INTO Langganan
 (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai,
- Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
+ Total_Bayar, Metode_Pembayaran, Bukti_Pembayaran, Status, Created_By, Created_Date)
 VALUES
-(1, 2, 1, '2024-04-01', '2024-04-30', 100000.00, 'Transfer Bank', 1, '1', '2024-04-01 09:00:00'),
-(2, 2, 2, '2024-04-10', '2024-05-09', 200000.00, 'QRIS',          1, '2', '2024-04-10 10:00:00'),
-(3, 3, 3, '2024-05-01', '2024-05-31', 350000.00, 'Transfer Bank', 1, '3', '2024-05-01 08:00:00'),
-(5, 3, 1, '2024-05-15', '2024-06-14', 100000.00, 'QRIS',          1, '5', '2024-05-15 09:00:00'),
-(7, 4, 2, '2024-06-01', '2024-06-30', 200000.00, 'Transfer Bank', 1, '7', '2024-06-01 10:00:00'),
-(4, 4, 1, '2024-06-05', '2024-07-04', 100000.00, 'QRIS',          1, '4', '2024-06-05 09:00:00'),
-(6, 5, 3, '2024-06-10', '2024-07-09', 350000.00, 'Transfer Bank', 1, '6', '2024-06-10 08:00:00'),
-(8, 5, 2, '2024-06-15', '2024-07-14', 200000.00, 'QRIS',          0, '8', '2024-06-15 11:00:00');
+(1, 2, 1, '2024-04-01', '2024-04-30', 100000.00, 'Transfer Bank', 'langganan_1.jpg', 1, '1', '2024-04-01 09:00:00'),
+(2, 2, 2, '2024-04-10', '2024-05-09', 200000.00, 'QRIS',          'langganan_2.jpg', 1, '2', '2024-04-10 10:00:00'),
+(3, 3, 3, '2024-05-01', '2024-05-31', 350000.00, 'Transfer Bank', 'langganan_3.jpg', 1, '3', '2024-05-01 08:00:00'),
+(5, 3, 1, '2024-05-15', '2024-06-14', 100000.00, 'QRIS',          'langganan_4.jpg', 1, '5', '2024-05-15 09:00:00'),
+(7, 4, 2, '2024-06-01', '2024-06-30', 200000.00, 'Transfer Bank', 'langganan_5.jpg', 1, '7', '2024-06-01 10:00:00'),
+(4, 4, 1, '2024-06-05', '2024-07-04', 100000.00, 'QRIS',          'langganan_6.jpg', 1, '4', '2024-06-05 09:00:00'),
+(6, 5, 3, '2024-06-10', '2024-07-09', 350000.00, 'Transfer Bank', 'langganan_7.jpg', 1, '6', '2024-06-10 08:00:00'),
+(8, 5, 2, '2024-06-15', '2024-07-14', 200000.00, 'QRIS',          'langganan_8.jpg', 0, '8', '2024-06-15 11:00:00');
 
 
 -- ============================================================
@@ -546,6 +548,7 @@ CREATE TABLE Beli_Alat (
     Tanggal_Beli        DATE            NOT NULL,
     Metode_Pembayaran   VARCHAR(20)     NOT NULL,
     Total_Bayar         DECIMAL(18,2)   NOT NULL,
+    Bukti_Pembayaran    VARCHAR(255)    NULL,
     Status              INT             NOT NULL CHECK (Status IN (0,1)),
     Created_By          VARCHAR(50)     NOT NULL,
     Created_Date        DATETIME        NOT NULL,
@@ -556,15 +559,15 @@ CREATE TABLE Beli_Alat (
 );
 
 INSERT INTO Beli_Alat
-(ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date) VALUES
-(2, 1, '2024-05-10', 'Transfer Bank', 300000.00, 1, '1', '2024-05-10 10:00:00'),
-(3, 2, '2024-05-12', 'QRIS',          370000.00, 1, '2', '2024-05-12 11:00:00'),
-(4, 3, '2024-05-15', 'Transfer Bank', 500000.00, 1, '3', '2024-05-15 09:00:00'),
-(2, 4, '2024-05-20', 'QRIS',          240000.00, 1, '4', '2024-05-20 14:00:00'),
-(3, 5, '2024-06-01', 'Transfer Bank', 450000.00, 1, '5', '2024-06-01 10:00:00'),
-(5, 6, '2024-06-05', 'QRIS',          150000.00, 1, '6', '2024-06-05 11:00:00'),
-(2, 7, '2024-06-08', 'Transfer Bank', 700000.00, 1, '7', '2024-06-08 13:00:00'),
-(4, 8, '2024-06-10', 'QRIS',          200000.00, 1, '8', '2024-06-10 15:00:00');
+(ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Bukti_Pembayaran, Total_Bayar, Status, Created_By, Created_Date) VALUES
+(2, 1, '2024-05-10', 'Transfer Bank', 'alat_1.jpg', 300000.00, 1, '1', '2024-05-10 10:00:00'),
+(3, 2, '2024-05-12', 'QRIS',          'alat_2.jpg', 370000.00, 1, '2', '2024-05-12 11:00:00'),
+(4, 3, '2024-05-15', 'Transfer Bank', 'alat_3.jpg', 500000.00, 1, '3', '2024-05-15 09:00:00'),
+(2, 4, '2024-05-20', 'QRIS',          'alat_4.jpg', 240000.00, 1, '4', '2024-05-20 14:00:00'),
+(3, 5, '2024-06-01', 'Transfer Bank', 'alat_5.jpg', 450000.00, 1, '5', '2024-06-01 10:00:00'),
+(5, 6, '2024-06-05', 'QRIS',          'alat_6.jpg', 150000.00, 1, '6', '2024-06-05 11:00:00'),
+(2, 7, '2024-06-08', 'Transfer Bank', 'alat_7.jpg', 700000.00, 1, '7', '2024-06-08 13:00:00'),
+(4, 8, '2024-06-10', 'QRIS',          'alat_8.jpg', 200000.00, 1, '8', '2024-06-10 15:00:00');
 
 -- ============================================================
 -- 13. TABEL TRANSAKSI: Detail_Beli_Alat
