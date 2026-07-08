@@ -78,7 +78,7 @@ IF OBJECT_ID('dbo.SP_InsertTipeMember', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE dbo.SP_InsertTipeMember
-    @Nama_Tipe      VARCHAR(10),
+    @Nama_Tipe      VARCHAR(20),
     @Harga_Member   DECIMAL(18,2),
     @Potongan_Harga DECIMAL(18,2),
     @Created_By     VARCHAR(50)
@@ -142,7 +142,7 @@ GO
 
 CREATE PROCEDURE dbo.SP_UpdateTipeMember
     @ID_Tipe        INT,
-    @Nama_Tipe      VARCHAR(10),
+    @Nama_Tipe      VARCHAR(20),
     @Harga_Member   DECIMAL(18,2),
     @Potongan_Harga DECIMAL(18,2),
     @Modified_By    VARCHAR(50)

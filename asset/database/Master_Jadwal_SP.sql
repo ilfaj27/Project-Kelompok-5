@@ -1,8 +1,8 @@
 -- ============================================================
--- SP: CRUD JADWAL
+-- SP: CRUD JADWAL (FIXED)
 -- ============================================================
 
--- 7.1 CREATE Jadwal
+-- 7.1 CREATE Jadwal (FIXED: remove @ID_Jadwal from conflict check)
 CREATE OR ALTER PROCEDURE SP_Jadwal_Insert
     @ID_Lapangan   INT,
     @Tanggal       DATE,
@@ -13,26 +13,25 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_Insert
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     IF NOT EXISTS (SELECT 1 FROM Lapangan WHERE ID_Lapangan = @ID_Lapangan AND Is_Deleted = 0)
     BEGIN
         RAISERROR('Lapangan tidak ditemukan!', 16, 1);
         RETURN;
     END
-    
-        IF @Jam_Selesai <> '00:00' AND @Jam_Mulai >= @Jam_Selesai
+
+    IF @Jam_Selesai <> '00:00' AND @Jam_Mulai >= @Jam_Selesai
     BEGIN
         RAISERROR('Jam mulai harus lebih kecil dari jam selesai!', 16, 1);
         RETURN;
     END
-    
+
     DECLARE @JamSelesaiCompare VARCHAR(5) = CASE WHEN @Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), @Jam_Selesai, 108) END;
-    
+
     IF EXISTS (SELECT 1 FROM Jadwal 
                WHERE ID_Lapangan = @ID_Lapangan 
                  AND Tanggal = @Tanggal 
                  AND Is_Deleted = 0
-                 AND ID_Jadwal <> @ID_Jadwal
                  AND NOT (
                      (CASE WHEN Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), Jam_Selesai, 108) END) <= CONVERT(VARCHAR(5), @Jam_Mulai, 108)
                      OR CONVERT(VARCHAR(5), Jam_Mulai, 108) >= @JamSelesaiCompare
@@ -55,11 +54,11 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_Select
     @ID_Jadwal   INT = NULL,
     @ID_Lapangan INT = NULL,
     @Tanggal     DATE = NULL,
-    @Tersedia    BIT = NULL  -- NULL = semua, 1 = tersedia, 0 = tidak tersedia
+    @Tersedia    BIT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal, 
            j.Jam_Mulai, j.Jam_Selesai, j.Status, j.Is_Deleted,
            j.Created_By, j.Created_Date, j.Modified_By, j.Modified_Date,
@@ -89,7 +88,7 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_Update
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     IF NOT EXISTS (SELECT 1 FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal AND Is_Deleted = 0)
     BEGIN
         RAISERROR('Data Jadwal tidak ditemukan!', 16, 1);
@@ -100,21 +99,21 @@ BEGIN
     DECLARE @CurrTanggal DATE = (SELECT Tanggal FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal);
     DECLARE @CurrMulai TIME = (SELECT Jam_Mulai FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal);
     DECLARE @CurrSelesai TIME = (SELECT Jam_Selesai FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal);
-    
+
     DECLARE @NewLapangan INT = COALESCE(@ID_Lapangan, @CurrLapangan);
     DECLARE @NewTanggal DATE = COALESCE(@Tanggal, @CurrTanggal);
     DECLARE @NewMulai TIME = COALESCE(@Jam_Mulai, @CurrMulai);
     DECLARE @NewSelesai TIME = COALESCE(@Jam_Selesai, @CurrSelesai);
 
-        IF @NewSelesai <> '00:00' AND @NewMulai >= @NewSelesai
+    IF @NewSelesai <> '00:00' AND @NewMulai >= @NewSelesai
     BEGIN
         RAISERROR('Jam mulai harus lebih kecil dari jam selesai!', 16, 1);
         RETURN;
     END
-    
+
     DECLARE @NewMulaiStr VARCHAR(5) = CONVERT(VARCHAR(5), @NewMulai, 108);
     DECLARE @NewSelesaiStr VARCHAR(5) = CASE WHEN @NewSelesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), @NewSelesai, 108) END;
-    
+
     IF EXISTS (SELECT 1 FROM Jadwal 
                WHERE ID_Lapangan = @NewLapangan 
                  AND Tanggal = @NewTanggal 
@@ -148,7 +147,7 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_Delete
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     IF NOT EXISTS (SELECT 1 FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal AND Is_Deleted = 0)
     BEGIN
         RAISERROR('Data Jadwal tidak ditemukan!', 16, 1);
@@ -174,16 +173,16 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_SelectFiltered
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
     DECLARE @SortSQL NVARCHAR(100);
     DECLARE @SQL NVARCHAR(MAX);
-    
+
     SET @SortSQL = CASE @SortBy
         WHEN 'lapangan_asc' THEN 'l.Nama_Lapangan ASC'
         ELSE 'j.Tanggal ASC, j.Jam_Mulai ASC'
     END;
-    
+
     SET @SQL = N'
         SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal,
                j.Jam_Mulai, j.Jam_Selesai, j.Status, j.Is_Deleted,
@@ -198,7 +197,7 @@ BEGIN
           AND (@TanggalFilter IS NULL OR j.Tanggal = @TanggalFilter)
         ORDER BY ' + @SortSQL + '
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;';
-    
+
     EXEC sp_executesql @SQL,
         N'@StatusFilter INT, @LapanganFilter INT, @TanggalFilter DATE, @Offset INT, @PageSize INT',
         @StatusFilter, @LapanganFilter, @TanggalFilter, @Offset, @PageSize;
@@ -212,7 +211,7 @@ CREATE OR ALTER PROCEDURE SP_Jadwal_Count
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     SELECT COUNT(*) AS t
     FROM Jadwal j
     JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan

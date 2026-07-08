@@ -1,14 +1,8 @@
 -- ============================================================
--- Update_Alat_Kategori_Size.sql
+-- Update_Alat_Kategori_Size.sql (FIXED - COMPLETE)
 -- UPDATE MASTER ALAT: Kategori + Stok per Ukuran (Size)
 -- ============================================================
 -- Jalankan SETELAH database Hoopball + Master_Alat_UDF_SP.sql
--- Isi:
---   1. Kolom baru: Alat.Kategori
---   2. Tabel baru: Alat_Size (stok per ukuran)
---   3. Seed data lama (kategori otomatis + stok 'All Size')
---   4. ALTER SP lama (Insert, Update, Select, SelectFiltered)
---   5. SP baru untuk Alat_Size
 -- ============================================================
 
 USE Hoopball;
@@ -41,7 +35,7 @@ BEGIN
     CREATE TABLE Alat_Size (
         ID_Alat_Size    INT IDENTITY(1,1) PRIMARY KEY,
         ID_Alat         INT             NOT NULL,
-        Ukuran          VARCHAR(15)     NOT NULL,   -- 'S','M','L','XL','XXL','38'..'45','Size 5'..'Size 7','All Size'
+        Ukuran          VARCHAR(15)     NOT NULL,
         Stok            INT             NOT NULL,
         FOREIGN KEY (ID_Alat) REFERENCES Alat(ID_Alat),
         CONSTRAINT UQ_AlatSize_Alat_Ukuran UNIQUE (ID_Alat, Ukuran),
@@ -52,9 +46,6 @@ GO
 
 -- ============================================================
 -- 3. SEED DATA LAMA
---    - Tebak kategori dari nama alat
---    - Stok lama dipindah jadi 1 baris 'All Size'
---      (nanti bisa diedit lewat form untuk dipecah per ukuran)
 -- ============================================================
 UPDATE Alat
 SET Kategori = CASE
@@ -77,18 +68,103 @@ WHERE NOT EXISTS (SELECT 1 FROM Alat_Size s WHERE s.ID_Alat = a.ID_Alat);
 GO
 
 -- ============================================================
--- 4. ALTER SP LAMA
+-- 4. SP: Alat_Count (untuk pagination)
+-- ============================================================
+IF OBJECT_ID('SP_Alat_Count', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_Count;
+GO
+CREATE PROCEDURE SP_Alat_Count
+    @StatusFilter INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT COUNT(*) AS TotalCount
+    FROM Alat
+    WHERE Is_Deleted = 0
+      AND (@StatusFilter IS NULL OR Status = @StatusFilter);
+END
+GO
+
+-- ============================================================
+-- 5. SP: Alat_CountByStatus (untuk statistik dashboard)
+-- ============================================================
+IF OBJECT_ID('SP_Alat_CountByStatus', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_CountByStatus;
+GO
+CREATE PROCEDURE SP_Alat_CountByStatus
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS AktifCount,
+        SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS NonaktifCount,
+        COUNT(*) AS TotalCount
+    FROM Alat
+    WHERE Is_Deleted = 0;
+END
+GO
+
+-- ============================================================
+-- 6. SP: Alat_CheckDuplicate (untuk validasi nama alat)
+-- ============================================================
+IF OBJECT_ID('SP_Alat_CheckDuplicate', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_CheckDuplicate;
+GO
+CREATE PROCEDURE SP_Alat_CheckDuplicate
+    @Nama_Alat  VARCHAR(25),
+    @ExcludeID  INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT TOP 1 ID_Alat
+    FROM Alat
+    WHERE Nama_Alat = @Nama_Alat
+      AND Is_Deleted = 0
+      AND (@ExcludeID IS NULL OR ID_Alat <> @ExcludeID);
+END
+GO
+
+-- ============================================================
+-- 7. SP: Alat_Delete (soft delete)
+-- ============================================================
+IF OBJECT_ID('SP_Alat_Delete', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_Delete;
+GO
+CREATE PROCEDURE SP_Alat_Delete
+    @ID_Alat     INT,
+    @Deleted_By  VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM Alat WHERE ID_Alat = @ID_Alat AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Data Alat tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    UPDATE Alat
+    SET Is_Deleted = 1,
+        Deleted_By = @Deleted_By,
+        Deleted_Date = GETDATE()
+    WHERE ID_Alat = @ID_Alat;
+END
+GO
+
+-- ============================================================
+-- 8. SP LAMA (FIXED: backward compatibility @Harga_Alat)
 -- ============================================================
 
 -- --------------------------------------------------------
--- SP_Alat_Insert: + @Kategori, dan return ID baru
+-- SP_Alat_Insert: + @Kategori, return ID baru
+-- NOTE: @Harga_Alat di-map ke Harga_Jual (harga jual)
+--       @Harga_Beli otomatis = @Harga_Alat (default)
 -- --------------------------------------------------------
 IF OBJECT_ID('SP_Alat_Insert', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_Insert;
 GO
 CREATE PROCEDURE SP_Alat_Insert
     @Nama_Alat   VARCHAR(25),
     @Stok        INT,
-    @Harga_Alat  DECIMAL(18,2),
+    @Harga_Alat  DECIMAL(18,2),      -- backward compatibility: di-map ke Harga_Jual
     @Photo_Alat  VARCHAR(255) = NULL,
     @Status      INT,
     @Created_By  VARCHAR(50),
@@ -105,22 +181,22 @@ BEGIN
 
     IF @Harga_Alat < 0
     BEGIN
-        RAISERROR('Harga alat tidak boleh negatif!', 16, 1);
+        RAISERROR('Harga tidak boleh negatif!', 16, 1);
         RETURN;
     END
 
     INSERT INTO Alat
-    (Nama_Alat, Stok, Harga_Alat, Photo_Alat, Status, Kategori, Is_Deleted, Created_By, Created_Date)
+    (Nama_Alat, Stok, Harga_Beli, Harga_Jual, Photo_Alat, Status, Kategori, Is_Deleted, Created_By, Created_Date)
     VALUES
-    (@Nama_Alat, @Stok, @Harga_Alat, @Photo_Alat, @Status, @Kategori, 0, @Created_By, GETDATE());
+    (@Nama_Alat, @Stok, @Harga_Alat, @Harga_Alat, @Photo_Alat, @Status, @Kategori, 0, @Created_By, GETDATE());
 
-    -- Return ID alat yang baru dibuat (dipakai PHP untuk insert Alat_Size)
     SELECT SCOPE_IDENTITY() AS New_ID_Alat;
 END
 GO
 
 -- --------------------------------------------------------
 -- SP_Alat_Update: + @Kategori
+-- NOTE: @Harga_Alat di-map ke Harga_Jual (harga jual)
 -- --------------------------------------------------------
 IF OBJECT_ID('SP_Alat_Update', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_Update;
 GO
@@ -128,7 +204,7 @@ CREATE PROCEDURE SP_Alat_Update
     @ID_Alat     INT,
     @Nama_Alat   VARCHAR(25) = NULL,
     @Stok        INT = NULL,
-    @Harga_Alat  DECIMAL(18,2) = NULL,
+    @Harga_Alat  DECIMAL(18,2) = NULL,  -- backward compatibility: di-map ke Harga_Jual
     @Photo_Alat  VARCHAR(255) = NULL,
     @Status      INT = NULL,
     @Modified_By VARCHAR(50),
@@ -151,14 +227,15 @@ BEGIN
 
     IF @Harga_Alat IS NOT NULL AND @Harga_Alat < 0
     BEGIN
-        RAISERROR('Harga alat tidak boleh negatif!', 16, 1);
+        RAISERROR('Harga tidak boleh negatif!', 16, 1);
         RETURN;
     END
 
     UPDATE Alat
     SET Nama_Alat   = COALESCE(@Nama_Alat, Nama_Alat),
         Stok        = COALESCE(@Stok, Stok),
-        Harga_Alat  = COALESCE(@Harga_Alat, Harga_Alat),
+        Harga_Beli  = COALESCE(@Harga_Alat, Harga_Beli),
+        Harga_Jual  = COALESCE(@Harga_Alat, Harga_Jual),
         Photo_Alat  = COALESCE(@Photo_Alat, Photo_Alat),
         Status      = COALESCE(@Status, Status),
         Kategori    = COALESCE(@Kategori, Kategori),
@@ -169,7 +246,7 @@ END
 GO
 
 -- --------------------------------------------------------
--- SP_Alat_Select: + kolom Kategori
+-- SP_Alat_Select: + kolom Kategori, alias Harga_Alat
 -- --------------------------------------------------------
 IF OBJECT_ID('SP_Alat_Select', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_Select;
 GO
@@ -179,7 +256,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Alat, Photo_Alat,
+    SELECT ID_Alat, Nama_Alat, Kategori, Stok,
+           Harga_Jual AS Harga_Alat,  -- alias untuk backward compatibility PHP
+           Harga_Beli, Harga_Jual, Photo_Alat,
            Status, Is_Deleted, Created_By, Created_Date,
            Modified_By, Modified_Date, Deleted_By, Deleted_Date
     FROM Alat
@@ -190,7 +269,7 @@ END
 GO
 
 -- --------------------------------------------------------
--- SP_Alat_SelectFiltered: + kolom Kategori
+-- SP_Alat_SelectFiltered: + kolom Kategori, alias Harga_Alat
 -- --------------------------------------------------------
 IF OBJECT_ID('SP_Alat_SelectFiltered', 'P') IS NOT NULL DROP PROCEDURE SP_Alat_SelectFiltered;
 GO
@@ -209,13 +288,19 @@ BEGIN
 
     SET @SortSQL = CASE @SortBy
         WHEN 'stok_desc'  THEN 'Stok DESC'
-        WHEN 'harga_desc' THEN 'Harga_Alat DESC'
-        WHEN 'harga_asc'  THEN 'Harga_Alat ASC'
+        WHEN 'harga_desc' THEN 'Harga_Jual DESC'  -- mapped from harga_desc
+        WHEN 'harga_asc'  THEN 'Harga_Jual ASC'   -- mapped from harga_asc
+        WHEN 'hargabeli_desc' THEN 'Harga_Beli DESC'
+        WHEN 'hargabeli_asc'  THEN 'Harga_Beli ASC'
+        WHEN 'hargajual_desc' THEN 'Harga_Jual DESC'
+        WHEN 'hargajual_asc'  THEN 'Harga_Jual ASC'
         ELSE 'Nama_Alat ASC'
     END;
 
     SET @SQL = N'
-        SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Alat, Photo_Alat,
+        SELECT ID_Alat, Nama_Alat, Kategori, Stok,
+               Harga_Jual AS Harga_Alat,  -- alias untuk backward compatibility PHP
+               Harga_Beli, Harga_Jual, Photo_Alat,
                Status, Is_Deleted, Created_By, Created_Date,
                Modified_By, Modified_Date, Deleted_By, Deleted_Date
         FROM Alat
@@ -231,7 +316,7 @@ END
 GO
 
 -- ============================================================
--- 5. SP BARU: Alat_Size
+-- 9. SP BARU: Alat_Size
 -- ============================================================
 
 -- --------------------------------------------------------
@@ -254,7 +339,6 @@ GO
 
 -- --------------------------------------------------------
 -- SP_AlatSize_DeleteByAlat: hapus semua ukuran 1 alat
--- (dipanggil sebelum insert ulang saat edit)
 -- --------------------------------------------------------
 IF OBJECT_ID('SP_AlatSize_DeleteByAlat', 'P') IS NOT NULL DROP PROCEDURE SP_AlatSize_DeleteByAlat;
 GO
@@ -305,13 +389,12 @@ GO
 -- Insert alat baru dengan kategori
 EXEC SP_Alat_Insert
     @Nama_Alat = 'Jersey Home 2026',
-    @Stok = 30,                 -- total dari semua ukuran
+    @Stok = 30,
     @Harga_Alat = 150000,
     @Photo_Alat = 'asset/image/jersey.jpg',
     @Status = 1,
     @Created_By = 'SYSTEM',
     @Kategori = 'Baju';
--- SP mengembalikan New_ID_Alat, misal 21
 
 -- Insert stok per ukuran
 EXEC SP_AlatSize_Insert @ID_Alat = 21, @Ukuran = 'S',  @Stok = 5;
@@ -324,22 +407,8 @@ EXEC SP_AlatSize_SelectByAlat @ID_Alat = 21;
 */
 GO
 
-
-
 -- ============================================================
--- Update_DetailBeli_Ukuran.sql
--- OPTION A: Simpan UKURAN (size) yang dibeli customer sebagai
---           catatan di detail pembelian.
--- ============================================================
--- Konteks:
---   - Master Alat sudah punya tabel Alat_Size (stok per ukuran)
---     dari Update_Alat_Kategori_Size.sql.
---   - Di sini kita HANYA menambah kolom Ukuran ke Detail_Beli_Alat
---     supaya karyawan tahu ukuran apa yang harus diserahkan.
---   - Stok tetap dipotong dari total Alat.Stok lewat trigger lama
---     (trg_DetailBeli_AutoUpdateStok) — TIDAK diubah.
--- ============================================================
--- Jalankan SETELAH database Hoopball + Update_Alat_Kategori_Size.sql
+-- Update_DetailBeli_Ukuran.sql (FIXED)
 -- ============================================================
 
 USE Hoopball;
@@ -347,7 +416,6 @@ GO
 
 -- ------------------------------------------------------------
 -- 1. Tambah kolom Ukuran (nullable, default 'All Size')
---    Nullable + default supaya data pembelian lama tetap valid.
 -- ------------------------------------------------------------
 IF COL_LENGTH('Detail_Beli_Alat', 'Ukuran') IS NULL
 BEGIN
@@ -358,40 +426,9 @@ END
 GO
 
 -- ------------------------------------------------------------
--- 2. Backfill data lama: yang belum punya ukuran -> 'All Size'
+-- 2. Backfill data lama
 -- ------------------------------------------------------------
 UPDATE Detail_Beli_Alat
 SET Ukuran = 'All Size'
 WHERE Ukuran IS NULL;
-GO
-
--- ------------------------------------------------------------
--- CATATAN untuk tim:
---   Primary Key Detail_Beli_Alat saat ini (ID_Alat, ID_Beli).
---   Karena satu transaksi bisa beli 1 alat dalam 2 ukuran berbeda
---   (misal Jersey S dan Jersey M dalam 1 checkout), maka baris kedua
---   akan bentrok PK. PHP pembelian_alat.php sudah diatur untuk
---   MENGGABUNGKAN item dengan (id_alat + ukuran) yang sama, dan tetap
---   membuat baris terpisah untuk ukuran berbeda -> ini melanggar PK.
---
---   Solusi paling aman TANPA memecah PK: PHP menjumlahkan qty per
---   (ID_Alat, ID_Beli) menjadi satu baris, dan menyimpan detail ukuran
---   pada baris tsb. Namun bila diinginkan multi-ukuran per alat dalam
---   satu nota, jalankan bagian OPSIONAL di bawah untuk memasukkan
---   Ukuran ke dalam Primary Key.
---
---   >>> Secara default kami TIDAK menjalankan bagian opsional ini,
---       karena mengubah PK berdampak ke trigger & halaman lain.
---       PHP sudah menangani kasus umum dengan aman.
--- ------------------------------------------------------------
-
-/*  ===== OPSIONAL: jadikan Ukuran bagian dari Primary Key =====
-    Hanya jalankan bila tim setuju & sudah mengetes trigger terkait.
-
-ALTER TABLE Detail_Beli_Alat DROP CONSTRAINT PK__Detail_B__...; -- ganti nama PK asli
-ALTER TABLE Detail_Beli_Alat
-    ALTER COLUMN Ukuran VARCHAR(15) NOT NULL;
-ALTER TABLE Detail_Beli_Alat
-    ADD CONSTRAINT PK_Detail_Beli_Alat PRIMARY KEY (ID_Alat, ID_Beli, Ukuran);
-*/
 GO
