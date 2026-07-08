@@ -11,8 +11,8 @@
 -- 1 = Aktif
 -- 2 = Berakhir
 -- 3 = Ditolak
+DROP DATABASE Hoopball
 
-DROP DATABASE Hoopball;
 CREATE DATABASE Hoopball;
 GO
 
@@ -186,7 +186,7 @@ INSERT INTO Lapangan
 -- ============================================================
 CREATE TABLE Tipe_Member (
     ID_Tipe         INT IDENTITY(1,1) PRIMARY KEY,
-    Nama_Tipe       VARCHAR(10)     NOT NULL,
+    Nama_Tipe       VARCHAR(20)     NOT NULL,
     Harga_Member    DECIMAL(18,2)   NOT NULL,
     Potongan_Harga  DECIMAL(18,2)   NOT NULL,
     Status          INT             NOT NULL CHECK (Status IN (0,1)),
