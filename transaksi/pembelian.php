@@ -43,11 +43,13 @@ if (!empty($profile_photo)) {
 // ============================================================================
 // STATUS PEMBELIAN
 // 0 = Menunggu Konfirmasi
-// 1 = Berhasil
+// 1 = Berhasil (dikonfirmasi karyawan)
+// 2 = Ditolak (butuh migration Update_BeliAlat_StatusDitolak.sql)
 // ============================================================================
 $status_labels = [
     0 => ['label' => 'Menunggu', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
-    1 => ['label' => 'Berhasil', 'class' => 'sp-active', 'icon' => 'fa-check-circle']
+    1 => ['label' => 'Berhasil', 'class' => 'sp-active', 'icon' => 'fa-check-circle'],
+    2 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
 ];
 
 // ============================================================================
@@ -69,38 +71,89 @@ if (isset($_POST['konfirmasi_bayar'])) {
 }
 
 // ============================================================================
-// PROSES PEMBATALAN PEMBELIAN
+// PROSES TOLAK PEMBELIAN (Status -> 2 = Ditolak, stok dikembalikan)
 // ============================================================================
-if (isset($_POST['batal_pembelian'])) {
-    $id_beli = $_POST['id_beli'];
-    $alasan = $_POST['alasan_batal'];
 
+// Helper: urai label ukuran ("S x2, M x1" / "All Size x3" / "Multi") jadi array [ukuran => qty]
+function parseUkuranLabel($label, $jumlah_total) {
+    $label = trim((string)$label);
+    // Tanpa info ukuran / label ringkas "Multi" -> kembalikan semua ke baris 'All Size' (fallback)
+    if ($label === '' || strcasecmp($label, 'Multi') === 0) {
+        return ['All Size' => (int)$jumlah_total];
+    }
+    $out = []; $sum = 0;
+    foreach (explode(',', $label) as $part) {
+        $part = trim($part);
+        if ($part === '') continue;
+        if (preg_match('/^(.*)\sx(\d+)$/i', $part, $m)) {
+            $uk = trim($m[1]); $qty = (int)$m[2];
+        } else {
+            $uk = $part; $qty = 0; // label tanpa qty (kasus label terpotong)
+        }
+        $out[$uk] = ($out[$uk] ?? 0) + $qty;
+        $sum += $qty;
+    }
+    // Kalau jumlah dari label < jumlah asli, sisanya dialokasikan (label terpotong)
+    if ($sum < (int)$jumlah_total) {
+        $keys = array_keys($out);
+        $target = (count($keys) === 1) ? $keys[0] : 'All Size';
+        $out[$target] = ($out[$target] ?? 0) + ((int)$jumlah_total - $sum);
+    }
+    return $out;
+}
+
+if (isset($_POST['tolak_pembelian'])) {
+    $id_beli = $_POST['id_beli'];
+    $alasan = trim($_POST['alasan_tolak'] ?? '');
+
+    // Ambil detail (termasuk Ukuran) untuk pengembalian stok
     $q_beli = sqlsrv_query($conn, 
-        "SELECT BA.*, DBA.ID_Alat, DBA.Jumlah FROM Beli_Alat BA INNER JOIN Detail_Beli_Alat DBA ON BA.ID_Beli = DBA.ID_Beli WHERE BA.ID_Beli = ?",
+        "SELECT BA.ID_Beli, BA.Status, DBA.ID_Alat, DBA.Jumlah, DBA.Ukuran 
+         FROM Beli_Alat BA 
+         INNER JOIN Detail_Beli_Alat DBA ON BA.ID_Beli = DBA.ID_Beli 
+         WHERE BA.ID_Beli = ?",
         array($id_beli)
     );
     $details = [];
     $beli_data = null;
-    while ($row = sqlsrv_fetch_array($q_beli, SQLSRV_FETCH_ASSOC)) {
-        if (!$beli_data) $beli_data = $row;
-        $details[] = ['id_alat' => $row['ID_Alat'], 'jumlah' => $row['Jumlah']];
+    if ($q_beli) {
+        while ($row = sqlsrv_fetch_array($q_beli, SQLSRV_FETCH_ASSOC)) {
+            if (!$beli_data) $beli_data = $row;
+            $details[] = ['id_alat' => $row['ID_Alat'], 'jumlah' => (int)$row['Jumlah'], 'ukuran' => $row['Ukuran'] ?? ''];
+        }
     }
 
-    if ($beli_data) {
-        sqlsrv_query($conn, 
-            "UPDATE Beli_Alat SET Status = 0, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ?",
-            array($nama . ' (BATAL: ' . $alasan . ')', $id_beli)
+    if ($beli_data && (int)$beli_data['Status'] === 0) {
+        // Set Ditolak — hanya kalau masih Menunggu (mencegah tolak/konfirmasi dobel)
+        $stmt = sqlsrv_query($conn, 
+            "UPDATE Beli_Alat SET Status = 2, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 0",
+            array($nama . ' (TOLAK: ' . $alasan . ')', $id_beli)
         );
-        foreach ($details as $d) {
-            sqlsrv_query($conn, 
-                "UPDATE Alat SET Stok = Stok + ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?",
-                array($d['jumlah'], $nama, $d['id_alat'])
-            );
+        $affected = ($stmt !== false) ? sqlsrv_rows_affected($stmt) : 0;
+
+        if ($affected > 0) {
+            foreach ($details as $d) {
+                // 1. Kembalikan stok total alat
+                sqlsrv_query($conn, 
+                    "UPDATE Alat SET Stok = Stok + ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?",
+                    array($d['jumlah'], $nama, $d['id_alat'])
+                );
+                // 2. Kembalikan stok per ukuran (Alat_Size) sesuai label Ukuran di detail
+                foreach (parseUkuranLabel($d['ukuran'], $d['jumlah']) as $uk => $qty) {
+                    if ($qty <= 0) continue;
+                    sqlsrv_query($conn,
+                        "UPDATE Alat_Size SET Stok = Stok + ? WHERE ID_Alat = ? AND Ukuran = ?",
+                        array($qty, $d['id_alat'], $uk)
+                    );
+                }
+            }
+            header("Location: pembelian.php?status=success&msg=Pembelian ditolak. Stok telah dikembalikan.");
+        } else {
+            header("Location: pembelian.php?status=error&msg=Pembelian sudah diproses sebelumnya.");
         }
-        header("Location: pembelian.php?status=success&msg=Pembelian alat dibatalkan. Stok telah dikembalikan.");
         exit();
     } else {
-        header("Location: pembelian.php?status=error&msg=Data pembelian tidak ditemukan.");
+        header("Location: pembelian.php?status=error&msg=Data pembelian tidak ditemukan atau sudah diproses.");
         exit();
     }
 }
@@ -149,7 +202,7 @@ $offset = ($page - 1) * $limit;
 
 $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan, 
                        BA.Tanggal_Beli, BA.Metode_Pembayaran, BA.Total_Bayar, BA.Status,
-                       BA.Created_Date, BA.Modified_Date,
+                       BA.Created_Date, BA.Modified_Date, BA.Modified_By,
                        C.Nama_Customer, C.Email, C.No_Telepon,
                        K.Nama_Karyawan as Nama_Karyawan_Input
                 FROM Beli_Alat BA
@@ -160,6 +213,7 @@ $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan,
                     CASE 
                         WHEN BA.Status = 0 THEN 0
                         WHEN BA.Status = 1 THEN 1
+                        ELSE 2
                     END ASC,
                     BA.Tanggal_Beli DESC
                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
@@ -172,7 +226,7 @@ if ($q_pembelian) {
     while ($row = sqlsrv_fetch_array($q_pembelian, SQLSRV_FETCH_ASSOC)) {
         $id_beli = $row['ID_Beli'];
         $detail_query = sqlsrv_query($conn,
-            "SELECT DBA.Jumlah, DBA.SubTotal, A.Nama_Alat, A.Harga_Alat
+            "SELECT DBA.Jumlah, DBA.SubTotal, DBA.Ukuran, A.Nama_Alat, A.Harga_Alat
              FROM Detail_Beli_Alat DBA
              INNER JOIN Alat A ON DBA.ID_Alat = A.ID_Alat
              WHERE DBA.ID_Beli = ?",
@@ -190,22 +244,22 @@ if ($q_pembelian) {
 }
 
 // ============================================================================
-// HITUNG STATISTIK (dari semua data, tanpa paging)
+// STATISTIK GLOBAL (tidak terpengaruh filter, biar KPI stabil)
+// "Total Dana Terkumpul" = SUM(Total_Bayar) status Berhasil.
+// Angka ini SAMA dengan komponen "omzet alat" di dashboard karyawan
+// (view_admin.php), jadi laporan & dashboard selalu nyambung.
 // ============================================================================
 $stats = [
-    'total' => 0, 'menunggu' => 0, 'berhasil' => 0,
-    'total_omzet' => 0, 'total_item' => 0
+    'total' => 0, 'menunggu' => 0, 'berhasil' => 0, 'ditolak' => 0,
+    'total_omzet' => 0
 ];
 
-$stats_sql = "SELECT BA.Status, BA.Total_Bayar FROM Beli_Alat BA
-              INNER JOIN Customer C ON BA.ID_Customer = C.ID_Customer
-              LEFT JOIN Karyawan K ON BA.ID_Karyawan = K.ID_Karyawan
-              $sql_where";
-$q_stats = sqlsrv_query($conn, $stats_sql, $params);
+$q_stats = sqlsrv_query($conn, "SELECT Status, Total_Bayar FROM Beli_Alat");
 if ($q_stats) {
     while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
         $stats['total']++;
         if ($row['Status'] == 0) $stats['menunggu']++;
+        if ($row['Status'] == 2) $stats['ditolak']++;
         if ($row['Status'] == 1) {
             $stats['berhasil']++;
             $stats['total_omzet'] += (float)$row['Total_Bayar'];
@@ -339,8 +393,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
-.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; }
-.t-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; position: relative; }
+.t-avatar img { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; }
 .t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
 .t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
@@ -370,6 +424,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .si-blue { background: var(--blue-lt); color: var(--blue); }
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.stat-sublabel { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 4px; opacity: .8; }
 
 /* ---- FILTER BAR ---- */
 .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
@@ -397,7 +452,19 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
-.action-btns { display: flex; gap: 6px; flex-wrap: nowrap; }
+.action-btns { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; }
+
+/* ===== TOMBOL PROSES (verifikasi / tolak dalam satu tombol) ===== */
+.btn-proses { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--orange), var(--orange-dk)); color: #fff; font-size: 12px; font-weight: 800; font-family: 'Barlow', sans-serif; cursor: pointer; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 3px 10px rgba(255,69,0,.25); white-space: nowrap; }
+.btn-proses:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,69,0,.35); }
+.btn-proses:active { transform: scale(0.96); }
+
+/* ===== BARIS DETAIL ALAT DI TABEL ===== */
+.detail-alat-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 3px 0; white-space: nowrap; }
+.detail-alat-row i { color: var(--orange); font-size: 10px; }
+.detail-alat-row .da-nama { color: var(--text-md); font-weight: 600; }
+.detail-alat-row .da-qty { color: var(--text); font-weight: 700; }
+.detail-alat-row .da-ukuran { background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 1px 8px; border-radius: 10px; }
 .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
 .btn-icon::before { content: ''; position: absolute; inset: 0; border-radius: 8px; opacity: 0; transition: opacity .25s ease; }
 .btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
@@ -455,6 +522,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .alat-detail-name { font-weight: 700; color: var(--text); }
 .alat-detail-qty { font-size: 12px; color: var(--muted); }
 .alat-detail-price { font-weight: 800; color: var(--orange); }
+.ukuran-badge { display: inline-block; background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+.detail-item.detail-note-tolak { background: var(--red-lt); border: 1px solid rgba(239,68,68,.25); }
+.detail-note-tolak .detail-label { color: var(--red); }
+.detail-note-tolak .detail-value { color: var(--red-dk); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.detail-id-badge { font-family: 'Barlow', sans-serif; letter-spacing: .5px; }
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
@@ -554,15 +626,12 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div class="topbar-breadcrumb">Transaksi / Konfirmasi & Manajemen Pembelian Alat</div>
     </div>
     <div class="topbar-right">
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i></a>
         <div class="dropdown-wrap">
             <div class="topbar-user">
                 <div class="t-avatar">
+                    <i class="fa-solid fa-user"></i>
                     <?php if (!empty($sidebar_photo)): ?>
-                        <img src="<?= $sidebar_photo ?>" alt="Profile">
-                    <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
+                        <img src="<?= $sidebar_photo ?>" alt="Profile" onerror="this.style.display='none';">
                     <?php endif; ?>
                 </div>
                 <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">KARYAWAN</div></div>
@@ -583,18 +652,22 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
         <div class="stat-card sc-orange">
             <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-cart-shopping"></i></div></div>
             <div class="stat-value"><?= $stats['total'] ?></div><div class="stat-label">Total Transaksi</div>
+            <div class="stat-sublabel"><?= $stats['ditolak'] ?> ditolak</div>
         </div>
         <div class="stat-card sc-yellow">
             <div class="stat-header"><div class="stat-icon-wrap si-yellow"><i class="fa-solid fa-clock"></i></div></div>
             <div class="stat-value"><?= $stats['menunggu'] ?></div><div class="stat-label">Menunggu Konfirmasi</div>
+            <div class="stat-sublabel">Perlu tindakan Anda</div>
         </div>
         <div class="stat-card sc-green">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div></div>
             <div class="stat-value"><?= $stats['berhasil'] ?></div><div class="stat-label">Berhasil</div>
+            <div class="stat-sublabel">Terkonfirmasi</div>
         </div>
         <div class="stat-card sc-blue">
             <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-money-bill-wave"></i></div></div>
-            <div class="stat-value"><?= rupiahFormat($stats['total_omzet']) ?></div><div class="stat-label">Total Omzet</div>
+            <div class="stat-value"><?= rupiahFormat($stats['total_omzet']) ?></div><div class="stat-label">Total Dana Terkumpul</div>
+            <div class="stat-sublabel">Dari pembelian terkonfirmasi</div>
         </div>
     </div>
 
@@ -615,6 +688,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                     <option value="all">Semua Status</option>
                     <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>Menunggu Konfirmasi</option>
                     <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>Berhasil</option>
+                    <option value="2" <?= $filter_status === '2' ? 'selected' : '' ?>>Ditolak</option>
                 </select>
                 <input type="text" name="filter_customer" class="filter-input" placeholder="Cari customer..." value="<?= htmlspecialchars($filter_customer) ?>">
                 <input type="date" name="filter_tanggal" class="filter-input" value="<?= htmlspecialchars($filter_tanggal) ?>">
@@ -637,13 +711,13 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                 <thead>
                     <tr>
                         <th style="width: 50px; text-align: center;">No.</th>
-                        <th style="text-align: center;">Customer</th>
-                        <th style="text-align: right;">Tanggal Beli</th>
-                        <th style="text-align: center;">Detail Alat</th>
-                        <th style="text-align: center;">Metode Bayar</th>
-                        <th style="text-align: right;">Total Bayar</th>
-                        <th style="text-align: center;">Status</th>
-                        <th>Aksi</th>
+                        <th>Customer</th>
+                        <th style="width: 120px;">Tanggal Beli</th>
+                        <th>Detail Alat</th>
+                        <th style="width: 120px; text-align: center;">Metode Bayar</th>
+                        <th style="width: 130px; text-align: right;">Total Bayar</th>
+                        <th style="width: 120px; text-align: center;">Status</th>
+                        <th style="width: 140px; text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -653,28 +727,35 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
                         ?>
                         <tr>
                             <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td style="text-align: center;">
+                            <td>
                                 <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($p['Email'] ?? '-') ?></div>
                             </td>
-                            <td style="text-align: right;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
-                            <td style="text-align: center;">
-                                <?php foreach ($p['details'] as $detail): ?>
-                                <div style="font-size: 12px; color: var(--muted); padding: 3px 0; white-space: nowrap;">
-                                    <i class="fa-solid fa-basketball" style="color: var(--orange); font-size: 10px; margin-right: 6px;"></i>
-                                    <?= htmlspecialchars($detail['Nama_Alat']) ?> <span style="color: var(--text); font-weight: 600;">(<?= $detail['Jumlah'] ?>x)</span>
+                            <td style="white-space: nowrap;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
+                            <td>
+                                <?php foreach ($p['details'] as $detail):
+                                    $uk = trim($detail['Ukuran'] ?? '');
+                                ?>
+                                <div class="detail-alat-row">
+                                    <i class="fa-solid fa-basketball"></i>
+                                    <span class="da-nama"><?= htmlspecialchars($detail['Nama_Alat']) ?></span>
+                                    <span class="da-qty"><?= $detail['Jumlah'] ?>x</span>
+                                    <?php if ($uk !== '' && strcasecmp($uk, 'All Size') !== 0): ?>
+                                        <span class="da-ukuran"><?= htmlspecialchars($uk) ?></span>
+                                    <?php endif; ?>
                                 </div>
                                 <?php endforeach; ?>
                             </td>
-                            <td style="text-align: center;"><?= $p['Metode_Pembayaran'] ?></td>
+                            <td style="text-align: center;"><?= htmlspecialchars($p['Metode_Pembayaran']) ?></td>
                             <td class="cell-price" style="white-space: nowrap; text-align: right;"><?= rupiahFormat($p['Total_Bayar']) ?></td>
                             <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
                             <td>
-                                <div class="action-btns">
+                                <div class="action-btns" style="justify-content: center;">
                                     <button class="btn-icon view" onclick="showDetail(<?= $p['ID_Beli'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
                                     <?php if ($p['Status'] == 0): ?>
-                                        <button class="btn-icon success" onclick="confirmBayar(<?= $p['ID_Beli'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
-                                        <button class="btn-icon danger" onclick="confirmBatal(<?= $p['ID_Beli'] ?>)" title="Batalkan"><i class="fa-solid fa-xmark"></i></button>
+                                        <button class="btn-proses" onclick="prosesPembelian(<?= $p['ID_Beli'] ?>, '<?= htmlspecialchars($p['Nama_Customer'], ENT_QUOTES) ?>')">
+                                            <i class="fa-solid fa-clipboard-check"></i> Proses
+                                        </button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -750,10 +831,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     <input type="hidden" name="id_beli" id="konfirmasiId">
     <input type="hidden" name="konfirmasi_bayar" value="1">
 </form>
-<form method="POST" id="formBatal" style="display: none;">
-    <input type="hidden" name="id_beli" id="batalId">
-    <input type="hidden" name="alasan_batal" id="batalAlasan">
-    <input type="hidden" name="batal_pembelian" value="1">
+<form method="POST" id="formTolak" style="display: none;">
+    <input type="hidden" name="id_beli" id="tolakId">
+    <input type="hidden" name="alasan_tolak" id="tolakAlasan">
+    <input type="hidden" name="tolak_pembelian" value="1">
 </form>
 
 <script>
@@ -779,18 +860,22 @@ function showDetail(id) {
 
     const statusMap = {
         0: { label: 'Menunggu Konfirmasi', class: 'sp-pending', icon: 'fa-clock' },
-        1: { label: 'Berhasil (Dikonfirmasi)', class: 'sp-active', icon: 'fa-check-circle' }
+        1: { label: 'Berhasil (Dikonfirmasi)', class: 'sp-active', icon: 'fa-check-circle' },
+        2: { label: 'Ditolak', class: 'sp-inactive', icon: 'fa-ban' }
     };
     const status = statusMap[pembelian.Status] || statusMap[0];
 
     const tanggalBeli = pembelian.Tanggal_Beli ? new Date(pembelian.Tanggal_Beli.date || pembelian.Tanggal_Beli).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
 
+    // Daftar alat + badge ukuran (sembunyikan kalau 'All Size')
     let alatHtml = '';
     pembelian.details.forEach(d => {
+        const ukuranBadge = (d.Ukuran && d.Ukuran !== 'All Size')
+            ? `<span class="ukuran-badge">${d.Ukuran}</span>` : '';
         alatHtml += `
             <div class="alat-detail-item">
                 <div>
-                    <div class="alat-detail-name">${d.Nama_Alat}</div>
+                    <div class="alat-detail-name">${d.Nama_Alat}${ukuranBadge}</div>
                     <div class="alat-detail-qty">${d.Jumlah} x Rp ${parseFloat(d.Harga_Alat).toLocaleString('id-ID')}</div>
                 </div>
                 <div class="alat-detail-price">Rp ${parseFloat(d.SubTotal).toLocaleString('id-ID')}</div>
@@ -798,15 +883,32 @@ function showDetail(id) {
         `;
     });
 
+    // Kalau Ditolak: ambil catatan penolakan dari Modified_By, format "Nama (TOLAK: alasan)"
+    let tolakHtml = '';
+    if (pembelian.Status == 2) {
+        let alasan = '-';
+        let penolak = pembelian.Modified_By || '';
+        const m = penolak.match(/^(.*?)\s*\(TOLAK:\s*([\s\S]*)\)\s*$/);
+        if (m) { penolak = m[1]; alasan = m[2]; }
+        tolakHtml = `
+            <div class="detail-item detail-full detail-note-tolak">
+                <div class="detail-label"><i class="fa-solid fa-circle-exclamation" style="margin-right: 6px;"></i>Catatan Penolakan${penolak ? ' — oleh ' + penolak : ''}</div>
+                <div class="detail-value">${alasan}</div>
+            </div>
+        `;
+    }
+
     const html = `
         <div class="detail-grid">
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
+            <div class="detail-item"><div class="detail-label">ID Transaksi</div><div class="detail-value detail-id-badge">#${String(pembelian.ID_Beli).padStart(4, '0')}</div></div>
             <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${pembelian.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${pembelian.Email || '-'} | ${pembelian.No_Telepon || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tanggal Pembelian</div><div class="detail-value">${tanggalBeli}</div></div>
             <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${pembelian.Metode_Pembayaran}</div></div>
             <div class="detail-item"><div class="detail-label">Input Oleh</div><div class="detail-value">${pembelian.Nama_Karyawan_Input || 'System'}</div></div>
+            ${tolakHtml}
             <div class="detail-item detail-full">
-                <div class="detail-label"><i class="fa-solid fa-boxes-stacked" style="color: var(--orange); margin-right: 6px;"></i>Detail Alat</div>
+                <div class="detail-label"><i class="fa-solid fa-boxes-stacked" style="color: var(--orange); margin-right: 6px;"></i>Detail Alat (${pembelian.details.length} item)</div>
                 <div class="alat-detail-list">${alatHtml}</div>
             </div>
             <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">Rp ${parseFloat(pembelian.Total_Bayar).toLocaleString('id-ID')}</div></div>
@@ -817,46 +919,54 @@ function showDetail(id) {
     openModal('modalDetail');
 }
 
-function confirmBayar(id) {
+// ============================================
+// PROSES PEMBELIAN — 1 TOMBOL, 2 PILIHAN
+// Verifikasi (hijau) -> formKonfirmasi
+// Tolak (merah) -> minta alasan -> formTolak
+// ============================================
+function prosesPembelian(id, nama) {
     Swal.fire({
-        title: 'Konfirmasi Pembayaran?',
-        html: 'Customer sudah melakukan pembayaran untuk pembelian alat ini?<br><span style="color: var(--muted); font-size: 12px;">Status pembelian akan berubah menjadi <strong>Berhasil</strong></span>',
+        title: 'Proses Pembelian #' + String(id).padStart(4, '0'),
+        html: `Transaksi atas nama <strong>${nama}</strong>.<br><span style="color: #6B7280; font-size: 12.5px;">Verifikasi jika pembayaran sudah diterima, atau tolak pesanan ini.</span>`,
         icon: 'question',
+        showDenyButton: true,
         showCancelButton: true,
-        confirmButtonColor: '#10B981',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Konfirmasi',
+        confirmButtonText: '<i class="fa-solid fa-check"></i> Verifikasi',
+        denyButtonText: '<i class="fa-solid fa-ban"></i> Tolak',
         cancelButtonText: 'Batal',
+        confirmButtonColor: '#10B981',
+        denyButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
         reverseButtons: true
     }).then((result) => {
         if (result.isConfirmed) {
+            // VERIFIKASI -> Status jadi Berhasil (1)
             document.getElementById('konfirmasiId').value = id;
             document.getElementById('formKonfirmasi').submit();
-        }
-    });
-}
-
-function confirmBatal(id) {
-    Swal.fire({
-        title: 'Batalkan Pembelian?',
-        html: 'Pembelian alat ini akan dibatalkan.<br><span style="color: var(--red); font-size: 12px;"><strong>Stok akan dikembalikan</strong> ke inventory.</span>',
-        icon: 'warning',
-        input: 'textarea',
-        inputLabel: 'Alasan Pembatalan',
-        inputPlaceholder: 'Masukkan alasan pembatalan...',
-        inputAttributes: { 'aria-label': 'Alasan pembatalan' },
-        showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Batalkan',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        inputValidator: (value) => { if (!value) return 'Alasan pembatalan wajib diisi!'; }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById('batalId').value = id;
-            document.getElementById('batalAlasan').value = result.value;
-            document.getElementById('formBatal').submit();
+        } else if (result.isDenied) {
+            // TOLAK -> wajib isi alasan dulu
+            Swal.fire({
+                title: 'Tolak Pembelian #' + String(id).padStart(4, '0'),
+                html: '<span style="font-size: 13px; color: #6B7280;">Status akan menjadi <strong style="color:#EF4444">Ditolak</strong> dan stok alat <strong>dikembalikan</strong> ke inventory (termasuk stok per ukuran).</span>',
+                icon: 'warning',
+                input: 'textarea',
+                inputLabel: 'Alasan Penolakan',
+                inputPlaceholder: 'Contoh: pembayaran tidak masuk dalam batas waktu...',
+                inputAttributes: { 'aria-label': 'Alasan penolakan' },
+                inputValidator: (value) => { if (!value || !value.trim()) return 'Alasan penolakan wajib diisi!'; },
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Tolak Pesanan',
+                cancelButtonText: 'Kembali',
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                reverseButtons: true
+            }).then((r2) => {
+                if (r2.isConfirmed) {
+                    document.getElementById('tolakId').value = id;
+                    document.getElementById('tolakAlasan').value = r2.value.trim();
+                    document.getElementById('formTolak').submit();
+                }
+            });
         }
     });
 }
