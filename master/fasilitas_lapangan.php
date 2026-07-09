@@ -11,6 +11,11 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 
 include '../includes/auth_profile.php';
 
+// Pastikan variabel $nama tersedia dari auth_profile.php
+if (!isset($nama) || empty($nama)) {
+    $nama = $_SESSION['nama'] ?? $_SESSION['username'] ?? 'SYSTEM';
+}
+
 $current_page = 'fasilitas';
 $topbar_title = 'Kelola Fasilitas';
 $topbar_breadcrumb = 'Operasional / Fasilitas Lapangan';
@@ -35,43 +40,72 @@ if (isset($_GET['ajax_detail_id'])) {
 // PROSES CRUD (SIMPAN / EDIT)
 if (isset($_POST['save_fasilitas'])) {
     $id = isset($_POST['id_fas']) ? intval($_POST['id_fas']) : 0;
-    $nama_fasilitas = trim($_POST['nama_fasilitas']);
+    $nama_fasilitas = trim($_POST['nama_fasilitas'] ?? '');
     $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
     $stok_total = isset($_POST['stok_total']) ? intval($_POST['stok_total']) : 0;
 
     $errors = [];
+
     // Validasi format nama dan detail
-    if (!preg_match('/^[a-zA-Z\s]+$/', $nama_fasilitas)) {
-        $errors[] = "Nama fasilitas hanya boleh berisi huruf dan spasi!";
+    if (empty($nama_fasilitas)) {
+        $errors[] = "Nama fasilitas wajib diisi!";
+    } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $nama_fasilitas)) {
+        $errors[] = "Nama fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
     }
-    if (!preg_match('/^[a-zA-Z\s]+$/', $detail_fasilitas)) {
-        $errors[] = "Detail fasilitas hanya boleh berisi huruf dan spasi!";
+
+    if (empty($detail_fasilitas)) {
+        $errors[] = "Detail fasilitas wajib diisi!";
+    } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $detail_fasilitas)) {
+        $errors[] = "Detail fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
     }
+
     if ($stok_total <= 0) {
         $errors[] = "Stok total harus lebih dari 0!";
     }
 
     if (empty($errors)) {
-        // Cek duplikasi nama fasilitas secara global (Menggunakan SP baru)
+        // Cek duplikasi nama fasilitas secara global
         $q_check = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasDuplicate ?, ?", [$nama_fasilitas, $id]);
-        if ($q_check && safeFetch($q_check)) {
-            $errors[] = "Nama fasilitas sudah terdaftar di sistem!";
+        if ($q_check) {
+            $dup_data = safeFetch($q_check);
+            if ($dup_data && ($dup_data['CountDuplicate'] ?? 0) > 0) {
+                $errors[] = "Nama fasilitas sudah terdaftar di sistem!";
+            }
         }
     }
 
     if (empty($errors)) {
         if (isset($_POST['edit_mode']) && $id > 0) {
-            // EXEC sp_UpdateFasilitas memiliki 5 parameter sekarang
+            // EXEC sp_UpdateFasilitas - 5 parameter
             $result = safeQuery($conn, "EXEC dbo.sp_UpdateFasilitas ?, ?, ?, ?, ?", [$id, $nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
             if ($result !== false) {
                 header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil diperbarui!");
             } else {
-                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal memperbarui fasilitas. Stok baru tidak boleh kurang dari jumlah terpasang!");
+                // Tangkap pesan error dari SQL Server
+                $sql_error = '';
+                if (($errors = sqlsrv_errors()) != null) {
+                    foreach ($errors as $error) {
+                        $sql_error .= $error['message'];
+                    }
+                }
+                $error_msg = !empty($sql_error) ? $sql_error : 'Gagal memperbarui fasilitas. Stok baru tidak boleh kurang dari jumlah terpasang!';
+                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode($error_msg));
             }
         } else {
-            // EXEC sp_CreateFasilitas memiliki 4 parameter sekarang (tanpa ID_Lapangan)
-            safeQuery($conn, "EXEC dbo.sp_CreateFasilitas ?, ?, ?, ?", [$nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
-            header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
+            // EXEC sp_CreateFasilitas - 4 parameter
+            $result = safeQuery($conn, "EXEC dbo.sp_CreateFasilitas ?, ?, ?, ?", [$nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
+            if ($result !== false) {
+                header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
+            } else {
+                $sql_error = '';
+                if (($errors = sqlsrv_errors()) != null) {
+                    foreach ($errors as $error) {
+                        $sql_error .= $error['message'];
+                    }
+                }
+                $error_msg = !empty($sql_error) ? $sql_error : 'Gagal menambahkan fasilitas!';
+                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode($error_msg));
+            }
         }
     } else {
         header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode(implode(' | ', $errors)));
@@ -79,32 +113,65 @@ if (isset($_POST['save_fasilitas'])) {
     exit();
 }
 
+// TOGGLE STATUS
 if (isset($_GET['toggle_id'])) {
-    $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    $stmt = safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?, ?", [$_GET['toggle_id'], $s_baru, $nama]);
+    $toggle_id = intval($_GET['toggle_id']);
+    $s_baru = (isset($_GET['s']) && $_GET['s'] == '1') ? 0 : 1;
+
+    $stmt = safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?, ?", [$toggle_id, $s_baru, $nama]);
 
     // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
     if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         header('Content-Type: application/json');
-        echo json_encode(['status' => 'success', 'msg' => 'Status fasilitas berhasil diubah!', 'new_status' => $s_baru]);
+        if ($stmt !== false) {
+            echo json_encode(['status' => 'success', 'msg' => 'Status fasilitas berhasil diubah!', 'new_status' => $s_baru]);
+        } else {
+            $sql_error = '';
+            if (($errors = sqlsrv_errors()) != null) {
+                foreach ($errors as $error) {
+                    $sql_error .= $error['message'];
+                }
+            }
+            echo json_encode(['status' => 'error', 'msg' => $sql_error ?: 'Gagal mengubah status fasilitas.']);
+        }
         exit();
     }
 
-    header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Status fasilitas berhasil diubah!");
+    if ($stmt !== false) {
+        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Status fasilitas berhasil diubah!");
+    } else {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal mengubah status fasilitas.");
+    }
     exit();
 }
 
+// DELETE
 if (isset($_GET['delete_id'])) {
-    $stmt = safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$_GET['delete_id'], $nama]);
+    $delete_id = intval($_GET['delete_id']);
+    $stmt = safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$delete_id, $nama]);
 
     // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
     if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         header('Content-Type: application/json');
-        echo json_encode(['status' => 'success', 'msg' => 'Fasilitas berhasil dihapus!']);
+        if ($stmt !== false) {
+            echo json_encode(['status' => 'success', 'msg' => 'Fasilitas berhasil dihapus!']);
+        } else {
+            $sql_error = '';
+            if (($errors = sqlsrv_errors()) != null) {
+                foreach ($errors as $error) {
+                    $sql_error .= $error['message'];
+                }
+            }
+            echo json_encode(['status' => 'error', 'msg' => $sql_error ?: 'Gagal menghapus fasilitas.']);
+        }
         exit();
     }
 
-    header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil dihapus!");
+    if ($stmt !== false) {
+        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil dihapus!");
+    } else {
+        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal menghapus fasilitas.");
+    }
     exit();
 }
 
@@ -134,12 +201,10 @@ $f_sort = $_GET['f_sort'] ?? 'nama_asc';
 
 $search = isset($_GET['src']) ? trim($_GET['src']) : '';
 
-
-
 // Menghitung offset paging
 $offset = ($page - 1) * $limit;
 
-// Memanggil SP List Utama terpaginasi dengan mengirimkan 6 parameter (termasuk $search)
+// Memanggil SP List Utama terpaginasi dengan 6 parameter
 $query_sql = "EXEC dbo.sp_ReadFasilitasListWithCount ?, ?, ?, ?, ?, ?";
 $params_sp = array($f_lapangan, $f_status, $f_sort, intval($offset), intval($limit), $search);
 
@@ -150,12 +215,13 @@ $row_count = safeFetch($query);
 $total_data = intval($row_count['TotalCount'] ?? 0);
 
 // Geser ke hasil list data fasilitas (Hasil 2 dari SP)
-sqlsrv_next_result($query);
+if ($query) {
+    sqlsrv_next_result($query);
+}
 
 // Hitung ulang halaman berdasarkan total data terfilter
 $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
-
 
 $filter_url = "";
 if (isset($_GET['f_sort']))
@@ -167,7 +233,6 @@ if (isset($_GET['f_status']))
 if (!empty($search)) {
     $filter_url .= "&src=" . urlencode($search);
 }
-
 
 ?>
 <!DOCTYPE html>

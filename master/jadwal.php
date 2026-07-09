@@ -119,32 +119,27 @@ if (isset($_POST['save_jadwal'])) {
     // Auto-calc jam selesai = jam mulai + 1 jam
     $jam_selesai = hitungJamSelesai($jam_mulai);
 
-    // Cek bentrok (kecuali edit dirinya sendiri)
-    $selesai_cmp = ($jam_selesai === '00:00') ? '24:00' : $jam_selesai;
-    $sql_check = "SELECT ID_Jadwal FROM Jadwal
-                  WHERE ID_Lapangan = ? AND Tanggal = ? AND ID_Jadwal <> ? AND Is_Deleted = 0
-                    AND NOT (
-                        (CASE WHEN Jam_Selesai = '00:00' THEN '24:00' ELSE CONVERT(VARCHAR(5), Jam_Selesai, 108) END) <= ?
-                        OR CONVERT(VARCHAR(5), Jam_Mulai, 108) >= ?
-                    )";
-    $q_check = safeQuery($conn, $sql_check, [$id_lapangan, $tanggal, ($id === '' ? 0 : $id), $jam_mulai, $selesai_cmp]);
-    if ($q_check && safeFetch($q_check)) {
-        header("Location: $back_url&status=error&msg=" . urlencode('Slot ini sudah ada di lapangan tersebut. Pilih jam lain.')); exit();
-    }
-
+    // Validasi bentrok sudah di-handle oleh SP (SP_Jadwal_Insert/Update)
+    // SP akan raise error jika bentrok, kita catch dan redirect
     if ($edit_mode) {
-        safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?",
+        $r = safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?",
             [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        if ($r === null) {
+            header("Location: $back_url&status=error&msg=" . urlencode('Gagal memperbarui jadwal. Slot mungkin bentrok atau lapangan tidak aktif.')); exit();
+        }
         header("Location: $back_url&status=success&msg=" . urlencode('Jadwal berhasil diperbarui!'));
     } else {
-        safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
+        $r = safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
             [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+        if ($r === null) {
+            header("Location: $back_url&status=error&msg=" . urlencode('Gagal menambahkan jadwal. Slot mungkin bentrok atau lapangan tidak aktif.')); exit();
+        }
         header("Location: $back_url&status=success&msg=" . urlencode('Slot ' . $jam_mulai . ' - ' . $jam_selesai . ' berhasil ditambahkan!'));
     }
     exit();
 }
 
-// ===== BULK GENERATE: bikin semua slot yang belum ada untuk 1 lapangan + 1 tanggal =====
+// ===== BULK GENERATE: pakai SP_Jadwal_BulkGenerate =====
 if (isset($_POST['generate_all'])) {
     $id_lapangan = $_POST['id_lapangan'] ?? '';
     $tanggal     = $_POST['tanggal'] ?? '';
@@ -157,24 +152,27 @@ if (isset($_POST['generate_all'])) {
         header("Location: $back_url&status=error&msg=" . urlencode('Tidak bisa generate slot untuk tanggal lampau.')); exit();
     }
 
-    // Ambil slot yang sudah ada supaya di-skip
-    $existing = [];
-    $q_exist = safeQuery($conn, "SELECT CONVERT(VARCHAR(5), Jam_Mulai, 108) AS jm FROM Jadwal WHERE ID_Lapangan = ? AND Tanggal = ? AND Is_Deleted = 0", [$id_lapangan, $tanggal]);
-    if ($q_exist) {
-        while ($r = sqlsrv_fetch_array($q_exist, SQLSRV_FETCH_ASSOC)) $existing[$r['jm']] = true;
+    // Hitung jam mulai awal (kalau hari ini, mulai dari jam sekarang + 1)
+    $jam_mulai_awal = '08:00';
+    if ($tanggal === date('Y-m-d')) {
+        $jam_now = intval(date('H'));
+        if ($jam_now >= 8 && $jam_now < 23) {
+            $jam_mulai_awal = sprintf('%02d:00', $jam_now + 1);
+        } elseif ($jam_now >= 23) {
+            header("Location: $back_url&status=error&msg=" . urlencode('Tidak ada slot tersisa untuk hari ini.')); exit();
+        }
     }
 
-    // Kalau tanggal hari ini, skip jam yang udah lewat
-    $skip_before = ($tanggal === date('Y-m-d')) ? date('H:i') : null;
+    $r = safeQuery($conn, "EXEC SP_Jadwal_BulkGenerate @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai_Awal=?, @Jam_Mulai_Akhir='23:00', @Durasi_Jam=1, @Status=1, @Created_By=?",
+        [$id_lapangan, $tanggal, $jam_mulai_awal, $nama]);
 
     $inserted = 0; $skipped = 0;
-    foreach (daftarJamOperasional() as $jam_mulai) {
-        if (isset($existing[$jam_mulai])) { $skipped++; continue; }
-        if ($skip_before !== null && $jam_mulai <= $skip_before) { $skipped++; continue; }
-        $jam_selesai = hitungJamSelesai($jam_mulai);
-        $r = safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
-            [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
-        if ($r !== null) $inserted++;
+    if ($r) {
+        $row = safeFetch($r);
+        if ($row) {
+            $inserted = intval($row['Slot_Dibuat'] ?? 0);
+            $skipped = intval($row['Slot_Dilewati'] ?? 0);
+        }
     }
     $msg = $inserted . ' slot berhasil dibuat.' . ($skipped > 0 ? ' (' . $skipped . ' slot sudah ada / dilewati)' : '');
     header("Location: $back_url&status=success&msg=" . urlencode($msg));
@@ -191,8 +189,7 @@ function keepStateQS() {
 }
 
 if (isset($_GET['toggle_id'])) {
-    $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @Status=?, @Modified_By=?", [$_GET['toggle_id'], $s_baru, $nama]);
+    safeQuery($conn, "EXEC SP_Jadwal_ToggleStatus @ID_Jadwal=?, @Modified_By=?", [$_GET['toggle_id'], $nama]);
     header("Location: jadwal.php?status=success&msg=" . urlencode('Status jadwal berhasil diubah!') . keepStateQS());
     exit();
 }
@@ -237,17 +234,9 @@ $filter_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? 
 $prefill_lapangan = $_GET['pf_lap']  ?? '';
 $prefill_jam      = $_GET['pf_jam']  ?? '';
 
-// ===== STATS: hitung jadwal upcoming (tanggal >= hari ini) =====
+// ===== STATS: pakai SP_Jadwal_GetStats =====
 $aktif_count = 0; $nonaktif_count = 0; $total_upcoming = 0; $total_history = 0;
-$q_stats = safeQuery($conn, "
-    SELECT
-        SUM(CASE WHEN j.Status = 1 AND j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Aktif,
-        SUM(CASE WHEN j.Status = 0 AND j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Nonaktif,
-        SUM(CASE WHEN j.Tanggal >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Upcoming,
-        SUM(CASE WHEN j.Tanggal <  CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Riwayat
-    FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
-    WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0
-", []);
+$q_stats = safeQuery($conn, "EXEC SP_Jadwal_GetStats", []);
 if ($q_stats) {
     $row = safeFetch($q_stats);
     if ($row) {
@@ -259,29 +248,21 @@ if ($q_stats) {
 }
 $total_jadwal = $total_upcoming; // stat chip "TOTAL" = upcoming
 
-// ===== LOAD DATA GRID (mode upcoming: 1 tanggal, per lapangan) =====
+// ===== LOAD DATA GRID (mode upcoming: pakai SP_Jadwal_SelectAll) =====
 $slots_by_lap = [];   // [lap_id][ "HH:MM" ] = row jadwal
 $booking_flags = [];  // [id_jadwal] = true kalau ada booking aktif
 if ($view_mode === 'upcoming') {
-    $sql_grid = "
-        SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal,
-               j.Jam_Mulai, j.Jam_Selesai, j.Status,
-               CONVERT(VARCHAR(5), j.Jam_Mulai, 108) AS JamMulaiStr
-        FROM Jadwal j
-        JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
-        WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0
-          AND j.Tanggal = ?
-          " . ($filter_lapangan ? "AND j.ID_Lapangan = ?" : "") . "
-        ORDER BY l.Nama_Lapangan, j.Jam_Mulai";
-    $params_grid = $filter_lapangan ? [$selected_date, $filter_lapangan] : [$selected_date];
-    $q_grid = safeQuery($conn, $sql_grid, $params_grid);
+    $q_grid = safeQuery($conn, "EXEC SP_Jadwal_SelectAll @Tanggal=?, @ID_Lapangan=?, @Is_Deleted=0",
+        [$selected_date, $filter_lapangan]);
     if ($q_grid) {
         $ids = [];
         while ($r = sqlsrv_fetch_array($q_grid, SQLSRV_FETCH_ASSOC)) {
-            $slots_by_lap[$r['ID_Lapangan']][$r['JamMulaiStr']] = $r;
+            $jamStr = (new DateTime($r['Jam_Mulai']->format('H:i:s')))->format('H:i');
+            $r['JamMulaiStr'] = $jamStr;
+            $slots_by_lap[$r['ID_Lapangan']][$jamStr] = $r;
             $ids[] = $r['ID_Jadwal'];
         }
-        // cek booking aktif (Status 0=pending, 1=confirmed) — biar slot yg sudah dipesan gak diotak-atik
+        // cek booking aktif (Status 0=pending, 1=confirmed)
         if (!empty($ids)) {
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $q_bk = safeQuery($conn, "SELECT ID_Jadwal FROM Booking WHERE ID_Jadwal IN ($placeholders) AND Status IN (0,1)", $ids);
@@ -294,33 +275,25 @@ if ($view_mode === 'upcoming') {
     }
 }
 
-// ===== LOAD DATA (mode history: paginated list, semua jadwal tanggal < hari ini) =====
+// ===== LOAD DATA (mode history: pakai SP_Jadwal_SelectAll dengan pagination manual) =====
 $history_rows = [];
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $hist_limit = 20;
 $hist_total = 0;
 $hist_total_pages = 1;
 if ($view_mode === 'history') {
-    $sql_hist_count = "SELECT COUNT(*) AS t FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
-                       WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0 AND j.Tanggal < CAST(GETDATE() AS DATE)
-                       " . ($filter_lapangan ? "AND j.ID_Lapangan = ?" : "");
-    $params_c = $filter_lapangan ? [$filter_lapangan] : [];
-    $q_hc = safeQuery($conn, $sql_hist_count, $params_c);
-    if ($q_hc) { $row = safeFetch($q_hc); $hist_total = intval($row['t'] ?? 0); }
+    // Ambil semua data history pakai SP
+    $q_h_all = safeQuery($conn, "EXEC SP_Jadwal_SelectAll @ID_Lapangan=?, @Tanggal_Sampai=?, @Is_Deleted=0",
+        [$filter_lapangan, date('Y-m-d', strtotime('-1 day'))]);
+    $all_hist = [];
+    if ($q_h_all) {
+        while ($r = sqlsrv_fetch_array($q_h_all, SQLSRV_FETCH_ASSOC)) $all_hist[] = $r;
+    }
+    $hist_total = count($all_hist);
     $hist_total_pages = max(1, (int)ceil($hist_total / $hist_limit));
     $page = min($page, $hist_total_pages);
     $offset = ($page - 1) * $hist_limit;
-
-    $sql_hist = "SELECT j.ID_Jadwal, j.ID_Lapangan, l.Nama_Lapangan, j.Tanggal,
-                        j.Jam_Mulai, j.Jam_Selesai, j.Status
-                 FROM Jadwal j JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
-                 WHERE j.Is_Deleted = 0 AND l.Is_Deleted = 0 AND j.Tanggal < CAST(GETDATE() AS DATE)
-                 " . ($filter_lapangan ? "AND j.ID_Lapangan = ? " : "") . "
-                 ORDER BY j.Tanggal DESC, j.Jam_Mulai ASC
-                 OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
-    $params_h = $filter_lapangan ? [$filter_lapangan, $offset, $hist_limit] : [$offset, $hist_limit];
-    $q_h = safeQuery($conn, $sql_hist, $params_h);
-    if ($q_h) while ($r = sqlsrv_fetch_array($q_h, SQLSRV_FETCH_ASSOC)) $history_rows[] = $r;
+    $history_rows = array_slice($all_hist, $offset, $hist_limit);
 }
 
 // URL param helper untuk pertahankan state saat pindah halaman

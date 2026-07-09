@@ -40,11 +40,27 @@ if (isset($_POST['login'])) {
     if (empty($user_input) || empty($pass_input)) {
         $error_msg = "Nama Pengguna/Email dan Password wajib diisi!";
     } else {
-        // --- DIUBAH MENGGUNAKAN SP: Cek ke tabel Karyawan (Admin/Pemilik/Karyawan) ---
+        // --- CEK KE TABEL KARYAWAN (Admin/Pemilik/Karyawan) ---
+        // Mencoba SP terlebih dahulu, jika tidak ada gunakan raw SQL sebagai fallback
+        $row = null;
+
+        // Coba SP sp_AuthenticateKaryawan (jika ada)
         $sql_karyawan = "EXEC dbo.sp_AuthenticateKaryawan ?";
         $params = array($user_input);
-        $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $stmt = @sqlsrv_query($conn, $sql_karyawan, $params);
+
+        if ($stmt === false) {
+            // SP tidak ada, gunakan raw SQL sebagai fallback
+            $sql_karyawan = "SELECT ID_Karyawan, Nama_Karyawan, Username, Email, Kata_Sandi, Jabatan, Photo_Profile, Status 
+                             FROM Karyawan 
+                             WHERE (Username = ? OR Email = ?) AND Is_Deleted = 0 AND Status = 1";
+            $params = array($user_input, $user_input);
+            $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
+        }
+
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        }
 
         if ($row) {
             if ($pass_input == $row['Kata_Sandi']) {
@@ -83,31 +99,34 @@ if (isset($_POST['login'])) {
                 $error_msg = "Nama Pengguna atau Kata Sandi Tidak ditemukan";
             }
         } else {
-            // --- DIUBAH MENGGUNAKAN SP: Cek ke tabel Customer ---
-            $sql_customer = "EXEC dbo.sp_AuthenticateCustomer ?";
-            $params2 = array($user_input);
+            // --- DIUBAH MENGGUNAKAN SP: Cek ke tabel Customer dengan sp_CustomerLogin ---
+            // sp_CustomerLogin menerima username/email DAN password, sudah cek Is_Deleted=0 dan Status=1
+            $sql_customer = "EXEC dbo.sp_CustomerLogin ?, ?";
+            $params2 = array($user_input, $pass_input);
             $stmt2 = sqlsrv_query($conn, $sql_customer, $params2);
             $row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
 
             if ($row2) {
-                if ($pass_input == $row2['Kata_Sandi']) {
-                    $_SESSION['logged_in'] = true;
-                    $_SESSION['id_customer'] = $row2['ID_Customer'];
-                    $_SESSION['role'] = 'customer';
-                    $_SESSION['Nama_Customer'] = $row2['Nama_Customer'] ?? 'Customer';
-                    $_SESSION['jabatan'] = 'Customer';
+                // Login berhasil — sp_CustomerLogin sudah validasi password, status aktif, dan tidak dihapus
+                $_SESSION['logged_in'] = true;
+                $_SESSION['id_customer'] = $row2['ID_Customer'];
+                $_SESSION['role'] = 'customer';
+                $_SESSION['Nama_Customer'] = $row2['Nama_Customer'] ?? 'Customer';
+                $_SESSION['nama'] = $row2['Nama_Customer'] ?? 'Customer';
+                $_SESSION['nama_user'] = $row2['Nama_Customer'] ?? 'Customer';
+                $_SESSION['jabatan'] = 'Customer';
+                $_SESSION['Profile_Photo'] = $row2['Photo_Profile'] ?? '';
+                $_SESSION['Email'] = $row2['Email'] ?? '';
+                $_SESSION['No_Telepon'] = $row2['No_Telepon'] ?? '';
 
-                    if (isset($_POST['remember'])) {
-                        setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
-                    } else {
-                        setcookie('remember_me', '', time() - 3600, "/");
-                    }
-
-                    header("Location: ../index.php");
-                    exit();
+                if (isset($_POST['remember'])) {
+                    setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
                 } else {
-                    $error_msg = "Akun tidak ditemukan";
+                    setcookie('remember_me', '', time() - 3600, "/");
                 }
+
+                header("Location: ../index.php");
+                exit();
             } else {
                 $error_msg = "Akun tidak ditemukan";
             }

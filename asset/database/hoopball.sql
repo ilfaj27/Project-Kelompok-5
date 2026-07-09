@@ -606,6 +606,94 @@ VALUES
 (4, 8, 1, 120000.00);
 
 -- ============================================================
+-- TABEL PENGHUBUNG: Detail_Jadwal
+-- ============================================================
+-- Menghubungkan Jadwal dengan Fasilitas_Lapangan
+-- Setiap jadwal dapat menggunakan banyak fasilitas
+-- ============================================================
+
+CREATE TABLE Detail_Jadwal (
+    ID_Jadwal        INT             NOT NULL,
+    ID_Lapangan      INT             NOT NULL,
+    ID_Fasilitas     INT             NOT NULL,
+    Jumlah_Digunakan INT             NOT NULL DEFAULT 1 CHECK (Jumlah_Digunakan > 0),
+    Status           INT             NOT NULL CHECK (Status IN (0,1)),  -- 0 = Nonaktif, 1 = Aktif
+    Keterangan       VARCHAR(255)    NULL,  -- Catatan tambahan (opsional)
+    
+    -- Primary Key: Kombinasi ID_Jadwal + ID_Fasilitas
+    PRIMARY KEY (ID_Jadwal, ID_Fasilitas),
+    
+    -- Foreign Keys
+    FOREIGN KEY (ID_Jadwal)    REFERENCES Jadwal(ID_Jadwal) ON DELETE CASCADE,
+    FOREIGN KEY (ID_Lapangan)  REFERENCES Lapangan(ID_Lapangan),
+    FOREIGN KEY (ID_Fasilitas) REFERENCES Fasilitas_Lapangan(ID_Fasilitas)
+);
+
+-- ============================================================
+-- INSERT DATA CONTOH (Sample Data)
+-- ============================================================
+
+INSERT INTO Detail_Jadwal
+(ID_Jadwal, ID_Lapangan, ID_Fasilitas, Jumlah_Digunakan, Status, Keterangan)
+VALUES
+-- Jadwal 1 (Lapangan D) - Fasilitas dasar lapangan basket
+(1, 1, 1, 2, 1, 'Bola basket standard untuk latihan'),   -- Bola Basket Standard
+(1, 1, 3, 4, 1, 'Pencahayaan untuk pagi hari'),          -- Pencahayaan LED
+(1, 1, 6, 2, 1, 'Ring basket utama dan cadangan'),       -- Ring Basket
+
+-- Jadwal 2 (Lapangan D)
+(2, 1, 1, 2, 1, NULL),
+(2, 1, 3, 4, 1, NULL),
+(2, 1, 8, 5, 1, 'Rompi untuk pemain tim A'),             -- Rompi Merah
+
+-- Jadwal 3 (Lapangan E)
+(3, 2, 1, 2, 1, NULL),
+(3, 2, 3, 4, 1, NULL),
+(3, 2, 5, 1, 1, 'Papan skor untuk pertandingan'),        -- Papan Skor Digital
+
+-- Jadwal 4 (Lapangan E)
+(4, 2, 1, 2, 1, NULL),
+(4, 2, 3, 4, 1, NULL),
+(4, 2, 10, 10, 1, 'Cone untuk latihan kelincahan'),      -- Cone Kerucut
+
+-- Jadwal 5 (Lapangan F)
+(5, 3, 1, 2, 1, NULL),
+(5, 3, 3, 4, 1, NULL),
+(5, 3, 7, 1, 1, 'AC untuk kenyamanan sore hari'),        -- AC Central
+
+-- Jadwal 6 (Lapangan F)
+(6, 3, 1, 2, 1, NULL),
+(6, 3, 3, 4, 1, NULL),
+(6, 3, 9, 5, 1, 'Rompi biru untuk tim lawan'),           -- Rompi Biru
+
+-- Jadwal 7 (Lapangan G)
+(7, 4, 1, 2, 1, NULL),
+(7, 4, 3, 4, 1, NULL),
+(7, 4, 2, 2, 1, 'Bola premium untuk pertandingan malam'), -- Bola Basket Premium
+
+-- Jadwal 8 (Lapangan G)
+(8, 4, 1, 2, 1, NULL),
+(8, 4, 3, 4, 1, NULL),
+(8, 4, 11, 1, 1, 'Peluit wasit'),                        -- Whistle Wasit
+
+-- Jadwal 9 (Lapangan D) - Status Tersedia
+(9, 1, 1, 2, 1, NULL),
+(9, 1, 3, 4, 1, NULL),
+
+-- Jadwal 10 (Lapangan E) - Status Tersedia
+(10, 2, 1, 2, 1, NULL),
+(10, 2, 3, 4, 1, NULL),
+(10, 2, 6, 2, 1, 'Ring basket cadangan');
+
+GO
+
+-- ============================================================
+-- VERIFIKASI
+-- ============================================================
+SELECT 'Detail_Jadwal' AS Nama_Tabel, COUNT(*) AS Jumlah_Data FROM Detail_Jadwal;
+GO
+
+-- ============================================================
 -- VERIFIKASI JUMLAH DATA
 -- ============================================================
 -- Karyawan          : 5  data

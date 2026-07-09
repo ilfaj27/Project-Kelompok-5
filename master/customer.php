@@ -72,9 +72,9 @@ if (!empty($search)) {
     $filter_url .= "&src=" . urlencode($search);
 }
 
-
-// --- STAT COUNTS & DASHBOARD (USING UDF) ---
-$q_stats = safe_sqlsrv_query($conn, "SELECT Total, Aktif, Nonaktif FROM dbo.fn_GetCustomerStats()", [], false);
+// --- STAT COUNTS & DASHBOARD (USING SP) ---
+// DIUBAH: Dari UDF fn_GetCustomerStats() ke SP sp_GetCustomerStats
+$q_stats = safe_sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerStats", [], false);
 $stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
 
 $total_cust = $stats['Total'] ?? 0;
@@ -108,7 +108,7 @@ if ($query === false) {
 
     // Geser ke hasil kedua dari SP (List Data Customer)
     sqlsrv_next_result($query);
-    
+
     // Hitung ulang halaman berdasarkan total data terfilter
     $total_pages = max(1, ceil($total_cust / $limit));
     $page = min($page, $total_pages);

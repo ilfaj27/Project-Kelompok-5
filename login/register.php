@@ -6,12 +6,12 @@ include '../includes/config.php';
 $res_status = "";
 $res_msg = "";
 
-// Tambahkan inisialisasi ini:
+// Inisialisasi variabel form
 $nama = "";
 $username = "";
 $email = "";
 $telp = "";
-$jk_input = ""; // <-- DIUBAH: kosongkan default, biarkan user memilih
+$jk_input = "";
 $alamat = "";
 $tgl_lahir = "";
 $tmp_lahir = "";
@@ -21,7 +21,7 @@ if (isset($_POST['register'])) {
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
     $telp = trim($_POST['telp']);
-    $jk_input = $_POST['jk']; // 0 = Perempuan, 1 = Laki-laki (sesuai database)
+    $jk_input = $_POST['jk'];
     $password = $_POST['password'];
     $alamat = trim($_POST['alamat']);
     $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
@@ -30,10 +30,10 @@ if (isset($_POST['register'])) {
     // Validasi Jenis Kelamin sesuai database (0 atau 1)
     $jk = (int) $jk_input;
     if ($jk !== 0 && $jk !== 1) {
-        $jk = 1; // Default Laki-laki
+        $jk = 1;
     }
 
-    // --- DIUBAH MENGGUNAKAN SP: Cek duplikat Username, Email, atau Nomor Telepon ---
+    // --- MENGGUNAKAN SP: Cek duplikat Username, Email, atau Nomor Telepon ---
     $sql_check = "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?";
     $stmt_check = sqlsrv_query($conn, $sql_check, array($username, $email, $telp));
 
@@ -43,7 +43,6 @@ if (isset($_POST['register'])) {
     } else if (sqlsrv_has_rows($stmt_check)) {
         $res_status = "error";
 
-        // Memeriksa kolom mana yang menyebabkan duplikasi agar notifikasi lebih spesifik
         $exist_user = false;
         $exist_email = false;
         $exist_telp = false;
@@ -72,7 +71,7 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
-        // --- DIUBAH MENGGUNAKAN SP: Simpan data customer baru ---
+        // --- MENGGUNAKAN SP: Simpan data customer baru ---
         $sql_customer = "EXEC dbo.sp_CreateCustomer ?, ?, ?, ?, ?, ?, ?, ?, ?";
 
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array(
@@ -109,7 +108,6 @@ if (isset($_POST['register'])) {
 // Mengurangi tanggal hari ini sebanyak 10 tahun
 $max_date = date('Y-m-d', strtotime('-10 years'));
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 

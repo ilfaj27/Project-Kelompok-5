@@ -1,11 +1,9 @@
 <?php
 // ============================================================================
-// AJAX HANDLER — Cek Username Duplikat (inline, tanpa file terpisah)
+// AJAX HANDLER — Cek Username Duplikat (MENGGUNAKAN SP)
 // ============================================================================
 if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     if (file_exists('../includes/config.php')) {
-        include '../includes/config.php';
-    } elseif (file_exists('../includes/config.php')) {
         include '../includes/config.php';
     } else {
         header('Content-Type: application/json');
@@ -28,12 +26,13 @@ if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET')
         exit();
     }
 
-    $params = array($check_username);
-    $sql = "SELECT ID_Customer FROM Customer WHERE Username = ? AND Is_Deleted = 0";
+    // --- MENGGUNAKAN SP: sp_CheckCustomerDuplicate ---
+    $params = array($check_username, null, null);
+    $sql = "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?";
 
     if (!empty($exclude_id)) {
-        $sql .= " AND ID_Customer != ?";
-        $params[] = $exclude_id;
+        $params = array($check_username, null, null, $exclude_id);
+        $sql = "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?";
     }
 
     $cek = sqlsrv_query($conn, $sql, $params);
@@ -79,8 +78,6 @@ if (empty($ID_Customer)) {
 
 if (file_exists('../includes/config.php')) {
     include '../includes/config.php';
-} elseif (file_exists('../includes/config.php')) {
-    include '../includes/config.php';
 } else {
     die("Config file tidak ditemukan!");
 }
@@ -91,7 +88,7 @@ if (!empty($pass_error_field)) {
 }
 
 // ============================================================================
-// UPDATE BIODATA
+// UPDATE BIODATA (MENGGUNAKAN SP)
 // ============================================================================
 if (isset($_POST['update_biodata'])) {
     $nama = trim($_POST['nama_customer'] ?? '');
@@ -144,7 +141,7 @@ if (isset($_POST['update_biodata'])) {
         $field_errors['tmp_lahir'] = 'Tempat lahir hanya boleh huruf dan spasi.';
     }
 
-    // 4. Validasi Alamat (Sama persis dengan registrasi)
+    // 4. Validasi Alamat
     $alamat_trim = trim($alamat);
     $allowed_chars_pattern = '/^[a-zA-Z0-9\s,\.\/\-]+$/';
     if (empty($alamat_trim)) {
@@ -159,14 +156,14 @@ if (isset($_POST['update_biodata'])) {
         $field_errors['alamat'] = 'Alamat tidak boleh hanya berupa simbol murni.';
     }
 
-    // 5. Validasi Nomor Telepon (Diawali 08, panjang 10-13 digit)
+    // 5. Validasi Nomor Telepon
     if (empty($telepon)) {
         $field_errors['telepon'] = 'Nomor telepon wajib diisi.';
     } elseif (!preg_match('/^08[0-9]{8,11}$/', $telepon)) {
         $field_errors['telepon'] = 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.';
     }
 
-    // 6. Validasi Email (Akhiran @gmail.com)
+    // 6. Validasi Email
     if (empty($email)) {
         $field_errors['email'] = 'Email wajib diisi.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -175,50 +172,47 @@ if (isset($_POST['update_biodata'])) {
         $field_errors['email'] = 'Email wajib menggunakan domain @gmail.com.';
     }
 
-    // Database Duplicate Checks
+    // --- MENGGUNAKAN SP: Cek duplikat dengan sp_CheckCustomerDuplicate ---
     if (empty($field_errors)) {
-        $cek_username = sqlsrv_query($conn, "SELECT ID_Customer FROM Customer WHERE Username = ? AND ID_Customer != ? AND Is_Deleted = 0", array($username_input, $ID_Customer));
-        if ($cek_username && sqlsrv_fetch_array($cek_username, SQLSRV_FETCH_ASSOC)) {
-            $field_errors['username'] = 'Nama Pengguna sudah digunakan oleh customer lain.';
-        }
-        $cek_email = sqlsrv_query($conn, "SELECT ID_Customer FROM Customer WHERE Email = ? AND ID_Customer != ? AND Is_Deleted = 0", array($email, $ID_Customer));
-        if ($cek_email && sqlsrv_fetch_array($cek_email, SQLSRV_FETCH_ASSOC)) {
-            $field_errors['email'] = 'Email sudah digunakan oleh customer lain.';
-        }
-        $cek_telp = sqlsrv_query($conn, "SELECT ID_Customer FROM Customer WHERE No_Telepon = ? AND ID_Customer != ? AND Is_Deleted = 0", array($telepon, $ID_Customer));
-        if ($cek_telp && sqlsrv_fetch_array($cek_telp, SQLSRV_FETCH_ASSOC)) {
-            $field_errors['telepon'] = 'Nomor telepon sudah digunakan oleh customer lain.';
+        $cek_dup = sqlsrv_query($conn, "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?", 
+            array($username_input, $email, $telepon, $ID_Customer));
+        if ($cek_dup && sqlsrv_fetch_array($cek_dup, SQLSRV_FETCH_ASSOC)) {
+            // Cek kolom mana yang duplikat
+            sqlsrv_free_stmt($cek_dup);
+            $cek_detail = sqlsrv_query($conn, "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?", 
+                array($username_input, $email, $telepon, $ID_Customer));
+            while ($dup = sqlsrv_fetch_array($cek_detail, SQLSRV_FETCH_ASSOC)) {
+                if (strtolower($dup['Username']) === strtolower($username_input)) {
+                    $field_errors['username'] = 'Nama Pengguna sudah digunakan oleh customer lain.';
+                }
+                if (strtolower($dup['Email']) === strtolower($email)) {
+                    $field_errors['email'] = 'Email sudah digunakan oleh customer lain.';
+                }
+                if ($dup['No_Telepon'] === $telepon) {
+                    $field_errors['telepon'] = 'Nomor telepon sudah digunakan oleh customer lain.';
+                }
+            }
+            sqlsrv_free_stmt($cek_detail);
+        } else if ($cek_dup) {
+            sqlsrv_free_stmt($cek_dup);
         }
     }
 
-    // Jika bersih dari error, lakukan simpan ke database
+    // --- MENGGUNAKAN SP: Update biodata dengan sp_UpdateCustomerBiodata ---
     if (empty($field_errors)) {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
         $stmt = sqlsrv_query(
             $conn,
-            "UPDATE Customer SET
-                Nama_Customer = ?,
-                Username = ?,
-                Jenis_Kelamin = ?,
-                Tanggal_Lahir = ?,
-                Tempat_Lahir = ?,
-                Alamat = ?,
-                No_Telepon = ?,
-                Email = ?,
-                Modified_By = ?,
-                Modified_Date = GETDATE()
-             WHERE ID_Customer = ?",
-            array($nama, $username_input, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by, $ID_Customer)
+            "EXEC dbo.sp_UpdateCustomerBiodata ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
+            array($ID_Customer, $nama, $username_input, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by)
         );
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {
-            }
+            while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
             $_SESSION['nama'] = $nama;
             $_SESSION['nama_user'] = $nama;
             session_write_close();
 
-            // STATUS SUKSES (Simpan ke Session & Redirect)
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Biodata berhasil diperbarui!';
@@ -226,13 +220,11 @@ if (isset($_POST['update_biodata'])) {
             header("Location: profile_customer.php");
             exit();
         } else {
-            // STATUS GAGAL DATABASE
             $swal_status = 'error';
             $swal_title = 'Gagal Memperbarui';
             $swal_msg = 'Mohon periksa kembali data yang diisi dengan benar.';
         }
     } else {
-        // STATUS GAGAL VALIDASI PHP
         $swal_status = 'error';
         $swal_title = 'Gagal Memperbarui';
         $swal_msg = 'Mohon periksa kembali data yang diisi dengan benar.';
@@ -240,17 +232,20 @@ if (isset($_POST['update_biodata'])) {
 }
 
 // ============================================================================
-// UPDATE PASSWORD
+// UPDATE PASSWORD (MENGGUNAKAN SP)
 // ============================================================================
 if (isset($_POST['update_password'])) {
     $old_pass = trim($_POST['old_password'] ?? '');
     $new_pass = trim($_POST['new_password'] ?? '');
     $confirm_pass = trim($_POST['confirm_password'] ?? '');
 
-    $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?", array($ID_Customer));
-    $custData = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+    // --- MENGGUNAKAN SP: Validasi password lama dengan sp_ValidateCustomerPassword ---
+    $res_validate = sqlsrv_query($conn, "EXEC dbo.sp_ValidateCustomerPassword ?, ?", array($ID_Customer, $old_pass));
+    $validation = sqlsrv_fetch_array($res_validate, SQLSRV_FETCH_ASSOC);
+    $is_valid = $validation['IsValid'] ?? 0;
+    sqlsrv_free_stmt($res_validate);
 
-    if ($old_pass !== ($custData['Kata_Sandi'] ?? '')) {
+    if (!$is_valid) {
         $swal_status = 'error';
         $swal_msg = 'Kata Sandi lama tidak sesuai.';
         $_SESSION['pass_error_field'] = 'old_password';
@@ -264,16 +259,15 @@ if (isset($_POST['update_password'])) {
         $_SESSION['pass_error_field'] = 'confirm_password';
     } else {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        // --- MENGGUNAKAN SP: Update password dengan sp_UpdateCustomerPassword ---
         $stmt = sqlsrv_query(
             $conn,
-            "UPDATE Customer SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
-            array($new_pass, $modified_by, $ID_Customer)
+            "EXEC dbo.sp_UpdateCustomerPassword ?, ?, ?",
+            array($ID_Customer, $new_pass, $modified_by)
         );
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {
-            }
+            while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
-            // STATUS SUKSES PASSWORD (Simpan ke Session & Redirect)
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Kata Sandi berhasil diperbarui!';
@@ -288,35 +282,36 @@ if (isset($_POST['update_password'])) {
 }
 
 // ============================================================================
-// DELETE AKUN (SOFT DELETE)
+// DELETE AKUN (SOFT DELETE) (MENGGUNAKAN SP)
 // ============================================================================
 if (isset($_POST['delete_account'])) {
     $confirm_password = trim($_POST['confirm_delete_password'] ?? '');
 
-    // Ambil kata sandi aktif untuk verifikasi keamanan
-    $res = sqlsrv_query($conn, "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($ID_Customer));
-    $custData = sqlsrv_fetch_array($res, SQLSRV_FETCH_ASSOC);
+    // --- MENGGUNAKAN SP: Validasi password dengan sp_ValidateCustomerPassword ---
+    $res_validate = sqlsrv_query($conn, "EXEC dbo.sp_ValidateCustomerPassword ?, ?", array($ID_Customer, $confirm_password));
+    $validation = sqlsrv_fetch_array($res_validate, SQLSRV_FETCH_ASSOC);
+    $is_valid = $validation['IsValid'] ?? 0;
+    sqlsrv_free_stmt($res_validate);
 
     if (empty($confirm_password)) {
         $swal_status = 'error';
         $swal_msg = 'Kata sandi konfirmasi tidak boleh kosong.';
-    } elseif ($confirm_password !== ($custData['Kata_Sandi'] ?? '')) {
+    } elseif (!$is_valid) {
         $swal_status = 'error';
         $swal_msg = 'Kata sandi konfirmasi yang Anda masukkan salah.';
     } else {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+        // --- MENGGUNAKAN SP: Soft delete dengan sp_SoftDeleteCustomer ---
         $stmt = sqlsrv_query(
             $conn,
-            "UPDATE Customer SET Is_Deleted = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Customer = ?",
-            array($modified_by, $ID_Customer)
+            "EXEC dbo.sp_SoftDeleteCustomer ?, ?",
+            array($ID_Customer, $modified_by)
         );
 
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {
-            }
+            while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
 
-            // Hancurkan session dan arahkan kembali ke login
             session_unset();
             session_destroy();
             header("Location: ../login/login.php?status=deleted");
@@ -329,7 +324,7 @@ if (isset($_POST['delete_account'])) {
 }
 
 // ============================================================================
-// UPLOAD FOTO
+// UPLOAD FOTO (MENGGUNAKAN SP)
 // ============================================================================
 if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
     $file = $_FILES['photo'];
@@ -346,7 +341,9 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
             $upload_path = $upload_dir . $filename;
 
             if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                sqlsrv_query($conn, "UPDATE Customer SET Photo_Profile = ? WHERE ID_Customer = ?", array($upload_path, $ID_Customer));
+                // --- MENGGUNAKAN SP: Update foto dengan sp_UpdateCustomerPhoto ---
+                $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+                sqlsrv_query($conn, "EXEC dbo.sp_UpdateCustomerPhoto ?, ?, ?", array($ID_Customer, $upload_path, $modified_by));
                 $_SESSION['Profile_Photo'] = $upload_path;
                 $swal_status = 'success';
                 $swal_msg = 'Foto profil berhasil diperbarui!';
@@ -362,10 +359,12 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
 }
 
 // ============================================================================
-// AMBIL DATA CUSTOMER DARI DATABASE
+// AMBIL DATA CUSTOMER DARI DATABASE (MENGGUNAKAN SP)
 // ============================================================================
-$res_cust = sqlsrv_query($conn, "SELECT * FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($ID_Customer));
+// --- MENGGUNAKAN SP: sp_GetCustomerDetail ---
+$res_cust = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerDetail ?", array($ID_Customer));
 $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
+sqlsrv_free_stmt($res_cust);
 
 $profile_photo = $biodata['Photo_Profile'] ?? $_SESSION['Profile_Photo'] ?? '';
 if (empty($profile_photo) || !file_exists($profile_photo)) {
@@ -382,139 +381,73 @@ $tgl_lahir = $biodata['Tanggal_Lahir'] ?? '';
 $tmp_lahir = $biodata['Tempat_Lahir'] ?? '';
 
 // ============================================================================
-// QUERY METRIK STATISTIK RILL SESUAI DATABASE HOOPBALL
+// QUERY METRIK STATISTIK (MENGGUNAKAN SP - SEMUA SEKALIGUS!)
 // ============================================================================
+// --- MENGGUNAKAN SP: sp_GetCustomerTransactionSummary ---
+// SP ini mengembalikan: BookingSelesai, BookingMendatang, PesananAlat, TotalSpending, MemberTipe, MemberExpiry
+$res_summary = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerTransactionSummary ?", array($ID_Customer));
+$summary = sqlsrv_fetch_array($res_summary, SQLSRV_FETCH_ASSOC);
+sqlsrv_free_stmt($res_summary);
 
-// 1. Booking Selesai (Status = 2)
-$sql_selesai = "SELECT COUNT(*) AS total FROM Booking WHERE ID_Customer = ? AND Status = 2";
-$stmt_selesai = sqlsrv_query($conn, $sql_selesai, array($ID_Customer));
-$count_selesai = 0;
-if ($stmt_selesai && $row = sqlsrv_fetch_array($stmt_selesai, SQLSRV_FETCH_ASSOC)) {
-    $count_selesai = intval($row['total']);
-}
-
-// 2. Booking Mendatang (Status = 1 / Berhasil & Tanggal >= Hari Ini)
-$sql_mendatang = "SELECT COUNT(*) AS total FROM Booking B 
-                  INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
-                  WHERE B.ID_Customer = ? AND B.Status = 1 AND J.Tanggal >= CAST(GETDATE() AS DATE)";
-$stmt_mendatang = sqlsrv_query($conn, $sql_mendatang, array($ID_Customer));
-$count_mendatang = 0;
-if ($stmt_mendatang && $row = sqlsrv_fetch_array($stmt_mendatang, SQLSRV_FETCH_ASSOC)) {
-    $count_mendatang = intval($row['total']);
-}
-
-// 3. Pesanan Alat (Status = 1 dari pembelian alat sukses)
-$sql_alat = "SELECT COUNT(*) AS total FROM Beli_Alat WHERE ID_Customer = ? AND Status = 1";
-$stmt_alat = sqlsrv_query($conn, $sql_alat, array($ID_Customer));
-$count_alat = 0;
-if ($stmt_alat && $row = sqlsrv_fetch_array($stmt_alat, SQLSRV_FETCH_ASSOC)) {
-    $count_alat = intval($row['total']);
-}
-
-// 4. Total Transaksi (Akumulasi Nilai Transaksi Selesai/Aktif dari Booking, Alat, & Langganan)
-$sql_spend = "SELECT (
-    ISNULL((SELECT SUM(Total_Bayar) FROM Booking WHERE ID_Customer = ? AND Status IN (1, 2)), 0) +
-    ISNULL((SELECT SUM(Total_Bayar) FROM Beli_Alat WHERE ID_Customer = ? AND Status = 1), 0) +
-    ISNULL((SELECT SUM(Total_Bayar) FROM Langganan WHERE ID_Customer = ? AND Status IN (1, 2)), 0)
-) AS total_spending";
-$stmt_spend = sqlsrv_query($conn, $sql_spend, array($ID_Customer, $ID_Customer, $ID_Customer));
-$total_spending = 0;
-if ($stmt_spend && $row = sqlsrv_fetch_array($stmt_spend, SQLSRV_FETCH_ASSOC)) {
-    $total_spending = floatval($row['total_spending']);
-}
-
-// 5. Informasi Langganan Aktif (Masa Member)
-$sql_member = "SELECT TOP 1 L.Tanggal_Selesai, T.Nama_Tipe 
-               FROM Langganan L
-               INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-               WHERE L.ID_Customer = ? AND L.Status = 1 AND L.Tanggal_Selesai >= CAST(GETDATE() AS DATE)
-               ORDER BY L.Tanggal_Selesai DESC";
-$stmt_member = sqlsrv_query($conn, $sql_member, array($ID_Customer));
-$has_member = false;
-$member_tipe = 'Bukan Member'; // Diubah dari 'Regular' agar sesuai jika tidak memiliki langganan aktif
-$member_expiry = null;
-if ($stmt_member && $row = sqlsrv_fetch_array($stmt_member, SQLSRV_FETCH_ASSOC)) {
-    $has_member = true;
-    $member_tipe = $row['Nama_Tipe']; // Berisi 'Silver', 'Gold', atau 'Platinum' sesuai database
-    $member_expiry = $row['Tanggal_Selesai'];
-}
-
-// 6. Booking Berikutnya Riil
-$sql_next_booking = "SELECT TOP 1 J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, L.Nama_Lapangan, L.Harga_Sewa, B.Status
-                     FROM Booking B
-                     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                     WHERE B.ID_Customer = ? AND B.Status = 1 AND J.Tanggal >= CAST(GETDATE() AS DATE)
-                     ORDER BY J.Tanggal ASC, J.Jam_Mulai ASC";
-$stmt_next_booking = sqlsrv_query($conn, $sql_next_booking, array($ID_Customer));
-$next_booking = null;
-if ($stmt_next_booking && $row = sqlsrv_fetch_array($stmt_next_booking, SQLSRV_FETCH_ASSOC)) {
-    $next_booking = $row;
-}
+$count_selesai = intval($summary['BookingSelesai'] ?? 0);
+$count_mendatang = intval($summary['BookingMendatang'] ?? 0);
+$count_alat = intval($summary['PesananAlat'] ?? 0);
+$total_spending = floatval($summary['TotalSpending'] ?? 0);
+$member_tipe = $summary['MemberTipe'] ?? 'Bukan Member';
+$member_expiry = $summary['MemberExpiry'] ?? null;
+$has_member = ($member_tipe !== 'Bukan Member' && $member_expiry !== null);
 
 // ============================================================================
-// QUERY DATA TRANSAKSI DETAIL SESUAI REQUEST USER & DATABASE
+// QUERY DATA TRANSAKSI DETAIL (MENGGUNAKAN SP)
 // ============================================================================
 
-// 1. Riwayat Booking Lengkap
+// 1. Riwayat Booking Lengkap (MENGGUNAKAN SP)
 $bookings = [];
-$sql_booking_list = "SELECT B.ID_Booking, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status AS BookingStatus, 
-                            J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, L.Nama_Lapangan, L.Harga_Sewa, P.Nama_Promo, P.Diskon
-                     FROM Booking B
-                     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                     LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
-                     WHERE B.ID_Customer = ?
-                     ORDER BY J.Tanggal DESC, J.Jam_Mulai DESC";
-$stmt_booking_list = sqlsrv_query($conn, $sql_booking_list, array($ID_Customer));
-if ($stmt_booking_list) {
-    while ($row = sqlsrv_fetch_array($stmt_booking_list, SQLSRV_FETCH_ASSOC)) {
+$res_booking = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerBookingHistory ?", array($ID_Customer));
+if ($res_booking) {
+    while ($row = sqlsrv_fetch_array($res_booking, SQLSRV_FETCH_ASSOC)) {
         $bookings[] = $row;
     }
-    sqlsrv_free_stmt($stmt_booking_list);
+    sqlsrv_free_stmt($res_booking);
 }
 
-// 2. Riwayat Langganan Member Lengkap
+// 2. Riwayat Langganan Member Lengkap (MENGGUNAKAN SP)
 $memberships = [];
-$sql_member_list = "SELECT L.ID_Langganan, L.Tanggal_Mulai, L.Tanggal_Selesai, L.Total_Bayar, L.Metode_Pembayaran, L.Status AS MemberStatus,
-                           T.Nama_Tipe, T.Harga_Member, T.Potongan_Harga
-                    FROM Langganan L
-                    INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-                    WHERE L.ID_Customer = ?
-                    ORDER BY L.Tanggal_Mulai DESC";
-$stmt_member_list = sqlsrv_query($conn, $sql_member_list, array($ID_Customer));
-if ($stmt_member_list) {
-    while ($row = sqlsrv_fetch_array($stmt_member_list, SQLSRV_FETCH_ASSOC)) {
+$res_member = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerMembershipHistory ?", array($ID_Customer));
+if ($res_member) {
+    while ($row = sqlsrv_fetch_array($res_member, SQLSRV_FETCH_ASSOC)) {
         $memberships[] = $row;
     }
-    sqlsrv_free_stmt($stmt_member_list);
+    sqlsrv_free_stmt($res_member);
 }
 
-// 3. Riwayat Pembelian Alat Lengkap beserta Sub Detail item
+// 3. Riwayat Pembelian Alat Lengkap beserta Sub Detail item (MENGGUNAKAN SP)
 $purchases = [];
-$sql_purchase_list = "SELECT BA.ID_Beli, BA.Tanggal_Beli, BA.Metode_Pembayaran, BA.Total_Bayar, BA.Status AS PurchaseStatus
-                      FROM Beli_Alat BA
-                      WHERE BA.ID_Customer = ?
-                      ORDER BY BA.Tanggal_Beli DESC";
-$stmt_purchase_list = sqlsrv_query($conn, $sql_purchase_list, array($ID_Customer));
-if ($stmt_purchase_list) {
-    while ($row = sqlsrv_fetch_array($stmt_purchase_list, SQLSRV_FETCH_ASSOC)) {
+$res_purchase = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerPurchaseHistory ?", array($ID_Customer));
+if ($res_purchase) {
+    while ($row = sqlsrv_fetch_array($res_purchase, SQLSRV_FETCH_ASSOC)) {
         $items = [];
-        $sql_items = "SELECT D.Jumlah, D.SubTotal, A.Nama_Alat, A.Harga_Alat
-                      FROM Detail_Beli_Alat D
-                      INNER JOIN Alat A ON D.ID_Alat = A.ID_Alat
-                      WHERE D.ID_Beli = ?";
-        $stmt_items = sqlsrv_query($conn, $sql_items, array($row['ID_Beli']));
-        if ($stmt_items) {
-            while ($item = sqlsrv_fetch_array($stmt_items, SQLSRV_FETCH_ASSOC)) {
+        // --- MENGGUNAKAN SP: Detail item pembelian ---
+        $res_items = sqlsrv_query($conn, "EXEC dbo.sp_GetPurchaseDetailItems ?", array($row['ID_Beli']));
+        if ($res_items) {
+            while ($item = sqlsrv_fetch_array($res_items, SQLSRV_FETCH_ASSOC)) {
                 $items[] = $item;
             }
-            sqlsrv_free_stmt($stmt_items);
+            sqlsrv_free_stmt($res_items);
         }
         $row['items'] = $items;
         $purchases[] = $row;
     }
-    sqlsrv_free_stmt($stmt_purchase_list);
+    sqlsrv_free_stmt($res_purchase);
+}
+
+// Booking Berikutnya: ambil dari riwayat booking (status 1 & tanggal >= hari ini), urutkan ascending
+$next_booking = null;
+foreach ($bookings as $b) {
+    if ($b['BookingStatus'] == 1 && $b['Tanggal'] >= new DateTime()) {
+        $next_booking = $b;
+        break;
+    }
 }
 
 function jk_label($jk)

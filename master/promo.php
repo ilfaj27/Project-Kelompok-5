@@ -2,7 +2,8 @@
 session_start();
 include '../includes/config.php';
 
-if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION['role'] !== 'pemilik')) {
+if (!isset($_SESSION['role']) || 
+    !in_array(strtolower(trim($_SESSION['role'])), ['karyawan', 'pemilik', '1', '2', 1, 2], true)) {
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
@@ -302,6 +303,7 @@ function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
     --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
     --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
+    --bg: #F3F4F6;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
     --text: #111827; --text-md: #374151; --muted: #6B7280;
 }
@@ -602,7 +604,7 @@ html.swal2-height-auto { padding-right: 0px !important; }
         </div>
         <div class="modal-body">
             <form method="POST" id="formPromo" onsubmit="return validateForm()" novalidate>
-                <?php if ($edit_data): ?><input type="hidden" name="edit_mode" value="1"><?php endif; ?>
+                
 
                 <?php if ($edit_data): ?>
                     <input type="hidden" name="edit_mode" value="1">
