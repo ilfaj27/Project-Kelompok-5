@@ -70,45 +70,119 @@ $total_booking_today = 0;
 $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)");
 $d = safeFetch($q); if ($d) $total_booking_today = $d['total'] ?? 0;
 
-$total_langganan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan");
-$d = safeFetch($q); if ($d) $total_langganan = $d['total'] ?? 0;
+// Member yang BENAR-BENAR aktif (status 1 & masih dalam periode)
+$member_aktif = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 1 AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai");
+$d = safeFetch($q); if ($d) $member_aktif = $d['total'] ?? 0;
 
-$total_pembelian = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat");
-$d = safeFetch($q); if ($d) $total_pembelian = $d['total'] ?? 0;
-
-$total_pembatalan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Pembatalan_Booking");
-$d = safeFetch($q); if ($d) $total_pembatalan = $d['total'] ?? 0;
-
-$total_omzet = 0;
+// ============================================================
+// TOTAL OMZET GABUNGAN (uang yang benar-benar terkumpul)
+//   Booking     : Status 1 (Berhasil) & 2 (Selesai)
+//   Beli Alat   : Status 1 (Berhasil / dikonfirmasi)
+//   Langganan   : Status 1 (Aktif) & 2 (Berakhir) -> sudah dibayar
+// Angka omzet alat di sini = angka "Total Dana Terkumpul"
+// di halaman laporan pembelian (pembelian.php), biar nyambung.
+// ============================================================
+$omzet_booking = 0; $omzet_alat = 0; $omzet_langganan = 0;
 $q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
-$d = safeFetch($q); if ($d) $total_omzet = $d['total'] ?? 0;
+$d = safeFetch($q); if ($d) $omzet_booking = (float)($d['total'] ?? 0);
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Beli_Alat WHERE Status = 1");
+$d = safeFetch($q); if ($d) $omzet_alat = (float)($d['total'] ?? 0);
+$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Langganan WHERE Status IN (1, 2)");
+$d = safeFetch($q); if ($d) $omzet_langganan = (float)($d['total'] ?? 0);
+$total_omzet = $omzet_booking + $omzet_alat + $omzet_langganan;
 
-$total_alat = 0; $total_alat_aktif = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
-$d = safeFetch($q); if ($d) $total_alat = $d['total'] ?? 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
-$d = safeFetch($q); if ($d) $total_alat_aktif = $d['total'] ?? 0;
+// ============================================================
+// PERLU TINDAKAN (transaksi menunggu konfirmasi karyawan)
+// ============================================================
+$pending_booking = 0; $pending_beli = 0; $pending_langganan = 0; $stok_menipis = 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 0");
+$d = safeFetch($q); if ($d) $pending_booking = $d['total'] ?? 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Status = 0");
+$d = safeFetch($q); if ($d) $pending_beli = $d['total'] ?? 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 0");
+$d = safeFetch($q); if ($d) $pending_langganan = $d['total'] ?? 0;
+$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0 AND Status = 1 AND Stok <= 5");
+$d = safeFetch($q); if ($d) $stok_menipis = $d['total'] ?? 0;
 
-// CHART DATA
-$chart_labels = ['Menunggu', 'Berhasil', 'Selesai', 'Dibatalkan'];
-$chart_data = [];
-for ($i = 0; $i <= 3; $i++) {
-    $q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = ?", array($i));
-    $d = safeFetch($q);
-    $chart_data[] = $d ? ($d['total'] ?? 0) : 0;
+// ============================================================
+// TREN PENDAPATAN 14 HARI TERAKHIR (Booking vs Pembelian Alat)
+// ============================================================
+$trend_days = [];    // label tanggal
+$trend_booking = []; // omzet booking per hari
+$trend_alat = [];    // omzet alat per hari
+$map_booking = []; $map_alat = [];
+$q = safeQuery($conn, "SELECT CAST(Tanggal_Booking AS DATE) AS d, SUM(Total_Bayar) AS t
+                       FROM Booking WHERE Status IN (1,2) AND Tanggal_Booking >= DATEADD(DAY, -13, CAST(GETDATE() AS DATE))
+                       GROUP BY CAST(Tanggal_Booking AS DATE)");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+    $key = is_object($r['d']) ? $r['d']->format('Y-m-d') : $r['d'];
+    $map_booking[$key] = (float)$r['t'];
+} }
+$q = safeQuery($conn, "SELECT CAST(Tanggal_Beli AS DATE) AS d, SUM(Total_Bayar) AS t
+                       FROM Beli_Alat WHERE Status = 1 AND Tanggal_Beli >= DATEADD(DAY, -13, CAST(GETDATE() AS DATE))
+                       GROUP BY CAST(Tanggal_Beli AS DATE)");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+    $key = is_object($r['d']) ? $r['d']->format('Y-m-d') : $r['d'];
+    $map_alat[$key] = (float)$r['t'];
+} }
+for ($i = 13; $i >= 0; $i--) {
+    $tgl = date('Y-m-d', strtotime("-$i days"));
+    $trend_days[] = date('d/m', strtotime($tgl));
+    $trend_booking[] = $map_booking[$tgl] ?? 0;
+    $trend_alat[] = $map_alat[$tgl] ?? 0;
 }
 
-// DATA BOOKING TERBARU
-$recent_booking = [];
-$q = safeQuery($conn, "SELECT TOP 5 b.ID_Booking, c.Nama_Customer, b.Tanggal_Booking, b.Status, b.Total_Bayar FROM Booking b JOIN Customer c ON b.ID_Customer = c.ID_Customer ORDER BY b.Created_Date DESC");
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $recent_booking[] = $row;
-    }
-}
+// ============================================================
+// ALAT TERLARIS & KURANG LAKU (dari pembelian terkonfirmasi)
+// ============================================================
+$alat_terlaris = [];
+$q = safeQuery($conn, "SELECT TOP 5 A.Nama_Alat, ISNULL(A.Kategori, 'Lainnya') AS Kategori,
+                              SUM(D.Jumlah) AS TotalTerjual, SUM(D.SubTotal) AS Pendapatan
+                       FROM Detail_Beli_Alat D
+                       INNER JOIN Beli_Alat B ON D.ID_Beli = B.ID_Beli AND B.Status = 1
+                       INNER JOIN Alat A ON A.ID_Alat = D.ID_Alat
+                       WHERE A.Is_Deleted = 0
+                       GROUP BY A.Nama_Alat, A.Kategori
+                       ORDER BY TotalTerjual DESC, Pendapatan DESC");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $alat_terlaris[] = $r; }
+
+$alat_kurang_laku = [];
+$q = safeQuery($conn, "SELECT TOP 5 A.Nama_Alat, ISNULL(A.Kategori, 'Lainnya') AS Kategori, A.Stok,
+                              ISNULL(SUM(CASE WHEN B.Status = 1 THEN D.Jumlah END), 0) AS TotalTerjual
+                       FROM Alat A
+                       LEFT JOIN Detail_Beli_Alat D ON D.ID_Alat = A.ID_Alat
+                       LEFT JOIN Beli_Alat B ON B.ID_Beli = D.ID_Beli
+                       WHERE A.Is_Deleted = 0
+                       GROUP BY A.Nama_Alat, A.Kategori, A.Stok
+                       ORDER BY TotalTerjual ASC, A.Nama_Alat ASC");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $alat_kurang_laku[] = $r; }
+
+// ============================================================
+// LAPANGAN TERPOPULER & JAM FAVORIT (booking berhasil/selesai)
+// ============================================================
+$lapangan_populer = [];
+$q = safeQuery($conn, "SELECT L.Nama_Lapangan, COUNT(*) AS TotalBooking, SUM(B.Total_Bayar) AS Pendapatan
+                       FROM Booking B
+                       INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+                       INNER JOIN Lapangan L ON L.ID_Lapangan = J.ID_Lapangan
+                       WHERE B.Status IN (1, 2)
+                       GROUP BY L.Nama_Lapangan
+                       ORDER BY TotalBooking DESC");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $lapangan_populer[] = $r; }
+$max_booking_lap = 0;
+foreach ($lapangan_populer as $lp) $max_booking_lap = max($max_booking_lap, (int)$lp['TotalBooking']);
+
+$jam_favorit = [];
+$q = safeQuery($conn, "SELECT TOP 6 DATEPART(HOUR, J.Jam_Mulai) AS Jam, COUNT(*) AS Jumlah
+                       FROM Booking B
+                       INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+                       WHERE B.Status IN (1, 2)
+                       GROUP BY DATEPART(HOUR, J.Jam_Mulai)
+                       ORDER BY Jumlah DESC");
+if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $jam_favorit[] = $r; }
+$max_jam = 0;
+foreach ($jam_favorit as $jf) $max_jam = max($max_jam, (int)$jf['Jumlah']);
 
 function rupiahFormat($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 
@@ -119,13 +193,6 @@ function formatTanggal($tanggal) {
     }
     return date('d M Y', strtotime($tanggal));
 }
-
-$status_map = [
-    0 => ['label' => 'Menunggu', 'class' => 'sp-pending'],
-    1 => ['label' => 'Berhasil', 'class' => 'sp-active'],
-    2 => ['label' => 'Selesai', 'class' => 'sp-active'],
-    3 => ['label' => 'Dibatalkan', 'class' => 'sp-inactive']
-];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -541,8 +608,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     color: #fff; 
     font-size: 13px; 
     overflow: hidden; 
+    position: relative;
 }
 .t-avatar img { 
+    position: absolute;
+    inset: 0;
+    z-index: 2;
     width: 100%; 
     height: 100%; 
     object-fit: cover; 
@@ -744,6 +815,58 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     border-radius: 20px; 
 }
 .chart-container { position: relative; height: 350px; }
+
+/* ===== GRID 2 KOLOM ===== */
+.dashboard-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 28px; }
+@media(max-width:1100px){ .dashboard-grid-2 { grid-template-columns: 1fr; } }
+
+/* ===== PERLU TINDAKAN ===== */
+.action-list { display: flex; flex-direction: column; gap: 10px; }
+.action-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; text-decoration: none; transition: .2s; background: #fff; }
+.action-item:hover { border-color: var(--orange); transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,.05); }
+.action-item.urgent { border-color: rgba(255,69,0,.3); background: linear-gradient(90deg, var(--orange-lt), #fff 60%); }
+.ai-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.ai-green { background: var(--green-lt); color: var(--green); }
+.ai-orange { background: var(--orange-lt); color: var(--orange); }
+.ai-purple { background: rgba(139,92,246,.10); color: #8B5CF6; }
+.ai-red { background: var(--red-lt); color: var(--red); }
+.ai-text { flex: 1; min-width: 0; }
+.ai-label { font-size: 13px; font-weight: 800; color: var(--text); }
+.ai-sub { font-size: 11px; color: var(--muted); font-weight: 600; }
+.ai-count { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: var(--muted); background: var(--bg); min-width: 38px; text-align: center; padding: 4px 10px; border-radius: 10px; }
+.ai-count.hot { background: var(--orange); color: #fff; box-shadow: 0 4px 10px rgba(255,69,0,.3); }
+
+/* ===== RANK LIST (Alat Terlaris / Kurang Laku) ===== */
+.rank-item { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px dashed var(--border-lt); }
+.rank-item:last-child { border-bottom: none; }
+.rank-badge { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 900; flex-shrink: 0; }
+.rb-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #7C4A00; box-shadow: 0 4px 10px rgba(255,165,0,.35); }
+.rb-2 { background: linear-gradient(135deg, #E5E7EB, #9CA3AF); color: #374151; }
+.rb-3 { background: linear-gradient(135deg, #F59E0B, #B45309); color: #fff; }
+.rb-n { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.rb-low { background: var(--red-lt); color: var(--red); font-size: 13px; }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 13.5px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.rank-stats { text-align: right; flex-shrink: 0; }
+.rank-value { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); line-height: 1.1; }
+.rank-value span { font-size: 11px; font-weight: 600; color: var(--muted); font-family: 'Barlow', sans-serif; }
+.rank-value.muted { color: var(--muted); }
+.rank-money { font-size: 11px; font-weight: 800; color: var(--orange); }
+
+/* ===== BAR LIST (Lapangan Populer / Jam Favorit) ===== */
+.bar-item { padding: 10px 4px; }
+.bar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 10px; }
+.bar-label { font-size: 13px; font-weight: 800; color: var(--text); }
+.bar-value { font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.bar-track { height: 8px; background: var(--bg); border-radius: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 10px; transition: width 1s cubic-bezier(.16,1,.3,1); }
+.bf-orange { background: linear-gradient(90deg, var(--orange), #FF8C42); }
+.bf-blue { background: linear-gradient(90deg, var(--blue), #60A5FA); }
+
+.empty-mini { text-align: center; padding: 30px 10px; color: var(--muted); }
+.empty-mini i { font-size: 30px; opacity: .4; display: block; margin-bottom: 8px; }
+.empty-mini div { font-size: 12.5px; font-weight: 700; }
 
 .mini-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mini-stat { 
@@ -1201,15 +1324,12 @@ html { scroll-behavior:smooth; }
             <div class="clock-divider"></div>
             <div class="clock-date" id="full-date">MEMUAT...</div>
         </div>
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-        <a href="#" class="topbar-btn"><i class="fa-solid fa-bell"></i><?php if($total_booking_today > 0): ?><span class="notif-dot"></span><?php endif; ?></a>
         <div class="dropdown-wrap">
             <div class="topbar-user">
                 <div class="t-avatar">
+                    <i class="fa-solid fa-user"></i>
                     <?php if (!empty($sidebar_photo)): ?>
-                        <img src="<?= $sidebar_photo ?>" alt="Profile">
-                    <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
+                        <img src="<?= $sidebar_photo ?>" alt="Profile" onerror="this.style.display='none';">
                     <?php endif; ?>
                 </div>
                 <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">KARYAWAN</div></div>
@@ -1238,102 +1358,151 @@ html { scroll-behavior:smooth; }
         </div>
         <div class="stat-card sc-green anim-fade-up delay-400 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-            <div class="stat-value"><?= $total_booking ?></div><div class="stat-label">Total Booking</div><div class="stat-sublabel">Semua transaksi</div>
+            <div class="stat-value"><?= $total_booking ?></div><div class="stat-label">Total Booking</div><div class="stat-sublabel"><?= $total_booking_today ?> booking hari ini</div>
         </div>
         <div class="stat-card sc-orange anim-fade-up delay-500 card-shine">
-            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-crown"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-            <div class="stat-value"><?= $total_langganan ?></div><div class="stat-label">Langganan Member</div><div class="stat-sublabel">Member aktif</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-crown"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Aktif</div></div>
+            <div class="stat-value"><?= $member_aktif ?></div><div class="stat-label">Member Aktif</div><div class="stat-sublabel">Langganan masih berjalan</div>
         </div>
         <div class="stat-card sc-purple anim-fade-up delay-600 card-shine">
             <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-money-bill-wave"></i></div><div class="stat-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div></div>
-            <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($total_omzet) ?></div><div class="stat-label">Total Omzet</div><div class="stat-sublabel">Pendapatan booking</div>
+            <div class="stat-value" style="font-size:24px;"><?= rupiahFormat($total_omzet) ?></div><div class="stat-label">Total Omzet</div><div class="stat-sublabel">Booking + Alat + Member</div>
         </div>
     </div>
 
     <div class="chart-section reveal">
         <div class="chart-card hover-lift">
             <div class="chart-header">
-                <div class="chart-title"><i class="fa-solid fa-chart-column"></i> Booking per Status</div>
-                <span class="chart-badge"><?= array_sum($chart_data) ?> Total</span>
+                <div class="chart-title"><i class="fa-solid fa-chart-line"></i> Tren Pendapatan 14 Hari Terakhir</div>
+                <span class="chart-badge"><?= rupiahFormat(array_sum($trend_booking) + array_sum($trend_alat)) ?></span>
             </div>
-            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
+            <div class="chart-container"><canvas id="revenueChart"></canvas></div>
         </div>
 
         <div class="chart-card" style="display: flex; flex-direction: column; height: 100%;">
             <div class="chart-header">
-                <div class="chart-title"><i class="fa-solid fa-circle-exclamation"></i> Ringkasan Operasional</div>
+                <div class="chart-title"><i class="fa-solid fa-bell-concierge"></i> Perlu Tindakan</div>
             </div>
-            <div class="mini-stat-row" style="flex-grow: 1;">
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
-                    <div class="mini-stat-label">Booking Hari Ini</div>
-                    <div class="mini-stat-value <?= $total_booking_today > 0 ? 'orange' : '' ?>"><?= $total_booking_today ?></div>
-                </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
-                    <div class="mini-stat-label">Total Pembatalan</div>
-                    <div class="mini-stat-value red"><?= $total_pembatalan ?></div>
-                </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
-                    <div class="mini-stat-label">Alat Tersedia</div>
-                    <div class="mini-stat-value"><?= $total_alat_aktif ?> / <?= $total_alat ?></div>
-                </div>
-                <div class="mini-stat" style="display: flex; flex-direction: column; justify-content: center;">
-                    <div class="mini-stat-label">Total Pembelian</div>
-                    <div class="mini-stat-value"><?= $total_pembelian ?></div>
-                </div>
+            <div class="action-list" style="flex-grow: 1;">
+                <a href="../transaksi/booking.php" class="action-item <?= $pending_booking > 0 ? 'urgent' : '' ?>">
+                    <div class="ai-icon ai-green"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="ai-text"><div class="ai-label">Booking Menunggu</div><div class="ai-sub">Konfirmasi pembayaran booking</div></div>
+                    <div class="ai-count <?= $pending_booking > 0 ? 'hot' : '' ?>"><?= $pending_booking ?></div>
+                </a>
+                <a href="../transaksi/pembelian.php" class="action-item <?= $pending_beli > 0 ? 'urgent' : '' ?>">
+                    <div class="ai-icon ai-orange"><i class="fa-solid fa-cart-shopping"></i></div>
+                    <div class="ai-text"><div class="ai-label">Pembelian Menunggu</div><div class="ai-sub">Verifikasi pembelian alat</div></div>
+                    <div class="ai-count <?= $pending_beli > 0 ? 'hot' : '' ?>"><?= $pending_beli ?></div>
+                </a>
+                <a href="../transaksi/langganan.php" class="action-item <?= $pending_langganan > 0 ? 'urgent' : '' ?>">
+                    <div class="ai-icon ai-purple"><i class="fa-solid fa-crown"></i></div>
+                    <div class="ai-text"><div class="ai-label">Langganan Menunggu</div><div class="ai-sub">Konfirmasi member baru</div></div>
+                    <div class="ai-count <?= $pending_langganan > 0 ? 'hot' : '' ?>"><?= $pending_langganan ?></div>
+                </a>
+                <a href="../master/alat.php" class="action-item <?= $stok_menipis > 0 ? 'urgent' : '' ?>">
+                    <div class="ai-icon ai-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="ai-text"><div class="ai-label">Stok Menipis</div><div class="ai-sub">Alat dengan stok &le; 5</div></div>
+                    <div class="ai-count <?= $stok_menipis > 0 ? 'hot' : '' ?>"><?= $stok_menipis ?></div>
+                </a>
             </div>
         </div>
     </div>
 
-    <div class="dashboard-grid reveal">
+    <!-- ALAT TERLARIS & KURANG LAKU -->
+    <div class="dashboard-grid-2 reveal">
         <div class="card hover-lift">
-            <div class="card-header"><div class="card-title"><i class="fa-solid fa-calendar-check"></i> Booking Terbaru</div><div style="display:flex; align-items:center; gap:12px;"><span class="card-badge"><?= count($recent_booking) ?> data</span><a href="../transaksi/booking.php" class="card-link">Kelola <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a></div></div>
-            <div style="overflow-x:auto;">
-                <table class="data-table">
-                    <thead><tr><th>Customer</th><th>Tanggal</th><th>Status</th><th>Total</th></tr></thead>
-                    <tbody>
-                    <?php if(count($recent_booking) > 0): ?>
-                    <?php foreach($recent_booking as $b):
-                        $status = $status_map[$b['Status']] ?? ['label' => 'Unknown', 'class' => 'sp-pending'];
-                    ?>
-                        <tr>
-                            <td><div class="cell-name"><?= htmlspecialchars($b['Nama_Customer']) ?></div><div class="cell-detail">#<?= $b['ID_Booking'] ?></div></td>
-                            <td><?= formatTanggal($b['Tanggal_Booking']) ?></td>
-                            <td><span class="status-pill <?= $status['class'] ?>"><?= $status['label'] ?></span></td>
-                            <td style="font-weight:700;"><?= rupiahFormat($b['Total_Bayar']) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr><td colspan="4" style="text-align:center; padding:30px; color:var(--muted);"><i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i><div style="font-size:13px; font-weight:700;">Belum ada data booking</div></td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-fire" style="color:var(--orange);"></i> Alat Terlaris</div>
+                <a href="../transaksi/pembelian.php" class="card-link">Laporan <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
+            </div>
+            <div class="card-body">
+                <?php if (count($alat_terlaris) > 0): $rank = 1; foreach ($alat_terlaris as $a): ?>
+                <div class="rank-item">
+                    <div class="rank-badge rb-<?= $rank <= 3 ? $rank : 'n' ?>"><?= $rank ?></div>
+                    <div class="rank-info">
+                        <div class="rank-name"><?= htmlspecialchars($a['Nama_Alat']) ?></div>
+                        <div class="rank-sub"><?= htmlspecialchars($a['Kategori']) ?></div>
+                    </div>
+                    <div class="rank-stats">
+                        <div class="rank-value"><?= (int)$a['TotalTerjual'] ?> <span>pcs</span></div>
+                        <div class="rank-money"><?= rupiahFormat($a['Pendapatan']) ?></div>
+                    </div>
+                </div>
+                <?php $rank++; endforeach; else: ?>
+                <div class="empty-mini"><i class="fa-solid fa-inbox"></i><div>Belum ada penjualan alat terkonfirmasi</div></div>
+                <?php endif; ?>
             </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:20px;">
-            <div class="card hover-lift">
-                <div class="card-header"><div class="card-title"><i class="fa-solid fa-bolt"></i> Akses Cepat</div></div>
-                <div class="card-body">
-                    <div class="quick-grid">
-                        <a href="../master/customer.php" class="quick-card" style="color:var(--blue);"><i class="fa-solid fa-users"></i><span>Kelola Customer</span></a>
-                        <a href="../transaksi/booking.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-calendar-check"></i><span>Kelola Booking</span></a>
-                        <a href="../transaksi/langganan.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-crown"></i><span>Kelola Langganan</span></a>
-                        <a href="../transaksi/alat.php" class="quick-card" style="color:var(--orange);"><i class="fa-solid fa-toolbox"></i><span>Kelola Alat</span></a>
-                    </div>
-                </div>
+        <div class="card hover-lift">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-arrow-trend-down" style="color:var(--red);"></i> Alat Kurang Laku</div>
+                <a href="../master/alat.php" class="card-link">Kelola <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i></a>
             </div>
-
-            <div class="card hover-lift">
-                <div class="card-header"><div class="card-title"><i class="fa-solid fa-circle-info"></i> Informasi Sistem</div></div>
-                <div class="card-body">
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--orange-lt); border-radius:8px;">
-                            <i class="fa-solid fa-basketball" style="color:var(--orange); font-size:18px;"></i>
-                            <div><div style="font-size:12px; font-weight:700; color:var(--text);">HoopBall Sistem</div><div style="font-size:11px; color:var(--muted);">v1.0 - Karyawan Dashboard</div></div>
-                        </div>
-                        <div style="font-size:12px; color:var(--muted); line-height:1.6;">Kelola customer, booking, langganan, alat, dan transaksi dari satu dashboard.</div>
+            <div class="card-body">
+                <?php if (count($alat_kurang_laku) > 0): foreach ($alat_kurang_laku as $a): ?>
+                <div class="rank-item">
+                    <div class="rank-badge rb-low"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="rank-info">
+                        <div class="rank-name"><?= htmlspecialchars($a['Nama_Alat']) ?></div>
+                        <div class="rank-sub"><?= htmlspecialchars($a['Kategori']) ?> &bull; Stok: <?= (int)$a['Stok'] ?></div>
+                    </div>
+                    <div class="rank-stats">
+                        <div class="rank-value muted"><?= (int)$a['TotalTerjual'] ?> <span>terjual</span></div>
                     </div>
                 </div>
+                <?php endforeach; else: ?>
+                <div class="empty-mini"><i class="fa-solid fa-inbox"></i><div>Belum ada data alat</div></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- LAPANGAN TERPOPULER & JAM FAVORIT -->
+    <div class="dashboard-grid-2 reveal">
+        <div class="card hover-lift">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-basketball" style="color:var(--orange);"></i> Lapangan Terpopuler</div>
+                <span class="card-badge">Booking berhasil</span>
+            </div>
+            <div class="card-body">
+                <?php if (count($lapangan_populer) > 0): foreach ($lapangan_populer as $lp):
+                    $pct = $max_booking_lap > 0 ? round(((int)$lp['TotalBooking'] / $max_booking_lap) * 100) : 0;
+                ?>
+                <div class="bar-item">
+                    <div class="bar-top">
+                        <span class="bar-label"><?= htmlspecialchars($lp['Nama_Lapangan']) ?></span>
+                        <span class="bar-value"><?= (int)$lp['TotalBooking'] ?> booking &bull; <?= rupiahFormat($lp['Pendapatan']) ?></span>
+                    </div>
+                    <div class="bar-track"><div class="bar-fill bf-orange" style="width: <?= $pct ?>%;"></div></div>
+                </div>
+                <?php endforeach; else: ?>
+                <div class="empty-mini"><i class="fa-solid fa-inbox"></i><div>Belum ada booking berhasil</div></div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card hover-lift">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-clock" style="color:var(--blue);"></i> Jam Favorit Booking</div>
+                <span class="card-badge">Paling sering dipesan</span>
+            </div>
+            <div class="card-body">
+                <?php if (count($jam_favorit) > 0): foreach ($jam_favorit as $jf):
+                    $jam = (int)$jf['Jam'];
+                    $jam_label = sprintf('%02d:00', $jam) . ' - ' . sprintf('%02d:00', ($jam + 1) % 24);
+                    $pct = $max_jam > 0 ? round(((int)$jf['Jumlah'] / $max_jam) * 100) : 0;
+                ?>
+                <div class="bar-item">
+                    <div class="bar-top">
+                        <span class="bar-label"><i class="fa-regular fa-clock" style="color:var(--blue); margin-right:6px;"></i><?= $jam_label ?></span>
+                        <span class="bar-value"><?= (int)$jf['Jumlah'] ?> booking</span>
+                    </div>
+                    <div class="bar-track"><div class="bar-fill bf-blue" style="width: <?= $pct ?>%;"></div></div>
+                </div>
+                <?php endforeach; else: ?>
+                <div class="empty-mini"><i class="fa-solid fa-inbox"></i><div>Belum ada booking berhasil</div></div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1368,74 +1537,83 @@ function updateClock() {
 }
 setInterval(updateClock, 1000); updateClock();
 
-const ctx = document.getElementById('bookingChart').getContext('2d');
+const ctx = document.getElementById('revenueChart').getContext('2d');
+const gradBooking = ctx.createLinearGradient(0, 0, 0, 350);
+gradBooking.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+gradBooking.addColorStop(1, 'rgba(16, 185, 129, 0)');
+const gradAlat = ctx.createLinearGradient(0, 0, 0, 350);
+gradAlat.addColorStop(0, 'rgba(255, 69, 0, 0.25)');
+gradAlat.addColorStop(1, 'rgba(255, 69, 0, 0)');
+
 new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
-        labels: <?= json_encode($chart_labels) ?>,
-        datasets: [{
-            label: 'Jumlah Booking',
-            data: <?= json_encode($chart_data) ?>,
-            backgroundColor: [
-                'rgba(245, 158, 11, 0.8)',
-                'rgba(16, 185, 129, 0.8)',
-                'rgba(59, 130, 246, 0.8)',
-                'rgba(239, 68, 68, 0.8)'
-            ],
-            borderColor: ['#F59E0B', '#10B981', '#3B82F6', '#EF4444'],
-            borderWidth: 2,
-            borderRadius: 8,
-            borderSkipped: false,
-            hoverBackgroundColor: [
-                '#F59E0B',
-                '#10B981',
-                '#3B82F6',
-                '#EF4444'
-            ],
-            hoverBorderWidth: 3,
-            hoverBorderColor: '#fff'
-        }]
+        labels: <?= json_encode($trend_days) ?>,
+        datasets: [
+            {
+                label: 'Booking Lapangan',
+                data: <?= json_encode($trend_booking) ?>,
+                borderColor: '#10B981',
+                backgroundColor: gradBooking,
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2.5,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#10B981'
+            },
+            {
+                label: 'Pembelian Alat',
+                data: <?= json_encode($trend_alat) ?>,
+                borderColor: '#FF4500',
+                backgroundColor: gradAlat,
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2.5,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#FF4500'
+            }
+        ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-            duration: 1500,
-            easing: 'easeOutQuart',
-            delay: function(context) {
-                return context.dataIndex * 200;
-            }
-        },
-        transitions: {
-            active: {
-                animation: {
-                    duration: 400,
-                    easing: 'easeOutElastic'
-                }
-            }
-        },
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: { display: false },
+            legend: {
+                display: true,
+                position: 'top',
+                align: 'end',
+                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { family: 'Barlow', size: 12, weight: '600' }, color: '#374151' }
+            },
             tooltip: {
                 backgroundColor: '#1F2937',
                 titleColor: '#fff',
                 bodyColor: '#fff',
                 padding: 12,
                 cornerRadius: 8,
-                displayColors: false,
                 callbacks: {
                     label: function(context) {
-                        return context.label + ': ' + context.parsed.y + ' booking';
+                        return context.dataset.label + ': Rp ' + context.parsed.y.toLocaleString('id-ID');
                     }
                 }
             }
         },
         scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', stepSize: 1 } },
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                ticks: {
+                    font: { family: 'Barlow', size: 11 }, color: '#6B7280',
+                    callback: function(value) {
+                        if (value >= 1000000) return 'Rp ' + (value / 1000000) + 'jt';
+                        if (value >= 1000) return 'Rp ' + (value / 1000) + 'rb';
+                        return 'Rp ' + value;
+                    }
+                }
+            },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
-        },
-        onHover: (event, chartElement) => {
-            event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
         }
     }
 });
