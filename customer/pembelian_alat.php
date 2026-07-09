@@ -1275,8 +1275,8 @@ document.querySelectorAll('.qty-stepper').forEach(stepper => {
 // Add parallax effect to floating balls on mouse move
 document.querySelector('.hero').addEventListener('mousemove', (e) => {
     const balls = document.querySelectorAll('.floating-ball');
-    const x = (e.clientX / window.innerWidth - 0.5) * 80;
-    const y = (e.clientY / window.innerHeight - 0.5) * 80;
+    const x = (e.clientX / window.innerWidth - 0.5) * 20;
+    const y = (e.clientY / window.innerHeight - 0.5) * 20;
     balls.forEach((ball, i) => {
         const speed = (i + 1) * 0.5;
         ball.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
