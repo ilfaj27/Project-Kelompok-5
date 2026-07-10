@@ -25,7 +25,7 @@
             Kelola Fasilitas
         </a>
         <a href="alat.php" 
-           class="sb-link <?= ($current_page === 'pembelian') ? 'active' : '' ?>">
+           class="sb-link <?= ($current_page === 'alat') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>

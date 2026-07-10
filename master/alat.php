@@ -418,6 +418,9 @@ if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort'
 if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
 
 function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
+
+$current_page = 'alat';
+$sidebar_photo = $profile_photo;
 ?>
 
 <!DOCTYPE html>
@@ -940,53 +943,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- SIDEBAR -->
-<aside class="sidebar">
-    <a href="../dashboard/view_admin.php" class="sb-brand">
-        <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div>
-            <div class="sb-brand-name">HOOP BALL</div>
-            <div class="sb-brand-sub">Sistem Managemen</div>
-        </div>
-    </a>
-    <div class="sb-section-label">Operasional</div>
-    <nav>
-        <a href="../dashboard/view_admin.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard</a>
-        <a href="customer.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Kelola Customer</a>
-        <a href="lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Kelola Lapangan</a>
-        <a href="fasilitas_lapangan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>Kelola Fasilitas</a>
-        <a href="jadwal.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal</a>
-        <a href="promo.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo</a>
-        <a href="tipe_member.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member</a>
-        <a href="alat.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat</a>
-    </nav>
-    <div class="sb-section-label">Transaksi</div>
-    <nav>
-        <a href="../transaksi/booking.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking</a>
-        <a href="../transaksi/langganan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan</a>
-        <a href="../transaksi/pembelian.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat</a>
-        <a href="../transaksi/pembatalan.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan</a>
-    </nav>
-    <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile/profile.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya</a>
-    </nav>
-    <div class="sb-bottom">
-        <div class="sb-user">
-            <div class="sb-avatar">
-                <i class="fa-solid fa-user"></i>
-                <?php if (!empty($profile_photo)): ?>
-                    <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
-                <?php endif; ?>
-            </div>
-            <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                <div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
-            </div>
-            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
-        </div>
-    </div>
-</aside>
+<?php include '../includes/sidebar.php'; ?>
 
 <!-- MAIN CONTENT -->
 <main class="main">
