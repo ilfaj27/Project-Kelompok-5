@@ -113,7 +113,7 @@ if ($query === false) {
     $total_pages = max(1, ceil($total_cust / $limit));
     $page = min($page, $total_pages);
 }
-$current_page = 'alat';
+$current_page = 'customer';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
 ?>
