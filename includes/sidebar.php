@@ -1,5 +1,5 @@
 <aside class="sidebar">
-    <a href="../dashboard/view_admin.php" class="sb-brand">
+    <a href="<?= ($sidebar_folder === 'dashboard') ? 'view_admin.php' : '../dashboard/view_admin.php' ?>" class="sb-brand">
         <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
         <div>
             <div class="sb-brand-name">HOOP BALL</div>
@@ -9,42 +9,42 @@
 
     <div class="sb-section-label">Operasional</div>
     <nav>
-        <a href="../dashboard/view_admin.php" 
+        <a href="<?= ($sidebar_folder === 'dashboard') ? 'view_admin.php' : '../dashboard/view_admin.php' ?>" 
            class="sb-link <?= ($current_page === 'dashboard') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
             Dashboard
         </a>
-        <a href="tipe_member.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'tipe_member.php' : '../master/tipe_member.php' ?>" 
            class="sb-link <?= ($current_page === 'tipe_member') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
             Kelola Tipe Member
         </a>
-        <a href="fasilitas_lapangan.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'fasilitas_lapangan.php' : '../master/fasilitas_lapangan.php' ?>" 
            class="sb-link <?= ($current_page === 'fasilitas') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
             Kelola Fasilitas
         </a>
-        <a href="alat.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'alat.php' : '../master/alat.php' ?>" 
            class="sb-link <?= ($current_page === 'alat') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
             Kelola Alat
         </a>
-        <a href="promo.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'promo.php' : '../master/promo.php' ?>" 
            class="sb-link <?= ($current_page === 'promo') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
             Kelola Promo
         </a>
-        <a href="customer.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'customer.php' : '../master/customer.php' ?>" 
            class="sb-link <?= ($current_page === 'customer') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
             Kelola Customer
         </a>
-        <a href="lapangan.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'lapangan.php' : '../master/lapangan.php' ?>" 
            class="sb-link <?= ($current_page === 'lapangan') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
             Kelola Lapangan
         </a>
-        <a href="jadwal.php" 
+        <a href="<?= ($sidebar_folder === 'master') ? 'jadwal.php' : '../master/jadwal.php' ?>" 
            class="sb-link <?= ($current_page === 'jadwal') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
             Kelola Jadwal
@@ -53,22 +53,22 @@
 
     <div class="sb-section-label">Transaksi</div>
     <nav>
-        <a href="../transaksi/booking.php" 
+        <a href="<?= ($sidebar_folder === 'transaksi') ? 'booking.php' : '../transaksi/booking.php' ?>" 
            class="sb-link <?= ($current_page === 'booking') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
             Kelola Booking
         </a>
-        <a href="../transaksi/langganan.php" 
+        <a href="<?= ($sidebar_folder === 'transaksi') ? 'langganan.php' : '../transaksi/langganan.php' ?>" 
            class="sb-link <?= ($current_page === 'langganan') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
             Kelola Langganan
         </a>
-        <a href="../transaksi/pembelian.php" 
+        <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembelian.php' : '../transaksi/pembelian.php' ?>" 
            class="sb-link <?= ($current_page === 'pembelian_alat') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
             Kelola Pembelian Alat
         </a>
-        <a href="../transaksi/pembatalan.php" 
+        <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembatalan.php' : '../transaksi/pembatalan.php' ?>" 
            class="sb-link <?= ($current_page === 'pembatalan') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
             Kelola Pembatalan
@@ -77,7 +77,7 @@
 
     <div class="sb-section-label">Akun</div>
     <nav>
-        <a href="../profile/profile.php" 
+        <a href="<?= ($sidebar_folder === 'profile') ? 'profile.php' : '../profile/profile.php' ?>" 
            class="sb-link <?= ($current_page === 'profile') ? 'active' : '' ?>">
             <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
             Profil Saya

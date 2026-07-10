@@ -245,9 +245,6 @@ if ($q_pembelian) {
 
 // ============================================================================
 // STATISTIK GLOBAL (tidak terpengaruh filter, biar KPI stabil)
-// "Total Dana Terkumpul" = SUM(Total_Bayar) status Berhasil.
-// Angka ini SAMA dengan komponen "omzet alat" di dashboard karyawan
-// (view_admin.php), jadi laporan & dashboard selalu nyambung.
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'berhasil' => 0, 'ditolak' => 0,
@@ -285,7 +282,15 @@ function buildPageUrl($page_num) {
     $parts[] = 'page=' . $page_num;
     return 'pembelian.php?' . implode('&', $parts);
 }
+
+// ============================================================================
+// VARIABEL SIDEBAR - HARUS SAMA DENGAN CHECK DI SIDEBAR.PHP
+// sidebar.php: ($current_page === 'pembelian_alat') ? 'active' : ''
+// ============================================================================
+$current_page = 'pembelian_alat';
+$sidebar_folder = 'transaksi';
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -547,77 +552,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 <body>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
-    <a href="../dashboard/view_admin.php" class="sb-brand">
-        <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Manajemen</div></div>
-    </a>
-
-    <div class="sb-section-label">Operasional</div>
-    <nav>
-        <a href="../dashboard/view_admin.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>Dashboard
-        </a>
-        <a href="../master/customer.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>Kelola Customer
-        </a>
-        <a href="../master/lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>Kelola Lapangan
-        </a>
-        <a href="../master/fasilitas_lapangan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>Kelola Fasilitas
-        </a>
-        <a href="../master/jadwal.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>Kelola Jadwal
-        </a>
-        <a href="../master/promo.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>Kelola Promo
-        </a>
-        <a href="../master/tipe_member.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>Kelola Tipe Member
-        </a>
-        <a href="../master/alat.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>Kelola Alat
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Transaksi</div>
-    <nav>
-        <a href="booking.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>Kelola Booking
-        </a>
-        <a href="langganan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>Kelola Langganan
-        </a>
-        <a href="pembelian.php" class="sb-link active">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>Kelola Pembelian Alat
-        </a>
-        <a href="pembatalan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>Kelola Pembatalan
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile/profile.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>Profil Saya
-        </a>
-    </nav>
-
-    <div class="sb-bottom">
-        <div class="sb-user">
-            <div class="sb-avatar">
-                <?php if (!empty($sidebar_photo)): ?>
-                    <img src="<?= $sidebar_photo ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
-                <?php endif; ?>
-            </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">KARYAWAN</div></div>
-            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
-        </div>
-    </div>
-</aside>
+<?php include '../includes/sidebar.php'; ?>
 
 <main class="main">
 <header class="topbar">

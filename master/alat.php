@@ -420,6 +420,7 @@ if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_s
 function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 
 $current_page = 'alat';
+$sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
 ?>
 

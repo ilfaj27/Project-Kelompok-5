@@ -16,7 +16,6 @@ if (!isset($nama) || empty($nama)) {
     $nama = $_SESSION['nama'] ?? $_SESSION['username'] ?? 'SYSTEM';
 }
 
-$current_page = 'fasilitas';
 $topbar_title = 'Kelola Fasilitas';
 $topbar_breadcrumb = 'Operasional / Fasilitas Lapangan';
 
@@ -233,7 +232,9 @@ if (isset($_GET['f_status']))
 if (!empty($search)) {
     $filter_url .= "&src=" . urlencode($search);
 }
-
+$current_page = 'fasilitas';
+$sidebar_folder = 'master';
+$sidebar_photo = $profile_photo;
 ?>
 <!DOCTYPE html>
 <html lang="id">
