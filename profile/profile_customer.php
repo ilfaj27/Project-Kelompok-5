@@ -2845,6 +2845,7 @@ function format_date_display($date)
             <img src="../asset/image/logo2.png" alt="HoopBall">
         </a>
         <div class="nav-links">
+            <a href="../index.php">Beranda</a>
             <a href="../customer/booking_customer.php">Booking</a>
             <a href="../customer/pembatalan_customer.php">Pembatalan</a>
             <a href="../customer/langganan_customer.php">Member</a>
