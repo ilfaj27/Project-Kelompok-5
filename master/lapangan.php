@@ -272,7 +272,9 @@ if ($q_fac) {
         $master_facilities[] = $f_row;
     }
 }
-
+$current_page = 'lapangan';
+$sidebar_folder = 'master';
+$sidebar_photo = $profile_photo;
 ?>
 <!DOCTYPE html>
 <html lang="id">

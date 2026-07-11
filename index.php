@@ -877,6 +877,8 @@ function getPhotoUrl($photo_path) {
             .hero-content h1 { font-size: 36px; }
         }
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -1231,6 +1233,77 @@ function getPhotoUrl($photo_path) {
             // Jalankan sekali saat load untuk set initial state
             updateActiveNav();
         });
-    </script>
+    
+
+    /* ============================================================
+   KONFIRMASI SEBELUM KELUAR (LOGOUT)
+   Berlaku untuk semua link yang mengarah ke logout.php,
+   di sidebar maupun di dropdown topbar, pada SEMUA halaman.
+   ============================================================ */
+(function () {
+    const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+    let swalLoading = null;
+
+    // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
+    // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
+    function ensureSwal() {
+        if (typeof Swal !== 'undefined') return Promise.resolve();
+        if (swalLoading) return swalLoading;
+
+        swalLoading = new Promise(function (resolve, reject) {
+            const s = document.createElement('script');
+            s.src = SWAL_CDN;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+        return swalLoading;
+    }
+
+    function showLogoutDialog(url) {
+        Swal.fire({
+            title: 'Keluar dari HoopBall?',
+            html: 'Apakah Anda yakin ingin keluar?<br>' +
+                  '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#EF4444',
+            cancelButtonColor: '#6B7280',
+            reverseButtons: true,
+            focusCancel: true,
+            allowOutsideClick: false
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Sedang keluar...',
+                text: 'Mohon tunggu sebentar.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
+
+            setTimeout(function () { window.location.href = url; }, 500);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a[href*="logout.php"]');
+        if (!link) return;
+
+        e.preventDefault();
+        const url = link.getAttribute('href');
+
+        ensureSwal()
+            .then(function () { showLogoutDialog(url); })
+            .catch(function () {
+                // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
+                if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
+            });
+    });
+})();
+</script>
 </body>
 </html>
