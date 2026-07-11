@@ -247,6 +247,8 @@ function rupiah($n){ return 'Rp '.number_format($n,0,',','.'); }
 $current_page = 'tipe_member';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
+$topbar_title = 'Kelola Tipe Member';
+$topbar_breadcrumb = 'Operasional / Tipe Member';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -265,6 +267,7 @@ $sidebar_photo = $profile_photo;
     --red: #EF4444; --red-lt: rgba(239,68,68,.10); --red-dk: #DC2626;
     --yellow: #F59E0B; --yellow-lt: rgba(245,158,11,.10);
     --sidebar: #0D1117; --sidebar-w: 260px; --topbar-h: 70px;
+    --bg: #F3F4F6;
     --card-bg: #FFFFFF; --border: #E5E7EB; --border-lt: #F3F4F6;
     --text: #111827; --text-md: #374151; --muted: #6B7280;
 }
@@ -360,6 +363,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dropdown-wrap { position: relative; }
 .topbar-user { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); padding: 6px 14px 6px 8px; border-radius: 12px; cursor: pointer; transition: .2s; }
 .topbar-user:hover { border-color: var(--orange); }
+.topbar-btn, .topbar-user { background-color: #FFFFFF !important; }
 .t-avatar { width: 32px; height: 32px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; overflow: hidden; flex-shrink: 0; }
 .t-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.1; text-transform: uppercase; }
@@ -555,28 +559,25 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .btn-filter-reset { flex: 1; background: var(--border-lt); color: var(--text-md); border: 1px solid var(--border); padding: 12px; border-radius: 10px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .2s; }
 .btn-filter-reset:hover { background: #E5E7EB; }
 
-.topbar-btn, .topbar-user {
-    background-color: #FFFFFF !important;
-}
+/* ═══ HILANGKAN SCROLLBAR (SAMAKAN DENGAN FASILITAS) ═══ */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
-/* 2. Menambahkan efek hover & active (klik) berwarna abu-abu */
-.topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important; /* Latar belakang abu-abu saat di-hover */
-    border-color: #D1D5DB !important;    /* Batas border abu-abu medium */
-    color: #4B5563 !important;           /* Warna ikon/teks abu-abu gelap */
-}
-
-.topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important; /* Latar belakang abu-abu lebih gelap saat diklik */
-    border-color: #9CA3AF !important;    /* Batas border saat diklik */
-    color: #1F2937 !important;           /* Warna ikon/teks saat diklik */
-}
-
-/* Mendukung pembukaan menu dropdown via klik */
 .dropdown-wrap.active .dropdown-menu { 
     display: block; 
 }
 
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
+    color: #4B5563 !important;
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important;
+    border-color: #9CA3AF !important;
+    color: #1F2937 !important;
+}
 
 /* RESPONSIVE */
 @media(max-width: 1100px) { .page-header { flex-direction: column; align-items: flex-start; } }
@@ -592,6 +593,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .pagination-wrap { flex-direction: column; gap: 12px; }
     .modal-box { width: 90%; margin: 20px; }
 }
+
+body.swal2-shown, html.swal2-shown { padding-right: 0px !important; overflow-y: auto !important; }
+.swal2-container { padding-right: 0px !important; }
+.swal2-shown .swal2-container { overflow-y: auto !important; }
+body.swal2-height-auto { height: auto !important; padding-right: 0px !important; }
+html.swal2-height-auto { padding-right: 0px !important; }
 </style>
 </head>
 <body>
@@ -699,50 +706,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 <!-- MAIN & TOPBAR -->
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Kelola Tipe Member</div>
-            <div class="topbar-breadcrumb">Operasional / Tipe Member</div>
-        </div>
-        <div class="topbar-right">
-            <div id="clock-display">
-                <div class="clock-time">
-                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
-                </div>
-                <div class="clock-divider"></div>
-                <div class="clock-date" id="full-date">MEMUAT...</div>
-            </div>
-
-            <a href="#" class="topbar-btn"><i class="fa-solid fa-magnifying-glass"></i></a>
-
-            <a href="#" class="topbar-btn">
-                <i class="fa-solid fa-bell"></i>
-                <?php if(isset($total_pending) && $total_pending > 0): ?><span class="notif-dot"></span><?php endif; ?>
-            </a>
-
-            <div class="dropdown-wrap" id="userDropdown">
-                <div class="topbar-user" onclick="toggleUserDropdown()">
-                    <div class="t-avatar">
-                        <?php if (!empty($profile_photo)): ?>
-                            <img src="<?= $profile_photo ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fa-solid fa-user"></i>
-                        <?php endif; ?>
-                    </div>
-                    <div>
-                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
-                    </div>
-                    <i class="fa-solid fa-chevron-down t-chevron"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="../profile/profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../includes/topbar.php'; ?>
 
     <div class="content">
         <!-- PAGE HEADER -->
@@ -948,16 +912,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 </main>
 
 <script>
-
-// Toggle dropdown profil user
-function toggleUserDropdown() {
-    var dd = document.getElementById('userDropdown');
-    if (dd) dd.classList.toggle('active');
-}
-document.addEventListener('click', function(e) {
-    var dd = document.getElementById('userDropdown');
-    if (dd && !dd.contains(e.target)) dd.classList.remove('active');
-});
 
 // ============================================
 // CLOCK / JAM REAL-TIME
