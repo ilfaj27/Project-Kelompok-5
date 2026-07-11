@@ -53,6 +53,14 @@ BEGIN
         ID_Customer,
         Nama_Customer,
         Tanggal_Lahir,
+        -- KALKULASI UMUR AKTIF
+        DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
+        CASE 
+            WHEN MONTH(Tanggal_Lahir) > MONTH(GETDATE()) 
+                 OR (MONTH(Tanggal_Lahir) = MONTH(GETDATE()) AND DAY(Tanggal_Lahir) > DAY(GETDATE())) 
+            THEN 1 
+            ELSE 0 
+        END AS Umur,
         Tempat_Lahir,
         Jenis_Kelamin,
         Alamat,
