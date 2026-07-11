@@ -238,80 +238,83 @@ if (isset($_GET['action'])) {
             exit();
         }
 
-        if (sqlsrv_begin_transaction($conn) === false) {
-            echo json_encode(['success' => false, 'message' => 'Gagal menginisiasi transaksi database.']);
-            exit();
+        $kq = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status=1 AND Is_Deleted=0 ORDER BY ID_Karyawan ASC");
+        $id_karyawan = 1;
+        if ($kq) {
+            $kd = sqlsrv_fetch_array($kq, SQLSRV_FETCH_ASSOC);
+            if ($kd)
+                $id_karyawan = $kd['ID_Karyawan'];
         }
 
-        try {
-            // Validasi tiap slot & ambil harga dari data master (bukan dari input client)
-            // supaya total pembayaran tidak bisa dimanipulasi dari sisi browser.
-            $items = [];
-            $sum_base = 0;
+        $by = $_SESSION['nama'] ?? 'CUSTOMER';
+        $created_ids = [];
+        $success_count = 0;
+        $first_error = '';
 
-            foreach ($id_jadwal_list as $jid) {
-                $chk = sqlsrv_query(
-                    $conn,
-                    "SELECT J.Status, J.ID_Lapangan, L.Harga_Sewa
-                     FROM Jadwal J INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                     WHERE J.ID_Jadwal=?",
-                    array($jid)
-                );
-                $row = $chk ? sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC) : null;
+        // Validasi tiap slot sebelum memanggil SP
+        foreach ($id_jadwal_list as $jid) {
+            $chk = sqlsrv_query(
+                $conn,
+                "SELECT J.Status, J.ID_Lapangan, L.Harga_Sewa
+                 FROM Jadwal J INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+                 WHERE J.ID_Jadwal=?",
+                array($jid)
+            );
+            $row = $chk ? sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC) : null;
+            if (!$row || $row['Status'] != 1) {
+                echo json_encode(['success' => false, 'message' => "Maaf, salah satu slot jadwal sudah terbooking atau tidak tersedia."]);
+                exit();
+            }
+        }
 
-                if (!$row || $row['Status'] != 1) {
-                    throw new Exception("Maaf, salah satu slot jadwal sudah terbooking atau tidak tersedia.");
-                }
+        // Panggil sp_Booking_Create untuk setiap slot
+        // Promo hanya diterapkan pada booking pertama (jika ada)
+        $promo_for_first = $id_promo;
 
-                $harga = floatval($row['Harga_Sewa']);
-                $items[] = ['id_jadwal' => $jid, 'harga' => $harga];
-                $sum_base += $harga;
+        foreach ($id_jadwal_list as $index => $jid) {
+            // Hanya booking pertama yang dapat promo
+            $current_promo = ($index === 0) ? $promo_for_first : null;
+
+            $sp_sql = "{call sp_Booking_Create(?, ?, ?, ?, ?, ?)}";
+            $sp_params = array(
+                array($id_customer, SQLSRV_PARAM_IN),
+                array($id_karyawan, SQLSRV_PARAM_IN),
+                array($jid, SQLSRV_PARAM_IN),
+                array($current_promo, SQLSRV_PARAM_IN),
+                array($metode, SQLSRV_PARAM_IN),
+                array($by, SQLSRV_PARAM_IN)
+            );
+
+            $sp_stmt = sqlsrv_query($conn, $sp_sql, $sp_params);
+
+            if ($sp_stmt === false) {
+                $err = sqlsrv_errors();
+                $first_error = $err[0]['message'] ?? 'Gagal membuat booking.';
+                break;
             }
 
-            $kq = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status=1 AND Is_Deleted=0 ORDER BY ID_Karyawan ASC");
-            $id_karyawan = 1;
-            if ($kq) {
-                $kd = sqlsrv_fetch_array($kq, SQLSRV_FETCH_ASSOC);
-                if ($kd)
-                    $id_karyawan = $kd['ID_Karyawan'];
+            $sp_result = sqlsrv_fetch_array($sp_stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($sp_stmt);
+
+            if (!$sp_result || $sp_result['Status'] !== 'SUCCESS') {
+                $first_error = $sp_result['Message'] ?? 'Gagal membuat booking.';
+                break;
             }
 
-            $by = $_SESSION['nama'] ?? 'CUSTOMER';
+            $created_ids[] = $sp_result['ID_Booking'];
+            $success_count++;
+        }
 
-            // Diskon (member/promo) dibagi rata ke tiap baris booking supaya total akhir
-            // tetap sama dengan yang disetujui pelanggan, tanpa membuat baris manapun negatif.
-            $discount_remaining = max(0, $sum_base - $total);
-
-            foreach ($items as $item) {
-                $row_total = $item['harga'];
-                if ($discount_remaining > 0) {
-                    $take = min($discount_remaining, $row_total);
-                    $row_total -= $take;
-                    $discount_remaining -= $take;
-                }
-
-                $ins = sqlsrv_query(
-                    $conn,
-                    "INSERT INTO Booking(ID_Customer,ID_Karyawan,ID_Jadwal,ID_Promo,Tanggal_Booking,Metode_Pembayaran,Total_Bayar,Status,Created_By,Created_Date) VALUES(?,?,?,?,CAST(GETDATE() AS DATE),?,?,0,?,GETDATE())",
-                    array($id_customer, $id_karyawan, $item['id_jadwal'], $id_promo, $metode, $row_total, $by)
-                );
-
-                if ($ins === false) {
-                    $e = sqlsrv_errors();
-                    throw new Exception("Terjadi kendala koneksi database (Kode: " . ($e[0]['code'] ?? 0) . "). Silakan hubungi operator.");
-                }
-
-                $upd = sqlsrv_query($conn, "UPDATE Jadwal SET Status=0,Modified_By=?,Modified_Date=GETDATE() WHERE ID_Jadwal=?", array($by, $item['id_jadwal']));
-                if ($upd === false) {
-                    throw new Exception("Gagal memperbarui status jadwal.");
-                }
-            }
-
-            sqlsrv_commit($conn);
+        if ($success_count === count($id_jadwal_list)) {
             echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
-        } catch (Exception $e) {
-            sqlsrv_rollback($conn);
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        } else {
+            // Jika sebagian berhasil, rollback manual dengan membatalkan yang sudah dibuat
+            if (!empty($created_ids)) {
+                foreach ($created_ids as $cb_id) {
+                    sqlsrv_query($conn, "UPDATE Booking SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ?", array($by, $cb_id));
+                }
+            }
+            echo json_encode(['success' => false, 'message' => $first_error ?: 'Gagal membuat booking.']);
         }
         exit();
     }
