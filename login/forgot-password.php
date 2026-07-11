@@ -2,6 +2,7 @@
 session_start();
 $path_prefix = "../";
 include '../includes/config.php';
+include '../includes/mail_helper.php';
 
 $res_status = $_SESSION['res_status'] ?? "";
 $res_msg = $_SESSION['res_msg'] ?? "";
@@ -44,21 +45,34 @@ if (isset($_POST['request_otp'])) {
     } else {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
-            // Email terdaftar
-            $otp_code = "123456";
+            // 1. Generate kode OTP acak 6 digit yang dinamis
+            try {
+                $otp_code = strval(random_int(100000, 999999));
+            } catch (\Exception $e) {
+                $otp_code = strval(mt_rand(100000, 999999));
+            }
 
-            $_SESSION['simulated_otp'] = $otp_code;
-            $_SESSION['temp_customer_id'] = $row['ID_Customer'];
-            $_SESSION['temp_customer_email'] = $row['Email'];
-            $_SESSION['otp_expiry'] = time() + (5 * 60);
+            // 2. Panggil fungsi pengiriman email dari mail_helper.php
+            $kirim_email = sendOtpEmail($row['Email'], $otp_code);
 
-            // Simpan status sukses ke sesi untuk ditampilkan sekali saja
-            $_SESSION['res_status'] = "success";
-            $_SESSION['res_msg'] = "Kode OTP telah dikirim ke email " . htmlspecialchars($row['Email']);
+            if ($kirim_email) {
+                // Sesi hanya akan disimpan jika email berhasil terkirim
+                $_SESSION['simulated_otp'] = $otp_code;
+                $_SESSION['temp_customer_id'] = $row['ID_Customer'];
+                $_SESSION['temp_customer_email'] = $row['Email'];
+                $_SESSION['otp_expiry'] = time() + (5 * 60); // Berlaku selama 5 menit
 
-            // SEGERA ALIHKAN (REDIRECT) AGAR SIKLUS POST BERAKHIR
-            header("Location: forgot-password.php");
-            exit();
+                $_SESSION['res_status'] = "success";
+                $_SESSION['res_msg'] = "Kode OTP telah dikirim ke email " . htmlspecialchars($row['Email']);
+
+                // Alihkan halaman agar siklus POST berakhir
+                header("Location: forgot-password.php");
+                exit();
+            } else {
+                // Tampilkan pesan kegagalan jika server SMTP gagal mengirim email
+                $res_status = "error";
+                $res_msg = "Gagal mengirimkan email verifikasi. Silakan periksa koneksi internet Anda atau coba lagi nanti.";
+            }
         } else {
             // Email tidak terdaftar
             $res_status = "error";
