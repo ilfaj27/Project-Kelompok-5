@@ -613,78 +613,57 @@ VALUES
 -- ============================================================
 
 CREATE TABLE Detail_Jadwal (
+    ID_Booking       INT             NOT NULL,
     ID_Jadwal        INT             NOT NULL,
-    ID_Lapangan      INT             NOT NULL,
-    ID_Fasilitas     INT             NOT NULL,
     Jumlah_Digunakan INT             NOT NULL DEFAULT 1 CHECK (Jumlah_Digunakan > 0),
-    Status           INT             NOT NULL CHECK (Status IN (0,1)),  -- 0 = Nonaktif, 1 = Aktif
-    Keterangan       VARCHAR(255)    NULL,  -- Catatan tambahan (opsional)
-    
-    -- Primary Key: Kombinasi ID_Jadwal + ID_Fasilitas
-    PRIMARY KEY (ID_Jadwal, ID_Fasilitas),
-    
+
+    -- Primary Key: Kombinasi ID_Jadwal + ID_Booking
+    PRIMARY KEY (ID_Jadwal, ID_Booking),
+
     -- Foreign Keys
     FOREIGN KEY (ID_Jadwal)    REFERENCES Jadwal(ID_Jadwal) ON DELETE CASCADE,
-    FOREIGN KEY (ID_Lapangan)  REFERENCES Lapangan(ID_Lapangan),
-    FOREIGN KEY (ID_Fasilitas) REFERENCES Fasilitas_Lapangan(ID_Fasilitas)
+    FOREIGN KEY (ID_Booking)   REFERENCES Booking(ID_Booking) ON DELETE CASCADE
 );
+GO
 
 -- ============================================================
--- INSERT DATA CONTOH (Sample Data)
+-- INSERT DATA Detail_Jadwal
+-- ============================================================
+-- Setiap booking terhubung dengan 1 jadwal
+-- Jumlah_Digunakan = 1 (satu slot jadwal per booking)
 -- ============================================================
 
-INSERT INTO Detail_Jadwal
-(ID_Jadwal, ID_Lapangan, ID_Fasilitas, Jumlah_Digunakan, Status, Keterangan)
+INSERT INTO Detail_Jadwal (ID_Booking, ID_Jadwal, Jumlah_Digunakan)
 VALUES
--- Jadwal 1 (Lapangan D) - Fasilitas dasar lapangan basket
-(1, 1, 1, 2, 1, 'Bola basket standard untuk latihan'),   -- Bola Basket Standard
-(1, 1, 3, 4, 1, 'Pencahayaan untuk pagi hari'),          -- Pencahayaan LED
-(1, 1, 6, 2, 1, 'Ring basket utama dan cadangan'),       -- Ring Basket
+-- Booking 1: Rizky Pratama (Customer 1) - Lapangan D, 01 Jun 2024, 08:00-10:00
+(1, 1, 1),
 
--- Jadwal 2 (Lapangan D)
-(2, 1, 1, 2, 1, NULL),
-(2, 1, 3, 4, 1, NULL),
-(2, 1, 8, 5, 1, 'Rompi untuk pemain tim A'),             -- Rompi Merah
+-- Booking 2: Sari Dewi (Customer 2) - Lapangan D, 02 Jun 2024, 10:00-12:00
+(2, 2, 1),
 
--- Jadwal 3 (Lapangan E)
-(3, 2, 1, 2, 1, NULL),
-(3, 2, 3, 4, 1, NULL),
-(3, 2, 5, 1, 1, 'Papan skor untuk pertandingan'),        -- Papan Skor Digital
+-- Booking 3: Andi Setiawan (Customer 3) - Lapangan E, 03 Jun 2024, 13:00-15:00
+(3, 3, 1),
 
--- Jadwal 4 (Lapangan E)
-(4, 2, 1, 2, 1, NULL),
-(4, 2, 3, 4, 1, NULL),
-(4, 2, 10, 10, 1, 'Cone untuk latihan kelincahan'),      -- Cone Kerucut
+-- Booking 4: Budi Santoso (Customer 4) - Lapangan E, 05 Jun 2024, 08:00-10:00
+(4, 4, 1),
 
--- Jadwal 5 (Lapangan F)
-(5, 3, 1, 2, 1, NULL),
-(5, 3, 3, 4, 1, NULL),
-(5, 3, 7, 1, 1, 'AC untuk kenyamanan sore hari'),        -- AC Central
+-- Booking 5: Nina Rahayu (Customer 5) - Lapangan F, 07 Jun 2024, 15:00-17:00
+(5, 5, 1),
 
--- Jadwal 6 (Lapangan F)
-(6, 3, 1, 2, 1, NULL),
-(6, 3, 3, 4, 1, NULL),
-(6, 3, 9, 5, 1, 'Rompi biru untuk tim lawan'),           -- Rompi Biru
+-- Booking 6: Dimas Saputra (Customer 6) - Lapangan F, 08 Jun 2024, 10:00-12:00
+(6, 6, 1),
 
--- Jadwal 7 (Lapangan G)
-(7, 4, 1, 2, 1, NULL),
-(7, 4, 3, 4, 1, NULL),
-(7, 4, 2, 2, 1, 'Bola premium untuk pertandingan malam'), -- Bola Basket Premium
+-- Booking 7: Maya Lestari (Customer 7) - Lapangan G, 10 Jun 2024, 19:00-21:00
+(7, 7, 1),
 
--- Jadwal 8 (Lapangan G)
-(8, 4, 1, 2, 1, NULL),
-(8, 4, 3, 4, 1, NULL),
-(8, 4, 11, 1, 1, 'Peluit wasit'),                        -- Whistle Wasit
+-- Booking 8: Fajar Hidayat (Customer 8) - Lapangan G, 12 Jun 2024, 08:00-10:00
+(8, 8, 1),
 
--- Jadwal 9 (Lapangan D) - Status Tersedia
-(9, 1, 1, 2, 1, NULL),
-(9, 1, 3, 4, 1, NULL),
+-- Booking 9: Rizky Pratama (Customer 1) - Lapangan D, 15 Jun 2024, 13:00-15:00
+(9, 9, 1),
 
--- Jadwal 10 (Lapangan E) - Status Tersedia
-(10, 2, 1, 2, 1, NULL),
-(10, 2, 3, 4, 1, NULL),
-(10, 2, 6, 2, 1, 'Ring basket cadangan');
-
+-- Booking 10: Sari Dewi (Customer 2) - Lapangan E, 18 Jun 2024, 19:00-21:00
+(10, 10, 1);
 GO
 
 -- ============================================================

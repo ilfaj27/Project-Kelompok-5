@@ -1,10 +1,10 @@
-
 -- ============================================================
--- STORED PROCEDURES UNTUK TRANSAKSI BOOKING
+-- STORED PROCEDURES UNTUK TRANSAKSI BOOKING + DETAIL_JADWAL
 -- ============================================================
 -- Database: Hoopball
--- Dibuat: 2026-07-11
--- Deskripsi: SP lengkap untuk CRUD Booking + Trigger log history
+-- Dibuat: 2026-07-12
+-- Deskripsi: SP lengkap untuk CRUD Booking + Detail_Jadwal (3 kolom)
+--            Detail_Jadwal: ID_Booking, ID_Jadwal, Jumlah_Digunakan
 -- ============================================================
 
 USE Hoopball;
@@ -742,6 +742,7 @@ GO
 -- 10. STORED PROCEDURE: sp_Booking_GetDetail
 -- ============================================================
 -- Mengambil detail lengkap booking dengan info customer, lapangan, dll
+-- [DIUPDATE] Sekarang juga menampilkan data dari Detail_Jadwal
 -- ============================================================
 
 IF OBJECT_ID('sp_Booking_GetDetail', 'P') IS NOT NULL
@@ -795,7 +796,9 @@ BEGIN
         -- Cek membership aktif
         CASE WHEN Lg.ID_Langganan IS NOT NULL THEN 1 ELSE 0 END AS Is_Member,
         Tm.Nama_Tipe AS Tipe_Member,
-        Tm.Potongan_Harga AS Diskon_Member
+        Tm.Potongan_Harga AS Diskon_Member,
+        -- Data dari Detail_Jadwal (3 kolom: ID_Booking, ID_Jadwal, Jumlah_Digunakan)
+        DJ.Jumlah_Digunakan AS Jumlah_Slot_Digunakan
     FROM Booking B
     INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
     INNER JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
@@ -806,6 +809,7 @@ BEGIN
                           AND Lg.Status = 1 
                           AND GETDATE() BETWEEN Lg.Tanggal_Mulai AND Lg.Tanggal_Selesai
     LEFT JOIN Tipe_Member Tm ON Lg.ID_Tipe = Tm.ID_Tipe
+    LEFT JOIN Detail_Jadwal DJ ON B.ID_Booking = DJ.ID_Booking AND B.ID_Jadwal = DJ.ID_Jadwal
     WHERE (@ID_Booking IS NULL OR B.ID_Booking = @ID_Booking)
       AND (@ID_Customer IS NULL OR B.ID_Customer = @ID_Customer)
       AND (@Status IS NULL OR B.Status = @Status)
@@ -1110,6 +1114,287 @@ END;
 GO
 
 -- ============================================================
+-- 17. STORED PROCEDURE BARU: sp_DetailJadwal_Insert
+-- ============================================================
+-- Menambahkan record ke Detail_Jadwal (3 kolom)
+-- ID_Booking, ID_Jadwal, Jumlah_Digunakan
+-- ============================================================
+
+IF OBJECT_ID('sp_DetailJadwal_Insert', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DetailJadwal_Insert;
+GO
+
+CREATE PROCEDURE sp_DetailJadwal_Insert
+    @ID_Booking         INT,
+    @ID_Jadwal          INT,
+    @Jumlah_Digunakan   INT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validasi: Booking exists
+        IF NOT EXISTS (SELECT 1 FROM Booking WHERE ID_Booking = @ID_Booking)
+        BEGIN
+            RAISERROR ('Booking tidak ditemukan.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Validasi: Jadwal exists
+        IF NOT EXISTS (SELECT 1 FROM Jadwal WHERE ID_Jadwal = @ID_Jadwal)
+        BEGIN
+            RAISERROR ('Jadwal tidak ditemukan.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Validasi: Jumlah_Digunakan harus > 0
+        IF @Jumlah_Digunakan <= 0
+        BEGIN
+            RAISERROR ('Jumlah_Digunakan harus lebih besar dari 0.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Cek apakah kombinasi sudah ada
+        IF EXISTS (SELECT 1 FROM Detail_Jadwal WHERE ID_Booking = @ID_Booking AND ID_Jadwal = @ID_Jadwal)
+        BEGIN
+            RAISERROR ('Kombinasi Booking dan Jadwal sudah ada di Detail_Jadwal.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Insert ke Detail_Jadwal
+        INSERT INTO Detail_Jadwal (ID_Booking, ID_Jadwal, Jumlah_Digunakan)
+        VALUES (@ID_Booking, @ID_Jadwal, @Jumlah_Digunakan);
+
+        COMMIT TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'SUCCESS' AS Status,
+            'Detail Jadwal berhasil ditambahkan.' AS Message;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'ERROR' AS Status,
+            ERROR_MESSAGE() AS Message;
+    END CATCH
+END;
+GO
+
+-- ============================================================
+-- 18. STORED PROCEDURE BARU: sp_DetailJadwal_SelectByBooking
+-- ============================================================
+-- Menampilkan semua Detail_Jadwal untuk satu booking
+-- ============================================================
+
+IF OBJECT_ID('sp_DetailJadwal_SelectByBooking', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DetailJadwal_SelectByBooking;
+GO
+
+CREATE PROCEDURE sp_DetailJadwal_SelectByBooking
+    @ID_Booking     INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        DJ.ID_Booking,
+        DJ.ID_Jadwal,
+        DJ.Jumlah_Digunakan,
+        J.Tanggal AS Tanggal_Jadwal,
+        J.Jam_Mulai,
+        J.Jam_Selesai,
+        J.Status AS Status_Jadwal,
+        CASE J.Status
+            WHEN 0 THEN 'Tidak Tersedia'
+            WHEN 1 THEN 'Tersedia'
+        END AS Status_Jadwal_Label,
+        L.ID_Lapangan,
+        L.Nama_Lapangan,
+        L.Harga_Sewa
+    FROM Detail_Jadwal DJ
+    INNER JOIN Jadwal J ON DJ.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    WHERE DJ.ID_Booking = @ID_Booking
+    ORDER BY J.Tanggal, J.Jam_Mulai;
+END;
+GO
+
+-- ============================================================
+-- 19. STORED PROCEDURE BARU: sp_DetailJadwal_SelectAll
+-- ============================================================
+-- Menampilkan semua Detail_Jadwal dengan filter
+-- ============================================================
+
+IF OBJECT_ID('sp_DetailJadwal_SelectAll', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DetailJadwal_SelectAll;
+GO
+
+CREATE PROCEDURE sp_DetailJadwal_SelectAll
+    @ID_Booking     INT = NULL,
+    @ID_Jadwal      INT = NULL,
+    @ID_Lapangan    INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        DJ.ID_Booking,
+        B.ID_Customer,
+        C.Nama_Customer,
+        DJ.ID_Jadwal,
+        DJ.Jumlah_Digunakan,
+        J.Tanggal AS Tanggal_Jadwal,
+        J.Jam_Mulai,
+        J.Jam_Selesai,
+        J.Status AS Status_Jadwal,
+        L.ID_Lapangan,
+        L.Nama_Lapangan,
+        L.Harga_Sewa,
+        B.Status AS Status_Booking,
+        CASE B.Status
+            WHEN 0 THEN 'Menunggu Konfirmasi'
+            WHEN 1 THEN 'Berhasil'
+            WHEN 2 THEN 'Selesai'
+            WHEN 3 THEN 'Dibatalkan'
+        END AS Status_Booking_Label
+    FROM Detail_Jadwal DJ
+    INNER JOIN Booking B ON DJ.ID_Booking = B.ID_Booking
+    INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+    INNER JOIN Jadwal J ON DJ.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    WHERE (@ID_Booking IS NULL OR DJ.ID_Booking = @ID_Booking)
+      AND (@ID_Jadwal IS NULL OR DJ.ID_Jadwal = @ID_Jadwal)
+      AND (@ID_Lapangan IS NULL OR L.ID_Lapangan = @ID_Lapangan)
+    ORDER BY J.Tanggal DESC, J.Jam_Mulai ASC;
+END;
+GO
+
+-- ============================================================
+-- 20. STORED PROCEDURE BARU: sp_DetailJadwal_Delete
+-- ============================================================
+-- Menghapus record dari Detail_Jadwal
+-- ============================================================
+
+IF OBJECT_ID('sp_DetailJadwal_Delete', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DetailJadwal_Delete;
+GO
+
+CREATE PROCEDURE sp_DetailJadwal_Delete
+    @ID_Booking     INT,
+    @ID_Jadwal      INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validasi: Record exists
+        IF NOT EXISTS (SELECT 1 FROM Detail_Jadwal WHERE ID_Booking = @ID_Booking AND ID_Jadwal = @ID_Jadwal)
+        BEGIN
+            RAISERROR ('Data Detail Jadwal tidak ditemukan.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Delete record
+        DELETE FROM Detail_Jadwal 
+        WHERE ID_Booking = @ID_Booking AND ID_Jadwal = @ID_Jadwal;
+
+        COMMIT TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'SUCCESS' AS Status,
+            'Detail Jadwal berhasil dihapus.' AS Message;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'ERROR' AS Status,
+            ERROR_MESSAGE() AS Message;
+    END CATCH
+END;
+GO
+
+-- ============================================================
+-- 21. STORED PROCEDURE BARU: sp_DetailJadwal_Update
+-- ============================================================
+-- Update Jumlah_Digunakan pada Detail_Jadwal
+-- ============================================================
+
+IF OBJECT_ID('sp_DetailJadwal_Update', 'P') IS NOT NULL
+    DROP PROCEDURE sp_DetailJadwal_Update;
+GO
+
+CREATE PROCEDURE sp_DetailJadwal_Update
+    @ID_Booking         INT,
+    @ID_Jadwal          INT,
+    @Jumlah_Digunakan   INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validasi: Record exists
+        IF NOT EXISTS (SELECT 1 FROM Detail_Jadwal WHERE ID_Booking = @ID_Booking AND ID_Jadwal = @ID_Jadwal)
+        BEGIN
+            RAISERROR ('Data Detail Jadwal tidak ditemukan.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Validasi: Jumlah_Digunakan harus > 0
+        IF @Jumlah_Digunakan <= 0
+        BEGIN
+            RAISERROR ('Jumlah_Digunakan harus lebih besar dari 0.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Update record
+        UPDATE Detail_Jadwal
+        SET Jumlah_Digunakan = @Jumlah_Digunakan
+        WHERE ID_Booking = @ID_Booking AND ID_Jadwal = @ID_Jadwal;
+
+        COMMIT TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'SUCCESS' AS Status,
+            'Detail Jadwal berhasil diperbarui.' AS Message;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+
+        SELECT 
+            @ID_Booking AS ID_Booking,
+            @ID_Jadwal AS ID_Jadwal,
+            'ERROR' AS Status,
+            ERROR_MESSAGE() AS Message;
+    END CATCH
+END;
+GO
+
+-- ============================================================
 -- VERIFIKASI: Cek semua object yang sudah dibuat
 -- ============================================================
 SELECT 
@@ -1117,7 +1402,7 @@ SELECT
     name AS Object_Name,
     create_date AS Created_Date
 FROM sys.procedures
-WHERE name LIKE 'sp_Booking%'
+WHERE name LIKE 'sp_Booking%' OR name LIKE 'sp_DetailJadwal%'
 UNION ALL
 SELECT 
     'Trigger' AS Object_Type,
@@ -1131,41 +1416,47 @@ SELECT
     name AS Object_Name,
     create_date AS Created_Date
 FROM sys.tables
-WHERE name LIKE 'Booking%'
+WHERE name LIKE 'Booking%' OR name = 'Detail_Jadwal'
 ORDER BY Object_Type, Object_Name;
 GO
 
 PRINT '============================================================';
 PRINT 'SETUP SELESAI - Stored Procedures & Triggers untuk Booking';
+PRINT '             + Detail_Jadwal (3 Kolom)';
 PRINT '============================================================';
 PRINT '';
 PRINT 'Daftar Object yang dibuat:';
 PRINT '  Tables:';
 PRINT '    - Booking_History (tabel log audit)';
+PRINT '    - Detail_Jadwal (ID_Booking, ID_Jadwal, Jumlah_Digunakan)';
 PRINT '  Triggers:';
 PRINT '    - trg_Booking_AuditLog (log history INSERT/UPDATE/DELETE)';
 PRINT '    - trg_Booking_SyncJadwal (sinkronisasi status jadwal)';
 PRINT '    - trg_Booking_ValidasiDouble (cegah double booking)';
 PRINT '    - trg_Booking_AutoHitungTotal (auto hitung total dengan diskon)';
-PRINT '  Stored Procedures:';
+PRINT '  Stored Procedures (Booking):';
 PRINT '    - sp_Booking_Create (buat booking baru)';
 PRINT '    - sp_Booking_KonfirmasiPembayaran (konfirmasi pembayaran)';
 PRINT '    - sp_Booking_Batalkan (batalkan + refund 50%)';
 PRINT '    - sp_Booking_Selesai (tandai selesai)';
 PRINT '    - sp_Booking_AutoComplete (auto-complete batch)';
-PRINT '    - sp_Booking_GetDetail (detail booking)';
+PRINT '    - sp_Booking_GetDetail [UPDATED] (detail booking + Detail_Jadwal)';
 PRINT '    - sp_Booking_GetHistory (audit trail)';
 PRINT '    - sp_Booking_GetStats (statistik dashboard)';
 PRINT '    - sp_Booking_Update (update booking)';
 PRINT '    - sp_Booking_Delete (hapus booking)';
 PRINT '    - sp_Booking_GetLaporanHarian (laporan harian)';
 PRINT '    - sp_Booking_GetByCustomer (booking per customer)';
+PRINT '  Stored Procedures (Detail_Jadwal) [BARU]:';
+PRINT '    - sp_DetailJadwal_Insert (tambah record Detail_Jadwal)';
+PRINT '    - sp_DetailJadwal_SelectByBooking (tampil per booking)';
+PRINT '    - sp_DetailJadwal_SelectAll (tampil semua dengan filter)';
+PRINT '    - sp_DetailJadwal_Delete (hapus record)';
+PRINT '    - sp_DetailJadwal_Update (update Jumlah_Digunakan)';
 PRINT '';
 PRINT 'Cara penggunaan contoh:';
 PRINT '  EXEC sp_Booking_Create @ID_Customer=1, @ID_Karyawan=2, @ID_Jadwal=15, @Metode_Pembayaran="Transfer Bank", @Created_By="SYSTEM";';
-PRINT '  EXEC sp_Booking_KonfirmasiPembayaran @ID_Booking=1, @ID_Karyawan=2;';
-PRINT '  EXEC sp_Booking_Batalkan @ID_Booking=1, @ID_Karyawan=2, @Alasan="Ada keperluan mendadak";';
-PRINT '  EXEC sp_Booking_GetDetail @Status=0;';
-PRINT '  EXEC sp_Booking_GetStats;';
+PRINT '  EXEC sp_DetailJadwal_Insert @ID_Booking=1, @ID_Jadwal=1, @Jumlah_Digunakan=1;';
+PRINT '  EXEC sp_DetailJadwal_SelectByBooking @ID_Booking=1;';
 PRINT '============================================================';
 GO
