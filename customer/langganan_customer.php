@@ -18,7 +18,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 
 // ============================================================================
-// AMBIL DATA CUSTOMER (sama dengan pembatalan_customer.php)
+// AMBIL DATA CUSTOMER
 // ============================================================================
 $nama_customer = 'Pelanggan';
 $photo_profile = '';
@@ -46,24 +46,42 @@ if (!empty($id_customer)) {
 }
 
 // ============================================================================
-// CEK STATUS MEMBER AKTIF
+// CEK STATUS MEMBER AKTIF (menggunakan SP_GetLanggananByCustomer)
 // ============================================================================
 $member_aktif = null;
 $member_check = sqlsrv_query($conn,
-    "SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member
-     FROM Langganan L
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-     WHERE L.ID_Customer = ? AND L.Status = 1
-     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
-     ORDER BY L.Tanggal_Selesai DESC",
+    "EXEC SP_GetLanggananByCustomer @ID_Customer = ?, @StatusFilter = NULL",
     array($id_customer)
 );
 if ($member_check) {
-    $member_aktif = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC);
+    // Ambil yang paling atas (Aktif > Menunggu > Berakhir > Ditolak)
+    while ($row = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC)) {
+        if ($row['Status'] == 1) {
+            $member_aktif = $row;
+            break;
+        }
+        if (!$member_aktif) {
+            $member_aktif = $row;
+        }
+    }
 }
 
-$has_member = !empty($member_aktif);
+$has_member = ($member_aktif && $member_aktif['Status'] == 1);
 $member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
+
+// ============================================================================
+// AMBIL RIWAYAT LANGGANAN CUSTOMER (menggunakan SP_GetLanggananByCustomer)
+// ============================================================================
+$riwayat_langganan = [];
+$riwayat_query = sqlsrv_query($conn,
+    "EXEC SP_GetLanggananByCustomer @ID_Customer = ?, @StatusFilter = NULL",
+    array($id_customer)
+);
+if ($riwayat_query) {
+    while ($row = sqlsrv_fetch_array($riwayat_query, SQLSRV_FETCH_ASSOC)) {
+        $riwayat_langganan[] = $row;
+    }
+}
 
 // ============================================================================
 // AMBIL DATA TIPE MEMBER (yang aktif)
@@ -82,7 +100,7 @@ if ($query_tipe) {
 }
 
 // ============================================================================
-// PROSES PEMBELIAN LANGGANAN
+// PROSES PEMBELIAN LANGGANAN - MENGGUNAKAN SP_CreateLangganan
 // ============================================================================
 $pembelian_msg = '';
 $pembelian_error = '';
@@ -94,61 +112,35 @@ if (isset($_POST['beli_langganan'])) {
     if (empty($id_tipe) || empty($metode_pembayaran)) {
         $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
     } else {
-        $stmt_tipe = sqlsrv_query($conn,
-            "SELECT * FROM Tipe_Member WHERE ID_Tipe = ? AND Status = 1 AND Is_Deleted = 0",
-            array($id_tipe)
+        // Gunakan SP_CreateLangganan untuk pendaftaran
+        $stmt_sp = sqlsrv_query($conn,
+            "EXEC SP_CreateLangganan @ID_Customer = ?, @ID_Tipe = ?, @Metode_Pembayaran = ?, @Created_By = ?",
+            array($id_customer, $id_tipe, $metode_pembayaran, $nama_customer)
         );
-        $tipe_data = sqlsrv_fetch_array($stmt_tipe, SQLSRV_FETCH_ASSOC);
 
-        if (!$tipe_data) {
-            $pembelian_error = 'Tipe member tidak valid!';
-        } else {
-            $cek_aktif = sqlsrv_query($conn,
-                "SELECT COUNT(*) as total FROM Langganan
-                 WHERE ID_Customer = ? AND Status = 1
-                 AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai",
-                array($id_customer)
-            );
-            $row_aktif = sqlsrv_fetch_array($cek_aktif, SQLSRV_FETCH_ASSOC);
-
-            if ($row_aktif['total'] > 0) {
-                $pembelian_error = 'Anda masih memiliki langganan member aktif.';
-            } else {
-                $cek_pending = sqlsrv_query($conn,
-                    "SELECT COUNT(*) as total FROM Langganan
-                     WHERE ID_Customer = ? AND Status = 0",
-                    array($id_customer)
+        if ($stmt_sp) {
+            $result = sqlsrv_fetch_array($stmt_sp, SQLSRV_FETCH_ASSOC);
+            if ($result && $result['Status'] === 'SUCCESS') {
+                // Ambil nama tipe untuk notifikasi
+                $stmt_tipe_name = sqlsrv_query($conn,
+                    "SELECT Nama_Tipe FROM Tipe_Member WHERE ID_Tipe = ?",
+                    array($id_tipe)
                 );
-                $row_pending = sqlsrv_fetch_array($cek_pending, SQLSRV_FETCH_ASSOC);
-
-                if ($row_pending['total'] > 0) {
-                    $pembelian_error = 'Anda memiliki pendaftaran yang menunggu konfirmasi.';
-                } else {
-                    $tanggal_mulai = date('Y-m-d');
-                    $tanggal_selesai = date('Y-m-d', strtotime('+30 days'));
-                    $total_bayar = $tipe_data['Harga_Member'];
-
-                    $stmt_insert = sqlsrv_query($conn,
-                        "INSERT INTO Langganan
-                         (ID_Customer, ID_Karyawan, ID_Tipe, Tanggal_Mulai, Tanggal_Selesai,
-                          Total_Bayar, Metode_Pembayaran, Status, Created_By, Created_Date)
-                         OUTPUT INSERTED.ID_Langganan
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, GETDATE())",
-                        array($id_customer, 2, $id_tipe, $tanggal_mulai, $tanggal_selesai,
-                              $total_bayar, $metode_pembayaran, $nama_customer)
-                    );
-
-                    if ($stmt_insert) {
-                        $id_row = sqlsrv_fetch_array($stmt_insert, SQLSRV_FETCH_ASSOC);
-                        $last_id = $id_row['ID_Langganan'] ?? 0;
-                        header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Paket: " . urlencode($tipe_data['Nama_Tipe']) . ". Menunggu konfirmasi admin.");
-                        exit();
-                    } else {
-                        $errors = sqlsrv_errors();
-                        $pembelian_error = 'Gagal mendaftar. Error: ' . ($errors[0]['message'] ?? 'Unknown');
+                $tipe_name = 'Member';
+                if ($stmt_tipe_name) {
+                    $row_tipe = sqlsrv_fetch_array($stmt_tipe_name, SQLSRV_FETCH_ASSOC);
+                    if ($row_tipe) {
+                        $tipe_name = $row_tipe['Nama_Tipe'];
                     }
                 }
+                header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Paket: " . urlencode($tipe_name) . ". Menunggu konfirmasi admin.");
+                exit();
+            } else {
+                $pembelian_error = $result['Message'] ?? 'Gagal mendaftar. Silakan coba lagi.';
             }
+        } else {
+            $errors = sqlsrv_errors();
+            $pembelian_error = 'Gagal mendaftar. Error: ' . ($errors[0]['message'] ?? 'Unknown');
         }
     }
 }
@@ -178,7 +170,7 @@ $status_labels = [
     3 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
 ];
 
-/* ─── HELPER: RESOLVE PHOTO PATH (sama dengan pembatalan) ─── */
+/* -- HELPER: RESOLVE PHOTO PATH -- */
 function resolvePhotoPath($photo_path) {
     if (empty($photo_path)) return '';
     if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
@@ -1471,6 +1463,61 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
     </section>
 
 
+
+
+
+    <!-- RIWAYAT LANGGANAN -->
+    <section style="margin-top: 40px;">
+        <div class="section-header reveal">
+            <div>
+                <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary)"></i> Riwayat Langganan</h2>
+                <p class="section-subtitle">Lihat riwayat langganan member Anda.</p>
+            </div>
+        </div>
+
+        <?php if (count($riwayat_langganan) > 0): ?>
+        <div class="reveal-stagger" style="display: flex; flex-direction: column; gap: 12px;">
+            <?php foreach ($riwayat_langganan as $idx => $r): 
+                $r_status = $status_labels[$r['Status']] ?? $status_labels[0];
+                $r_tgl_mulai = formatTanggal($r['Tanggal_Mulai']);
+                $r_tgl_selesai = formatTanggal($r['Tanggal_Selesai']);
+                $r_sisa_hari = isset($r['Sisa_Hari']) ? $r['Sisa_Hari'] : 0;
+            ?>
+            <div class="stagger-item" style="background: var(--white); border: 1px solid #E5E5EA; border-radius: 14px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; transition: all 0.3s ease; animation: fadeInUp 0.5s ease-out <?php echo $idx * 0.1; ?>s both;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: <?php echo $r['Status'] == 1 ? 'var(--green-lt)' : ($r['Status'] == 0 ? 'var(--yellow-lt)' : 'var(--red-lt)'); ?>; color: <?php echo $r['Status'] == 1 ? 'var(--green)' : ($r['Status'] == 0 ? '#D97706' : 'var(--red)'); ?>; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                        <i class="fa-solid <?php echo $r_status['icon']; ?>"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 15px; font-weight: 700; color: #1C1C1E; margin-bottom: 2px;"><?php echo htmlspecialchars($r['Nama_Tipe']); ?></div>
+                        <div style="font-size: 12px; color: #8E8E93; display: flex; align-items: center; gap: 8px;">
+                            <span><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i><?php echo $r_tgl_mulai; ?> - <?php echo $r_tgl_selesai; ?></span>
+                            <?php if ($r['Status'] == 1 && $r_sisa_hari > 0): ?>
+                            <span style="color: var(--green); font-weight: 600;">(<?php echo $r_sisa_hari; ?> hari lagi)</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="text-align: right;">
+                        <div style="font-size: 14px; font-weight: 800; color: var(--primary);"><?php echo rupiahFormat($r['Total_Bayar']); ?></div>
+                        <div style="font-size: 11px; color: #8E8E93;"><?php echo $r['Metode_Pembayaran']; ?></div>
+                    </div>
+                    <span class="status-pill <?php echo $r_status['class']; ?>" style="font-size: 11px; padding: 6px 14px;">
+                        <i class="fa-solid <?php echo $r_status['icon']; ?>"></i> <?php echo $r_status['label']; ?>
+                    </span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <div style="background: var(--white); border: 1px solid #E5E5EA; border-radius: 14px; padding: 40px; text-align: center; animation: fadeInUp 0.5s ease-out;">
+            <i class="fa-solid fa-inbox" style="font-size: 40px; color: #C7C7CC; margin-bottom: 12px; display: block;"></i>
+            <div style="font-size: 14px; font-weight: 700; color: #8E8E93;">Belum ada riwayat langganan</div>
+            <div style="font-size: 12px; color: #C7C7CC; margin-top: 4px;">Daftar langganan Anda akan muncul di sini</div>
+        </div>
+        <?php endif; ?>
+    </section>
 
 
 </main>

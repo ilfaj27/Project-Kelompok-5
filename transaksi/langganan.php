@@ -52,39 +52,61 @@ $status_labels = [
 ];
 
 // ============================================================================
-// PROSES KONFIRMASI PEMBAYARAN (KARYAWAN)
+// AUTO EXPIRE LANGGANAN (gunakan SP_AutoExpireLangganan)
+// ============================================================================
+// Panggil SP auto expire saat halaman dimuat
+sqlsrv_query($conn, "EXEC SP_AutoExpireLangganan @Modified_By = ?", array($nama));
+
+// ============================================================================
+// PROSES KONFIRMASI PEMBAYARAN (menggunakan SP_KonfirmasiLangganan)
 // ============================================================================
 if (isset($_POST['konfirmasi_bayar'])) {
     $id_langganan = $_POST['id_langganan'];
 
     $stmt = sqlsrv_query($conn, 
-        "UPDATE Langganan SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Langganan = ? AND Status = 0",
-        array($nama, $id_langganan)
+        "EXEC SP_KonfirmasiLangganan @ID_Langganan = ?, @ID_Karyawan = ?, @Modified_By = ?",
+        array($id_langganan, $id_karyawan, $nama)
     );
 
     if ($stmt) {
-        header("Location: langganan.php?status=success&msg=Pembayaran langganan berhasil dikonfirmasi!");
-        exit();
+        $result = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($result && $result['Status'] === 'SUCCESS') {
+            header("Location: langganan.php?status=success&msg=Pembayaran langganan berhasil dikonfirmasi!");
+            exit();
+        } else {
+            $error_msg = $result['Message'] ?? 'Gagal mengkonfirmasi pembayaran.';
+            header("Location: langganan.php?status=error&msg=" . urlencode($error_msg));
+            exit();
+        }
     } else {
+        $errors = sqlsrv_errors();
         header("Location: langganan.php?status=error&msg=Gagal mengkonfirmasi pembayaran langganan.");
         exit();
     }
 }
 
 // ============================================================================
-// PROSES TOLAK PEMBAYARAN (KARYAWAN)
+// PROSES TOLAK PEMBAYARAN (menggunakan SP_TolakLangganan)
 // ============================================================================
 if (isset($_POST['tolak_bayar'])) {
     $id_langganan = $_POST['id_langganan'];
+    $alasan = $_POST['alasan_tolak'] ?? 'Tidak ada alasan';
 
     $stmt = sqlsrv_query($conn, 
-        "UPDATE Langganan SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Langganan = ? AND Status = 0",
-        array($nama, $id_langganan)
+        "EXEC SP_TolakLangganan @ID_Langganan = ?, @ID_Karyawan = ?, @Alasan = ?, @Modified_By = ?",
+        array($id_langganan, $id_karyawan, $alasan, $nama)
     );
 
     if ($stmt) {
-        header("Location: langganan.php?status=success&msg=Langganan berhasil ditolak!");
-        exit();
+        $result = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        if ($result && $result['Status'] === 'SUCCESS') {
+            header("Location: langganan.php?status=success&msg=Langganan berhasil ditolak!");
+            exit();
+        } else {
+            $error_msg = $result['Message'] ?? 'Gagal menolak langganan.';
+            header("Location: langganan.php?status=error&msg=" . urlencode($error_msg));
+            exit();
+        }
     } else {
         header("Location: langganan.php?status=error&msg=Gagal menolak langganan.");
         exit();
@@ -92,102 +114,80 @@ if (isset($_POST['tolak_bayar'])) {
 }
 
 // ============================================================================
-// AMBIL DATA LANGGANAN
+// AMBIL DATA LANGGANAN (menggunakan SP_GetLanggananList)
 // ============================================================================
 $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
 $filter_tanggal = isset($_GET['filter_tanggal']) ? $_GET['filter_tanggal'] : '';
 
-$sql_where = "WHERE 1=1";
-$params = [];
-
+// Convert filter_status to integer or NULL
+$filter_status_param = null;
 if ($filter_status !== '' && $filter_status !== 'all') {
-    $sql_where .= " AND L.Status = ?";
-    $params[] = (int)$filter_status;
-}
-if (!empty($filter_customer)) {
-    $sql_where .= " AND C.Nama_Customer LIKE ?";
-    $params[] = "%$filter_customer%";
-}
-if (!empty($filter_tanggal)) {
-    $sql_where .= " AND CAST(L.Tanggal_Mulai AS DATE) = ?";
-    $params[] = $filter_tanggal;
+    $filter_status_param = (int)$filter_status;
 }
 
-// --- HITUNG TOTAL DATA UNTUK PAGING ---
-$count_sql = "SELECT COUNT(*) as total FROM Langganan L
-              INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-              INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
-              LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
-              $sql_where";
-$q_count = sqlsrv_query($conn, $count_sql, $params);
-$total_data = 0;
-if ($q_count) {
-    $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
-    $total_data = $row_count['total'] ?? 0;
-}
-
-// --- PAGING ---
+// Paging parameters
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+
+// Hitung total data menggunakan SP_GetLanggananList dengan page 1, size 1 untuk get count
+$count_query = sqlsrv_query($conn,
+    "EXEC SP_GetLanggananList @Filter_Status = ?, @Filter_Customer = ?, @Filter_TanggalMulai = ?, @Filter_TanggalSelesai = ?, @PageNumber = 1, @PageSize = 1",
+    array($filter_status_param, $filter_customer ?: null, $filter_tanggal ?: null, null)
+);
+
+$total_data = 0;
+if ($count_query) {
+    // First result set is count
+    if (sqlsrv_has_rows($count_query)) {
+        $count_row = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
+        if ($count_row) {
+            $total_data = $count_row['Total_Count'] ?? 0;
+        }
+    }
+    // Move to next result set (data)
+    sqlsrv_next_result($count_query);
+}
+
 $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
+
+// Ambil data langganan dengan paging
+$langganans = [];
 $offset = ($page - 1) * $limit;
 
-$sql_langganan = "SELECT L.ID_Langganan, L.ID_Customer, L.ID_Karyawan, L.ID_Tipe,
-                       L.Tanggal_Mulai, L.Tanggal_Selesai, L.Total_Bayar, L.Metode_Pembayaran, L.Status,
-                       L.Created_Date, L.Modified_Date,
-                       C.Nama_Customer, C.Email, C.No_Telepon,
-                       TM.Nama_Tipe, TM.Harga_Member, TM.Potongan_Harga,
-                       K.Nama_Karyawan as Nama_Karyawan_Input
-                FROM Langganan L
-                INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-                INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
-                LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
-                $sql_where
-                ORDER BY 
-                    CASE 
-                        WHEN L.Status = 0 THEN 0
-                        WHEN L.Status = 1 THEN 1
-                        WHEN L.Status = 2 THEN 2
-                        WHEN L.Status = 3 THEN 3
-                    END ASC,
-                    L.Tanggal_Mulai DESC
-                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+$data_query = sqlsrv_query($conn,
+    "EXEC SP_GetLanggananList @Filter_Status = ?, @Filter_Customer = ?, @Filter_TanggalMulai = ?, @Filter_TanggalSelesai = ?, @PageNumber = ?, @PageSize = ?",
+    array($filter_status_param, $filter_customer ?: null, $filter_tanggal ?: null, null, $page, $limit)
+);
 
-$params_with_paging = array_merge($params, [$offset, $limit]);
-
-$langganans = [];
-$q_langganan = sqlsrv_query($conn, $sql_langganan, $params_with_paging);
-if ($q_langganan) {
-    while ($row = sqlsrv_fetch_array($q_langganan, SQLSRV_FETCH_ASSOC)) {
+if ($data_query) {
+    // Skip count result set
+    sqlsrv_next_result($data_query);
+    // Read data result set
+    while ($row = sqlsrv_fetch_array($data_query, SQLSRV_FETCH_ASSOC)) {
         $langganans[] = $row;
     }
 }
 
 // ============================================================================
-// HITUNG STATISTIK
+// HITUNG STATISTIK (menggunakan SP_GetDashboardStats)
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'aktif' => 0, 'berakhir' => 0, 'ditolak' => 0,
     'total_omzet' => 0
 ];
 
-$stats_sql = "SELECT L.Status, L.Total_Bayar FROM Langganan L
-              INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-              INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
-              LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
-              $sql_where";
-$q_stats = sqlsrv_query($conn, $stats_sql, $params);
-if ($q_stats) {
-    while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
-        $stats['total']++;
-        switch ($row['Status']) {
-            case 0: $stats['menunggu']++; break;
-            case 1: $stats['aktif']++; $stats['total_omzet'] += (float)$row['Total_Bayar']; break;
-            case 2: $stats['berakhir']++; break;
-            case 3: $stats['ditolak']++; break;
-        }
+$stats_query = sqlsrv_query($conn, "EXEC SP_GetDashboardStats");
+if ($stats_query) {
+    $stats_row = sqlsrv_fetch_array($stats_query, SQLSRV_FETCH_ASSOC);
+    if ($stats_row) {
+        $stats['total'] = $stats_row['Total_Langganan'] ?? 0;
+        $stats['menunggu'] = $stats_row['Menunggu_Konfirmasi'] ?? 0;
+        $stats['aktif'] = $stats_row['Aktif'] ?? 0;
+        $stats['berakhir'] = $stats_row['Berakhir'] ?? 0;
+        $stats['ditolak'] = $stats_row['Ditolak'] ?? 0;
+        $stats['total_omzet'] = $stats_row['Total_Omzet_Aktif'] ?? 0;
     }
 }
 
@@ -212,7 +212,6 @@ function buildPageUrl($page_num) {
 
 $current_page = 'langganan';
 $sidebar_folder = 'transaksi';
-// CATATAN: $sidebar_photo sudah dinormalisasi di atas, JANGAN ditimpa lagi.
 
 // Topbar variables
 $topbar_title = 'Kelola Langganan';
@@ -541,6 +540,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 </form>
 <form method="POST" id="formTolak" style="display: none;">
     <input type="hidden" name="id_langganan" id="tolakId">
+    <input type="hidden" name="alasan_tolak" id="alasanTolakInput" value="Tidak ada alasan">
     <input type="hidden" name="tolak_bayar" value="1">
 </form>
 
@@ -627,17 +627,21 @@ function confirmBayar(id) {
 function confirmTolak(id) {
     Swal.fire({
         title: 'Tolak Langganan?',
-        html: 'Langganan ini akan ditolak.<br><span style="color: var(--red); font-size: 12px;">Customer perlu mendaftar ulang.</span>',
+        html: 'Langganan ini akan ditolak.<br><span style="color: var(--red); font-size: 12px;">Customer perlu mendaftar ulang.</span><br><br><textarea id="alasanTolak" class="swal2-textarea" placeholder="Alasan penolakan (opsional)" style="width: 100%; min-height: 80px; resize: vertical;"></textarea>',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
         cancelButtonColor: '#6B7280',
         confirmButtonText: 'Ya, Tolak',
         cancelButtonText: 'Batal',
-        reverseButtons: true
+        reverseButtons: true,
+        preConfirm: () => {
+            return document.getElementById('alasanTolak').value;
+        }
     }).then((result) => {
         if (result.isConfirmed) {
             document.getElementById('tolakId').value = id;
+            document.getElementById('alasanTolakInput').value = result.value || 'Tidak ada alasan';
             document.getElementById('formTolak').submit();
         }
     });
