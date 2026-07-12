@@ -223,20 +223,53 @@ if (isset($_GET['action'])) {
     }
 
     // --- Proses checkout / pembuatan booking untuk seluruh isi keranjang ---
+    // Dikirim sebagai multipart/form-data (FormData) karena menyertakan file
+    // bukti pembayaran yang wajib diunggah sebelum konfirmasi.
     if ($_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (!$input)
-            $input = $_POST;
-
-        $id_jadwal_list = $input['id_jadwal_list'] ?? [];
-        $id_promo = !empty($input['id_promo']) ? intval($input['id_promo']) : null;
-        $metode = htmlspecialchars($input['metode_pembayaran'] ?? '');
-        $total = floatval($input['total_bayar'] ?? 0);
+        $id_jadwal_list = isset($_POST['id_jadwal_list']) ? json_decode($_POST['id_jadwal_list'], true) : [];
+        if (!is_array($id_jadwal_list))
+            $id_jadwal_list = [];
+        $id_promo = !empty($_POST['id_promo']) ? intval($_POST['id_promo']) : null;
+        $metode = htmlspecialchars($_POST['metode_pembayaran'] ?? '');
+        $total = floatval($_POST['total_bayar'] ?? 0);
 
         if (empty($id_jadwal_list) || empty($metode) || $total <= 0) {
             echo json_encode(['success' => false, 'message' => 'Parameter input tidak valid.']);
             exit();
         }
+
+        // --- Validasi & unggah bukti pembayaran (wajib sebelum booking dikonfirmasi) ---
+        if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'Bukti pembayaran wajib diunggah sebelum konfirmasi.']);
+            exit();
+        }
+
+        $allowed_ext = ['jpg', 'jpeg', 'png', 'pdf'];
+        $file_tmp = $_FILES['bukti_pembayaran']['tmp_name'];
+        $file_name_asli = $_FILES['bukti_pembayaran']['name'];
+        $file_ext = strtolower(pathinfo($file_name_asli, PATHINFO_EXTENSION));
+
+        if (!in_array($file_ext, $allowed_ext)) {
+            echo json_encode(['success' => false, 'message' => 'Format bukti pembayaran harus JPG, PNG, atau PDF.']);
+            exit();
+        }
+        if ($_FILES['bukti_pembayaran']['size'] > 5 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'message' => 'Ukuran bukti pembayaran maksimal 5MB.']);
+            exit();
+        }
+
+        $upload_dir = '../uploads/bukti_pembayaran/';
+        if (!is_dir($upload_dir)) {
+            @mkdir($upload_dir, 0755, true);
+        }
+        $new_file_name = 'bukti_' . $id_customer . '_' . time() . '_' . uniqid() . '.' . $file_ext;
+        $target_path = $upload_dir . $new_file_name;
+
+        if (!move_uploaded_file($file_tmp, $target_path)) {
+            echo json_encode(['success' => false, 'message' => 'Gagal mengunggah bukti pembayaran. Silakan coba lagi.']);
+            exit();
+        }
+        $bukti_pembayaran_db = 'uploads/bukti_pembayaran/' . $new_file_name;
 
         $kq = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status=1 AND Is_Deleted=0 ORDER BY ID_Karyawan ASC");
         $id_karyawan = 1;
@@ -306,6 +339,10 @@ if (isset($_GET['action'])) {
         }
 
         if ($success_count === count($id_jadwal_list)) {
+            // Simpan bukti pembayaran yang baru diunggah ke seluruh booking yang berhasil dibuat
+            foreach ($created_ids as $cb_id) {
+                sqlsrv_query($conn, "UPDATE Booking SET Bukti_Pembayaran = ? WHERE ID_Booking = ?", array($bukti_pembayaran_db, $cb_id));
+            }
             echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
         } else {
             // Jika sebagian berhasil, rollback manual dengan membatalkan yang sudah dibuat
@@ -1855,6 +1892,93 @@ for ($i = 0; $i < 7; $i++) {
             font-size: 12px
         }
 
+        /* ============ UPLOAD BUKTI PEMBAYARAN ============ */
+        .bukti-upload-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 22px;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            transition: var(--transition)
+        }
+
+        .bukti-upload-box:hover {
+            border-color: var(--orange);
+            background: var(--orange-light);
+            color: var(--orange)
+        }
+
+        .bukti-upload-box i {
+            font-size: 22px;
+            color: var(--orange)
+        }
+
+        .bukti-upload-box.filled {
+            border-style: solid;
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-light)
+        }
+
+        .bukti-upload-box.filled i {
+            color: var(--green)
+        }
+
+        /* ============ PAGINATION LAPANGAN ============ */
+        .court-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 20px;
+            flex-wrap: wrap
+        }
+
+        .court-pagination .page-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Barlow', sans-serif;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1.5px solid var(--border-color);
+            color: var(--text-dark);
+            background: var(--card-bg)
+        }
+
+        .court-pagination .page-btn:hover:not(.disabled):not(.active) {
+            border-color: var(--orange);
+            color: var(--orange);
+            background: var(--orange-light)
+        }
+
+        .court-pagination .page-btn.active {
+            background: var(--orange);
+            color: #fff;
+            border-color: var(--orange);
+            box-shadow: 0 4px 12px rgba(255, 84, 0, .3)
+        }
+
+        .court-pagination .page-btn.disabled {
+            opacity: .4;
+            cursor: not-allowed;
+            pointer-events: none
+        }
+
         @media(max-width:768px) {
             .booking-container {
                 padding: 16px 12px 100px
@@ -1903,7 +2027,16 @@ for ($i = 0; $i < 7; $i++) {
                 max-width: 100%
             }
         }
-    </style>
+    
+/* Hilangkan scrollbar di modal tapi tetap bisa scroll */
+.modal-card {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.modal-card::-webkit-scrollbar {
+    display: none;
+}
+</style>
 </head>
 
 <body>
@@ -1992,6 +2125,7 @@ for ($i = 0; $i < 7; $i++) {
                         <div class="court-slots-grid" id="courtSlots-<?= $cId ?>"></div>
                     </div>
                 <?php endforeach; ?>
+                <div class="court-pagination" id="courtPagination"></div>
             <?php else: ?>
                 <div class="empty-state"><i class="fa-solid fa-inbox"></i>
                     <p>Tidak ada lapangan aktif saat ini.</p>
@@ -2131,8 +2265,21 @@ for ($i = 0; $i < 7; $i++) {
                             kode di atas.</p>
                     </div>
                 </div>
+                <div class="promo-label" style="margin-top:20px">Unggah Bukti Pembayaran <span
+                        style="color:var(--red)">*</span></div>
+                <label for="buktiPembayaranInput" class="bukti-upload-box" id="buktiUploadBox">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="buktiUploadText">Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)</span>
+                </label>
+                <input type="file" id="buktiPembayaranInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none"
+                    onchange="handleBuktiFileChange(this)">
+                <div id="buktiPreviewWrap" style="display:none;margin-top:10px">
+                    <img id="buktiPreviewImg" src="" alt="Preview Bukti Pembayaran"
+                        style="max-width:100%;max-height:180px;border-radius:var(--radius-md);border:1.5px solid var(--border-color)">
+                </div>
             </div>
             <div class="modal-footer">
+                <button class="btn-secondary btn-full" onclick="backToBookingModal()"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
                 <button class="btn-primary btn-full" onclick="finishPayment()"><i class="fa-solid fa-circle-check"></i>
                     Saya Sudah Bayar</button>
             </div>
@@ -2145,6 +2292,100 @@ for ($i = 0; $i < 7; $i++) {
         let memberDiscount = <?= $member_discount ?>;
         let countdownInterval;
         let cart = []; // { idJadwal, courtId, courtName, price, tanggal, tanggalLabel, jamMulai, jamSelesai }
+        let buktiFile = null; // File bukti pembayaran yang dipilih customer
+
+        // ============ PAGINATION LAPANGAN ============
+        const COURTS_PER_PAGE = 4;
+        let currentCourtPage = 1;
+
+        function paginateCourts() {
+            const cards = Array.from(document.querySelectorAll('.court-card'));
+            const totalPages = Math.max(1, Math.ceil(cards.length / COURTS_PER_PAGE));
+            if (currentCourtPage > totalPages) currentCourtPage = totalPages;
+
+            cards.forEach((card, idx) => {
+                const page = Math.floor(idx / COURTS_PER_PAGE) + 1;
+                card.style.display = (page === currentCourtPage) ? '' : 'none';
+            });
+
+            renderCourtPagination(totalPages);
+        }
+
+        function renderCourtPagination(totalPages) {
+            const wrap = document.getElementById('courtPagination');
+            if (!wrap) return;
+            if (totalPages <= 1) { wrap.innerHTML = ''; return; }
+
+            let html = `<button class="page-btn ${currentCourtPage <= 1 ? 'disabled' : ''}" onclick="changeCourtPage(${currentCourtPage - 1})" title="Sebelumnya"><i class="fa-solid fa-angle-left"></i></button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="page-btn ${i === currentCourtPage ? 'active' : ''}" onclick="changeCourtPage(${i})">${i}</button>`;
+            }
+            html += `<button class="page-btn ${currentCourtPage >= totalPages ? 'disabled' : ''}" onclick="changeCourtPage(${currentCourtPage + 1})" title="Selanjutnya"><i class="fa-solid fa-angle-right"></i></button>`;
+            wrap.innerHTML = html;
+        }
+
+        function changeCourtPage(p) {
+            if (p < 1) return;
+            currentCourtPage = p;
+            paginateCourts();
+            document.querySelectorAll('.court-card').forEach(c => {
+                if (c.style.display !== 'none') c.classList.add('visible');
+            });
+            const label = document.querySelector('.court-section-label');
+            if (label) label.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ============ UPLOAD BUKTI PEMBAYARAN ============
+        function handleBuktiFileChange(input) {
+            const file = input.files[0];
+            const box = document.getElementById('buktiUploadBox');
+            const textEl = document.getElementById('buktiUploadText');
+            const previewWrap = document.getElementById('buktiPreviewWrap');
+            const previewImg = document.getElementById('buktiPreviewImg');
+
+            if (!file) { buktiFile = null; return; }
+
+            const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+            if (!allowed.includes(file.type)) {
+                Swal.fire({ icon: 'warning', title: 'Format Tidak Didukung', text: 'Gunakan file JPG, PNG, atau PDF.', confirmButtonColor: 'var(--orange)' });
+                input.value = '';
+                buktiFile = null;
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                Swal.fire({ icon: 'warning', title: 'Ukuran Terlalu Besar', text: 'Ukuran file maksimal 5MB.', confirmButtonColor: 'var(--orange)' });
+                input.value = '';
+                buktiFile = null;
+                return;
+            }
+
+            buktiFile = file;
+            box.classList.add('filled');
+            textEl.innerText = file.name;
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    previewImg.src = e.target.result;
+                    previewWrap.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewWrap.style.display = 'none';
+            }
+        }
+
+        function resetBuktiUpload() {
+            buktiFile = null;
+            const inputEl = document.getElementById('buktiPembayaranInput');
+            if (inputEl) inputEl.value = '';
+            const box = document.getElementById('buktiUploadBox');
+            if (box) box.classList.remove('filled');
+            const textEl = document.getElementById('buktiUploadText');
+            if (textEl) textEl.innerText = 'Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)';
+            const previewWrap = document.getElementById('buktiPreviewWrap');
+            if (previewWrap) previewWrap.style.display = 'none';
+        }
 
         function formatRupiah(n) {
             return 'Rp ' + Math.max(0, n).toLocaleString('id-ID');
@@ -2403,7 +2644,13 @@ for ($i = 0; $i < 7; $i++) {
             const { total } = getCheckoutBreakdown();
             closeModal('bookingModal');
             document.getElementById('paymentTotal').innerText = formatRupiah(total);
-            showPaymentTab('va');
+
+            // Reset bukti pembayaran setiap kali membuka modal pembayaran baru
+            resetBuktiUpload();
+
+            // Tampilkan instruksi sesuai metode pembayaran yang sudah dipilih customer
+            // (Transfer Bank -> Virtual Account, QRIS -> QRIS) tanpa mengubah pilihan metode itu sendiri
+            showPaymentTab(selectedPaymentMethod === 'QRIS' ? 'qris' : 'va');
             openModal('paymentModal');
             startCountdown(15 * 60);
         }
@@ -2441,28 +2688,41 @@ for ($i = 0; $i < 7; $i++) {
         }
 
         function finishPayment() {
+            if (!buktiFile) {
+                Swal.fire({ icon: 'warning', title: 'Bukti Pembayaran Wajib', text: 'Silakan unggah bukti pembayaran terlebih dahulu sebelum konfirmasi.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
+
+function backToBookingModal() {
+    closeModal('paymentModal');
+    clearInterval(countdownInterval);
+    openModal('bookingModal');
+}
+                return;
+            }
+
             clearInterval(countdownInterval);
             closeModal('paymentModal');
             const { total, idPromo } = getCheckoutBreakdown();
 
-            Swal.fire({ title: 'Memproses...', text: 'Sedang memverifikasi pembayaran Anda', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
+            Swal.fire({ title: 'Memproses...', text: 'Sedang mengunggah bukti pembayaran Anda', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
+
+            const formData = new FormData();
+            formData.append('id_jadwal_list', JSON.stringify(cart.map(c => c.idJadwal)));
+            if (idPromo) formData.append('id_promo', idPromo);
+            formData.append('metode_pembayaran', selectedPaymentMethod);
+            formData.append('total_bayar', total);
+            formData.append('bukti_pembayaran', buktiFile);
 
             fetch('booking_customer.php?action=checkout', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id_jadwal_list: cart.map(c => c.idJadwal),
-                    id_promo: idPromo,
-                    metode_pembayaran: selectedPaymentMethod,
-                    total_bayar: total
-                })
+                body: formData
             })
                 .then(r => r.json())
                 .then(result => {
                     if (result.success) {
                         cart = [];
+                        resetBuktiUpload();
                         updateCartUI();
-                        Swal.fire({ icon: 'success', title: 'Booking Berhasil!', text: 'Pembayaran Anda sedang diverifikasi. Silakan cek riwayat booking di profil Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Selesai' })
+                        Swal.fire({ icon: 'success', title: 'Booking Berhasil!', text: 'Bukti pembayaran Anda sedang diverifikasi oleh karyawan kami. Silakan cek riwayat booking di profil Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Selesai' })
                             .then(() => { location.reload(); });
                     } else {
                         Swal.fire({ icon: 'warning', title: 'Booking Gagal', text: result.message, confirmButtonColor: 'var(--orange)', confirmButtonText: 'Pilih Ulang' });
@@ -2475,6 +2735,7 @@ for ($i = 0; $i < 7; $i++) {
 
         document.addEventListener('DOMContentLoaded', () => {
             reloadAllCourtSlots();
+            paginateCourts();
 
             /* Entrance animation untuk kartu lapangan */
             const cardObserver = new IntersectionObserver((entries) => {
@@ -2588,4 +2849,4 @@ for ($i = 0; $i < 7; $i++) {
 </script>
 </body>
 
-</html>   
+</html>

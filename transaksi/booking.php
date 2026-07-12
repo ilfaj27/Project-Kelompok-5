@@ -174,7 +174,7 @@ $offset = ($page - 1) * $limit;
 
 // URUTAN: Menunggu (0) paling atas, Dibatalkan (3) kedua, sisanya by Tanggal_Booking DESC
 $sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, B.ID_Promo, 
-                       B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status,
+                       B.Tanggal_Booking, B.Metode_Pembayaran, B.Bukti_Pembayaran, B.Total_Bayar, B.Status,
                        B.Created_Date, B.Modified_Date,
                        C.Nama_Customer, C.Email, C.No_Telepon,
                        L.Nama_Lapangan, L.Harga_Sewa,
@@ -250,6 +250,36 @@ function formatJam($jam) {
         return $jam->format('H:i');
     }
     return substr($jam, 0, 5);
+}
+
+/**
+ * Menyusun path bukti pembayaran agar selalu valid diakses dari folder karyawan/.
+ */
+function resolveBuktiPath($path)
+{
+    if (empty($path))
+        return '';
+    if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0)
+        return $path;
+    if (strpos($path, '../') === 0)
+        return $path;
+    if (strpos($path, '/') === 0)
+        return '..' . $path;
+    if (strpos($path, 'uploads/') === 0)
+        return '../' . $path;
+    return '../uploads/bukti_pembayaran/' . ltrim($path, '/');
+}
+
+/**
+ * Cek apakah file bukti pembayaran benar-benar ada di disk.
+ * Fungsi ini membantu debug masalah "bukti tidak muncul".
+ */
+function checkBuktiExists($path)
+{
+    $resolved = resolveBuktiPath($path);
+    if (empty($resolved))
+        return false;
+    return file_exists($resolved);
 }
 
 // Build URL params untuk paging
@@ -349,6 +379,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
 .btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
 .btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
 .btn-icon.danger:hover { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 14px rgba(239,68,68,.35); }
+.btn-icon.bukti { color: #8B5CF6; border-color: rgba(139,92,246,.25); background: rgba(139,92,246,.1); }
+.btn-icon.bukti:hover { background: #8B5CF6; color: #fff; border-color: #8B5CF6; box-shadow: 0 4px 14px rgba(139,92,246,.35); }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -431,7 +463,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         <i class="fa-solid fa-circle-info" style="color: var(--blue); font-size: 20px;"></i>
         <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
             <strong>Peran Karyawan:</strong> Customer membuat booking melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer. 
-            <span style="color: var(--muted);">Booking baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
+            <span style="color: var(--muted);">Booking baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda. Gunakan tombol <strong>Bukti Pembayaran</strong> untuk memeriksa bukti transfer/QRIS yang diunggah customer sebelum mengkonfirmasi.</span>
             <br><span style="color: var(--green); font-weight: 700;"><i class="fa-solid fa-robot"></i> Status "Selesai" akan otomatis terupdate ketika waktu bermain sudah lewat.</span>
         </div>
     </div>
@@ -502,6 +534,13 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
                             <td>
                                 <div class="action-btns">
                                     <button class="btn-icon view" onclick="showDetail(<?= $b['ID_Booking'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
+                                    <?php 
+                                    $bukti_path = $b['Bukti_Pembayaran'] ?? '';
+                                    $bukti_exists = checkBuktiExists($bukti_path);
+                                    if (!empty($bukti_path)): 
+                                    ?>
+                                        <button class="btn-icon bukti" onclick="showBukti(<?= $b['ID_Booking'] ?>)" title="Lihat Bukti Pembayaran<?= $bukti_exists ? '' : ' (File tidak ditemukan)' ?>"><i class="fa-solid fa-receipt"></i></button>
+                                    <?php endif; ?>
                                     <?php if ($b['Status'] == 0): ?>
                                         <button class="btn-icon success" onclick="confirmBayar(<?= $b['ID_Booking'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
                                         <button class="btn-icon danger" onclick="confirmBatal(<?= $b['ID_Booking'] ?>)" title="Batalkan"><i class="fa-solid fa-xmark"></i></button>
@@ -583,6 +622,20 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
     </div>
 </div>
 
+<!-- MODAL BUKTI PEMBAYARAN -->
+<div class="modal-overlay" id="modalBukti">
+    <div class="modal" style="max-width: 520px">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-receipt"></i> Bukti Pembayaran</div>
+            <button class="modal-close" onclick="closeModal('modalBukti')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="buktiContent" style="text-align:center"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeModal('modalBukti')"><i class="fa-solid fa-xmark"></i> Tutup</button>
+        </div>
+    </div>
+</div>
+
 <!-- HIDDEN FORMS -->
 <form method="POST" id="formKonfirmasi" style="display: none;">
     <input type="hidden" name="id_booking" id="konfirmasiId">
@@ -617,6 +670,39 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     });
 });
 
+// ============ BUKTI PEMBAYARAN ============
+function resolveBuktiPath(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('../')) return path;
+    if (path.startsWith('/')) return '..' + path;
+    if (path.startsWith('uploads/')) return '../' + path;
+    // Fallback: jika path tidak diawali uploads/ (misal hanya nama file)
+    return '../uploads/bukti_pembayaran/' + path;
+}
+
+function showBukti(id) {
+    const booking = bookingData.find(b => b.ID_Booking == id);
+    if (!booking || !booking.Bukti_Pembayaran) {
+        Swal.fire({ icon: 'info', title: 'Belum Ada Bukti', text: 'Customer belum mengunggah bukti pembayaran untuk booking ini.', confirmButtonColor: 'var(--orange)' });
+        return;
+    }
+
+    const url = resolveBuktiPath(booking.Bukti_Pembayaran);
+    console.log('Bukti path resolved:', url, 'Original:', booking.Bukti_Pembayaran);
+    const ext = url.split('.').pop().toLowerCase();
+    let html = '';
+    if (ext === 'pdf') {
+        html = `<iframe src="${url}" style="width:100%;height:480px;border:1px solid var(--border);border-radius:10px"></iframe>
+                <div style="margin-top:14px"><a href="${url}" target="_blank" class="btn-secondary"><i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru</a></div>`;
+    } else {
+        html = `<img src="${url}" alt="Bukti Pembayaran" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
+                <div style="margin-top:14px"><a href="${url}" target="_blank" class="btn-secondary"><i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru</a></div>`;
+    }
+    document.getElementById('buktiContent').innerHTML = html;
+    openModal('modalBukti');
+}
+
 function showDetail(id) {
     const booking = bookingData.find(b => b.ID_Booking == id);
     if (!booking) return;
@@ -637,6 +723,10 @@ function showDetail(id) {
 
     const promoInfo = booking.Nama_Promo ? `<div class="detail-item"><div class="detail-label">Promo Digunakan</div><div class="detail-value">${booking.Nama_Promo} (Diskon ${formatRupiah(booking.Diskon || 0)})</div></div>` : '';
 
+    const buktiInfo = booking.Bukti_Pembayaran
+        ? `<div class="detail-item detail-full"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value"><button class="btn-secondary" style="margin-top:4px" onclick="showBukti(${booking.ID_Booking})"><i class="fa-solid fa-receipt"></i> Lihat Bukti Pembayaran</button></div></div>`
+        : `<div class="detail-item detail-full"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value" style="color:var(--muted);font-weight:500">Belum diunggah customer</div></div>`;
+
     const html = `
         <div class="detail-grid">
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
@@ -647,6 +737,7 @@ function showDetail(id) {
             <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${booking.Metode_Pembayaran}</div></div>
             <div class="detail-item"><div class="detail-label">Input Oleh</div><div class="detail-value">${booking.Nama_Karyawan_Input || 'System'}</div></div>
             ${promoInfo}
+            ${buktiInfo}
             <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(booking.Total_Bayar)}</div></div>
         </div>
     `;
