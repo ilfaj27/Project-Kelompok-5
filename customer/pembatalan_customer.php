@@ -60,7 +60,7 @@ $has_member = !empty($member_data);
 $member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
 
 // ============================================================================
-// HANDLER AJAX: PROSES PEMBATALAN BOOKING (POST)
+// HANDLER AJAX: PROSES PEMBATALAN BOOKING MENGGUNAKAN STORED PROCEDURE
 // ============================================================================
 if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     header('Content-Type: application/json');
@@ -80,92 +80,54 @@ if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER
         exit();
     }
 
-    // Ambil data booking untuk verifikasi kepemilikan, batas waktu 24 jam, dan ID_Karyawan
-    $queryCheck = "SELECT B.ID_Booking, B.ID_Jadwal, B.ID_Karyawan, B.Total_Bayar, B.Metode_Pembayaran, B.Status AS StatusBooking,
-                          J.Tanggal, J.Jam_Mulai 
-                   FROM Booking B
-                   INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                   WHERE B.ID_Booking = ? AND B.ID_Customer = ?";
-    $stmtCheck = sqlsrv_query($conn, $queryCheck, array($id_booking, $id_customer));
+    // ========================================================================
+    // PANGGIL STORED PROCEDURE sp_TransaksiPembatalan
+    // SP menangani: validasi, hitung denda 50%, insert pembatalan,
+    // update status booking->3, update status jadwal->1 (atomic transaction)
+    // ========================================================================
+    $sp_params = array(
+        $id_booking,
+        intval($id_customer),
+        $alasan,
+        $nama_customer
+    );
 
-    if ($stmtCheck === false) {
-        echo json_encode(['success' => false, 'message' => 'Gagal melakukan verifikasi pemesanan.']);
+    $stmt_sp = sqlsrv_query($conn, 
+        "EXEC sp_TransaksiPembatalan ?, ?, ?, ?", 
+        $sp_params
+    );
+
+    if ($stmt_sp === false) {
+        $errors = sqlsrv_errors();
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Gagal mengeksekusi stored procedure: ' . ($errors[0]['message'] ?? 'Unknown error')
+        ]);
         exit();
     }
 
-    $booking = sqlsrv_fetch_array($stmtCheck, SQLSRV_FETCH_ASSOC);
-    if (!$booking) {
-        echo json_encode(['success' => false, 'message' => 'Data pemesanan tidak ditemukan atau bukan milik Anda.']);
-        exit();
-    }
+    $result = sqlsrv_fetch_array($stmt_sp, SQLSRV_FETCH_ASSOC);
 
-    // Validasi status sewa (status 3 = Dibatalkan)
-    if ($booking['StatusBooking'] == 3) {
-        echo json_encode(['success' => false, 'message' => 'Pemesanan ini sudah dibatalkan sebelumnya.']);
-        exit();
-    }
-
-    // Hitung batas waktu pembatalan (minimal 1x24 jam sebelum jadwal bermain)
-    $tanggal_str = ($booking['Tanggal'] instanceof DateTime) ? $booking['Tanggal']->format('Y-m-d') : $booking['Tanggal'];
-    $mulai_str = ($booking['Jam_Mulai'] instanceof DateTime) ? $booking['Jam_Mulai']->format('H:i:s') : $booking['Jam_Mulai'];
-
-    $play_datetime = new DateTime($tanggal_str . ' ' . $mulai_str);
-    $now = new DateTime();
-    $diff_seconds = $play_datetime->getTimestamp() - $now->getTimestamp();
-
-    if ($diff_seconds < 86400) {
-        echo json_encode(['success' => false, 'message' => 'Pembatalan ditolak. Batas waktu pembatalan paling lambat adalah 24 jam sebelum jadwal bermain.']);
-        exit();
-    }
-
-    // Mulai Transaksi Database
-    if (sqlsrv_begin_transaction($conn) === false) {
-        echo json_encode(['success' => false, 'message' => 'Gagal menginisiasi transaksi database.']);
-        exit();
-    }
-
-    try {
-        $id_karyawan = intval($booking['ID_Karyawan']);
-        $total_bayar = floatval($booking['Total_Bayar']);
-        $biaya_batal = $total_bayar * 0.50; // Denda 50%
-        $nominal_refund = $total_bayar * 0.50;    // Pengembalian dana 50%
-        $metode_refund = $booking['Metode_Pembayaran'];
-        $created_by = $nama_customer;
-
-        // 1. Simpan rekam data ke tabel Pembatalan_Booking
-        $queryInsertCancel = "INSERT INTO Pembatalan_Booking 
-            (ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Created_By, Created_Date) 
-            VALUES (?, ?, CAST(GETDATE() AS DATE), ?, ?, ?, ?, 0, ?, GETDATE())";
-
-        $stmtInsertCancel = sqlsrv_query($conn, $queryInsertCancel, array(
-            $id_booking, $id_karyawan, $alasan, $biaya_batal, $nominal_refund, $metode_refund, $created_by
-        ));
-
-        if ($stmtInsertCancel === false) {
-            $errors = sqlsrv_errors();
-            throw new Exception("Gagal menyimpan rincian pengajuan pembatalan ke tabel Pembatalan_Booking. Error: " . ($errors[0]['message'] ?? 'Unknown'));
+    if ($result && isset($result['Success'])) {
+        if ($result['Success'] == 1) {
+            echo json_encode([
+                'success' => true,
+                'message' => $result['Message'],
+                'id_pembatalan' => $result['ID_Pembatalan'] ?? null,
+                'biaya_batal' => $result['Biaya_Batal'] ?? 0,
+                'nominal_refund' => $result['Nominal_Refund'] ?? 0
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => $result['Message']
+            ]);
         }
-
-        // 2. Update status Booking menjadi 3 (Dibatalkan)
-        $queryUpdateBooking = "UPDATE Booking SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ?";
-        $stmtUpdateBooking = sqlsrv_query($conn, $queryUpdateBooking, array($created_by, $id_booking));
-        if ($stmtUpdateBooking === false) {
-            throw new Exception("Gagal memperbarui status transaksi pemesanan.");
-        }
-
-        // 3. Kembalikan status Jadwal Lapangan menjadi 1 (Tersedia kembali)
-        $id_jadwal = $booking['ID_Jadwal'];
-        $queryUpdateJadwal = "UPDATE Jadwal SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Jadwal = ?";
-        $stmtUpdateJadwal = sqlsrv_query($conn, $queryUpdateJadwal, array($created_by, $id_jadwal));
-        if ($stmtUpdateJadwal === false) {
-            throw new Exception("Gagal mengembalikan status slot jadwal ke sistem.");
-        }
-
-        sqlsrv_commit($conn);
-        echo json_encode(['success' => true, 'message' => 'Pembatalan booking berhasil diproses. Dana refund 50% akan segera diproses oleh operator.']);
-    } catch (Exception $e) {
-        sqlsrv_rollback($conn);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Respons dari server tidak valid.'
+        ]);
     }
     exit();
 }
@@ -271,7 +233,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border-color);border-radius:3px}
 
-/* ============ ANIMATIONS (disamakan dengan booking_customer.php) ============ */
+/* ============ ANIMATIONS ============ */
 @keyframes fadeInUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeInDown{from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -739,9 +701,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
         }
     });
 
-    /* ============ ANIMATION JS (disamakan dengan booking_customer.php) ============ */
+    /* ============ ANIMATION JS ============ */
     document.addEventListener('DOMContentLoaded', () => {
-        /* Entrance animation untuk booking cards */
         const cardObserver = new IntersectionObserver((entries) => {
             entries.forEach((entry, index) => {
                 if (entry.isIntersecting) {
@@ -752,13 +713,11 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
         }, { threshold: 0.1 });
         document.querySelectorAll('.booking-card').forEach(card => cardObserver.observe(card));
 
-        /* Reveal-on-scroll untuk header & elements */
         const revealObserver = new IntersectionObserver((entries) => {
             entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
         }, { threshold: .1, rootMargin: '0px 0px -50px 0px' });
         document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
-        /* Page loader */
         const loader = document.getElementById('pageLoader');
         if (loader) {
             setTimeout(() => { loader.classList.add('hidden'); }, 500);
@@ -772,76 +731,60 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
         document.getElementById('scrollProgress').style.transform = `scaleX(${sh > 0 ? st / sh : 0})`;
     });
 
-
-    /* ============================================================
-   KONFIRMASI SEBELUM KELUAR (LOGOUT)
-   Berlaku untuk semua link yang mengarah ke logout.php,
-   di sidebar maupun di dropdown topbar, pada SEMUA halaman.
-   ============================================================ */
-(function () {
-    const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-    let swalLoading = null;
-
-    // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
-    // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
-    function ensureSwal() {
-        if (typeof Swal !== 'undefined') return Promise.resolve();
-        if (swalLoading) return swalLoading;
-
-        swalLoading = new Promise(function (resolve, reject) {
-            const s = document.createElement('script');
-            s.src = SWAL_CDN;
-            s.onload = resolve;
-            s.onerror = reject;
-            document.head.appendChild(s);
-        });
-        return swalLoading;
-    }
-
-    function showLogoutDialog(url) {
-        Swal.fire({
-            title: 'Keluar dari HoopBall?',
-            html: 'Apakah Anda yakin ingin keluar?<br>' +
-                  '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#EF4444',
-            cancelButtonColor: '#6B7280',
-            reverseButtons: true,
-            focusCancel: true,
-            allowOutsideClick: false
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
-
+    /* ============ KONFIRMASI LOGOUT ============ */
+    (function () {
+        const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        let swalLoading = null;
+        function ensureSwal() {
+            if (typeof Swal !== 'undefined') return Promise.resolve();
+            if (swalLoading) return swalLoading;
+            swalLoading = new Promise(function (resolve, reject) {
+                const s = document.createElement('script');
+                s.src = SWAL_CDN;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+            return swalLoading;
+        }
+        function showLogoutDialog(url) {
             Swal.fire({
-                title: 'Sedang keluar...',
-                text: 'Mohon tunggu sebentar.',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: function () { Swal.showLoading(); }
+                title: 'Keluar dari HoopBall?',
+                html: 'Apakah Anda yakin ingin keluar?<br>' +
+                      '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                reverseButtons: true,
+                focusCancel: true,
+                allowOutsideClick: false
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+                Swal.fire({
+                    title: 'Sedang keluar...',
+                    text: 'Mohon tunggu sebentar.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function () { Swal.showLoading(); }
+                });
+                setTimeout(function () { window.location.href = url; }, 500);
             });
-
-            setTimeout(function () { window.location.href = url; }, 500);
+        }
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('a[href*="logout.php"]');
+            if (!link) return;
+            e.preventDefault();
+            const url = link.getAttribute('href');
+            ensureSwal()
+                .then(function () { showLogoutDialog(url); })
+                .catch(function () {
+                    if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
+                });
         });
-    }
-
-    document.addEventListener('click', function (e) {
-        const link = e.target.closest('a[href*="logout.php"]');
-        if (!link) return;
-
-        e.preventDefault();
-        const url = link.getAttribute('href');
-
-        ensureSwal()
-            .then(function () { showLogoutDialog(url); })
-            .catch(function () {
-                // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
-                if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
-            });
-    });
-})();
+    })();
 </script>
 </body>
 </html>

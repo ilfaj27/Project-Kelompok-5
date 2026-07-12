@@ -51,6 +51,9 @@ $status_labels = [
 
 // ============================================================================
 // PROSES KONFIRMASI PEMBAYARAN REFUND
+// Catatan: Update status refund (0->1) tetap pakai SQL UPDATE biasa.
+// SP sp_TransaksiPembatalan hanya untuk PROSES CREATE pembatalan oleh customer.
+// Trigger trg_Pembatalan_Booking_AutoUpdate akan otomatis mengisi Modified_By/Date.
 // ============================================================================
 if (isset($_POST['konfirmasi_refund'])) {
     $id_pembatalan = intval($_POST['id_pembatalan']);
@@ -69,6 +72,11 @@ if (isset($_POST['konfirmasi_refund'])) {
 
 // ============================================================================
 // PROSES UPDATE/EDIT DATA PEMBATALAN
+// Catatan: Update data pembatalan tetap pakai SQL UPDATE biasa.
+// Trigger trg_Pembatalan_Booking_AutoUpdate (INSTEAD OF UPDATE) akan
+// otomatis mengisi Modified_By dan Modified_Date saat update.
+// Trigger trg_Pembatalan_Booking_Log (AFTER UPDATE) akan mencatat
+// perubahan ke tabel Log_Pembatalan_Booking untuk audit trail.
 // ============================================================================
 if (isset($_POST['update_pembatalan'])) {
     $id_pembatalan = intval($_POST['id_pembatalan']);
@@ -228,7 +236,6 @@ function buildPageUrl($page_num) {
 
 $current_page = 'pembatalan';
 $sidebar_folder = 'transaksi';
-// CATATAN: $sidebar_photo sudah dinormalisasi di atas, JANGAN ditimpa lagi.
 
 // Topbar variables
 $topbar_title = 'Kelola Pembatalan';
@@ -248,7 +255,6 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
 /* ============================================================
    Style SIDEBAR, TOPBAR & CLOCK dihapus dari file ini.
    Topbar kini memakai ../includes/topbar.php + global.css
-   sehingga jam & tanggal identik dengan halaman lainnya.
    ============================================================ */
 
 .content { padding: 32px 40px; flex: 1; }
