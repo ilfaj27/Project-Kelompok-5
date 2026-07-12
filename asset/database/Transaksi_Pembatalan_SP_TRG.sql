@@ -468,19 +468,24 @@ SELECT
 FROM sys.procedures
 WHERE name = 'sp_TransaksiPembatalan';
 
--- Cek Triggers
+-- Cek Triggers (dengan event info dari sys.trigger_events)
 SELECT 
     t.name AS TriggerName,
     OBJECT_NAME(t.parent_id) AS TableName,
     CASE t.is_instead_of_trigger WHEN 1 THEN 'INSTEAD OF' ELSE 'AFTER' END AS TriggerType,
-    CASE 
-        WHEN t.is_insert = 1 AND t.is_update = 1 AND t.is_delete = 1 THEN 'INSERT, UPDATE, DELETE'
-        WHEN t.is_insert = 1 AND t.is_update = 1 THEN 'INSERT, UPDATE'
-        WHEN t.is_update = 1 AND t.is_delete = 1 THEN 'UPDATE, DELETE'
-        WHEN t.is_insert = 1 THEN 'INSERT'
-        WHEN t.is_update = 1 THEN 'UPDATE'
-        WHEN t.is_delete = 1 THEN 'DELETE'
-    END AS Events,
+    STUFF((
+        SELECT ', ' + 
+            CASE te.type 
+                WHEN 1 THEN 'INSERT' 
+                WHEN 2 THEN 'UPDATE' 
+                WHEN 3 THEN 'DELETE' 
+                ELSE 'UNKNOWN' 
+            END
+        FROM sys.trigger_events te
+        WHERE te.object_id = t.object_id
+        ORDER BY te.type
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS Events,
     t.create_date AS CreatedDate
 FROM sys.triggers t
 WHERE t.parent_id IN (
