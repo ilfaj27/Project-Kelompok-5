@@ -11,10 +11,10 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 
 include '../includes/auth_profile.php';
 
-// ============================================================
-// AMBIL NAMA USER DARI SESSION UNTUK AUDIT TRAIL
-// ============================================================
-$nama = $_SESSION['nama_karyawan'] ?? $_SESSION['username'] ?? 'SYSTEM';
+// Pastikan variabel $nama tersedia dari auth_profile.php
+if (!isset($nama) || empty($nama)) {
+    $nama = $_SESSION['nama'] ?? $_SESSION['username'] ?? 'SYSTEM';
+}
 
 $current_page = 'lapangan';
 $topbar_title = 'Kelola Lapangan';

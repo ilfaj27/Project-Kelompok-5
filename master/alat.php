@@ -353,6 +353,8 @@ function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 $current_page = 'alat';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
+$topbar_title = 'Kelola Alat';
+$topbar_breadcrumb = 'Operasional / Alat';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -361,6 +363,7 @@ $sidebar_photo = $profile_photo;
 <title>Kelola Alat | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../asset/css/global.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
 :root {
@@ -377,107 +380,9 @@ $sidebar_photo = $profile_photo;
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.sidebar::-webkit-scrollbar { display: none; }
-.sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; position: relative; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.sb-brand:hover { transform: scale(1.02); }
-.sb-brand::after { content: ''; position: absolute; bottom: -8px; left: 0; width: 0; height: 2px; background: linear-gradient(90deg, var(--orange), transparent); transition: width 0.4s cubic-bezier(0.16,1,0.3,1); }
-.sb-brand:hover::after { width: 100%; }
-.sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.sb-brand:hover .sb-icon { transform: rotate(5deg) scale(1.1); box-shadow: 0 6px 20px rgba(255,69,0,.5); }
-.sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; transition: color 0.3s ease; }
-.sb-brand-sub { font-size: 9px; color: #4B5563; font-weight: 700; text-transform: uppercase; transition: color 0.3s ease; }
-.sb-brand:hover .sb-brand-sub { color: var(--orange); }
-
-.sb-section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #374151; letter-spacing: .8px; padding: 0 10px; margin: 22px 0 8px; position: relative; }
-.sb-section-label::after { content: ''; position: absolute; bottom: -4px; left: 10px; width: 20px; height: 2px; background: var(--orange); border-radius: 1px; transition: width 0.3s ease; }
-.sb-section-label:hover::after { width: 40px; }
-
-.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all 0.35s cubic-bezier(0.16,1,0.3,1); position: relative; overflow: hidden; }
-.sb-link::before { content: ''; position: absolute; left: 0; top: 0; width: 0; height: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.15), rgba(255,69,0,0.05)); border-radius: 10px; transition: width 0.35s cubic-bezier(0.16,1,0.3,1); z-index: 0; }
-.sb-link:hover::before { width: 100%; }
-.sb-link .sb-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1); flex-shrink: 0; background: rgba(255,255,255,.04); position: relative; z-index: 1; }
-.sb-link:hover { color: #E5E7EB; transform: translateX(4px); }
-.sb-link:hover .sb-icon-wrap { background: rgba(255,255,255,.12); transform: scale(1.15) rotate(5deg); }
-.sb-link.active { color: #fff; background: var(--orange-lt); }
-.sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
-.sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
-
-/* Active indicator pill */
-.sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
-
-.sb-bottom { margin-top: auto; padding-top: 20px; }
-.sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); transition: all 0.3s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
-.sb-user:hover { background: rgba(255,255,255,.08); border-color: rgba(255,69,0,.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); position: relative; }
-.sb-avatar > img { position: absolute; inset: 0; z-index: 2; }
-.sb-user:hover .sb-avatar { transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
-.sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transition: transform 0.3s ease; }
-.sb-user:hover .sb-avatar img { transform: scale(1.1); }
-.sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; transition: color 0.3s ease; }
-.sb-user:hover .sb-user-name { color: #fff; }
-.sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; transition: all 0.3s ease; }
-.sb-user:hover .sb-user-role { letter-spacing: 1px; }
-.sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; position: relative; overflow: hidden; }
-.sb-logout::before { content: ''; position: absolute; inset: 0; background: var(--red-lt); border-radius: 8px; transform: scale(0); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.sb-logout:hover { color: var(--red); }
-.sb-logout:hover::before { transform: scale(1); }
-.sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
-.sb-logout:hover i { transform: translateX(2px); }
-
-/* Sidebar entrance animation */
-@keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-.sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
-
-/* Staggered menu item entrance */
-@keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-.sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
-.sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
-.sb-section-label { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
-.sb-section-label:nth-of-type(1) { animation-delay: 0.2s; }
-.sb-link:nth-of-type(1) { animation-delay: 0.25s; }
-.sb-link:nth-of-type(2) { animation-delay: 0.3s; }
-.sb-link:nth-of-type(3) { animation-delay: 0.35s; }
-.sb-link:nth-of-type(4) { animation-delay: 0.4s; }
-.sb-link:nth-of-type(5) { animation-delay: 0.45s; }
-.sb-link:nth-of-type(6) { animation-delay: 0.5s; }
-.sb-link:nth-of-type(7) { animation-delay: 0.55s; }
-.sb-link:nth-of-type(8) { animation-delay: 0.6s; }
-.sb-section-label:nth-of-type(2) { animation-delay: 0.65s; }
-.sb-link:nth-of-type(9) { animation-delay: 0.7s; }
-.sb-link:nth-of-type(10) { animation-delay: 0.75s; }
-.sb-link:nth-of-type(11) { animation-delay: 0.8s; }
-.sb-link:nth-of-type(12) { animation-delay: 0.85s; }
-.sb-section-label:nth-of-type(3) { animation-delay: 0.9s; }
-.sb-link:nth-of-type(13) { animation-delay: 0.95s; }
-.sb-section-label:nth-of-type(3) + nav .sb-link:nth-of-type(1) { animation-delay: 0.95s; }
-.sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
-
-.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
-.topbar-left { display: flex; flex-direction: column; }
-.topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
-.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.topbar-right { display: flex; align-items: center; gap: 16px; }
-.topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
-.topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
-.dropdown-wrap { position: relative; }
-.topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 6px; border-radius: 12px; cursor: pointer; transition: .2s; height: 46px; }
-.topbar-user:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(255,69,0,.08); }
-.t-avatar { width: 34px; height: 34px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; border: 2px solid var(--orange-lt); }
-.t-avatar i { position: relative; z-index: 1; }
-.t-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
-.t-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
-.t-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
-.t-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; line-height: 1; letter-spacing: .3px; }
-.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; flex-shrink: 0; }
-.dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; min-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 15px 40px rgba(0,0,0,.12); overflow: hidden; padding: 8px 0; z-index: 999; }
-.dropdown-wrap.active .dropdown-menu { display: block; }
-.dd-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; color: #444; text-decoration: none; font-size: 13px; font-weight: 700; transition: .15s; }
-.dd-item:hover { background: #FFF7ED; color: var(--orange); }
-.dd-item i { font-size: 14px; width: 18px; text-align: center; }
-.dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
+/* Sidebar, topbar, dropdown user, dan clock TIDAK didefinisikan di sini lagi.
+   Semua style tersebut sudah ditangani global.css (../asset/css/global.css)
+   supaya tampilannya identik/konsisten dengan halaman fasilitas_lapangan.php. */
 
 .content { padding: 32px 40px; flex: 1; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
@@ -893,13 +798,6 @@ select.modal-input { cursor: pointer; appearance: none; background-image: url("d
 }
 .btn-add i { font-size: 14px; }
 
-#clock-display { display: flex; align-items: center; gap: 16px; }
-.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
-.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
-@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
-.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
-.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
@@ -1083,43 +981,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
 <!-- MAIN CONTENT -->
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Kelola Alat</div>
-            <div class="topbar-breadcrumb">Operasional / Alat</div>
-        </div>
-        <div class="topbar-right">
-            <div id="clock-display">
-                <div class="clock-time">
-                    <span id="clock-h">00</span><span class="clock-colon">:</span>
-                    <span id="clock-m">00</span><span class="clock-colon">:</span>
-                    <span id="clock-s">00</span>
-                </div>
-                <div class="clock-divider"></div>
-                <div class="clock-date" id="full-date">MEMUAT...</div>
-            </div>
-            <div class="dropdown-wrap" id="userDropdown">
-                <div class="topbar-user" onclick="toggleUserDropdown()">
-                    <div class="t-avatar">
-                        <i class="fa-solid fa-user"></i>
-                        <?php if (!empty($profile_photo)): ?>
-                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
-                        <?php endif; ?>
-                    </div>
-                    <div class="t-info">
-                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
-                    </div>
-                    <i class="fa-solid fa-chevron-down t-chevron"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="../profile/profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../includes/topbar.php'; ?>
 
     <div class="content">
         <div class="page-header">
@@ -1272,26 +1134,8 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         <?php endif; ?>
     </div>
 </main>
+<script src="../asset/js/global.js"></script>
 <script>
-function updateClock() {
-    var now = new Date();
-    var h = String(now.getHours()).padStart(2,'0');
-    var m = String(now.getMinutes()).padStart(2,'0');
-    var s = String(now.getSeconds()).padStart(2,'0');
-    var hEl = document.getElementById('clock-h');
-    var mEl = document.getElementById('clock-m');
-    var sEl = document.getElementById('clock-s');
-    var dEl = document.getElementById('full-date');
-    if(hEl) hEl.textContent = h;
-    if(mEl) mEl.textContent = m;
-    if(sEl) sEl.textContent = s;
-    var days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    var months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    if(dEl) dEl.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
-}
-updateClock();
-setInterval(updateClock, 1000);
-
 function closeModal() {
     window.location.href = 'alat.php';
 }
@@ -1605,15 +1449,6 @@ document.addEventListener('DOMContentLoaded', function() {
         filterCard.addEventListener('click', function(e) { e.stopPropagation(); });
         document.addEventListener('click', function() { filterCard.classList.remove('open'); });
     }
-});
-
-function toggleUserDropdown() {
-    var dd = document.getElementById('userDropdown');
-    if (dd) dd.classList.toggle('active');
-}
-document.addEventListener('click', function(e) {
-    var dd = document.getElementById('userDropdown');
-    if (dd && !dd.contains(e.target)) dd.classList.remove('active');
 });
 
 function confirmToggle(id, name, currentStatus, event) {

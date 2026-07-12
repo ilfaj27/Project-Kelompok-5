@@ -322,6 +322,8 @@ function labelTanggalPanjang($tgl, $bulan_pendek) {
 $current_page = 'jadwal';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
+$topbar_title = 'Kelola Jadwal';
+$topbar_breadcrumb = 'Operasional / Jadwal';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -330,6 +332,7 @@ $sidebar_photo = $profile_photo;
 <title>Kelola Jadwal | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../asset/css/global.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
 :root {
@@ -422,18 +425,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-bottom { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 1s forwards; opacity: 0; }
 
 .main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-.topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
-.topbar-left { display: flex; flex-direction: column; }
-.topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -.5px; line-height: 1; }
-.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.topbar-right { display: flex; align-items: center; gap: 16px; }
-.topbar-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; font-size: 14px; text-decoration: none; transition: .2s; position: relative; }
-.topbar-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-lt); }
-.topbar-btn, .topbar-user { background-color: #FFFFFF !important; }
 .notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--orange); border-radius: 50%; border: 2px solid #fff; }
 .dropdown-wrap { position: relative; }
-.topbar-user { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border); padding: 6px 14px 6px 6px; border-radius: 12px; cursor: pointer; transition: .2s; height: 46px; }
-.topbar-user:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(255,69,0,.08); }
 .t-avatar { width: 34px; height: 34px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; border: 2px solid var(--orange-lt); }
 .t-avatar i { position: relative; z-index: 1; }
 .t-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
@@ -720,8 +713,6 @@ select.modal-input { cursor: pointer; appearance: none; background-image: url("d
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
-.topbar-btn:hover, .topbar-user:hover { background-color: #E5E7EB !important; border-color: #D1D5DB !important; color: #4B5563 !important; }
-.topbar-btn:active, .topbar-user:active { background-color: #D1D5DB !important; border-color: #9CA3AF !important; color: #1F2937 !important; }
 .dropdown-wrap.active .dropdown-menu { display: block !important; }
 body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 
@@ -850,41 +841,7 @@ input[type="time"].modal-input {
 <?php include '../includes/sidebar.php'; ?>
 <!-- MAIN -->
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Kelola Jadwal</div>
-            <div class="topbar-breadcrumb">Operasional / Jadwal</div>
-        </div>
-        <div class="topbar-right">
-            <div id="clock-display">
-                <div class="clock-time">
-                    <span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span>
-                </div>
-                <div class="clock-divider"></div>
-                <div class="clock-date" id="full-date">MEMUAT...</div>
-            </div>
-            <div class="dropdown-wrap" id="userDropdown">
-                <div class="topbar-user" onclick="toggleUserDropdown()">
-                    <div class="t-avatar">
-                        <i class="fa-solid fa-user"></i>
-                        <?php if (!empty($profile_photo)): ?>
-                            <img src="<?= htmlspecialchars($profile_photo) ?>" alt="Profile" onerror="this.style.display='none';">
-                        <?php endif; ?>
-                    </div>
-                    <div class="t-info">
-                        <div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
-                        <div class="t-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
-                    </div>
-                    <i class="fa-solid fa-chevron-down t-chevron"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="../profile/profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../includes/topbar.php'; ?>
 
     <div class="content">
         <div class="page-header">

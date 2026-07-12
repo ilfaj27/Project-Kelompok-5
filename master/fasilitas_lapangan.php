@@ -1076,16 +1076,16 @@ $sidebar_photo = $profile_photo;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background-color: var(--text);
+            background-color: var(--text) !important;
             color: #fff;
-            padding: 11px 22px;
-            border-radius: 10px;
+            padding: 11px 22px !important;
+            border-radius: 10px !important;
             font-size: 13px;
             font-weight: 800;
             text-decoration: none;
             text-transform: uppercase;
-            transition: all .2s ease;
-            border: none;
+            transition: all .2s ease !important;
+            border: none !important;
             cursor: pointer;
         }
 
