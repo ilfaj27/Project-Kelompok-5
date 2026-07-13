@@ -228,7 +228,7 @@ if (isset($_GET['action'])) {
             exit();
         }
 
-        $upload_dir = '../uploads/bukti_pembayaran/';
+        $upload_dir = '../asset/Bukti_Pembayaran/';
         if (!is_dir($upload_dir)) {
             @mkdir($upload_dir, 0755, true);
         }
@@ -239,7 +239,8 @@ if (isset($_GET['action'])) {
             echo json_encode(['success' => false, 'message' => 'Gagal mengunggah bukti pembayaran. Silakan coba lagi.']);
             exit();
         }
-        $bukti_pembayaran_db = 'uploads/bukti_pembayaran/' . $new_file_name;
+        // Menyesuaikan path yang akan disimpan di database
+        $bukti_pembayaran_db = 'asset/Bukti_Pembayaran/' . $new_file_name;
 
         // Menggunakan SP untuk mengambil default Karyawan
         $kq = sqlsrv_query($conn, "{call sp_Karyawan_GetDefault}");
