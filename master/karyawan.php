@@ -38,6 +38,10 @@ if (!empty($profile_photo)) {
     $_SESSION['Photo_Profile'] = $profile_photo;
 }
 $map_jk = [0 => 'Perempuan', 1 => 'Laki-laki'];
+$sidebar_photo  = $profile_photo;
+$sidebar_folder = 'master';
+$current_page   = 'karyawan';
+
 $map_jabatan = [1 => 'Karyawan', 2 => 'Manajer'];
 $map_status = [0 => 'Nonaktif', 1 => 'Aktif'];
 
@@ -1788,29 +1792,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
     </div>
 </div>
 <!-- SIDEBAR -->
-<aside class="sidebar">
-    <a href="../dashboard/view_pemilik.php" class="sb-brand">
-        <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
-    </a>
-    <div class="sb-section-label">Manajemen</div>
-    <nav>
-        <a href="../dashboard/view_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div> Dashboard</a>
-        <a href="karyawan.php" class="sb-link active"><div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div> Kelola Karyawan</a>
-        <a href="../laporan/laporan_omzet.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div> Laporan & Omzet</a>
-    </nav>
-    <div class="sb-section-label">Akun</div>
-    <nav>
-        <a href="../profile/profile_pemilik.php" class="sb-link"><div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div> Profil Saya</a>
-    </nav>
-    <div class="sb-bottom">
-        <div class="sb-user">
-            <div class="sb-avatar"><?php if ($profile_photo && file_exists($profile_photo)): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><span style="font-size:14px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?></div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
-            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
-        </div>
-    </div>
-</aside>
+<?php include '../includes/sidebar.php'; ?>
 
 <!-- MAIN CONTENT -->
 <main class="main">

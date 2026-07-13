@@ -17,7 +17,7 @@ $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 // ============================================================================
 $profile_photo = '';
 if (!empty($id_karyawan)) {
-    $stmt_photo = sqlsrv_query($conn, "{call sp_Karyawan_GetProfilePhoto(?)}", array($id_karyawan));
+    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -43,7 +43,22 @@ if (!empty($profile_photo)) {
 // ============================================================================
 // AUTO-COMPLETE BOOKING (OTOMATIS SELESAI)
 // ============================================================================
-sqlsrv_query($conn, "{call sp_Booking_AutoComplete}");
+$auto_complete_sql = "SELECT B.ID_Booking, J.Tanggal, J.Jam_Selesai 
+                      FROM Booking B 
+                      INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
+                      WHERE B.Status = 1 
+                      AND (J.Tanggal < CAST(GETDATE() AS DATE) 
+                           OR (J.Tanggal = CAST(GETDATE() AS DATE) 
+                               AND J.Jam_Selesai <= CAST(GETDATE() AS TIME)))";
+$q_auto = sqlsrv_query($conn, $auto_complete_sql);
+if ($q_auto) {
+    while ($row_auto = sqlsrv_fetch_array($q_auto, SQLSRV_FETCH_ASSOC)) {
+        sqlsrv_query($conn, 
+            "UPDATE Booking SET Status = 2, Modified_By = 'SYSTEM_AUTO', Modified_Date = GETDATE() WHERE ID_Booking = ?",
+            array($row_auto['ID_Booking'])
+        );
+    }
+}
 
 // ============================================================================
 // STATUS BOOKING
@@ -60,7 +75,10 @@ $status_labels = [
 // ============================================================================
 if (isset($_POST['konfirmasi_bayar'])) {
     $id_booking = $_POST['id_booking'];
-    $stmt = sqlsrv_query($conn, "{call sp_Booking_ConfirmPayment(?, ?)}", array($id_booking, $nama));
+    $stmt = sqlsrv_query($conn, 
+        "UPDATE Booking SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ? AND Status = 0",
+        array($nama, $id_booking)
+    );
     if ($stmt) {
         header("Location: booking.php?status=success&msg=Pembayaran berhasil dikonfirmasi.");
         exit();
@@ -77,29 +95,32 @@ if (isset($_POST['batal_booking'])) {
     $id_booking = $_POST['id_booking'];
     $alasan = $_POST['alasan_batal'];
 
-    // Ambil detail kueri data sewa awal melalui SP
-    $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($id_booking));
-    $booking_data = $q_booking ? sqlsrv_fetch_array($q_booking, SQLSRV_FETCH_ASSOC) : null;
+    $q_booking = sqlsrv_query($conn, 
+        "SELECT B.*, J.ID_Lapangan FROM Booking B INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal WHERE B.ID_Booking = ?",
+        array($id_booking)
+    );
+    $booking_data = sqlsrv_fetch_array($q_booking, SQLSRV_FETCH_ASSOC);
 
     if ($booking_data) {
         $total_bayar = (float)$booking_data['Total_Bayar'];
         $biaya_batal = $total_bayar * 0.5;
         $nominal_refund = $total_bayar * 0.5;
+        $id_jadwal = $booking_data['ID_Jadwal'];
         $metode_refund = $booking_data['Metode_Pembayaran'];
 
-        // Menjalankan pembatalan dan pencatatan kas keluar secara transaksional di basis data
-        $stmt_batal = sqlsrv_query($conn, 
-            "{call sp_Booking_CancelByKaryawan(?, ?, ?, ?, ?, ?, ?)}",
+        sqlsrv_query($conn, 
+            "UPDATE Booking SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ?",
+            array($nama, $id_booking)
+        );
+        sqlsrv_query($conn, 
+            "INSERT INTO Pembatalan_Booking (ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, Biaya_Batal, Nominal_Refund, Metode_Refund, Status, Created_By, Created_Date) 
+             VALUES (?, ?, GETDATE(), ?, ?, ?, ?, 1, ?, GETDATE())",
             array($id_booking, $id_karyawan, $alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama)
         );
+        sqlsrv_query($conn, "UPDATE Jadwal SET Status = 1 WHERE ID_Jadwal = ?", array($id_jadwal));
 
-        if ($stmt_batal) {
-            header("Location: booking.php?status=success&msg=Booking dibatalkan. Refund 50% dikembalikan via $metode_refund.");
-            exit();
-        } else {
-            header("Location: booking.php?status=error&msg=Gagal memproses pembatalan sewa.");
-            exit();
-        }
+        header("Location: booking.php?status=success&msg=Booking dibatalkan. Refund 50% dikembalikan via $metode_refund.");
+        exit();
     } else {
         header("Location: booking.php?status=error&msg=Data booking tidak ditemukan.");
         exit();
@@ -113,12 +134,31 @@ $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
 $filter_tanggal = isset($_GET['filter_tanggal']) ? $_GET['filter_tanggal'] : '';
 
-// Normalisasi parameter filter input untuk SP
-$status_val = ($filter_status === '' || $filter_status === 'all') ? -1 : (int)$filter_status;
-$tgl_val = empty($filter_tanggal) ? null : $filter_tanggal;
+$sql_where = "WHERE 1=1";
+$params = [];
+
+if ($filter_status !== '' && $filter_status !== 'all') {
+    $sql_where .= " AND B.Status = ?";
+    $params[] = (int)$filter_status;
+}
+if (!empty($filter_customer)) {
+    $sql_where .= " AND C.Nama_Customer LIKE ?";
+    $params[] = "%$filter_customer%";
+}
+if (!empty($filter_tanggal)) {
+    $sql_where .= " AND CAST(B.Tanggal_Booking AS DATE) = ?";
+    $params[] = $filter_tanggal;
+}
 
 // --- HITUNG TOTAL DATA UNTUK PAGING ---
-$q_count = sqlsrv_query($conn, "{call sp_Booking_GetCount(?, ?, ?)}", array($status_val, $filter_customer, $tgl_val));
+$count_sql = "SELECT COUNT(*) as total FROM Booking B
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+              LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_count = sqlsrv_query($conn, $count_sql, $params);
 $total_data = 0;
 if ($q_count) {
     $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
@@ -132,9 +172,36 @@ $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
-// Memuat baris data ter-paging melalui SP
+// URUTAN: Menunggu (0) paling atas, Dibatalkan (3) kedua, sisanya by Tanggal_Booking DESC
+$sql_booking = "SELECT B.ID_Booking, B.ID_Customer, B.ID_Karyawan, B.ID_Jadwal, B.ID_Promo, 
+                       B.Tanggal_Booking, B.Metode_Pembayaran, B.Bukti_Pembayaran, B.Total_Bayar, B.Status,
+                       B.Created_Date, B.Modified_Date,
+                       C.Nama_Customer, C.Email, C.No_Telepon,
+                       L.Nama_Lapangan, L.Harga_Sewa,
+                       J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
+                       P.Nama_Promo, P.Diskon,
+                       K.Nama_Karyawan as Nama_Karyawan_Input
+                FROM Booking B
+                INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+                INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+                INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+                LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+                LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
+                $sql_where
+                ORDER BY 
+                    CASE 
+                        WHEN B.Status = 0 THEN 0
+                        WHEN B.Status = 1 THEN 1
+                        WHEN B.Status = 2 THEN 2
+                        WHEN B.Status = 3 THEN 3
+                    END ASC,
+                    B.Tanggal_Booking DESC
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+$params_with_paging = array_merge($params, [$offset, $limit]);
+
 $bookings = [];
-$q_booking = sqlsrv_query($conn, "{call sp_Booking_GetPagedList(?, ?, ?, ?, ?)}", array($status_val, $filter_customer, $tgl_val, $offset, $limit));
+$q_booking = sqlsrv_query($conn, $sql_booking, $params_with_paging);
 if ($q_booking) {
     while ($row = sqlsrv_fetch_array($q_booking, SQLSRV_FETCH_ASSOC)) {
         $bookings[] = $row;
@@ -149,18 +216,23 @@ $stats = [
     'total_omzet' => 0, 'total_refund' => 0
 ];
 
-// Mengambil fungsi agregasi analisis dari UDF dbo.fn_Booking_GetDashboardStats
-$q_stats = sqlsrv_query($conn, "SELECT * FROM dbo.fn_Booking_GetDashboardStats(?, ?, ?)", array($status_val, $filter_customer, $tgl_val));
+$stats_sql = "SELECT B.Status, B.Total_Bayar FROM Booking B
+              INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+              INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+              INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+              LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+              LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
+              $sql_where";
+$q_stats = sqlsrv_query($conn, $stats_sql, $params);
 if ($q_stats) {
-    $row_stats = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
-    if ($row_stats) {
-        $stats['total'] = (int)($row_stats['Total'] ?? 0);
-        $stats['menunggu'] = (int)($row_stats['Menunggu'] ?? 0);
-        $stats['berhasil'] = (int)($row_stats['Berhasil'] ?? 0);
-        $stats['selesai'] = (int)($row_stats['Selesai'] ?? 0);
-        $stats['dibatalkan'] = (int)($row_stats['Dibatalkan'] ?? 0);
-        $stats['total_omzet'] = (float)($row_stats['Total_Omzet'] ?? 0);
-        $stats['total_refund'] = (float)($row_stats['Total_Refund'] ?? 0);
+    while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
+        $stats['total']++;
+        switch ($row['Status']) {
+            case 0: $stats['menunggu']++; break;
+            case 1: $stats['berhasil']++; $stats['total_omzet'] += (float)$row['Total_Bayar']; break;
+            case 2: $stats['selesai']++; $stats['total_omzet'] += (float)$row['Total_Bayar']; break;
+            case 3: $stats['dibatalkan']++; $stats['total_refund'] += ((float)$row['Total_Bayar'] * 0.5); break;
+        }
     }
 }
 
