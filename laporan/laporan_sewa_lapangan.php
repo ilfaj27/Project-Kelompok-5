@@ -31,6 +31,11 @@ if (!empty($profile_photo) && !file_exists($profile_photo)) {
     $profile_photo = '';
 }
 
+// Set sidebar variables
+$sidebar_photo = $profile_photo;
+$sidebar_folder = 'laporan';
+$current_page = 'laporan_sewa_lapangan';
+
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -273,31 +278,6 @@ function statusBookingLabel($status) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* SIDEBAR */
-.sidebar { width: var(--sidebar-w); background: var(--sidebar); height: 100vh; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; padding: 28px 18px; border-right: 1px solid rgba(255,255,255,.04); z-index: 200; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
-.sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; margin-bottom: 36px; text-decoration: none; }
-.sb-icon { width: 40px; height: 40px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(255,69,0,.4); }
-.sb-brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 1px; }
-.sb-brand-sub { font-size: 9px; color: #4B5563; font-weight: 700; text-transform: uppercase; }
-.sb-section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #374151; letter-spacing: .8px; padding: 0 10px; margin: 22px 0 8px; }
-.sb-link { display: flex; align-items: center; gap: 12px; color: #6B7280; text-decoration: none; padding: 10px 12px; border-radius: 10px; margin-bottom: 2px; font-size: 13px; font-weight: 600; transition: all .2s ease; position: relative; }
-.sb-link .sb-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: .2s; flex-shrink: 0; background: rgba(255,255,255,.04); }
-.sb-link:hover { color: #E5E7EB; background: rgba(255,255,255,.04); }
-.sb-link:hover .sb-icon-wrap { background: rgba(255,255,255,.08); }
-.sb-link.active { color: #fff; background: var(--orange-lt); }
-.sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; }
-.sb-link .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
-.sb-bottom { margin-top: auto; padding-top: 20px; }
-.sb-user { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); }
-.sb-avatar { width: 36px; height: 36px; background: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex-shrink: 0; overflow: hidden; }
-.sb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.sb-user-name { font-size: 13px; font-weight: 800; color: #E5E7EB; line-height: 1.1; }
-.sb-user-role { font-size: 10px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
-.sb-logout { margin-left: auto; color: #4B5563; font-size: 13px; transition: .2s; cursor: pointer; text-decoration: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
-.sb-logout:hover { color: var(--red); background: rgba(239,68,68,.1); }
-
 /* MAIN & TOPBAR */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
@@ -421,48 +401,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 </head>
 <body>
 
-<aside class="sidebar">
-    <a href="../dashboard/view_pemilik.php" class="sb-brand">
-        <div class="sb-icon"><i class="fa-solid fa-basketball"></i></div>
-        <div><div class="sb-brand-name">HOOP BALL</div><div class="sb-brand-sub">Sistem Managemen</div></div>
-    </a>
-
-    <div class="sb-section-label">Manajemen</div>
-    <nav>
-        <a href="../dashboard/view_pemilik.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-house"></i></div>
-            Dashboard
-        </a>
-        <a href="../master/karyawan.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
-            Kelola Karyawan
-        </a>
-        <a href="laporan_omzet.php" class="sb-link">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-chart-line"></i></div>
-            Laporan & Omzet
-        </a>
-    </nav>
-
-    <div class="sb-section-label">Akun</div>
-    <a href="../profile/profile_pemilik.php" class="sb-link">
-        <div class="sb-icon-wrap"><i class="fa-solid fa-id-badge"></i></div>
-        Profil Saya
-    </a>
-
-    <div class="sb-bottom">
-        <div class="sb-user">
-            <div class="sb-avatar">
-                <?php if ($profile_photo): ?>
-                    <img src="<?= $profile_photo ?>" alt="Profile">
-                <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
-                <?php endif; ?>
-            </div>
-            <div><div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="sb-user-role">MANAJER</div></div>
-            <a href="../login/logout.php" class="sb-logout" title="Keluar"><i class="fa-solid fa-right-from-bracket"></i></a>
-        </div>
-    </div>
-</aside>
+<?php include '../includes/sidebar.php'; ?>
 
 <main class="main">
 <header class="topbar">
