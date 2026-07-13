@@ -15,7 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-date_default_timezone_set('Asia/Jakarta'); 
+date_default_timezone_set('Asia/Jakarta');
 
 include '../includes/auth_helper.php';
 include '../includes/config.php';
@@ -30,7 +30,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 
     if (!empty($id_customer)) {
         $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
-        
+
         // Memanggil SP untuk melakukan soft delete
         $stmt = sqlsrv_query(
             $conn,
@@ -669,8 +669,12 @@ for ($i = 0; $i < 7; $i++) {
             display: flex;
             gap: 8px;
             overflow-x: auto;
-            padding-bottom: 4px;
-            scrollbar-width: none
+            scrollbar-width: none;
+
+            /* Tambahkan padding ini agar kartu & lencana tidak terpotong batas overflow */
+            padding: 10px 12px 10px 10px;
+            margin-left: -10px;
+            /* Opsional: Mengimbangi padding-left agar sejajar kembali dengan label */
         }
 
         .date-scroll::-webkit-scrollbar {
@@ -2000,16 +2004,17 @@ for ($i = 0; $i < 7; $i++) {
                 max-width: 100%
             }
         }
-    
-/* Hilangkan scrollbar di modal tapi tetap bisa scroll */
-.modal-card {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-.modal-card::-webkit-scrollbar {
-    display: none;
-}
-</style>
+
+        /* Hilangkan scrollbar di modal tapi tetap bisa scroll */
+        .modal-card {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .modal-card::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
 </head>
 
 <body>
@@ -2252,7 +2257,8 @@ for ($i = 0; $i < 7; $i++) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary btn-full" onclick="backToBookingModal()"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                <button class="btn-secondary btn-full" onclick="backToBookingModal()"><i
+                        class="fa-solid fa-arrow-left"></i> Kembali</button>
                 <button class="btn-primary btn-full" onclick="finishPayment()"><i class="fa-solid fa-circle-check"></i>
                     Saya Sudah Bayar</button>
             </div>
@@ -2664,11 +2670,11 @@ for ($i = 0; $i < 7; $i++) {
             if (!buktiFile) {
                 Swal.fire({ icon: 'warning', title: 'Bukti Pembayaran Wajib', text: 'Silakan unggah bukti pembayaran terlebih dahulu sebelum konfirmasi.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
 
-function backToBookingModal() {
-    closeModal('paymentModal');
-    clearInterval(countdownInterval);
-    openModal('bookingModal');
-}
+                function backToBookingModal() {
+                    closeModal('paymentModal');
+                    clearInterval(countdownInterval);
+                    openModal('bookingModal');
+                }
                 return;
             }
 
@@ -2748,78 +2754,78 @@ function backToBookingModal() {
             Swal.fire({ icon: ok ? 'success' : 'error', title: ok ? 'Berhasil' : 'Gagal', text: msg, confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    
 
-    /* ============================================================
-   KONFIRMASI SEBELUM KELUAR (LOGOUT)
-   Berlaku untuk semua link yang mengarah ke logout.php,
-   di sidebar maupun di dropdown topbar, pada SEMUA halaman.
-   ============================================================ */
-(function () {
-    const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-    let swalLoading = null;
 
-    // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
-    // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
-    function ensureSwal() {
-        if (typeof Swal !== 'undefined') return Promise.resolve();
-        if (swalLoading) return swalLoading;
+        /* ============================================================
+       KONFIRMASI SEBELUM KELUAR (LOGOUT)
+       Berlaku untuk semua link yang mengarah ke logout.php,
+       di sidebar maupun di dropdown topbar, pada SEMUA halaman.
+       ============================================================ */
+        (function () {
+            const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+            let swalLoading = null;
 
-        swalLoading = new Promise(function (resolve, reject) {
-            const s = document.createElement('script');
-            s.src = SWAL_CDN;
-            s.onload = resolve;
-            s.onerror = reject;
-            document.head.appendChild(s);
-        });
-        return swalLoading;
-    }
+            // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
+            // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
+            function ensureSwal() {
+                if (typeof Swal !== 'undefined') return Promise.resolve();
+                if (swalLoading) return swalLoading;
 
-    function showLogoutDialog(url) {
-        Swal.fire({
-            title: 'Keluar dari HoopBall?',
-            html: 'Apakah Anda yakin ingin keluar?<br>' +
-                  '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#EF4444',
-            cancelButtonColor: '#6B7280',
-            reverseButtons: true,
-            focusCancel: true,
-            allowOutsideClick: false
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
+                swalLoading = new Promise(function (resolve, reject) {
+                    const s = document.createElement('script');
+                    s.src = SWAL_CDN;
+                    s.onload = resolve;
+                    s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+                return swalLoading;
+            }
 
-            Swal.fire({
-                title: 'Sedang keluar...',
-                text: 'Mohon tunggu sebentar.',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: function () { Swal.showLoading(); }
+            function showLogoutDialog(url) {
+                Swal.fire({
+                    title: 'Keluar dari HoopBall?',
+                    html: 'Apakah Anda yakin ingin keluar?<br>' +
+                        '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#EF4444',
+                    cancelButtonColor: '#6B7280',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    allowOutsideClick: false
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    Swal.fire({
+                        title: 'Sedang keluar...',
+                        text: 'Mohon tunggu sebentar.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: function () { Swal.showLoading(); }
+                    });
+
+                    setTimeout(function () { window.location.href = url; }, 500);
+                });
+            }
+
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href*="logout.php"]');
+                if (!link) return;
+
+                e.preventDefault();
+                const url = link.getAttribute('href');
+
+                ensureSwal()
+                    .then(function () { showLogoutDialog(url); })
+                    .catch(function () {
+                        // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
+                        if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
+                    });
             });
-
-            setTimeout(function () { window.location.href = url; }, 500);
-        });
-    }
-
-    document.addEventListener('click', function (e) {
-        const link = e.target.closest('a[href*="logout.php"]');
-        if (!link) return;
-
-        e.preventDefault();
-        const url = link.getAttribute('href');
-
-        ensureSwal()
-            .then(function () { showLogoutDialog(url); })
-            .catch(function () {
-                // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
-                if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
-            });
-    });
-})();
-</script>
+        })();
+    </script>
 </body>
 
 </html>
