@@ -65,7 +65,7 @@ $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'D
 $filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : -1;
 $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
 
-$allowed_sort = ['ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date'];
+$allowed_sort = ['ID_Customer', 'Nama_Customer', 'Umur', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort))
     $sort_by = 'ID_Customer';
 
@@ -295,22 +295,22 @@ $sidebar_photo = $profile_photo;
             vertical-align: middle;
         }
 
-        /* Kolom No (Rata Tengah) */
         .data-table th:nth-child(1),
         .data-table td:nth-child(1) {
             text-align: center !important;
-            padding-left: 70px !important;
-            width: 8%;
+            width: 6%;
             font-size: 15px;
             font-weight: 700;
+            /* Dikurangi agar seimbang */
         }
 
-        /* Kolom Nama Customer */
+        /* Kolom 2: Nama Customer */
         .data-table th:nth-child(2),
         .data-table td:nth-child(2) {
-            width: 32%;
+            width: 24%;
             text-align: left !important;
-            padding-left: 145px !important;
+            padding-left: 110px !important;
+            /* Dikurangi agar muat 7 kolom */
         }
 
         .cust-name {
@@ -319,12 +319,13 @@ $sidebar_photo = $profile_photo;
             font-size: 15px;
         }
 
-        /* Kolom Email */
+        /* Kolom 3: Email */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
-            width: 30%;
+            width: 22%;
             text-align: left !important;
-            padding-left: 75px !important;
+            padding-left: 70px !important;
+            /* Dikurangi agar muat 7 kolom */
         }
 
         .cust-email {
@@ -334,39 +335,43 @@ $sidebar_photo = $profile_photo;
             color: var(--text);
         }
 
-        /* Kolom Umur (Kolom ke-4 Baru) */
+        /* Kolom 4: Jenis Kelamin (Baru) */
         .data-table th:nth-child(4),
         .data-table td:nth-child(4) {
-            width: 12%;
+            width: 15%;
             text-align: center !important;
-            font-size: 15px !important;
             padding-left: 0px !important;
-            /* Memastikan font umur terlihat */
+            font-size: 14px;
         }
 
-        /* Kolom Status (Geser ke Kolom ke-5) */
+        /* Kolom 5: Umur (Geser dari Kolom 4 ke 5) */
         .data-table th:nth-child(5),
         .data-table td:nth-child(5) {
-            width: 18%;
+            width: 10%;
+            text-align: center !important;
+            padding-left: 0px !important;
+            font-size: 15px !important;
+        }
+
+        /* Kolom 6: Status (Geser dari Kolom 5 ke 6) */
+        .data-table th:nth-child(6),
+        .data-table td:nth-child(6) {
+            width: 11%;
             text-align: center !important;
         }
 
-        .data-table td:nth-child(5) {
-            font-size: 0 !important;
-            /* Efek font 0 digeser ke kolom status */
-        }
-
-        .data-table td:nth-child(5) .status-pill {
+        /* Menyesuaikan target style untuk status-pill pada kolom ke-6 */
+        .data-table td:nth-child(6) .status-pill {
             position: relative;
             display: inline-flex !important;
             font-size: 12px !important;
             margin: 0 !important;
         }
 
-        /* Kolom Aksi (Geser ke Kolom ke-6) */
-        .data-table th:nth-child(6),
-        .data-table td:nth-child(6) {
-            width: 20%;
+        /* Kolom 7: Aksi (Geser dari Kolom 6 ke 7) */
+        .data-table th:nth-child(7),
+        .data-table td:nth-child(7) {
+            width: 12%;
             text-align: center !important;
         }
 
@@ -1185,17 +1190,11 @@ $sidebar_photo = $profile_photo;
 
                                 <div class="filter-group">
                                     <label class="filter-label">Urut Berdasarkan</label>
-                                    <!-- ID Customer DIHAPUS, hanya nomor urut yang tersisa -->
                                     <select name="sort" class="filter-select">
                                         <option value="Nama_Customer" <?= $sort_by == 'Nama_Customer' ? 'selected' : '' ?>>
                                             Nama Lengkap</option>
-                                        <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>
-                                            Jenis Kelamin</option>
-                                        <option value="Alamat" <?= $sort_by == 'Alamat' ? 'selected' : '' ?>>Alamat
-                                        </option>
-                                        <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No.
-                                            Telepon</option>
-                                        <option value="Email" <?= $sort_by == 'Email' ? 'selected' : '' ?>>Email</option>
+                                        <option value="Umur" <?= $sort_by == 'Umur' ? 'selected' : '' ?>>
+                                            Umur</option>
                                         <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>
                                             Tanggal Dibuat</option>
                                     </select>
@@ -1216,8 +1215,8 @@ $sidebar_photo = $profile_photo;
                                     <select name="jk" class="filter-select">
                                         <option value="-1" <?= $filter_jk == -1 ? 'selected' : '' ?>>Semua Jenis Kelamin
                                         </option>
-                                        <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Laki-laki</option>
-                                        <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Perempuan</option>
+                                        <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
+                                        <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Perempuan</option>
                                     </select>
                                 </div>
 
@@ -1234,12 +1233,15 @@ $sidebar_photo = $profile_photo;
                                 </div>
 
                                 <div class="filter-actions">
-                                    <a href="customer.php" class="btn-filter-reset">
-                                        <i class="fa-solid fa-rotate-left"></i> Reset
-                                    </a>
+                                    <!-- Tombol Terapkan sekarang di sebelah kiri -->
                                     <button type="submit" class="btn-filter-apply">
                                         <i class="fa-solid fa-check"></i> Terapkan
                                     </button>
+
+                                    <!-- Tombol Reset sekarang di sebelah kanan -->
+                                    <a href="customer.php" class="btn-filter-reset">
+                                        <i class="fa-solid fa-rotate-left"></i> Reset
+                                    </a>
                                 </div>
                             </form>
                         </div>
@@ -1256,7 +1258,8 @@ $sidebar_photo = $profile_photo;
                                 <th style="width: 80px;">No</th>
                                 <th>Nama</th>
                                 <th style="text-align: left; width: 25%;">Email</th>
-                                <th style="width: 120px;">Umur</th> <!-- TAMBAHAN BARU -->
+                                <th style="width: 150px; text-align: center;">Jenis Kelamin</th> <!-- Tambahan Baru -->
+                                <th style="width: 120px;">Umur</th>
                                 <th style="width: 150px;">Status</th>
                                 <th style="text-align: left; width: 180px;">Aksi</th>
                             </tr>
@@ -1271,11 +1274,20 @@ $sidebar_photo = $profile_photo;
                                     $has_data = true;
                                     $row_num++;
                                     $status_int = isset($row['Status']) ? intval($row['Status']) : 1;
+
+                                    $jk_icon = $row['Jenis_Kelamin'] == 1 ? 'fa-mars' : 'fa-venus';
+                                    $jk_color = $row['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
                                     ?>
                                     <tr>
                                         <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
                                         <td class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></td>
                                         <td class="cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
+
+                                        <!-- Tambahan Baru: Kolom Jenis Kelamin -->
+                                        <td
+                                            style="text-align: center; font-family:'Barlow'; font-weight:700; color: <?= $jk_color ?>;">
+                                            <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($row['Jenis_Kelamin']) ?>
+                                        </td>
 
                                         <!-- TAMBAHAN BARU -->
                                         <td
@@ -1307,7 +1319,7 @@ $sidebar_photo = $profile_photo;
                                 <?php endwhile; endif; ?>
                             <?php if (!$has_data): ?>
                                 <tr>
-                                    <td colspan="6"> <!-- SUDAH DIUBAH MENJADI 6 -->
+                                    <td colspan="7"> <!-- SUDAH DIUBAH MENJADI 6 -->
                                         <div class="empty-state"><i class="fa-solid fa-users"></i>
                                             <div>Belum ada data customer</div>
                                             <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">

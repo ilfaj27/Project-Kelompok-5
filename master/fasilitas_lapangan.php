@@ -1343,7 +1343,7 @@ $sidebar_photo = $profile_photo;
                                     </select>
                                 </div>
                                 <div class="filter-group">
-                                    <label>Urutkan</label>
+                                    <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
                                         <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama Fasilitas (A - Z)</option>
                                         <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Fasilitas (Z - A)</option>

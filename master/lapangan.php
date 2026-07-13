@@ -577,7 +577,7 @@ $sidebar_photo = $profile_photo;
                                     </select>
                                 </div>
                                 <div class="filter-group">
-                                    <label>Urutkan</label>
+                                    <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
                                         <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A-Z</option>
                                         <option value="harga_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_desc' ? 'selected' : '' ?>>Harga Termahal</option>
