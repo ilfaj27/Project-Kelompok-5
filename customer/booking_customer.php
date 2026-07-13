@@ -14,6 +14,9 @@ ob_start();
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+date_default_timezone_set('Asia/Jakarta'); 
+
 include '../includes/auth_helper.php';
 include '../includes/config.php';
 
