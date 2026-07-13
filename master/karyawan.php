@@ -426,8 +426,10 @@ if ($query === false) {
     --text: #111827; --text-md: #374151; --muted: #6B7280;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; min-height: 100vh; color: var(--text); }
+html { scroll-behavior: smooth; scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar { display: none; }
+body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; min-height: 100vh; color: var(--text); scrollbar-width: none; -ms-overflow-style: none; }
+body::-webkit-scrollbar { display: none; }
 
 /* ============================================
    SIDEBAR - SAMA DENGAN CUSTOMER.PHP
@@ -732,7 +734,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 }
 .sb-logout:hover i { transform: translateX(2px); }
 
-.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.main { margin-left: calc(var(--sidebar-w) - 1px); flex: 1; display: flex; flex-direction: column; min-height: 100vh; scrollbar-width: none; -ms-overflow-style: none; }
+.main::-webkit-scrollbar { display: none; }
 .topbar { 
     background: var(--card-bg); 
     height: var(--topbar-h); 
@@ -886,7 +889,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 }
 
 /* CONTENT */
-.content { padding: 32px 40px; flex: 1; }
+.content { padding: 32px 40px; flex: 1; scrollbar-width: none; -ms-overflow-style: none; }
+.content::-webkit-scrollbar { display: none; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
 .page-title { 
@@ -958,7 +962,8 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
     padding: 4px 10px; 
     border-radius: 20px; 
 }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.table-wrap::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { 
     font-family: 'Barlow Condensed', sans-serif !important; 
