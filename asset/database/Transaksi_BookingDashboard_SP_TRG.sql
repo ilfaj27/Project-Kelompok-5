@@ -257,15 +257,9 @@ CREATE PROCEDURE sp_Fasilitas_GetActive
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    -- Menggabungkan tabel penghubung dengan tabel master fasilitas
-    SELECT 
-        dlf.ID_Lapangan, 
-        fl.Nama_Fasilitas 
-    FROM Detail_Lapangan_Fasilitas dlf
-    INNER JOIN Fasilitas_Lapangan fl ON dlf.ID_Fasilitas = fl.ID_Fasilitas
-    WHERE fl.Status = 1 
-      AND fl.Is_Deleted = 0;
+    SELECT ID_Lapangan, Nama_Fasilitas 
+    FROM Fasilitas_Lapangan 
+    WHERE Status = 1 AND Is_Deleted = 0;
 END;
 GO
 

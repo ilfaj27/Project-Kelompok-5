@@ -27,10 +27,12 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 
     if (!empty($id_customer)) {
         $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
+        
+        // Memanggil SP untuk melakukan soft delete
         $stmt = sqlsrv_query(
             $conn,
-            "UPDATE Customer SET Is_Deleted=1,Status=0,Deleted_By=?,Deleted_Date=GETDATE() WHERE ID_Customer=? AND Is_Deleted=0",
-            array($modified_by, $id_customer)
+            "{call sp_Customer_SoftDelete(?, ?)}",
+            array($id_customer, $modified_by)
         );
 
         if ($stmt) {
@@ -42,17 +44,13 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
             session_destroy();
             setcookie('remember_me', '', time() - 3600, "/");
             ob_end_clean();
-            header("Location: ../login/login.php?status=success&msg=Akun Anda telah dihapus permanen. Silakan daftar ulang untuk menggunakan layanan kami.");
+            header("Location: ../login/login.php?status=success&msg=Akun Anda telah dihapus permanen.");
             exit();
         } else {
             ob_end_clean();
-            header("Location: booking_customer.php?status=error&msg=Gagal menghapus akun. Silakan coba lagi.");
+            header("Location: booking_customer.php?status=error&msg=Gagal menghapus akun.");
             exit();
         }
-    } else {
-        ob_end_clean();
-        header("Location: ../login/login.php?status=error&msg=Sesi tidak valid. Silakan login kembali.");
-        exit();
     }
 }
 
@@ -66,16 +64,15 @@ $nama_customer = 'Pelanggan';
 $photo_profile = '';
 
 if (!empty($id_customer)) {
-    $st = sqlsrv_query($conn, "SELECT Nama_Customer,Photo_Profile,Is_Deleted,Status FROM Customer WHERE ID_Customer=?", array($id_customer));
+    $st = sqlsrv_query($conn, "{call sp_Customer_GetProfile(?)}", array($id_customer));
     if ($st) {
         $row = sqlsrv_fetch_array($st, SQLSRV_FETCH_ASSOC);
         if ($row) {
             if ($row['Is_Deleted'] == 1 || $row['Status'] == 0) {
                 $_SESSION = array();
                 session_destroy();
-                setcookie('remember_me', '', time() - 3600, "/");
                 ob_end_clean();
-                header("Location: ../login/login.php?status=error&msg=Akun Anda telah dihapus atau dinonaktifkan. Silakan hubungi admin atau daftar ulang.");
+                header("Location: ../login/login.php?status=error&msg=Akun dinonaktifkan.");
                 exit();
             }
             $nama_customer = $row['Nama_Customer'] ?? 'Pelanggan';
@@ -88,14 +85,7 @@ if (!empty($id_customer)) {
 // Data Membership Aktif
 // =========================================================================
 $member_data = null;
-$mc = sqlsrv_query(
-    $conn,
-    "SELECT TOP 1 L.*,T.Nama_Tipe,T.Potongan_Harga,T.Harga_Member FROM Langganan L
-     INNER JOIN Tipe_Member T ON L.ID_Tipe=T.ID_Tipe
-     WHERE L.ID_Customer=? AND L.Status=1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
-     ORDER BY L.Tanggal_Selesai DESC",
-    array($id_customer)
-);
+$mc = sqlsrv_query($conn, "{call sp_Customer_GetActiveMember(?)}", array($id_customer));
 if ($mc) {
     $member_data = sqlsrv_fetch_array($mc, SQLSRV_FETCH_ASSOC);
 }
@@ -125,7 +115,7 @@ function resolvePhotoPath($photo_path)
  */
 function generateJadwalOtomatis($conn)
 {
-    $q = sqlsrv_query($conn, "SELECT ID_Lapangan FROM Lapangan WHERE Status=1 AND Is_Deleted=0");
+    $q = sqlsrv_query($conn, "{call sp_Otomasi_GetLapanganAktif}");
     if (!$q)
         return;
 
@@ -157,39 +147,27 @@ function generateJadwalOtomatis($conn)
         $d = date('Y-m-d', strtotime("+$i days"));
         foreach ($list as $id_lap) {
             foreach ($slots as $s) {
-                $cek = sqlsrv_query($conn, "SELECT ID_Jadwal FROM Jadwal WHERE ID_Lapangan=? AND Tanggal=? AND Jam_Mulai=? AND Jam_Selesai=?", array($id_lap, $d, $s[0], $s[1]));
+                $cek = sqlsrv_query($conn, "{call sp_Otomasi_CekJadwal(?, ?, ?, ?)}", array($id_lap, $d, $s[0], $s[1]));
                 if ($cek && !sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC)) {
-                    sqlsrv_query($conn, "INSERT INTO Jadwal(ID_Lapangan,Tanggal,Jam_Mulai,Jam_Selesai,Status,Is_Deleted,Created_By,Created_Date) VALUES(?,?,?,?,1,0,'SYSTEM_AUTO',GETDATE())", array($id_lap, $d, $s[0], $s[1]));
+                    sqlsrv_query($conn, "{call sp_Otomasi_InsertJadwal(?, ?, ?, ?, ?)}", array($id_lap, $d, $s[0], $s[1], 'SYSTEM_AUTO'));
                 }
             }
         }
     }
 }
 generateJadwalOtomatis($conn);
-
 // =========================================================================
 // Endpoint AJAX (JSON)
 // =========================================================================
 if (isset($_GET['action'])) {
     header('Content-Type: application/json');
 
-    // --- Ambil SELURUH jadwal 1 hari untuk satu lapangan, lengkap dengan status
-    //     (tersedia / sudah dibooking / waktu sudah lewat) supaya dropdown di
-    //     bawah tiap lapangan bisa menampilkan semuanya sekaligus. ---
+    // Ambil slot jadwal per court & tanggal menggunakan SP
     if ($_GET['action'] == 'get_all_slots' && isset($_GET['court_id']) && isset($_GET['tanggal'])) {
         $cid = intval($_GET['court_id']);
         $tanggal = $_GET['tanggal'];
 
-        $st = sqlsrv_query(
-            $conn,
-            "SELECT J.ID_Jadwal, J.Jam_Mulai, J.Jam_Selesai, J.Status,
-                    CASE WHEN B.ID_Booking IS NOT NULL THEN 1 ELSE 0 END AS Ada_Booking
-             FROM Jadwal J
-             LEFT JOIN Booking B ON B.ID_Jadwal = J.ID_Jadwal
-             WHERE J.ID_Lapangan=? AND J.Is_Deleted=0 AND J.Tanggal=?
-             ORDER BY J.Jam_Mulai ASC",
-            array($cid, $tanggal)
-        );
+        $st = sqlsrv_query($conn, "{call sp_Jadwal_GetSlots(?, ?)}", array($cid, $tanggal));
 
         $slots = [];
         $now_date = date('Y-m-d');
@@ -199,7 +177,6 @@ if (isset($_GET['action'])) {
             while ($r = sqlsrv_fetch_array($st, SQLSRV_FETCH_ASSOC)) {
                 $mulai = ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i:s') : $r['Jam_Mulai'];
                 $selesai = ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i:s') : $r['Jam_Selesai'];
-
                 $sudahDibooking = ($r['Status'] == 0 || $r['Ada_Booking'] == 1);
 
                 if ($sudahDibooking) {
@@ -271,7 +248,8 @@ if (isset($_GET['action'])) {
         }
         $bukti_pembayaran_db = 'uploads/bukti_pembayaran/' . $new_file_name;
 
-        $kq = sqlsrv_query($conn, "SELECT TOP 1 ID_Karyawan FROM Karyawan WHERE Status=1 AND Is_Deleted=0 ORDER BY ID_Karyawan ASC");
+        // Menggunakan SP untuk mengambil default Karyawan
+        $kq = sqlsrv_query($conn, "{call sp_Karyawan_GetDefault}");
         $id_karyawan = 1;
         if ($kq) {
             $kd = sqlsrv_fetch_array($kq, SQLSRV_FETCH_ASSOC);
@@ -284,15 +262,9 @@ if (isset($_GET['action'])) {
         $success_count = 0;
         $first_error = '';
 
-        // Validasi tiap slot sebelum memanggil SP
+        // Menggunakan SP untuk validasi tiap slot sebelum memanggil SP Booking
         foreach ($id_jadwal_list as $jid) {
-            $chk = sqlsrv_query(
-                $conn,
-                "SELECT J.Status, J.ID_Lapangan, L.Harga_Sewa
-                 FROM Jadwal J INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                 WHERE J.ID_Jadwal=?",
-                array($jid)
-            );
+            $chk = sqlsrv_query($conn, "{call sp_Jadwal_ValidateSlot(?)}", array($jid));
             $row = $chk ? sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC) : null;
             if (!$row || $row['Status'] != 1) {
                 echo json_encode(['success' => false, 'message' => "Maaf, salah satu slot jadwal sudah terbooking atau tidak tersedia."]);
@@ -301,11 +273,9 @@ if (isset($_GET['action'])) {
         }
 
         // Panggil sp_Booking_Create untuk setiap slot
-        // Promo hanya diterapkan pada booking pertama (jika ada)
         $promo_for_first = $id_promo;
 
         foreach ($id_jadwal_list as $index => $jid) {
-            // Hanya booking pertama yang dapat promo
             $current_promo = ($index === 0) ? $promo_for_first : null;
 
             $sp_sql = "{call sp_Booking_Create(?, ?, ?, ?, ?, ?)}";
@@ -339,16 +309,16 @@ if (isset($_GET['action'])) {
         }
 
         if ($success_count === count($id_jadwal_list)) {
-            // Simpan bukti pembayaran yang baru diunggah ke seluruh booking yang berhasil dibuat
+            // Menggunakan SP untuk memperbarui bukti pembayaran pada booking
             foreach ($created_ids as $cb_id) {
-                sqlsrv_query($conn, "UPDATE Booking SET Bukti_Pembayaran = ? WHERE ID_Booking = ?", array($bukti_pembayaran_db, $cb_id));
+                sqlsrv_query($conn, "{call sp_Booking_UpdateBukti(?, ?, ?)}", array($cb_id, $bukti_pembayaran_db, $by));
             }
             echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
         } else {
-            // Jika sebagian berhasil, rollback manual dengan membatalkan yang sudah dibuat
+            // Menggunakan SP untuk membatalkan booking (Rollback) jika sebagian gagal dibuat
             if (!empty($created_ids)) {
                 foreach ($created_ids as $cb_id) {
-                    sqlsrv_query($conn, "UPDATE Booking SET Status = 3, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Booking = ?", array($by, $cb_id));
+                    sqlsrv_query($conn, "{call sp_Booking_SetStatusBatal(?, ?)}", array($cb_id, $by));
                 }
             }
             echo json_encode(['success' => false, 'message' => $first_error ?: 'Gagal membuat booking.']);
@@ -361,7 +331,7 @@ if (isset($_GET['action'])) {
 // Data untuk Tampilan Halaman
 // =========================================================================
 $lapanganList = [];
-$ql = sqlsrv_query($conn, "SELECT ID_Lapangan,Nama_Lapangan,Harga_Sewa,Photo_Lapangan FROM Lapangan WHERE Status=1 AND Is_Deleted=0");
+$ql = sqlsrv_query($conn, "{call sp_Lapangan_GetActive}");
 if ($ql) {
     while ($r = sqlsrv_fetch_array($ql, SQLSRV_FETCH_ASSOC)) {
         $lapanganList[] = $r;
@@ -369,7 +339,7 @@ if ($ql) {
 }
 
 $lapanganFasilitas = [];
-$qf = sqlsrv_query($conn, "SELECT ID_Lapangan,Nama_Fasilitas FROM Fasilitas_Lapangan WHERE Status=1 AND Is_Deleted=0");
+$qf = sqlsrv_query($conn, "{call sp_Fasilitas_GetActive}");
 if ($qf) {
     while ($r = sqlsrv_fetch_array($qf, SQLSRV_FETCH_ASSOC)) {
         $lapanganFasilitas[$r['ID_Lapangan']][] = $r['Nama_Fasilitas'];
@@ -378,7 +348,7 @@ if ($qf) {
 
 $promos = [];
 if (!$has_member) {
-    $qp = sqlsrv_query($conn, "SELECT ID_Promo,Nama_Promo,Diskon FROM Promo WHERE Status=1 AND Is_Deleted=0 AND CAST(GETDATE() AS DATE) BETWEEN Tanggal_Mulai AND Tanggal_Selesai");
+    $qp = sqlsrv_query($conn, "{call sp_Promo_GetActive}");
     if ($qp) {
         while ($r = sqlsrv_fetch_array($qp, SQLSRV_FETCH_ASSOC)) {
             $promos[] = $r;
