@@ -83,8 +83,8 @@ if (isset($_POST['batal_booking'])) {
 
     if ($booking_data) {
         $total_bayar = (float) $booking_data['Total_Bayar'];
-        $biaya_batal = $total_bayar * 0.5;
-        $nominal_refund = $total_bayar * 0.5;
+        $biaya_batal = 0;                     // Biaya denda pembatalan Rp 0
+        $nominal_refund = $total_bayar;       // Refund 100% dari total bayar
         $metode_refund = $booking_data['Metode_Pembayaran'];
 
         // Menjalankan pembatalan dan pencatatan kas keluar secara transaksional di basis data
@@ -95,10 +95,10 @@ if (isset($_POST['batal_booking'])) {
         );
 
         if ($stmt_batal) {
-            header("Location: booking.php?status=success&msg=Booking dibatalkan. Refund 50% dikembalikan via $metode_refund.");
+            header("Location: booking.php?status=success&msg=Booking dibatalkan");
             exit();
         } else {
-            header("Location: booking.php?status=error&msg=Gagal memproses pembatalan sewa.");
+            header("Location: booking.php?status=error&msg=Gagal memproses pembatalan");
             exit();
         }
     } else {
@@ -990,7 +990,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
                         <input type="date" name="filter_tanggal" class="filter-input"
                             value="<?= htmlspecialchars($filter_tanggal) ?>">
                         <button type="submit" class="btn-secondary"><i class="fa-solid fa-filter"></i> Filter</button>
-                        <?php if ($filter_status || $filter_customer || $filter_tanggal): ?>
+                        <?php if (($filter_status !== '' && $filter_status !== 'all') || $filter_customer !== '' || $filter_tanggal !== ''): ?>
                             <a href="booking.php" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
                         <?php endif; ?>
                     </form>
@@ -1329,23 +1329,19 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         function confirmBatal(id) {
             Swal.fire({
                 title: 'Batalkan Booking?',
-                html: 'Booking ini akan dibatalkan.<br><span style="color: var(--red); font-size: 12px;"><strong>Refund 50%</strong> akan dikembalikan ke customer.</span>',
+                html: '<span style="color: var(--red);"><strong>Booking ini akan dibatalkan.</strong></span>',
                 icon: 'warning',
-                input: 'textarea',
-                inputLabel: 'Alasan Pembatalan',
-                inputPlaceholder: 'Masukkan alasan pembatalan...',
-                inputAttributes: { 'aria-label': 'Alasan pembatalan' },
                 showCancelButton: true,
                 confirmButtonColor: '#EF4444',
                 cancelButtonColor: '#6B7280',
                 confirmButtonText: 'Ya, Batalkan',
                 cancelButtonText: 'Batal',
-                reverseButtons: true,
-                inputValidator: (value) => { if (!value) return 'Alasan pembatalan wajib diisi!'; }
+                reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
                     document.getElementById('batalId').value = id;
-                    document.getElementById('batalAlasan').value = result.value;
+                    // Mengisi alasan secara otomatis agar data di database tetap terisi
+                    document.getElementById('batalAlasan').value = 'Dibatalkan oleh Karyawan';
                     document.getElementById('formBatal').submit();
                 }
             });
