@@ -111,7 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     $nama_alat = trim($_POST['nama_alat'] ?? '');
     $kategori = trim($_POST['kategori'] ?? '');
     $stok_size_raw = isset($_POST['stok_size']) && is_array($_POST['stok_size']) ? $_POST['stok_size'] : [];
-    $harga_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_alat'] ?? ''));
+    $harga_jual_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_jual'] ?? ''));
+    $harga_beli_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_beli'] ?? ''));
     $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
     $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
 
@@ -151,8 +152,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
             $errors[] = 'Total stok semua ukuran maksimal 9999.';
         }
     }
-    if ($harga_raw === '' || !is_numeric($harga_raw)) {
-        $errors[] = 'Harga harus berupa angka.';
+    if ($harga_beli_raw === '' || !is_numeric($harga_beli_raw)) {
+        $errors[] = 'Harga beli harus berupa angka.';
+    }
+    if ($harga_jual_raw === '' || !is_numeric($harga_jual_raw)) {
+        $errors[] = 'Harga jual harus berupa angka.';
+    }
+    if ($harga_beli_raw !== '' && $harga_jual_raw !== '' && is_numeric($harga_beli_raw) && is_numeric($harga_jual_raw)) {
+        if (floatval($harga_jual_raw) < floatval($harga_beli_raw)) {
+            $errors[] = 'Harga jual tidak boleh lebih kecil dari harga beli.';
+        }
     }
     if (empty($errors)) {
         // Pake SP_Alat_CheckDuplicate buat cek nama alat sudah ada atau belum
@@ -163,7 +172,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
     }
     if (empty($errors)) {
         $stok = $stok_total; // total stok = akumulasi stok semua ukuran
-        $harga_alat = number_format(floatval($harga_raw), 2, '.', '');
+        $harga_beli = number_format(floatval($harga_beli_raw), 2, '.', '');
+        $harga_jual = number_format(floatval($harga_jual_raw), 2, '.', '');
         $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
         $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
 
@@ -174,11 +184,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
 
     if (empty($errors)) {
         if ($edit_mode && $id > 0) {
-            $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Modified_By=?, @Kategori=?";
-            $params = [$id, $nama_alat, $stok, $harga_alat, $photo_alat, $nama, $kategori];
+            $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Beli=?, @Harga_Jual=?, @Photo_Alat=?, @Modified_By=?, @Kategori=?";
+            $params = [$id, $nama_alat, $stok, $harga_beli, $harga_jual, $photo_alat, $nama, $kategori];
         } else {
-            $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Alat=?, @Photo_Alat=?, @Status=1, @Created_By=?, @Kategori=?";
-            $params = [$nama_alat, $stok, $harga_alat, $photo_alat, $nama, $kategori];
+            $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Beli=?, @Harga_Jual=?, @Photo_Alat=?, @Status=1, @Created_By=?, @Kategori=?";
+            $params = [$nama_alat, $stok, $harga_beli, $harga_jual, $photo_alat, $nama, $kategori];
         }
         $result = safeQuery($conn, $sql, $params);
         if ($result !== false) {
@@ -299,10 +309,12 @@ $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 $sort_by_param = 'nama_asc';
 if (isset($_GET['f_sort'])) {
     switch ($_GET['f_sort']) {
-        case 'nama_asc':  $sort_by_param = 'nama_asc';  break;
-        case 'stok_desc': $sort_by_param = 'stok_desc'; break;
-        case 'harga_desc':$sort_by_param = 'harga_desc';break;
-        case 'harga_asc': $sort_by_param = 'harga_asc'; break;
+        case 'nama_asc':        $sort_by_param = 'nama_asc';        break;
+        case 'stok_desc':       $sort_by_param = 'stok_desc';       break;
+        case 'harga_jual_desc': $sort_by_param = 'harga_jual_desc'; break;
+        case 'harga_jual_asc':  $sort_by_param = 'harga_jual_asc';  break;
+        case 'harga_beli_desc': $sort_by_param = 'harga_beli_desc'; break;
+        case 'harga_beli_asc':  $sort_by_param = 'harga_beli_asc';  break;
     }
 }
 
@@ -894,11 +906,17 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 </div>
                 <div class="val-msg" id="val-sizes"></div>
 
+                <label class="modal-label">Harga Beli <span class="required">*</span></label>
+                <input type="number" name="harga_beli" id="harga_beli" class="modal-input"
+                       value="<?= isset($edit_data['Harga_Beli']) ? intval($edit_data['Harga_Beli']) : '' ?>"
+                       placeholder="Contoh: 100000" min="0" autocomplete="off">
+                <div class="val-msg" id="val-harga_beli"></div>
+
                 <label class="modal-label">Harga Jual <span class="required">*</span></label>
-                <input type="number" name="harga_alat" id="harga_alat" class="modal-input"
-                       value="<?= isset($edit_data['Harga_Alat']) ? intval($edit_data['Harga_Alat']) : '' ?>"
+                <input type="number" name="harga_jual" id="harga_jual" class="modal-input"
+                       value="<?= isset($edit_data['Harga_Jual']) ? intval($edit_data['Harga_Jual']) : '' ?>"
                        placeholder="Contoh: 150000" min="20000" autocomplete="off">
-                <div class="val-msg" id="val-harga_alat"></div>
+                <div class="val-msg" id="val-harga_jual"></div>
 
                 <button type="submit" class="btn-submit" id="btnSubmit">
                     <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
@@ -944,7 +962,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 </div>
 
                 <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
-                <div class="detail-price"><?= rupiah($detail_data['Harga_Alat']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
+                <div class="detail-price"><?= rupiah($detail_data['Harga_Jual']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
 
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
@@ -952,8 +970,16 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                         <div class="detail-info-value"><?= intval($detail_data['Stok']) ?> <span style="font-size:11px; font-weight:500; color:var(--muted);">PCS</span></div>
                     </div>
                     <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Harga Satuan</div>
-                        <div class="detail-info-value" style="color:var(--shopee-orange);"><?= rupiah($detail_data['Harga_Alat']) ?></div>
+                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Harga Jual</div>
+                        <div class="detail-info-value" style="color:var(--shopee-orange);"><?= rupiah($detail_data['Harga_Jual']) ?></div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-coins"></i> Harga Beli</div>
+                        <div class="detail-info-value"><?= rupiah($detail_data['Harga_Beli']) ?></div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-chart-line"></i> Keuntungan / pcs</div>
+                        <div class="detail-info-value" style="color:var(--green);"><?= rupiah($detail_data['Harga_Jual'] - $detail_data['Harga_Beli']) ?></div>
                     </div>
                 </div>
 
@@ -1020,10 +1046,12 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                             <div class="filter-group">
                                 <label>Urutkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="nama_asc"  <?= ($_GET['f_sort'] ?? '') === 'nama_asc'  ? 'selected' : '' ?>>Nama A-Z</option>
-                                    <option value="stok_desc" <?= ($_GET['f_sort'] ?? '') === 'stok_desc' ? 'selected' : '' ?>>Stok Terbanyak</option>
-                                    <option value="harga_desc"<?= ($_GET['f_sort'] ?? '') === 'harga_desc'? 'selected' : '' ?>>Harga Termahal</option>
-                                    <option value="harga_asc" <?= ($_GET['f_sort'] ?? '') === 'harga_asc' ? 'selected' : '' ?>>Harga Termurah</option>
+                                    <option value="nama_asc"        <?= ($_GET['f_sort'] ?? '') === 'nama_asc'        ? 'selected' : '' ?>>Nama A-Z</option>
+                                    <option value="stok_desc"       <?= ($_GET['f_sort'] ?? '') === 'stok_desc'       ? 'selected' : '' ?>>Stok Terbanyak</option>
+                                    <option value="harga_jual_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_jual_desc' ? 'selected' : '' ?>>Harga Jual Termahal</option>
+                                    <option value="harga_jual_asc"  <?= ($_GET['f_sort'] ?? '') === 'harga_jual_asc'  ? 'selected' : '' ?>>Harga Jual Termurah</option>
+                                    <option value="harga_beli_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_beli_desc' ? 'selected' : '' ?>>Harga Beli Termahal</option>
+                                    <option value="harga_beli_asc"  <?= ($_GET['f_sort'] ?? '') === 'harga_beli_asc'  ? 'selected' : '' ?>>Harga Beli Termurah</option>
                                 </select>
                             </div>
                             <div class="filter-buttons">
@@ -1079,7 +1107,8 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="alat-card-info">
                     <div class="alat-card-cat"><?= htmlspecialchars($row['Kategori'] ?? 'Lainnya') ?></div>
                     <div class="alat-card-name"><?= htmlspecialchars($row['Nama_Alat']) ?></div>
-                    <div class="alat-card-price"><?= rupiah($row['Harga_Alat']) ?></div>
+                    <div class="alat-card-price"><?= rupiah($row['Harga_Jual']) ?></div>
+                    <div class="alat-card-price-beli" style="font-size:11px;color:var(--muted);font-weight:600;margin-top:-6px;">Modal: <?= rupiah($row['Harga_Beli']) ?></div>
                     <div class="alat-card-meta">
                         <span class="alat-card-stok">
                             <i class="fa-solid fa-boxes-stacked"></i><?= intval($row['Stok']) ?> tersedia
@@ -1318,8 +1347,27 @@ function validateForm() {
         }
     }
 
-    var harga = document.getElementById('harga_alat');
-    var valHarga = document.getElementById('val-harga_alat');
+    var hargaBeli = document.getElementById('harga_beli');
+    var valHargaBeli = document.getElementById('val-harga_beli');
+    var hargaBeliVal = 0;
+    if (hargaBeli && valHargaBeli) {
+        var vb = hargaBeli.value.trim();
+        var errHargaBeli = '';
+        if (vb === '') errHargaBeli = 'Harga beli wajib diisi.';
+        else if (isNaN(vb)) errHargaBeli = 'Harga beli harus berupa angka.';
+        else if (parseFloat(vb) < 0) errHargaBeli = 'Harga beli tidak boleh negatif.';
+        else if (parseFloat(vb) > 999999999) errHargaBeli = 'Harga beli terlalu besar.';
+        else hargaBeliVal = parseFloat(vb);
+        if (errHargaBeli) {
+            hargaBeli.classList.add('error');
+            valHargaBeli.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errHargaBeli;
+            valHargaBeli.classList.add('show');
+            valid = false;
+        }
+    }
+
+    var harga = document.getElementById('harga_jual');
+    var valHarga = document.getElementById('val-harga_jual');
     if (harga && valHarga) {
         var vh = harga.value.trim();
         var errHarga = '';
@@ -1327,6 +1375,7 @@ function validateForm() {
         else if (isNaN(vh)) errHarga = 'Harga jual harus berupa angka.';
         else if (parseFloat(vh) < 20000) errHarga = 'Harga jual minimal Rp 20.000.';
         else if (parseFloat(vh) > 999999999) errHarga = 'Harga jual terlalu besar.';
+        else if (parseFloat(vh) < hargaBeliVal) errHarga = 'Harga jual tidak boleh lebih kecil dari harga beli.';
         if (errHarga) {
             harga.classList.add('error');
             valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errHarga;
@@ -1403,10 +1452,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    var hargaEl = document.getElementById('harga_alat');
+    var hargaBeliEl = document.getElementById('harga_beli');
+    if (hargaBeliEl) {
+        hargaBeliEl.addEventListener('input', function() {
+            var valHargaBeli = document.getElementById('val-harga_beli');
+            var v = this.value.trim();
+            this.classList.remove('error'); valHargaBeli.classList.remove('show');
+            if (v !== '' && !isNaN(v) && parseFloat(v) < 0) {
+                this.classList.add('error');
+                valHargaBeli.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga beli tidak boleh negatif.';
+                valHargaBeli.classList.add('show');
+            }
+        });
+    }
+
+    var hargaEl = document.getElementById('harga_jual');
     if (hargaEl) {
         hargaEl.addEventListener('input', function() {
-            var valHarga = document.getElementById('val-harga_alat');
+            var valHarga = document.getElementById('val-harga_jual');
             var v = this.value.trim();
             this.classList.remove('error'); valHarga.classList.remove('show');
             if (v !== '' && !isNaN(v)) {
