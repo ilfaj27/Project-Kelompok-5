@@ -196,6 +196,12 @@ if ($chart_query !== null) {
 function rupiahFormat($n) { 
     return 'Rp ' . number_format($n, 0, ',', '.'); 
 }
+
+// ============================================================
+// SET TOPBAR VARIABLES
+// ============================================================
+$topbar_title = 'Dashboard Manajer';
+$topbar_breadcrumb = 'Dashboard / Ringkasan';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -731,37 +737,13 @@ include '../includes/sidebar.php';
 ?>
 
 <main class="main">
-<header class="topbar">
-    <div class="topbar-left">
-        <div class="topbar-title">Dashboard Manajer</div>
-        <div class="topbar-breadcrumb">Dashboard / Ringkasan</div>
-    </div>
-    <div class="topbar-right">
-        <div id="clock-display">
-            <div class="clock-time"><span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span></div>
-            <div class="clock-divider"></div>
-            <div class="clock-date" id="full-date">MEMUAT...</div>
-        </div>
-        <div class="dropdown-wrap">
-            <div class="topbar-user">
-                <div class="t-avatar">
-                    <?php if ($profile_photo): ?>
-                        <img src="<?= $profile_photo ?>" alt="Profile">
-                    <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
-                    <?php endif; ?>
-                </div>
-                <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
-                <i class="fa-solid fa-chevron-down t-chevron"></i>
-            </div>
-            <div class="dropdown-menu">
-                <a href="../profile/profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                <hr class="dd-divider">
-                <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-            </div>
-        </div>
-    </div>
-</header>
+
+<?php
+// ============================================================
+// INCLUDE TOPBAR UNIFIED (otomatis detect role = pemilik)
+// ============================================================
+include '../includes/topbar.php';
+?>
 
 <div class="content">
     <?php if($stok_rendah > 0): ?>
@@ -860,7 +842,7 @@ include '../includes/sidebar.php';
                 <div class="card-body">
                     <div class="quick-grid">
                         <a href="../master/karyawan.php" class="quick-card" style="color:var(--green);"><i class="fa-solid fa-user-tie"></i><span>Kelola Karyawan</span></a>
-                        <a href="../laporan/omzet.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-chart-line"></i><span>Laporan & Omzet</span></a>
+                        <a href="../laporan/laporan_omzet.php" class="quick-card" style="color:var(--purple);"><i class="fa-solid fa-chart-line"></i><span>Laporan & Omzet</span></a>
                         <a href="../profile/profile_pemilik.php" class="quick-card" style="color:var(--blue);"><i class="fa-solid fa-id-badge"></i><span>Profil Saya</span></a>
                     </div>
                 </div>
@@ -898,34 +880,6 @@ include '../includes/sidebar.php';
 </main>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
-    }
-    document.addEventListener('click', function () {
-        if (userDropdown) userDropdown.classList.remove('active');
-    });
-});
-
-function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('h').innerText = h;
-    document.getElementById('m').innerText = m;
-    document.getElementById('s').innerText = s;
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('full-date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-setInterval(updateClock, 1000);
-updateClock();
-
 const ctx = document.getElementById('omzetChart').getContext('2d');
 const omzetChart = new Chart(ctx, {
     type: 'bar',

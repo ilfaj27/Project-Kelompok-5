@@ -305,40 +305,40 @@ body::-webkit-scrollbar {
     .content { padding: 20px; }
     .topbar { padding: 0 20px; }
 }
+
+
+.topbar-user { background-color: #FFFFFF !important; }
+
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
+    color: #4B5563 !important;
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important;
+    border-color: #9CA3AF !important;
+    color: #1F2937 !important;
+}
 </style>
 </head>
 <body>
 
-<?php include '../includes/sidebar.php'; ?>
+<?php
+$current_page = 'profile';
+$sidebar_folder = 'profile';
+include '../includes/sidebar.php';
+?>
 
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Profil Saya</div>
-            <div class="topbar-breadcrumb">Akun / Profil</div>
-        </div>
-        <div class="topbar-right">
-            <div id="clock-display">
-                <div class="clock-time"><span id="h">00</span><span class="clock-colon">:</span><span id="m">00</span><span class="clock-colon">:</span><span id="s">00</span></div>
-                <div class="clock-divider"></div>
-                <div class="clock-date" id="full-date">MEMUAT...</div>
-            </div>
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar">
-                        <?php if ($photo_path && file_exists($photo_path)): ?><img src="<?= $photo_path ?>" alt="Profile"><?php else: ?><span style="font-size:13px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?>
-                    </div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role"><?= ($role === 'pemilik') ? 'MANAJER' : 'KARYAWAN' ?></div></div>
-                    <i class="fa-solid fa-chevron-down t-chevron"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="profile.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
-            </div>
-        </div>
-    </header>
+<?php
+// ============================================================
+// SET TOPBAR VARIABLES & INCLUDE UNIFIED TOPBAR
+// ============================================================
+$topbar_title = 'Profil Saya';
+$topbar_breadcrumb = 'Akun / Profil';
+include '../includes/topbar.php';
+?>
 
     <div class="content">
         <div class="page-header">
@@ -464,21 +464,6 @@ body::-webkit-scrollbar {
 </main>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
-    }
-    document.addEventListener('click', function () {
-        if (userDropdown) {
-            userDropdown.classList.remove('active');
-        }
-    });
-});
-
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');

@@ -117,69 +117,89 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
         </a>
     </nav>
 
-    <!-- ===== MASTER DATA (MINI GROUP) ===== -->
+    <!-- ===== MASTER DATA (DROPDOWN) ===== -->
     <div class="sb-section-label">Master Data</div>
-    <div class="sb-mini-group">
-        <a href="<?= ($sidebar_folder === 'master') ? 'tipe_member.php' : '../master/tipe_member.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'tipe_member') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
-            Kelola Tipe Member
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'fasilitas_lapangan.php' : '../master/fasilitas_lapangan.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'fasilitas') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
-            Kelola Fasilitas
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'alat.php' : '../master/alat.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'alat') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
-            Kelola Alat
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'promo.php' : '../master/promo.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'promo') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
-            Kelola Promo
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'customer.php' : '../master/customer.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'customer') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
-            Kelola Customer
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'lapangan.php' : '../master/lapangan.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'lapangan') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-            Kelola Lapangan
-        </a>
-        <a href="<?= ($sidebar_folder === 'master') ? 'jadwal.php' : '../master/jadwal.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'jadwal') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-            Kelola Jadwal
-        </a>
+    <div class="sb-dropdown" id="dropdown-master">
+        <button type="button" class="sb-dropdown-toggle <?= in_array($current_page, ['tipe_member','fasilitas','alat','promo','customer','lapangan','jadwal']) ? 'expanded' : '' ?>"
+                onclick="toggleDropdown('dropdown-master')">
+            <div class="sb-dropdown-left">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-database"></i></div>
+                <span>Master Data</span>
+            </div>
+            <i class="fa-solid fa-chevron-down sb-dropdown-arrow"></i>
+        </button>
+        <div class="sb-dropdown-menu <?= in_array($current_page, ['tipe_member','fasilitas','alat','promo','customer','lapangan','jadwal']) ? 'open' : '' ?>">
+            <a href="<?= ($sidebar_folder === 'master') ? 'tipe_member.php' : '../master/tipe_member.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'tipe_member') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-id-card"></i></div>
+                Kelola Tipe Member
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'fasilitas_lapangan.php' : '../master/fasilitas_lapangan.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'fasilitas') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-list-check"></i></div>
+                Kelola Fasilitas
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'alat.php' : '../master/alat.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'alat') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-toolbox"></i></div>
+                Kelola Alat
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'promo.php' : '../master/promo.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'promo') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-tags"></i></div>
+                Kelola Promo
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'customer.php' : '../master/customer.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'customer') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-users"></i></div>
+                Kelola Customer
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'lapangan.php' : '../master/lapangan.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'lapangan') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
+                Kelola Lapangan
+            </a>
+            <a href="<?= ($sidebar_folder === 'master') ? 'jadwal.php' : '../master/jadwal.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'jadwal') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+                Kelola Jadwal
+            </a>
+        </div>
     </div>
 
-    <!-- ===== TRANSAKSI (MINI GROUP) ===== -->
+    <!-- ===== TRANSAKSI (DROPDOWN) ===== -->
     <div class="sb-section-label">Transaksi</div>
-    <div class="sb-mini-group">
-        <a href="<?= ($sidebar_folder === 'transaksi') ? 'booking.php' : '../transaksi/booking.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'booking') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
-            Kelola Booking
-        </a>
-        <a href="<?= ($sidebar_folder === 'transaksi') ? 'langganan.php' : '../transaksi/langganan.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'langganan') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
-            Kelola Langganan
-        </a>
-        <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembelian.php' : '../transaksi/pembelian.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'pembelian_alat') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
-            Kelola Pembelian Alat
-        </a>
-        <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembatalan.php' : '../transaksi/pembatalan.php' ?>"
-           class="sb-link sb-link-mini <?= ($current_page === 'pembatalan') ? 'active' : '' ?>">
-            <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
-            Kelola Pembatalan
-        </a>
+    <div class="sb-dropdown" id="dropdown-transaksi">
+        <button type="button" class="sb-dropdown-toggle <?= in_array($current_page, ['booking','langganan','pembelian_alat','pembatalan']) ? 'expanded' : '' ?>"
+                onclick="toggleDropdown('dropdown-transaksi')">
+            <div class="sb-dropdown-left">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                <span>Transaksi</span>
+            </div>
+            <i class="fa-solid fa-chevron-down sb-dropdown-arrow"></i>
+        </button>
+        <div class="sb-dropdown-menu <?= in_array($current_page, ['booking','langganan','pembelian_alat','pembatalan']) ? 'open' : '' ?>">
+            <a href="<?= ($sidebar_folder === 'transaksi') ? 'booking.php' : '../transaksi/booking.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'booking') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-calendar-check"></i></div>
+                Kelola Booking
+            </a>
+            <a href="<?= ($sidebar_folder === 'transaksi') ? 'langganan.php' : '../transaksi/langganan.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'langganan') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-crown"></i></div>
+                Kelola Langganan
+            </a>
+            <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembelian.php' : '../transaksi/pembelian.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'pembelian_alat') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-cart-shopping"></i></div>
+                Kelola Pembelian Alat
+            </a>
+            <a href="<?= ($sidebar_folder === 'transaksi') ? 'pembatalan.php' : '../transaksi/pembatalan.php' ?>"
+               class="sb-link sb-link-mini <?= ($current_page === 'pembatalan') ? 'active' : '' ?>">
+                <div class="sb-icon-wrap"><i class="fa-solid fa-ban"></i></div>
+                Kelola Pembatalan
+            </a>
+        </div>
     </div>
 
     <!-- ===== AKUN ===== -->
@@ -424,7 +444,143 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MINI GROUP  —  COMPACT ITEMS WITH LEFT BORDER
+   DROPDOWN  —  MASTER DATA & TRANSAKSI
+   ═══════════════════════════════════════════════════════════════ */
+.sb-dropdown {
+    margin-bottom: 4px;
+    animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
+    opacity: 0;
+}
+
+.sb-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+    color: #6B7280;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+    position: relative;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+}
+.sb-dropdown-toggle::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0;
+    width: 0; height: 100%;
+    background: linear-gradient(90deg, rgba(255,69,0,0.15), rgba(255,69,0,0.05));
+    border-radius: 10px;
+    transition: width 0.35s cubic-bezier(0.16,1,0.3,1);
+    z-index: 0;
+}
+.sb-dropdown-toggle:hover::before { width: 100%; }
+.sb-dropdown-toggle:hover {
+    color: #E5E7EB;
+    transform: translateX(4px);
+}
+.sb-dropdown-toggle:hover .sb-icon-wrap {
+    background: rgba(255,255,255,.12);
+    transform: scale(1.15) rotate(5deg);
+}
+.sb-dropdown-toggle .sb-icon-wrap {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    flex-shrink: 0;
+    background: rgba(255,255,255,.04);
+    position: relative;
+    z-index: 1;
+}
+
+.sb-dropdown-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.sb-dropdown-arrow {
+    font-size: 11px;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    z-index: 1;
+    color: #4B5563;
+}
+.sb-dropdown-toggle:hover .sb-dropdown-arrow { color: #9CA3AF; }
+
+/* Expanded state */
+.sb-dropdown-toggle.expanded .sb-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* Active child indicator on toggle */
+.sb-dropdown-toggle.has-active {
+    color: #E5E7EB;
+}
+.sb-dropdown-toggle.has-active .sb-icon-wrap {
+    background: var(--orange);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(255,69,0,.3);
+}
+
+/* Dropdown menu */
+.sb-dropdown-menu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease, padding 0.35s ease;
+    opacity: 0;
+    padding-left: 14px;
+    margin-left: 8px;
+    border-left: 2px solid rgba(255,255,255,.08);
+}
+.sb-dropdown-menu.open {
+    max-height: 600px;
+    opacity: 1;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+/* Mini link inside dropdown */
+.sb-dropdown-menu .sb-link.sb-link-mini {
+    padding: 7px 10px;
+    font-size: 12px;
+    margin-bottom: 1px;
+    border-radius: 8px;
+}
+.sb-dropdown-menu .sb-link.sb-link-mini .sb-icon-wrap {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+.sb-dropdown-menu .sb-link.sb-link-mini:hover {
+    transform: translateX(3px);
+}
+.sb-dropdown-menu .sb-link.sb-link-mini:hover .sb-icon-wrap {
+    transform: scale(1.1);
+}
+
+/* Active state for mini inside dropdown */
+.sb-dropdown-menu .sb-link.sb-link-mini.active::after {
+    right: -14px;
+    width: 2px;
+    height: 16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MINI GROUP  —  COMPACT ITEMS WITH LEFT BORDER (LAPORAN - tetap)
    ═══════════════════════════════════════════════════════════════ */
 .sb-mini-group {
     position: relative;
@@ -545,19 +701,23 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 nav:nth-of-type(1) .sb-link:nth-child(1) { animation-delay: 0.20s; }
 nav:nth-of-type(1) .sb-link:nth-child(2) { animation-delay: 0.25s; }
 
-/* Mini group links — staggered within each group */
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(1) { animation-delay: 0.40s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(2) { animation-delay: 0.44s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(3) { animation-delay: 0.48s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(4) { animation-delay: 0.52s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(5) { animation-delay: 0.56s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(6) { animation-delay: 0.60s; }
-.sb-mini-group:nth-of-type(1) .sb-link:nth-child(7) { animation-delay: 0.64s; }
+/* Dropdown toggles */
+.sb-dropdown:nth-of-type(1) { animation-delay: 0.40s; }
+.sb-dropdown:nth-of-type(2) { animation-delay: 0.60s; }
 
-.sb-mini-group:nth-of-type(2) .sb-link:nth-child(1) { animation-delay: 0.60s; }
-.sb-mini-group:nth-of-type(2) .sb-link:nth-child(2) { animation-delay: 0.64s; }
-.sb-mini-group:nth-of-type(2) .sb-link:nth-child(3) { animation-delay: 0.68s; }
-.sb-mini-group:nth-of-type(2) .sb-link:nth-child(4) { animation-delay: 0.72s; }
+/* Dropdown menu items - staggered */
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(1) { animation-delay: 0.44s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(2) { animation-delay: 0.48s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(3) { animation-delay: 0.52s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(4) { animation-delay: 0.56s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(5) { animation-delay: 0.60s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(6) { animation-delay: 0.64s; }
+#dropdown-master .sb-dropdown-menu .sb-link:nth-child(7) { animation-delay: 0.68s; }
+
+#dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(1) { animation-delay: 0.64s; }
+#dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(2) { animation-delay: 0.68s; }
+#dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(3) { animation-delay: 0.72s; }
+#dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(4) { animation-delay: 0.76s; }
 
 /* Akun nav */
 nav:nth-of-type(2) .sb-link:nth-child(1) { animation-delay: 0.80s; }
@@ -571,6 +731,23 @@ nav:nth-of-type(2) .sb-link:nth-child(1) { animation-delay: 0.80s; }
 </style>
 
 <script>
+/* ============================================================
+   DROPDOWN TOGGLE
+   ============================================================ */
+function toggleDropdown(id) {
+    const dropdown = document.getElementById(id);
+    if (!dropdown) return;
+    const menu = dropdown.querySelector('.sb-dropdown-menu');
+    const toggle = dropdown.querySelector('.sb-dropdown-toggle');
+    if (menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        toggle.classList.remove('expanded');
+    } else {
+        menu.classList.add('open');
+        toggle.classList.add('expanded');
+    }
+}
+
 /* ============================================================
    KONFIRMASI LOGOUT  (SweetAlert2)
    ============================================================ */

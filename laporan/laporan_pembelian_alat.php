@@ -379,6 +379,45 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+/* CLOCK */
+#clock-display { display: flex; align-items: center; gap: 16px; }
+.clock-time { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--orange); 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    line-height: 1; 
+}
+.clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
+.clock-date { 
+    font-family: 'Barlow', sans-serif; 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+
+
+
+.topbar-user { background-color: #FFFFFF !important; }
+
+.topbar-btn:hover, .topbar-user:hover {
+    background-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
+    color: #4B5563 !important;
+}
+
+.topbar-btn:active, .topbar-user:active {
+    background-color: #D1D5DB !important;
+    border-color: #9CA3AF !important;
+    color: #1F2937 !important;
+}
 </style>
 </head>
 <body>
@@ -389,33 +428,14 @@ $sidebar_folder = 'laporan';
 include '../includes/sidebar.php';
 ?>
 <main class="main">
-<header class="topbar">
-    <div class="topbar-left">
-        <div class="topbar-title">Laporan Pembelian Alat</div>
-        <div class="topbar-breadcrumb">Laporan / Pembelian Alat</div>
-    </div>
-    <div class="topbar-right">
-        <button class="topbar-btn" onclick="window.print()" title="Cetak Laporan"><i class="fa-solid fa-print"></i></button>
-        <div class="dropdown-wrap">
-            <div class="topbar-user">
-                <div class="t-avatar">
-                    <?php if ($profile_photo): ?>
-                        <img src="<?= $profile_photo ?>" alt="Profile">
-                    <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
-                    <?php endif; ?>
-                </div>
-                <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
-                <i class="fa-solid fa-chevron-down t-chevron"></i>
-            </div>
-            <div class="dropdown-menu">
-                <a href="../profile/profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                <hr class="dd-divider">
-                <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-            </div>
-        </div>
-    </div>
-</header>
+<?php
+// ============================================================
+// SET TOPBAR VARIABLES & INCLUDE UNIFIED TOPBAR
+// ============================================================
+$topbar_title = 'Laporan Pembelian Alat';
+$topbar_breadcrumb = 'Laporan / Pembelian Alat';
+include '../includes/topbar.php';
+?>
 
 <div class="content">
     <!-- Filter Bar -->
@@ -456,6 +476,7 @@ include '../includes/sidebar.php';
                 <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Berhasil</option>
             </select>
         </div>
+        <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan" style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
         <button type="submit" class="filter-btn"><i class="fa-solid fa-filter"></i> Terapkan</button>
         <a href="laporan_pembelian_alat.php" class="filter-btn secondary"><i class="fa-solid fa-rotate-right"></i> Reset</a>
     </form>
@@ -600,19 +621,6 @@ function toggleCustomDate(select) {
     document.getElementById('custom-start').style.display = show ? 'flex' : 'none';
     document.getElementById('custom-end').style.display = show ? 'flex' : 'none';
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
-    }
-    document.addEventListener('click', function () {
-        if (userDropdown) userDropdown.classList.remove('active');
-    });
-});
 
 const ctx = document.getElementById('beliChart').getContext('2d');
 new Chart(ctx, {

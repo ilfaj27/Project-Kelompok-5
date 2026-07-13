@@ -1801,31 +1801,16 @@ body::-webkit-scrollbar { display: none; }
 
 <!-- MAIN CONTENT -->
 <main class="main">
-    <header class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">Kelola Data Karyawan</div>
-            <div class="topbar-breadcrumb">Karyawan</div>
-        </div>
-        <div class="topbar-right">
-            <div id="clock-display">
-                <div class="clock-time"><span id="clock-h">00</span><span class="clock-colon">:</span><span id="clock-m">00</span><span class="clock-colon">:</span><span id="clock-s">00</span></div>
-                <div class="clock-divider"></div>
-                <div class="clock-date" id="clock-date">MEMUAT...</div>
-            </div>
-            <div class="dropdown-wrap">
-                <div class="topbar-user">
-                    <div class="t-avatar"><?php if ($profile_photo && file_exists($profile_photo)): ?><img src="<?= $profile_photo ?>" alt="Profile"><?php else: ?><span style="font-size:13px; font-weight:800; color:#fff;"><?= strtoupper(substr($nama, 0, 1)) ?></span><?php endif; ?></div>
-                    <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">MANAJER</div></div>
-                    <i class="fa-solid fa-chevron-down t-chevron"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="../profile/profile_pemilik.php" class="dd-item"><i class="fa-solid fa-id-badge"></i> Profil Saya</a>
-                    <hr class="dd-divider">
-                    <a href="../login/logout.php" class="dd-item" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-                </div>
-            </div>
-        </div>
-    </header>
+
+<?php
+// ============================================================
+// SET TOPBAR VARIABLES & INCLUDE UNIFIED TOPBAR
+// ============================================================
+$topbar_title = 'Kelola Data Karyawan';
+$topbar_breadcrumb = 'Karyawan';
+include '../includes/topbar.php';
+?>
+
 
     <div class="content">
         <!-- PAGE HEADER -->
@@ -2495,38 +2480,7 @@ if (btnFilterToggle && filterCard) {
     });
 }
 
-// ============================================
-// CLOCK
-// ============================================
-(function initClock() {
-    function updateClock() {
-        try {
-            const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
 
-            const hEl = document.getElementById('clock-h');
-            const mEl = document.getElementById('clock-m');
-            const sEl = document.getElementById('clock-s');
-            const dateEl = document.getElementById('clock-date');
-
-            if (hEl) hEl.textContent = h;
-            if (mEl) mEl.textContent = m;
-            if (sEl) sEl.textContent = s;
-
-            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-            if (dateEl) dateEl.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
-        } catch (e) {
-            console.error('Clock error:', e);
-        }
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-})();
 
 // ============================================
 // NOTIFICATIONS
@@ -2591,16 +2545,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ============================================
-// DROPDOWN PROFILE CLICK
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-    const userDropdown = document.querySelector('.dropdown-wrap');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function(e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
+
     }
     document.addEventListener('click', function() {
         if (userDropdown) userDropdown.classList.remove('active');
