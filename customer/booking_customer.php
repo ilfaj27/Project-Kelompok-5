@@ -15,6 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+
 date_default_timezone_set('Asia/Jakarta');
 
 include '../includes/auth_helper.php';
@@ -385,7 +386,7 @@ for ($i = 0; $i < 7; $i++) {
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="../asset/css/navbar_footer.css">
+    <link rel="stylesheet" href="../asset/css/navbar_footer.css?v=1.1">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Variabel warna disamakan dengan tema oranye pada landing page (index.php).
@@ -430,18 +431,17 @@ for ($i = 0; $i < 7; $i++) {
             -webkit-font-smoothing: antialiased
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            display: none;
         }
 
-        ::-webkit-scrollbar-track {
-            background: transparent
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 3px
+        html,
+        body {
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE/Edge */
         }
 
         /* ============ ANIMATIONS (disamakan dengan pembelian_alat.php / langganan_customer.php / pembatalan_customer.php) ============ */
@@ -1751,124 +1751,6 @@ for ($i = 0; $i < 7; $i++) {
             font-weight: 600
         }
 
-        /* ============ FOOTER (disamakan dengan langganan_customer.php) ============ */
-        footer {
-            background: #0B0B0C;
-            padding: 60px 80px 30px;
-            border-top: 1px solid #222225;
-            animation: fadeInUp 0.6s ease-out both
-        }
-
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1.5fr;
-            gap: 40px;
-            max-width: 1440px;
-            margin: 0 auto
-        }
-
-        .footer-logo img {
-            height: 50px;
-            width: auto;
-            margin-bottom: 16px;
-            transition: transform 0.3s ease
-        }
-
-        .footer-logo:hover img {
-            transform: scale(1.05)
-        }
-
-        .footer-desc {
-            font-size: 14px;
-            color: #8E8E93;
-            line-height: 1.6;
-            margin-bottom: 20px
-        }
-
-        .social-links {
-            display: flex;
-            gap: 10px
-        }
-
-        .social-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid #222225;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #8E8E93;
-            text-decoration: none;
-            font-size: 14px;
-            transition: all 0.3s ease
-        }
-
-        .social-btn:hover {
-            background: var(--orange);
-            border-color: var(--orange);
-            color: #fff;
-            transform: translateY(-2px)
-        }
-
-        .footer-col h4 {
-            font-size: 14px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px
-        }
-
-        .footer-col ul {
-            list-style: none;
-            padding: 0
-        }
-
-        .footer-col ul li {
-            margin-bottom: 12px
-        }
-
-        .footer-col ul li a {
-            color: #8E8E93;
-            text-decoration: none;
-            font-size: 13px;
-            transition: all 0.3s ease;
-            display: inline-block
-        }
-
-        .footer-col ul li a:hover {
-            color: var(--orange);
-            transform: translateX(4px)
-        }
-
-        .contact-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            color: #8E8E93;
-            font-size: 13px;
-            margin-bottom: 12px;
-            line-height: 1.5
-        }
-
-        .contact-item i {
-            color: var(--orange);
-            font-size: 14px;
-            margin-top: 2px;
-            flex-shrink: 0
-        }
-
-        .footer-bottom {
-            border-top: 1px solid #222225;
-            margin-top: 40px;
-            padding-top: 20px;
-            text-align: center;
-            color: #636366;
-            font-size: 12px
-        }
-
         /* ============ UPLOAD BUKTI PEMBAYARAN ============ */
         .bukti-upload-box {
             display: flex;
@@ -2195,7 +2077,8 @@ for ($i = 0; $i < 7; $i++) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('bookingModal')">Batal</button>
+                <!-- Cukup tambahkan kelas btn-full di bawah ini -->
+                <button class="btn-secondary btn-full" onclick="closeModal('bookingModal')">Batal</button>
                 <button class="btn-primary btn-full" id="btnConfirmBooking" onclick="confirmBooking()"><i
                         class="fa-solid fa-lock"></i> Bayar Sekarang</button>
             </div>
@@ -2257,8 +2140,7 @@ for ($i = 0; $i < 7; $i++) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary btn-full" onclick="backToBookingModal()"><i
-                        class="fa-solid fa-arrow-left"></i> Kembali</button>
+                <!-- Tombol kembali telah dihapus, menyisakan tombol konfirmasi saja -->
                 <button class="btn-primary btn-full" onclick="finishPayment()"><i class="fa-solid fa-circle-check"></i>
                     Saya Sudah Bayar</button>
             </div>
