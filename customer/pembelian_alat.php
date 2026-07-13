@@ -59,16 +59,48 @@ $member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
 // ============================================================================
 if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     header('Content-Type: application/json');
-    $input = json_decode(file_get_contents('php://input'), true);
 
-    $cart = $input['cart_data'] ?? [];
-    $metode = htmlspecialchars($input['metode_pembayaran'] ?? '');
-    $total = floatval($input['total_bayar'] ?? 0);
+    // NOTE: request sekarang multipart/form-data (bukan JSON body lagi),
+    // karena harus ikut kirim file bukti pembayaran.
+    $cart = json_decode($_POST['cart_data'] ?? '[]', true) ?: [];
+    $metode = htmlspecialchars($_POST['metode_pembayaran'] ?? '');
+    $total = floatval($_POST['total_bayar'] ?? 0);
 
     if (empty($cart) || empty($metode) || $total <= 0) {
         echo json_encode(['success' => false, 'message' => 'Data pesanan tidak valid.']);
         exit();
     }
+
+    // ------------------------------------------------------------------
+    // VALIDASI WAJIB: Bukti Pembayaran (foto/image)
+    // ------------------------------------------------------------------
+    if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK || empty($_FILES['bukti_pembayaran']['name'])) {
+        echo json_encode(['success' => false, 'message' => 'Bukti pembayaran wajib diupload (foto/screenshot transfer).']);
+        exit();
+    }
+
+    $bukti_file = $_FILES['bukti_pembayaran'];
+    $bukti_ext = strtolower(pathinfo($bukti_file['name'], PATHINFO_EXTENSION));
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp'];
+    if (!in_array($bukti_ext, $allowed_ext)) {
+        echo json_encode(['success' => false, 'message' => 'Bukti pembayaran harus berupa foto (JPG, PNG, atau WEBP).']);
+        exit();
+    }
+    if ($bukti_file['size'] > 5 * 1024 * 1024) {
+        echo json_encode(['success' => false, 'message' => 'Ukuran foto bukti pembayaran maksimal 5MB.']);
+        exit();
+    }
+
+    $bukti_upload_dir = '../asset/image/bukti_pembayaran/';
+    if (!is_dir($bukti_upload_dir)) {
+        @mkdir($bukti_upload_dir, 0755, true);
+    }
+    $bukti_filename = 'bukti_' . time() . '_' . uniqid() . '.' . $bukti_ext;
+    if (!move_uploaded_file($bukti_file['tmp_name'], $bukti_upload_dir . $bukti_filename)) {
+        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan foto bukti pembayaran. Coba lagi.']);
+        exit();
+    }
+    $bukti_pembayaran_path = 'asset/image/bukti_pembayaran/' . $bukti_filename;
 
     if (sqlsrv_begin_transaction($conn) === false) {
         echo json_encode(['success' => false, 'message' => 'Gagal menginisiasi transaksi database.']);
@@ -98,7 +130,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
 
         // 1. Validasi stok (total per alat + stok per ukuran kalau ada)
         foreach ($grouped as $id_alat => $g) {
-            $cek = sqlsrv_query($conn, "SELECT Nama_Alat, Stok, Harga_Alat FROM Alat WHERE ID_Alat = ? AND Status = 1 AND Is_Deleted = 0", array($id_alat));
+            $cek = sqlsrv_query($conn, "SELECT Nama_Alat, Stok, Harga_Jual FROM Alat WHERE ID_Alat = ? AND Status = 1 AND Is_Deleted = 0", array($id_alat));
             $alat_data = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
             if (!$alat_data) throw new Exception("Salah satu alat tidak ditemukan.");
             if ($alat_data['Stok'] < $g['jumlah']) {
@@ -115,16 +147,16 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
                 }
             }
 
-            $subtotal = $alat_data['Harga_Alat'] * $g['jumlah'];
+            $subtotal = $alat_data['Harga_Jual'] * $g['jumlah'];
             $grouped[$id_alat]['subtotal'] = $subtotal;
             $calculated_total += $subtotal;
         }
 
         // 2. Insert ke Beli_Alat (Status = 0 -> Menunggu Konfirmasi Karyawan)
-        $sql_beli = "INSERT INTO Beli_Alat (ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Status, Created_By, Created_Date)
+        $sql_beli = "INSERT INTO Beli_Alat (ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Bukti_Pembayaran, Status, Created_By, Created_Date)
                      OUTPUT INSERTED.ID_Beli
-                     VALUES (1, ?, GETDATE(), ?, ?, 0, ?, GETDATE())"; // Default Karyawan 1 untuk online
-        $stmt_beli = sqlsrv_query($conn, $sql_beli, array($id_customer, $metode, $calculated_total, $nama_customer));
+                     VALUES (1, ?, GETDATE(), ?, ?, ?, 0, ?, GETDATE())"; // Default Karyawan 1 untuk online
+        $stmt_beli = sqlsrv_query($conn, $sql_beli, array($id_customer, $metode, $calculated_total, $bukti_pembayaran_path, $nama_customer));
         if ($stmt_beli === false) throw new Exception("Gagal membuat data pesanan utama.");
 
         $row_id = sqlsrv_fetch_array($stmt_beli, SQLSRV_FETCH_ASSOC);
@@ -145,28 +177,20 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
             $stmt_detail = sqlsrv_query($conn, $sql_detail, array($id_alat, $id_beli, $g['jumlah'], $g['subtotal'], $ukuran_label));
             if ($stmt_detail === false) throw new Exception("Gagal menyimpan detail alat.");
 
-            // Kurangi stok total Alat (perilaku sama seperti versi awal).
-            // CATATAN TIM: jika trigger trg_DetailBeli_AutoUpdateStok (BasisData_T.sql)
-            // diaktifkan, baris UPDATE di bawah akan menyebabkan stok terpotong DUA KALI.
-            // Aktifkan salah satu saja — trigger ATAU update manual ini.
-            $sql_update_stok = "UPDATE Alat SET Stok = Stok - ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?";
-            $stmt_update = sqlsrv_query($conn, $sql_update_stok, array($g['jumlah'], $nama_customer, $id_alat));
-            if ($stmt_update === false) throw new Exception("Gagal memperbarui stok alat.");
-
-            // Kurangi stok per ukuran di Alat_Size supaya master alat ikut akurat.
-            foreach ($g['sizes'] as $uk => $qty) {
-                if ($uk === 'All Size') {
-                    sqlsrv_query($conn, "UPDATE Alat_Size SET Stok = CASE WHEN Stok >= ? THEN Stok - ? ELSE 0 END WHERE ID_Alat = ? AND Ukuran = 'All Size'", array($qty, $qty, $id_alat));
-                } else {
-                    sqlsrv_query($conn, "UPDATE Alat_Size SET Stok = CASE WHEN Stok >= ? THEN Stok - ? ELSE 0 END WHERE ID_Alat = ? AND Ukuran = ?", array($qty, $qty, $id_alat, $uk));
-                }
-            }
+            // CATATAN TIM: Stok Alat & Alat_Size TIDAK dipotong manual di sini.
+            // Trigger trg_DetailBeliAlat_AutoUpdateStok (Transaksi_PembelianAlat_SP_TRG.sql)
+            // otomatis motong Alat.Stok & Alat_Size.Stok begitu baris di atas ke-insert.
+            // JANGAN tambahkan UPDATE Stok manual lagi di sini, nanti stok kepotong 2x.
         }
 
         sqlsrv_commit($conn);
         echo json_encode(['success' => true, 'message' => 'Pesanan berhasil dibuat! Menunggu konfirmasi karyawan.']);
     } catch (Exception $e) {
         sqlsrv_rollback($conn);
+        // Hapus file bukti pembayaran yang sudah keburu keupload, biar gak jadi file nyampah
+        if (!empty($bukti_pembayaran_path) && file_exists('../' . $bukti_pembayaran_path)) {
+            @unlink('../' . $bukti_pembayaran_path);
+        }
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit();
@@ -177,7 +201,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
 // ============================================================================
 $alat_list = [];
 $query_alat = sqlsrv_query($conn, 
-    "SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Alat, Photo_Alat, Status 
+    "SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Jual, Photo_Alat, Status 
      FROM Alat 
      WHERE Status = 1 AND Is_Deleted = 0 AND Stok > 0
      ORDER BY Nama_Alat ASC"
@@ -473,6 +497,20 @@ function resolvePhotoPath($photo_path) {
     .payment-card-content { display:flex; flex-direction:column; justify-content:center; }
     .payment-name { font-size:11px; font-weight:700; color:var(--text-primary); line-height:1.3; }
     .payment-sub { font-size:9px; color:var(--muted); margin-top:1px; font-weight:500; }
+
+    /* ---- BUKTI PEMBAYARAN UPLOAD ---- */
+    .bukti-upload-section { text-align:left; margin: 6px 0 16px; }
+    .bukti-upload-label { font-size:12.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+    .bukti-upload-label i { color: var(--orange); }
+    .bukti-required { font-size:10px; font-weight:800; color: var(--red, #EF4444); }
+    .bukti-upload-box { display:flex; align-items:center; justify-content:center; flex-direction:column; border:2px dashed var(--border); border-radius:12px; padding:20px 14px; cursor:pointer; transition: var(--transition-smooth); min-height:110px; background: var(--bg, #FAFAFA); }
+    .bukti-upload-box:hover { border-color: var(--orange); background: var(--orange-lt); }
+    .bukti-upload-box.has-file { border-style:solid; border-color: var(--green, #10B981); padding:8px; }
+    .bukti-upload-box i { font-size:22px; color: var(--muted); margin-bottom:6px; }
+    .bukti-upload-text { font-size:12px; font-weight:700; color: var(--text-primary); }
+    .bukti-upload-hint { font-size:10.5px; color: var(--muted); margin-top:2px; }
+    #buktiUploadPreview { max-width:100%; max-height:160px; border-radius:8px; object-fit:contain; }
+    .bukti-upload-error { font-size:11px; color: var(--red, #EF4444); font-weight:600; margin-top:6px; min-height:14px; }
     .qris-logo { font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:14px; color:#000; letter-spacing:-.5px; }
 
     .btn-booking { width:100%; background:var(--orange); color:#fff; border:none; border-radius:12px; padding:14px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:16px; transition:var(--transition-smooth); position:relative; overflow:hidden; }
@@ -695,7 +733,7 @@ function resolvePhotoPath($photo_path) {
                 </div>
                 <div class="alat-card-info">
                     <div class="alat-card-name"><?php echo htmlspecialchars($alat['Nama_Alat']); ?></div>
-                    <div class="alat-card-price"><?php echo 'Rp ' . number_format($alat['Harga_Alat'], 0, ',', '.'); ?></div>
+                    <div class="alat-card-price"><?php echo 'Rp ' . number_format($alat['Harga_Jual'], 0, ',', '.'); ?></div>
 
                     <?php if ($has_real_sizes): ?>
                     <div class="alat-card-size-group">
@@ -726,7 +764,7 @@ function resolvePhotoPath($photo_path) {
                             </button>
                         </div>
                         <button class="btn-add-cart"
-                                onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Alat']; ?>, <?php echo intval($alat['Stok']); ?>, <?php echo $has_real_sizes ? 'true' : 'false'; ?>)">
+                                onclick="addToCart(<?php echo $alat['ID_Alat']; ?>, '<?php echo htmlspecialchars($alat['Nama_Alat'], ENT_QUOTES); ?>', <?php echo $alat['Harga_Jual']; ?>, <?php echo intval($alat['Stok']); ?>, <?php echo $has_real_sizes ? 'true' : 'false'; ?>)">
                             <i class="fa-solid fa-plus"></i> Tambah
                         </button>
                     </div>
@@ -881,6 +919,21 @@ function resolvePhotoPath($photo_path) {
         </div>
 
         <hr class="modal-divider">
+
+        <div class="bukti-upload-section">
+            <div class="bukti-upload-label"><i class="fa-solid fa-camera"></i> Upload Bukti Pembayaran <span class="bukti-required">*Wajib</span></div>
+            <label for="buktiPembayaranInput" class="bukti-upload-box" id="buktiUploadBox">
+                <div id="buktiUploadPlaceholder">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <div class="bukti-upload-text">Klik untuk pilih foto/screenshot bukti transfer</div>
+                    <div class="bukti-upload-hint">JPG, PNG, atau WEBP. Maks 5MB.</div>
+                </div>
+                <img id="buktiUploadPreview" style="display:none;">
+            </label>
+            <input type="file" id="buktiPembayaranInput" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none" onchange="handleBuktiPembayaranSelect(this)">
+            <div class="bukti-upload-error" id="buktiUploadError"></div>
+        </div>
+
         <button class="btn-done-pay" id="btnDonePayment">
             Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
         </button>
@@ -895,6 +948,7 @@ let cart = [];
 let checkoutTotalValue = 0;
 let selectedPaymentMethod = 'Transfer Bank';
 let countdownInterval;
+let buktiPembayaranFile = null;
 const selectedSizes = {}; // { idAlat: {size, stok} }
 
 function formatRupiah(angka) {
@@ -1099,6 +1153,7 @@ function proceedToPayment() {
     closeCheckoutModal();
     document.getElementById('paymentTotalAmount').textContent = formatRupiah(checkoutTotalValue);
     showPaymentMethodInstructions(selectedPaymentMethod);
+    resetBuktiPembayaranUpload();
 
     document.getElementById('paymentInstructionModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -1158,24 +1213,69 @@ function copyVA() {
     });
 }
 
+// ============================================================================
+// UPLOAD BUKTI PEMBAYARAN (WAJIB)
+// ============================================================================
+function resetBuktiPembayaranUpload() {
+    buktiPembayaranFile = null;
+    document.getElementById('buktiPembayaranInput').value = '';
+    document.getElementById('buktiUploadBox').classList.remove('has-file');
+    document.getElementById('buktiUploadPlaceholder').style.display = 'flex';
+    document.getElementById('buktiUploadPlaceholder').style.flexDirection = 'column';
+    document.getElementById('buktiUploadPlaceholder').style.alignItems = 'center';
+    document.getElementById('buktiUploadPreview').style.display = 'none';
+    document.getElementById('buktiUploadError').textContent = '';
+}
+
+function handleBuktiPembayaranSelect(input) {
+    const errorEl = document.getElementById('buktiUploadError');
+    errorEl.textContent = '';
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        errorEl.textContent = 'File harus berupa foto (JPG, PNG, atau WEBP).';
+        input.value = '';
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        errorEl.textContent = 'Ukuran foto maksimal 5MB.';
+        input.value = '';
+        return;
+    }
+
+    buktiPembayaranFile = file;
+    document.getElementById('buktiUploadBox').classList.add('has-file');
+    document.getElementById('buktiUploadPlaceholder').style.display = 'none';
+    const preview = document.getElementById('buktiUploadPreview');
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+}
+
 // AJAX SUBMIT FINAL PAYMENT
 document.getElementById('btnDonePayment').addEventListener('click', function() {
     if (cart.length === 0) return;
+
+    if (!buktiPembayaranFile) {
+        document.getElementById('buktiUploadError').textContent = 'Wajib upload bukti pembayaran sebelum melanjutkan.';
+        document.getElementById('buktiUploadBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
 
     const btn = document.getElementById('btnDonePayment');
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
     btn.disabled = true;
 
-    const payload = {
-        cart_data: cart,
-        metode_pembayaran: selectedPaymentMethod,
-        total_bayar: checkoutTotalValue
-    };
+    const formData = new FormData();
+    formData.append('cart_data', JSON.stringify(cart));
+    formData.append('metode_pembayaran', selectedPaymentMethod);
+    formData.append('total_bayar', checkoutTotalValue);
+    formData.append('bukti_pembayaran', buktiPembayaranFile);
 
     fetch('pembelian_alat.php?action=checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: formData
     })
     .then(response => response.json())
     .then(data => {

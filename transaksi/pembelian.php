@@ -193,7 +193,7 @@ $page = min($page, $total_pages);
 $offset = ($page - 1) * $limit;
 
 $sql_pembelian = "SELECT BA.ID_Beli, BA.ID_Customer, BA.ID_Karyawan, 
-                       BA.Tanggal_Beli, BA.Metode_Pembayaran, BA.Total_Bayar, BA.Status,
+                       BA.Tanggal_Beli, BA.Metode_Pembayaran, BA.Total_Bayar, BA.Status, BA.Bukti_Pembayaran,
                        BA.Created_Date, BA.Modified_Date, BA.Modified_By,
                        C.Nama_Customer, C.Email, C.No_Telepon,
                        K.Nama_Karyawan as Nama_Karyawan_Input
@@ -218,7 +218,7 @@ if ($q_pembelian) {
     while ($row = sqlsrv_fetch_array($q_pembelian, SQLSRV_FETCH_ASSOC)) {
         $id_beli = $row['ID_Beli'];
         $detail_query = sqlsrv_query($conn,
-            "SELECT DBA.Jumlah, DBA.SubTotal, DBA.Ukuran, A.Nama_Alat, A.Harga_Alat
+            "SELECT DBA.Jumlah, DBA.SubTotal, DBA.Ukuran, A.Nama_Alat, A.Harga_Beli, A.Harga_Jual
              FROM Detail_Beli_Alat DBA
              INNER JOIN Alat A ON DBA.ID_Alat = A.ID_Alat
              WHERE DBA.ID_Beli = ?",
@@ -302,7 +302,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
    sehingga jam & tanggal identik dengan halaman lainnya.
    ============================================================ */
 
-.content { padding: 32px 40px; flex: 1; }
+.content { padding: 32px 40px; flex: 1 1 0%; width: 100%; max-width: 100%; box-sizing: border-box;  }
 
 /* ---- STAT CARDS ---- */
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
@@ -332,12 +332,12 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
 
 /* ---- TABLE ---- */
-.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); max-width: 100%; overflow: hidden; }
 .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .card-title i { color: var(--orange); font-size: 14px; }
 .card-body { padding: 0; }
-.data-table { width: 100%; border-collapse: collapse; }
+.data-table { width: 100%; border-collapse: collapse; min-width: 1050px; }
 .data-table th { padding: 14px 16px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: #FAFAFA; }
 .data-table td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tbody tr { transition: background .15s; }
@@ -350,7 +350,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
-.action-btns { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; }
+.action-btns { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; justify-content: center; }
 
 /* ===== TOMBOL PROSES ===== */
 .btn-proses { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--orange), var(--orange-dk)); color: #fff; font-size: 12px; font-weight: 800; font-family: 'Barlow', sans-serif; cursor: pointer; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 3px 10px rgba(255,69,0,.25); white-space: nowrap; }
@@ -359,8 +359,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 
 /* ===== BARIS DETAIL ALAT DI TABEL ===== */
 .detail-alat-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 3px 0; white-space: nowrap; }
-.detail-alat-row i { color: var(--orange); font-size: 10px; }
 .detail-alat-row .da-nama { color: var(--text-md); font-weight: 600; }
+.detail-alat-row i { color: var(--orange); font-size: 10px; }
 .detail-alat-row .da-qty { color: var(--text); font-weight: 700; }
 .detail-alat-row .da-ukuran { background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 1px 8px; border-radius: 10px; }
 
@@ -410,12 +410,41 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .alat-detail-item:last-child { border-bottom: none; }
 .alat-detail-name { font-weight: 700; color: var(--text); }
 .alat-detail-qty { font-size: 12px; color: var(--muted); }
+.alat-detail-hpp { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .alat-detail-price { font-weight: 800; color: var(--orange); }
 .ukuran-badge { display: inline-block; background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
 .detail-item.detail-note-tolak { background: var(--red-lt); border: 1px solid rgba(239,68,68,.25); }
 .detail-note-tolak .detail-label { color: var(--red); }
 .detail-note-tolak .detail-value { color: var(--red-dk); font-size: 13px; font-weight: 600; line-height: 1.5; }
 .detail-id-badge { font-family: 'Barlow', sans-serif; letter-spacing: .5px; }
+
+/* ---- BUKTI PEMBAYARAN (di modal detail) ---- */
+.bukti-bayar-link { display: block; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-lt); }
+.bukti-bayar-img { display: block; width: 100%; max-height: 260px; object-fit: contain; background: #FAFAFA; cursor: zoom-in; transition: opacity .2s; }
+.bukti-bayar-link:hover .bukti-bayar-img { opacity: .9; }
+.bukti-bayar-missing { margin-top: 8px; padding: 20px; text-align: center; background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.bukti-bayar-missing i { font-size: 20px; display: block; margin-bottom: 6px; opacity: .6; }
+
+/* ---- CLEANUP: utility classes (ganti inline style yang berulang) ---- */
+.role-info-box { background: var(--blue-lt); border: 1px solid var(--blue); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+.role-info-box i { color: var(--blue); font-size: 20px; flex-shrink: 0; }
+.role-info-box .rib-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+.role-info-box .rib-text .rib-sub { color: var(--muted); }
+.card-header-count { font-size: 12px; color: var(--muted); font-weight: 600; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.col-no { width: 50px; }
+.col-customer { width: 170px; }
+.col-tanggal { width: 110px; }
+.col-metode { width: 110px; }
+.col-total { width: 120px; }
+.col-status { width: 115px; }
+.col-aksi { width: 160px; }
+.empty-state-cell { text-align: center; padding: 50px; color: var(--muted); }
+.empty-state-cell i { font-size: 40px; margin-bottom: 16px; opacity: .5; display: block; }
+.empty-state-title { font-size: 14px; font-weight: 700; }
+.empty-state-sub { font-size: 12px; margin-top: 4px; }
 
 @media(max-width: 768px) {
     .content { padding: 20px; }
@@ -462,11 +491,11 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
     </div>
 
     <!-- INFO BOX -->
-    <div style="background: var(--blue-lt); border: 1px solid var(--blue); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
-        <i class="fa-solid fa-circle-info" style="color: var(--blue); font-size: 20px;"></i>
-        <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
+    <div class="role-info-box">
+        <i class="fa-solid fa-circle-info"></i>
+        <div class="rib-text">
             <strong>Peran Karyawan:</strong> Customer membuat pembelian alat melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer. 
-            <span style="color: var(--muted);">Pembelian baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
+            <span class="rib-sub">Pembelian baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
         </div>
     </div>
 
@@ -494,20 +523,20 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
     <div class="card">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-list"></i> Daftar Pembelian Alat</div>
-            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= $total_data ?> data ditemukan</span>
+            <span class="card-header-count"><?= $total_data ?> data ditemukan</span>
         </div>
         <div class="card-body" style="overflow-x: auto;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 50px; text-align: center;">No.</th>
-                        <th>Customer</th>
-                        <th style="width: 120px;">Tanggal Beli</th>
+                        <th class="col-no text-center">No.</th>
+                        <th class="col-customer">Customer</th>
+                        <th class="col-tanggal">Tanggal Beli</th>
                         <th>Detail Alat</th>
-                        <th style="width: 120px; text-align: center;">Metode Bayar</th>
-                        <th style="width: 130px; text-align: right;">Total Bayar</th>
-                        <th style="width: 120px; text-align: center;">Status</th>
-                        <th style="width: 140px; text-align: center;">Aksi</th>
+                        <th class="col-metode text-center">Metode Bayar</th>
+                        <th class="col-total text-right">Total Bayar</th>
+                        <th class="col-status text-center">Status</th>
+                        <th class="col-aksi text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -516,12 +545,12 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                             $status = $status_labels[$p['Status']] ?? $status_labels[0];
                         ?>
                         <tr>
-                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
+                            <td class="text-center nowrap" style="font-weight: 700; color: var(--text);"><?= $no++ ?></td>
                             <td>
                                 <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($p['Email'] ?? '-') ?></div>
                             </td>
-                            <td style="white-space: nowrap;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
+                            <td class="nowrap"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
                             <td>
                                 <?php foreach ($p['details'] as $detail):
                                     $uk = trim($detail['Ukuran'] ?? '');
@@ -536,9 +565,9 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                                 </div>
                                 <?php endforeach; ?>
                             </td>
-                            <td style="text-align: center;"><?= htmlspecialchars($p['Metode_Pembayaran']) ?></td>
-                            <td class="cell-price" style="white-space: nowrap; text-align: right;"><?= rupiahFormat($p['Total_Bayar']) ?></td>
-                            <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
+                            <td class="text-center"><?= htmlspecialchars($p['Metode_Pembayaran']) ?></td>
+                            <td class="cell-price nowrap text-right"><?= rupiahFormat($p['Total_Bayar']) ?></td>
+                            <td class="text-center"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
                             <td>
                                 <div class="action-btns" style="justify-content: center;">
                                     <button class="btn-icon view" onclick="showDetail(<?= $p['ID_Beli'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
@@ -553,10 +582,10 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 50px; color: var(--muted);">
-                                <i class="fa-solid fa-inbox" style="font-size: 40px; margin-bottom: 16px; opacity: .5; display: block;"></i>
-                                <div style="font-size: 14px; font-weight: 700;">Belum ada data pembelian</div>
-                                <div style="font-size: 12px; margin-top: 4px;">Customer belum melakukan pembelian alat</div>
+                            <td colspan="8" class="empty-state-cell">
+                                <i class="fa-solid fa-inbox"></i>
+                                <div class="empty-state-title">Belum ada data pembelian</div>
+                                <div class="empty-state-sub">Customer belum melakukan pembelian alat</div>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -664,11 +693,15 @@ function showDetail(id) {
     pembelian.details.forEach(d => {
         const ukuranBadge = (d.Ukuran && d.Ukuran !== 'All Size')
             ? `<span class="ukuran-badge">${d.Ukuran}</span>` : '';
+        const hargaBeli = parseFloat(d.Harga_Beli || 0);
+        const hargaJual = parseFloat(d.Harga_Jual || 0);
+        const untungPcs = hargaJual - hargaBeli;
         alatHtml += `
             <div class="alat-detail-item">
                 <div>
                     <div class="alat-detail-name">${d.Nama_Alat}${ukuranBadge}</div>
-                    <div class="alat-detail-qty">${d.Jumlah} x Rp ${parseFloat(d.Harga_Alat).toLocaleString('id-ID')}</div>
+                    <div class="alat-detail-qty">${d.Jumlah} x Rp ${hargaJual.toLocaleString('id-ID')}</div>
+                    <div class="alat-detail-hpp">Modal: Rp ${hargaBeli.toLocaleString('id-ID')} / pcs <span style="color: var(--green);">(Untung Rp ${untungPcs.toLocaleString('id-ID')}/pcs)</span></div>
                 </div>
                 <div class="alat-detail-price">Rp ${parseFloat(d.SubTotal).toLocaleString('id-ID')}</div>
             </div>
@@ -689,6 +722,35 @@ function showDetail(id) {
         `;
     }
 
+    let buktiHtml = '';
+    if (pembelian.Bukti_Pembayaran && pembelian.Bukti_Pembayaran.trim() !== '') {
+        let raw = pembelian.Bukti_Pembayaran.trim();
+        let src;
+        if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('../')) {
+            src = raw;
+        } else if (raw.startsWith('asset/')) {
+            src = '../' + raw;
+        } else {
+            // Data lama / nama file lepas (sebelum fitur upload wajib aktif)
+            src = '../asset/image/bukti_pembayaran/' + raw;
+        }
+        buktiHtml = `
+            <div class="detail-item detail-full">
+                <div class="detail-label"><i class="fa-solid fa-receipt" style="color: var(--orange); margin-right: 6px;"></i>Bukti Pembayaran</div>
+                <a href="${src}" target="_blank" class="bukti-bayar-link">
+                    <img src="${src}" class="bukti-bayar-img" onerror="this.closest('.bukti-bayar-link').outerHTML='<div class=\\'bukti-bayar-missing\\'><i class=\\'fa-solid fa-image-slash\\'></i> Foto bukti pembayaran tidak ditemukan</div>';">
+                </a>
+            </div>
+        `;
+    } else {
+        buktiHtml = `
+            <div class="detail-item detail-full">
+                <div class="detail-label"><i class="fa-solid fa-receipt" style="color: var(--orange); margin-right: 6px;"></i>Bukti Pembayaran</div>
+                <div class="bukti-bayar-missing"><i class="fa-solid fa-image-slash"></i> Belum ada bukti pembayaran diupload</div>
+            </div>
+        `;
+    }
+
     const html = `
         <div class="detail-grid">
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
@@ -702,6 +764,7 @@ function showDetail(id) {
                 <div class="detail-label"><i class="fa-solid fa-boxes-stacked" style="color: var(--orange); margin-right: 6px;"></i>Detail Alat (${pembelian.details.length} item)</div>
                 <div class="alat-detail-list">${alatHtml}</div>
             </div>
+            ${buktiHtml}
             <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">Rp ${parseFloat(pembelian.Total_Bayar).toLocaleString('id-ID')}</div></div>
         </div>
     `;
