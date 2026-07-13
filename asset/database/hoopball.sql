@@ -538,6 +538,96 @@ INSERT INTO Alat
 ('Handuk Kecil Micro',  45,  12000.00,  20000.00,  1, 0, '2', '2024-01-04 08:00:00'),
 ('Papan Skor Meja Lipat',6,   110000.00, 185000.00, 1, 0, '2', '2024-01-04 08:00:00');
 
+-- ============================================================================
+-- Master_Alat_DATABASE.sql
+-- HOOPBALL - MASTER ALAT: STRUKTUR DATABASE (Tabel, Kolom, Data)
+-- ============================================================================
+-- Isi file ini CUMA soal database: tambah kolom, bikin tabel, backfill data.
+-- TIDAK ADA stored procedure di sini (lihat Master_Alat_SP.sql terpisah).
+--
+-- Jalankan file ini DULUAN, baru Master_Alat_SP.sql setelahnya, karena
+-- stored procedure di file itu butuh kolom Kategori & tabel Alat_Size
+-- yang dibuat di sini.
+--
+-- Aman dijalankan berkali-kali (pakai IF NOT EXISTS / COL_LENGTH check).
+--
+-- Isi:
+--   PART 1  - Tambah kolom Kategori ke tabel Alat (kalau belum ada)
+--   PART 2  - Buat tabel Alat_Size (stok per ukuran)
+--   PART 3  - Backfill data lama (20 alat) supaya punya Kategori & Alat_Size
+--   PART 4  - Verifikasi
+-- ============================================================================
+
+USE Hoopball;
+GO
+
+-- ============================================================================
+-- PART 1: Tambah kolom Kategori ke tabel Alat
+-- ============================================================================
+-- Daftar kategori HARUS sama persis dengan $KATEGORI_SIZES di alat.php:
+-- Baju, Celana, Bola Basket, Sepatu, Headband, Kaos Kaki, Lainnya
+IF COL_LENGTH('Alat', 'Kategori') IS NULL
+BEGIN
+    ALTER TABLE Alat
+    ADD Kategori VARCHAR(20) NOT NULL
+        CONSTRAINT DF_Alat_Kategori DEFAULT 'Lainnya';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Alat_Kategori')
+BEGIN
+    ALTER TABLE Alat
+    ADD CONSTRAINT CK_Alat_Kategori CHECK (Kategori IN
+        ('Baju','Celana','Bola Basket','Sepatu','Headband','Kaos Kaki','Lainnya'));
+END
+GO
+
+-- ============================================================================
+-- PART 2: Tabel Alat_Size (stok per ukuran, 1 alat bisa punya banyak ukuran)
+-- ============================================================================
+IF OBJECT_ID('dbo.Alat_Size', 'U') IS NULL
+BEGIN
+    CREATE TABLE Alat_Size (
+        ID_Alat_Size    INT IDENTITY(1,1) PRIMARY KEY,
+        ID_Alat         INT             NOT NULL,
+        Ukuran          VARCHAR(15)     NOT NULL,
+        Stok            INT             NOT NULL CHECK (Stok >= 0),
+        CONSTRAINT FK_AlatSize_Alat FOREIGN KEY (ID_Alat)
+            REFERENCES Alat(ID_Alat) ON DELETE CASCADE,
+        CONSTRAINT UQ_AlatSize_AlatUkuran UNIQUE (ID_Alat, Ukuran)
+    );
+END
+GO
+
+-- ============================================================================
+-- PART 3: Backfill data 20 alat lama (Kategori ditebak dari nama + stok lama
+-- dipindah jadi 1 baris Alat_Size 'All Size', supaya data existing tetap valid)
+-- ============================================================================
+UPDATE Alat SET Kategori = 'Bola Basket' WHERE Nama_Alat IN ('Bola Basket SNI','Bola Basket Premium','Pompa Bola Portable','Jaring Ring Nylon');
+UPDATE Alat SET Kategori = 'Sepatu'      WHERE Nama_Alat IN ('Sepatu Basket VIP');
+UPDATE Alat SET Kategori = 'Baju'        WHERE Nama_Alat IN ('Jersey Basket Merah');
+UPDATE Alat SET Kategori = 'Headband'    WHERE Nama_Alat IN ('Headband Keringat');
+UPDATE Alat SET Kategori = 'Kaos Kaki'   WHERE Nama_Alat IN ('Kaos Kaki Olahraga');
+UPDATE Alat SET Kategori = 'Lainnya'     WHERE Kategori IS NULL OR Kategori = '';
+-- (semua alat yang belum ke-assign di atas otomatis tetap 'Lainnya' dari default)
+GO
+
+-- Backfill Alat_Size: pindahkan Alat.Stok yang sudah ada jadi baris 'All Size'
+-- (skip alat yang sudah punya baris Alat_Size, supaya aman dijalankan berkali-kali)
+INSERT INTO Alat_Size (ID_Alat, Ukuran, Stok)
+SELECT A.ID_Alat, 'All Size', A.Stok
+FROM Alat A
+WHERE A.Is_Deleted = 0
+  AND NOT EXISTS (SELECT 1 FROM Alat_Size S WHERE S.ID_Alat = A.ID_Alat);
+GO
+
+-- ============================================================================
+-- PART 4: VERIFIKASI
+-- ============================================================================
+SELECT ID_Alat, Nama_Alat, Kategori, Stok FROM Alat WHERE Is_Deleted = 0 ORDER BY ID_Alat;
+SELECT * FROM Alat_Size ORDER BY ID_Alat;
+GO
+
 -- ============================================================
 -- 12. TABEL TRANSAKSI: Beli_Alat
 -- ============================================================
