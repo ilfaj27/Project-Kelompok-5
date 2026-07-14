@@ -746,10 +746,6 @@ include '../includes/topbar.php';
 ?>
 
 <div class="content">
-    <?php if($stok_rendah > 0): ?>
-    <div class="alert-box"><i class="fa-solid fa-triangle-exclamation"></i><span><?= $stok_rendah ?> alat memiliki stok di bawah minimum (&lt; 10 unit)</span><a href="../master/alat.php" style="color:var(--red); font-size:12px; font-weight:700; margin-left:auto; text-decoration:none;">Lihat Detail →</a></div>
-    <?php endif; ?>
-
     <div class="welcome-banner">
         <div class="wb-deco"></div><div class="wb-deco2"></div>
         <div class="wb-text"><div class="wb-greeting">Selamat Datang Kembali</div><div class="wb-name"><?= strtoupper(htmlspecialchars($nama)) ?> 👋</div><div class="wb-sub">Pantau performa bisnis dan kelola data sistem.</div></div>

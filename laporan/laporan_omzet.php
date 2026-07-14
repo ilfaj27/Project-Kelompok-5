@@ -509,6 +509,30 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     border-color: #9CA3AF !important;
     color: #1F2937 !important;
 }
+
+/* ============================================
+   MATIKAN SEMUA ANIMASI SWEETALERT2 
+   ============================================ */
+.swal2-popup {
+    animation: none !important;
+    transition: none !important;
+}
+.swal2-icon {
+    animation: none !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring,
+.swal2-icon.swal2-success [class^="swal2-success-line"],
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+.swal2-icon.swal2-warning {
+    animation: none !important;
+}
+
+/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+html.swal2-shown,
+body.swal2-shown,
+body.swal2-height-auto {
+    padding-right: 0 !important;
+}
 </style>
 </head>
 <body>
@@ -791,6 +815,10 @@ new Chart(ctx, {
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }
+});
+
+window.Swal = Swal.mixin({
+    scrollbarPadding: false
 });
 </script>
 </body>
