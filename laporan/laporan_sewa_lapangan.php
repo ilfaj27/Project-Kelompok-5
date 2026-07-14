@@ -150,10 +150,35 @@ $booking_params = $params;
 $booking_params[] = array($offset, SQLSRV_PARAM_IN);
 $booking_params[] = array($limit, SQLSRV_PARAM_IN);
 
+// 1. Eksekusi query pertama & langsung ambil seluruh datanya hingga tuntas
 $q = safeQuery($conn, $booking_sql, $booking_params);
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $bookings[] = $row;
+    }
+}
+
+// ============================================
+// DATA BOOKING UNTUK CETAK (TANPA BATAS PAGINATION)
+// ============================================
+// 2. Eksekusi query cetak setelah query pertama selesai di-fetch sepenuhnya
+$print_bookings = [];
+$print_sql = "SELECT 
+        ID_Booking, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status,
+        Nama_Customer, Nama_Karyawan_Konfirm, Nama_Lapangan, Harga_Sewa,
+        Tanggal_Main, Jam_Mulai, Jam_Selesai, Nama_Promo, Diskon_Promo,
+        Nama_Tipe, Potongan_Member, Nominal_Refund, Biaya_Batal
+    FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?)
+    WHERE Status <> 0
+    ORDER BY 
+        CASE WHEN Status = 2 THEN 0 ELSE 1 END ASC, 
+        Tanggal_Booking DESC, 
+        ID_Booking DESC";
+
+$q_print = safeQuery($conn, $print_sql, $params); // Menggunakan params asli tanpa offset & limit
+if ($q_print !== null) {
+    while ($row = sqlsrv_fetch_array($q_print, SQLSRV_FETCH_ASSOC)) {
+        $print_bookings[] = $row;
     }
 }
 
@@ -537,9 +562,9 @@ function statusBookingLabel($status)
         /* STAT GRID */
         .stat-grid {
             display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         @media(max-width:1200px) {
@@ -720,6 +745,8 @@ function statusBookingLabel($status)
         .data-table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: auto;
+            /* Kolom otomatis merapat rapi mengikuti isi teks di layar web */
         }
 
         .data-table th {
@@ -886,37 +913,6 @@ function statusBookingLabel($status)
             color: var(--orange);
         }
 
-        /* PRINT */
-        @media print {
-    /* Sembunyikan elemen yang tidak diperlukan */
-    .sidebar,
-    .topbar,
-    .filter-bar,
-    .sb-bottom,
-    .stat-grid,       /* Menyembunyikan 3 kotak statistik atas */
-    .dashboard-grid   /* Menyembunyikan area grafik tren */ {
-        display: none !important;
-    }
-
-    .main {
-        margin-left: 0 !important;
-        padding: 0 !important;
-    }
-
-    .content {
-        padding: 0 !important;
-    }
-
-    /* Optimasi tampilan cetak untuk Card tabel & ringkasan */
-    .card {
-        border: none !important;
-        box-shadow: none !important;
-        margin-bottom: 30px !important;
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-}
-
         html,
         body {
             scrollbar-width: none;
@@ -1065,6 +1061,19 @@ function statusBookingLabel($status)
             cursor: not-allowed;
             pointer-events: none;
         }
+
+        .text-center {
+            text-align: center !important;
+        }
+
+        .text-right {
+            text-align: right !important;
+        }
+
+        /* KARTU TETAP LEBAR PENUH, TETAPI TABEL DI DALAMNYA MENGKERUT RAPAT */
+
+
+        /* MEMAKSA KOLOM TABEL MONITOR MERAPAT SEPADAT MUNGKIN */
     </style>
 </head>
 
@@ -1086,12 +1095,14 @@ function statusBookingLabel($status)
             <!-- Filter Bar -->
             <form method="GET" class="filter-bar">
                 <div class="filter-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>Semua Status</option>
-                        <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Berhasil</option>
-                        <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Selesai</option>
-                        <option value="3" <?= $status_filter == '3' ? 'selected' : '' ?>>Dibatalkan</option>
+                    <label>Periode</label>
+                    <select name="filter" onchange="toggleCustomDate(this)">
+                        <option value="all" <?= $filter_type == 'all' ? 'selected' : '' ?>>Semua Waktu</option>
+                        <option value="today" <?= $filter_type == 'today' ? 'selected' : '' ?>>Hari Ini</option>
+                        <option value="week" <?= $filter_type == 'week' ? 'selected' : '' ?>>7 Hari Terakhir</option>
+                        <option value="month" <?= $filter_type == 'month' ? 'selected' : '' ?>>Bulan Ini</option>
+                        <option value="year" <?= $filter_type == 'year' ? 'selected' : '' ?>>Tahun Ini</option>
+                        <option value="custom" <?= $filter_type == 'custom' ? 'selected' : '' ?>>Rentang Tanggal</option>
                     </select>
                 </div>
                 <div class="filter-group" id="custom-start"
@@ -1117,15 +1128,15 @@ function statusBookingLabel($status)
                     <label>Status</label>
                     <select name="status">
                         <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>Semua Status</option>
-                        <option value="0" <?= $status_filter == '0' ? 'selected' : '' ?>>Menunggu</option>
                         <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Berhasil</option>
                         <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Selesai</option>
                         <option value="3" <?= $status_filter == '3' ? 'selected' : '' ?>>Dibatalkan</option>
                     </select>
                 </div>
-                <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan"
-                    style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
-                <button type="submit" class="filter-btn"><i class="fa-solid fa-filter"></i> Terapkan</button>
+                <a href="cetak_pdf_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                    style="background-color: var(--green); margin-left: auto; text-decoration: none;">
+                    <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+                </a>
                 <a href="laporan_sewa_lapangan.php" class="filter-btn secondary"><i
                         class="fa-solid fa-rotate-right"></i> Reset</a>
             </form>
@@ -1176,17 +1187,19 @@ function statusBookingLabel($status)
                 <div style="overflow-x:auto;">
                     <table class="data-table">
                         <thead>
-    <tr>
-        <th>No.</th>
-        <th>Lapangan</th>
-        <th>Jadwal Main</th>
-        <th>Tanggal Booking</th>
-        <th>Metode Bayar</th>
-        <th>Diskon</th>
-        <th>Total Bayar</th>
-        <th>Status</th>
-    </tr>
-</thead>
+                            <tr>
+                                <th class="text-center" style="width: 50px;">No.</th>
+                                <th class="text-left" style="width: 180px;">Lapangan</th>
+                                <!-- Dilebarkan agar nama lapangan muat 1 baris -->
+                                <th class="text-left" style="width: 120px;">Jadwal Main</th>
+                                <!-- Dilebarkan agar tanggal main muat rapi -->
+                                <th class="text-center" style="width: 140px;">Tanggal Booking</th>
+                                <th class="text-left" style="width: 130px;">Metode Bayar</th>
+                                <th class="text-left" style="width: 170px;">Diskon</th>
+                                <!-- Dilebarkan agar teks promo muat rapi -->
+                                <th class="text-right" style="width: 120px;">Total Bayar</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             <?php if (count($bookings) > 0): ?>
                                 <?php foreach ($bookings as $b):
@@ -1200,54 +1213,54 @@ function statusBookingLabel($status)
                                         $diskon_info = '-';
                                     }
                                     ?>
-
-                                    
                                     <tr>
                                         <?php
-                                        // Inisialisasi awal nomor urut sebelum foreach dimulai
                                         if (!isset($start_number)) {
                                             $start_number = $offset + 1;
                                         }
                                         ?>
-    <td>
-        <div class="cell-name"><?= $start_number++ ?></div>
-    </td>
-    <td>
-        <div class="cell-name"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
-        <div class="cell-detail"><?= rupiahFormat($b['Harga_Sewa']) ?>/jam</div>
-    </td>
-    <td>
-        <div class="cell-name">
-            <?= $b['Tanggal_Main'] ? $b['Tanggal_Main']->format('d M Y') : '-' ?>
-        </div>
-        <div class="cell-detail">
-            <?= $b['Jam_Mulai'] ? $b['Jam_Mulai']->format('H:i') : '-' ?> -
-            <?= $b['Jam_Selesai'] ? $b['Jam_Selesai']->format('H:i') : '-' ?>
-        </div>
-    </td>
-    <td><?= $b['Tanggal_Booking'] ? $b['Tanggal_Booking']->format('d M Y') : '-' ?></td>
-    <td><?= htmlspecialchars($b['Metode_Pembayaran']) ?></td>
-    <td>
-        <div class="cell-detail"><?= $diskon_info ?></div>
-    </td>
-    <td>
-        <div class="cell-price"><?= rupiahFormat($b['Total_Bayar']) ?></div>
-        <?php if ($b['Status'] == 3 && $b['Nominal_Refund'] > 0): ?>
-            <div class="cell-detail" style="color:var(--red);">Refund:
-                <?= rupiahFormat($b['Nominal_Refund']) ?>
-            </div>
-        <?php endif; ?>
-    </td>
-    <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
-</tr>
+                                        <td class="text-center">
+                                            <div class="cell-name"><?= $start_number++ ?></div>
+                                        </td>
+                                        <td>
+                                            <div class="cell-name"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
+                                            <div class="cell-detail"><?= rupiahFormat($b['Harga_Sewa']) ?>/jam</div>
+                                        </td>
+                                        <td>
+                                            <div class="cell-name">
+                                                <?= $b['Tanggal_Main'] ? $b['Tanggal_Main']->format('d M Y') : '-' ?>
+                                            </div>
+                                            <div class="cell-detail">
+                                                <?= $b['Jam_Mulai'] ? $b['Jam_Mulai']->format('H:i') : '-' ?> -
+                                                <?= $b['Jam_Selesai'] ? $b['Jam_Selesai']->format('H:i') : '-' ?>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <?= $b['Tanggal_Booking'] ? $b['Tanggal_Booking']->format('d M Y') : '-' ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($b['Metode_Pembayaran']) ?></td>
+                                        <td>
+                                            <div class="cell-detail"><?= $diskon_info ?></div>
+                                        </td>
+                                        <td class="text-right">
+                                            <div class="cell-price"><?= rupiahFormat($b['Total_Bayar']) ?></div>
+                                            <?php if ($b['Status'] == 3 && $b['Nominal_Refund'] > 0): ?>
+                                                <div class="cell-detail" style="color:var(--red);">Refund:
+                                                    <?= rupiahFormat($b['Nominal_Refund']) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-    <td colspan="8" style="text-align:center; padding:40px; color:var(--muted);">
-        <i class="fa-solid fa-inbox" style="font-size:40px; margin-bottom:12px; opacity:.5; display:block;"></i>
-        <div style="font-size:14px; font-weight:700;">Tidak ada data booking untuk filter yang dipilih</div>
-    </td>
-</tr>
+                                    <td colspan="7" style="text-align:center; padding:40px; color:var(--muted);">
+                                        <i class="fa-solid fa-inbox"
+                                            style="font-size:40px; margin-bottom:12px; opacity:.5; display:block;"></i>
+                                        <div style="font-size:14px; font-weight:700;">Tidak ada data booking untuk filter
+                                            yang dipilih</div>
+                                    </td>
+                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -1255,115 +1268,121 @@ function statusBookingLabel($status)
 
                 <!-- Navigasi Pagination Kontrol -->
                 <?php if ($total_pages > 1): ?>
-    <div class="pagination-container">
-        <div class="pagination-info">
-            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_rows) ?> dari <?= $total_rows ?> transaksi
-        </div>
-        <div class="pagination-buttons">
-            <?php
-            $query_params = $_GET;
-            
-            // Halaman Pertama (<<)
-            $query_params['page'] = 1;
-            $first_url = '?' . http_build_query($query_params);
-            ?>
-            <a href="<?= $first_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
-                <i class="fa-solid fa-angles-left"></i>
-            </a>
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_rows) ?> dari
+                            <?= $total_rows ?> transaksi
+                        </div>
+                        <div class="pagination-buttons">
+                            <?php
+                            $query_params = $_GET;
 
-            <?php
-            // Halaman Sebelumnya (<)
-            $query_params['page'] = $page - 1;
-            $prev_url = '?' . http_build_query($query_params);
-            ?>
-            <a href="<?= $prev_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
-                <i class="fa-solid fa-angle-left"></i>
-            </a>
+                            // Halaman Pertama (<<)
+                            $query_params['page'] = 1;
+                            $first_url = '?' . http_build_query($query_params);
+                            ?>
+                            <a href="<?= $first_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>"
+                                title="Halaman Pertama">
+                                <i class="fa-solid fa-angles-left"></i>
+                            </a>
 
-            <?php 
-            // Angka Halaman
-            for ($i = 1; $i <= $total_pages; $i++): 
-                $query_params['page'] = $i;
-                $page_url = '?' . http_build_query($query_params);
-                ?>
-                <a href="<?= $page_url ?>" class="pagination-link <?= $page == $i ? 'active' : '' ?>">
-                    <?= $i ?>
-                </a>
-            <?php endfor; ?>
+                            <?php
+                            // Halaman Sebelumnya (<)
+                            $query_params['page'] = $page - 1;
+                            $prev_url = '?' . http_build_query($query_params);
+                            ?>
+                            <a href="<?= $prev_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>"
+                                title="Halaman Sebelumnya">
+                                <i class="fa-solid fa-angle-left"></i>
+                            </a>
 
-            <?php
-            // Halaman Selanjutnya (>)
-            $query_params['page'] = $page + 1;
-            $next_url = '?' . http_build_query($query_params);
-            ?>
-            <a href="<?= $next_url ?>" class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
-                <i class="fa-solid fa-angle-right"></i>
-            </a>
+                            <?php
+                            // Angka Halaman
+                            for ($i = 1; $i <= $total_pages; $i++):
+                                $query_params['page'] = $i;
+                                $page_url = '?' . http_build_query($query_params);
+                                ?>
+                                <a href="<?= $page_url ?>" class="pagination-link <?= $page == $i ? 'active' : '' ?>">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor; ?>
 
-            <?php
-            // Halaman Terakhir (>>)
-            $query_params['page'] = $total_pages;
-            $last_url = '?' . http_build_query($query_params);
-            ?>
-            <a href="<?= $last_url ?>" class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
-                <i class="fa-solid fa-angles-right"></i>
-            </a>
-        </div>
-    </div>
-<?php endif; ?>
-                
+                            <?php
+                            // Halaman Selanjutnya (>)
+                            $query_params['page'] = $page + 1;
+                            $next_url = '?' . http_build_query($query_params);
+                            ?>
+                            <a href="<?= $next_url ?>"
+                                class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>"
+                                title="Halaman Selanjutnya">
+                                <i class="fa-solid fa-angle-right"></i>
+                            </a>
+
+                            <?php
+                            // Halaman Terakhir (>>)
+                            $query_params['page'] = $total_pages;
+                            $last_url = '?' . http_build_query($query_params);
+                            ?>
+                            <a href="<?= $last_url ?>"
+                                class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>"
+                                title="Halaman Terakhir">
+                                <i class="fa-solid fa-angles-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
 
-            <!-- Ringkasan Omzet -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div>
-                </div>
-                <div class="card-body">
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+        <!-- Ringkasan Omzet -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div>
+            </div>
+            <div class="card-body">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                    <div
+                        style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
                         <div
-                            style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
-                            <div
-                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                                Omzet Booking</div>
-                            <div
-                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);">
-                                <?= rupiahFormat($total_omzet) ?>
-                            </div>
+                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                            Omzet Booking</div>
+                        <div
+                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);">
+                            <?= rupiahFormat($total_omzet) ?>
                         </div>
+                    </div>
+                    <div
+                        style="text-align: center; padding: 20px; background: var(--red-lt); border-radius: 12px; border: 1px solid rgba(239,68,68,.2);">
                         <div
-                            style="text-align: center; padding: 20px; background: var(--red-lt); border-radius: 12px; border: 1px solid rgba(239,68,68,.2);">
-                            <div
-                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                                Total Refund</div>
-                            <div
-                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--red);">
-                                <?= rupiahFormat($total_refund) ?>
-                            </div>
+                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                            Total Refund</div>
+                        <div
+                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--red);">
+                            <?= rupiahFormat($total_refund) ?>
                         </div>
+                    </div>
+                    <div
+                        style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
                         <div
-                            style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
-                            <div
-                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                                Omzet Bersih</div>
-                            <div
-                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);">
-                                <?= rupiahFormat($omzet_bersih) ?>
-                            </div>
+                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                            Omzet Bersih</div>
+                        <div
+                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);">
+                            <?= rupiahFormat($omzet_bersih) ?>
                         </div>
+                    </div>
+                    <div
+                        style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
                         <div
-                            style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
-                            <div
-                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                                Rata-rata/Booking</div>
-                            <div
-                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);">
-                                <?= $total_booking > 0 ? rupiahFormat($total_omzet / $total_booking) : rupiahFormat(0) ?>
-                            </div>
+                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                            Rata-rata/Booking</div>
+                        <div
+                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);">
+                            <?= $total_booking > 0 ? rupiahFormat($total_omzet / $total_booking) : rupiahFormat(0) ?>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </main>
 
