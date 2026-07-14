@@ -98,6 +98,18 @@ function formatDateOnly($date) {
 }
 
 // ============================================
+// HELPER: Generate initials from name
+// ============================================
+function getInitials($name) {
+    $clean_name = trim($name);
+    $name_parts = explode(' ', $clean_name);
+    if (count($name_parts) >= 2) {
+        return strtoupper(substr($name_parts[0], 0, 1) . substr(end($name_parts), 0, 1));
+    }
+    return strtoupper(substr($clean_name, 0, 2));
+}
+
+// ============================================
 // AJAX CHECK NIK (MENGGUNAKAN SP)
 // ============================================
 if (isset($_GET['ajax_check_nik'])) {
@@ -110,7 +122,6 @@ if (isset($_GET['ajax_check_nik'])) {
         exit();
     }
 
-    // GANTI: Menggunakan SP sp_Karyawan_CheckNIK
     $check = safe_sqlsrv_query($conn, 
         "EXEC sp_Karyawan_CheckNIK ?, ?", 
         array($nik, $exclude_id), false
@@ -129,7 +140,7 @@ if (isset($_GET['ajax_check_nik'])) {
 // ============================================
 if (isset($_POST['add_karyawan'])) {
     $nik = $_POST['nik'] ?? '';
-    $nama_kry = $_POST['nama'] ?? '' ?? '';
+    $nama_kry = $_POST['nama'] ?? '';
     $jk = intval($_POST['jk'] ?? 1);
     $jabatan = intval($_POST['jabatan'] ?? 1);
     $telp = $_POST['telp'] ?? '';
@@ -142,7 +153,6 @@ if (isset($_POST['add_karyawan'])) {
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    // GANTI: Validasi duplikat menggunakan SP
     $checkNIK = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckNIK ?, 0", array($nik), false);
     if ($checkNIK && $row = safe_sqlsrv_fetch_array($checkNIK, SQLSRV_FETCH_ASSOC)) {
         if ($row['Exists_Flag'] == 1) {
@@ -175,7 +185,6 @@ if (isset($_POST['add_karyawan'])) {
         }
     }
 
-    // GANTI: Insert menggunakan SP sp_Karyawan_Insert
     $new_id = 0;
     $params = array(
         array(&$nik, SQLSRV_PARAM_IN),
@@ -190,7 +199,7 @@ if (isset($_POST['add_karyawan'])) {
         array(&$username, SQLSRV_PARAM_IN),
         array(&$password, SQLSRV_PARAM_IN),
         array(&$status, SQLSRV_PARAM_IN),
-        array(null, SQLSRV_PARAM_IN), // Photo_Profile default NULL
+        array(null, SQLSRV_PARAM_IN),
         array(&$created_by, SQLSRV_PARAM_IN),
         array(&$new_id, SQLSRV_PARAM_OUT)
     );
@@ -228,7 +237,6 @@ if (isset($_POST['update_karyawan'])) {
     $password = $_POST['password'] ?? '';
     $email = $_POST['email'] ?? '';
 
-    // GANTI: Validasi duplikat menggunakan SP dengan exclude_id
     $checkNIK = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_CheckNIK ?, ?", array($nik, $id_kry), false);
     if ($checkNIK && $row = safe_sqlsrv_fetch_array($checkNIK, SQLSRV_FETCH_ASSOC)) {
         if ($row['Exists_Flag'] == 1) {
@@ -261,7 +269,6 @@ if (isset($_POST['update_karyawan'])) {
         }
     }
 
-    // GANTI: Update menggunakan SP sp_Karyawan_Update
     $params = array($id_kry, $nik, $_POST['nama'] ?? '', $tanggal_lahir, $tempat_lahir, $alamat, $jk, $jabatan, $telp, $email, $username, $password, $status, null, $modified_by);
     $stmt = sqlsrv_query($conn, "EXEC sp_Karyawan_Update ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?", $params);
 
@@ -285,7 +292,6 @@ if (isset($_GET['toggle_id'])) {
     $toggle_id = intval($_GET['toggle_id']);
     $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
 
-    // GANTI: Menggunakan SP sp_Karyawan_ToggleStatus
     $stmt = safe_sqlsrv_query($conn, 
         "EXEC sp_Karyawan_ToggleStatus ?, ?", 
         array($toggle_id, $modified_by), 
@@ -308,7 +314,6 @@ if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
     $deleted_by = $_SESSION['nama'] ?? 'SYSTEM';
 
-    // GANTI: Menggunakan SP sp_Karyawan_Delete
     $stmt = safe_sqlsrv_query($conn, 
         "EXEC sp_Karyawan_Delete ?, ?", 
         array($delete_id, $deleted_by), 
@@ -325,7 +330,6 @@ if (isset($_GET['delete_id'])) {
 $edit_data = null;
 if (isset($_GET['edit_id'])) {
     $edit_id = intval($_GET['edit_id']);
-    // GANTI: Menggunakan SP sp_Karyawan_GetByID
     $r = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_GetByID ?", array($edit_id), false);
     if ($r) {
         $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
@@ -342,7 +346,7 @@ $filter_status = isset($_GET['filter_status']) ? intval($_GET['filter_status']) 
 $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'Nama_Karyawan';
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 
-$allowed_sort = ['Nama_Karyawan', 'Jabatan', 'Jenis_Kelamin', 'No_Telepon', 'Status', 'Created_Date', 'Modified_Date'];
+$allowed_sort = ['Nama_Karyawan', 'Jenis_Kelamin', 'Jabatan', 'Status'];
 if (!in_array($sort_by, $allowed_sort)) {
     $sort_by = 'Nama_Karyawan';
 }
@@ -354,7 +358,6 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 // ============================================
 // AMBIL TOTAL DATA (MENGGUNAKAN SP)
 // ============================================
-// GANTI: Menggunakan SP sp_Karyawan_GetTotal
 $count_query = safe_sqlsrv_query($conn, 
     "EXEC sp_Karyawan_GetTotal ?, ?, ?", 
     array($filter_jabatan, $filter_jk, $filter_status), 
@@ -373,7 +376,6 @@ $page = min($page, $total_pages);
 // ============================================
 // AMBIL TOTAL AKTIF (MENGGUNAKAN UDF)
 // ============================================
-// GANTI: Menggunakan UDF fn_GetTotalKaryawanAktif
 $q_total_aktif = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetTotalKaryawanAktif() AS t", [], false);
 $total_aktif = 0;
 if ($q_total_aktif !== false) {
@@ -384,7 +386,6 @@ if ($q_total_aktif !== false) {
 // ============================================
 // AMBIL DATA LIST (MENGGUNAKAN SP)
 // ============================================
-// GANTI: Menggunakan SP sp_Karyawan_GetAll
 $query = safe_sqlsrv_query($conn, 
     "EXEC sp_Karyawan_GetAll ?, ?, ?, ?, ?, ?, ?", 
     array($filter_jabatan, $filter_jk, $filter_status, $sort_by, $sort_order, $page, $limit), 
@@ -432,7 +433,7 @@ body { font-family: 'Barlow', sans-serif; background: #F3F4F6; display: flex; mi
 body::-webkit-scrollbar { display: none; }
 
 /* ============================================
-   SIDEBAR - SAMA DENGAN CUSTOMER.PHP
+   SIDEBAR
    ============================================ */
 .sidebar { 
     width: var(--sidebar-w); 
@@ -452,14 +453,12 @@ body::-webkit-scrollbar { display: none; }
 }
 .sidebar::-webkit-scrollbar { display: none; }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { 
     from { transform: translateX(-100%); opacity: 0; } 
     to { transform: translateX(0); opacity: 1; } 
 }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { 
     from { opacity: 0; transform: translateX(-20px); } 
     to { opacity: 1; transform: translateX(0); } 
@@ -610,7 +609,6 @@ body::-webkit-scrollbar { display: none; }
     box-shadow: 0 4px 12px rgba(255,69,0,.3); 
 }
 
-/* Active indicator pill */
 .sb-link.active::after { 
     content: ''; 
     position: absolute; 
@@ -624,7 +622,6 @@ body::-webkit-scrollbar { display: none; }
     transition: all 0.3s cubic-bezier(0.16,1,0.3,1); 
 }
 
-/* Staggered animation delays */
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
 .sb-section-label { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
@@ -967,28 +964,97 @@ body::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { 
     font-family: 'Barlow Condensed', sans-serif !important; 
-    font-size: 13px !important; 
+    font-size: 12px !important; 
     font-weight: 900 !important; 
     color: var(--muted) !important; 
     text-transform: uppercase !important; 
     letter-spacing: 0.8px !important; 
-    padding: 14px 20px; 
+    padding: 14px 16px; 
     border-bottom: 2px solid var(--border-lt); 
+    vertical-align: middle;
+    text-align: center;
 }
-.data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
+.data-table td { 
+    padding: 14px 16px; 
+    vertical-align: middle; 
+    font-size: 13px;
+    text-align: center;
+}
 .data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
 .data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+.data-table tbody tr { height: 68px; }
 
-/* Kolom specific - FIXED LAYOUT */
-.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center; width: 60px; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 18%; text-align: left; }
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 14%; text-align: center; }
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 16%; text-align: center; }
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 14%; text-align: center; }
-.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 18%; text-align: center; }
+/* ============================================
+   TABLE COLUMN WIDTHS - FIXED PIXEL BASED
+   ============================================ */
+.data-table th:nth-child(1), 
+.data-table td:nth-child(1) { width: 50px; text-align: center; }
 
-.emp-name { font-weight: 700; color: var(--text); font-size: 15px; }
+.data-table th:nth-child(2) { width: 280px; text-align: center; }
+.data-table td:nth-child(2) { width: 280px; text-align: center; }
+
+.data-table th:nth-child(3), 
+.data-table td:nth-child(3) { width: 120px; text-align: center; }
+
+.data-table th:nth-child(4), 
+.data-table td:nth-child(4) { width: 120px; text-align: center; }
+
+.data-table th:nth-child(5), 
+.data-table td:nth-child(5) { width: 100px; text-align: center; }
+
+.data-table th:nth-child(6), 
+.data-table td:nth-child(6) { width: 160px; text-align: center; }
+
+/* ============================================
+   EMPLOYEE AVATAR & NAME - CLEANED UP
+   ============================================ */
+.emp-avatar {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--orange), #ff6b35);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(255,69,0,0.2);
+    border: 2px solid #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.emp-avatar:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(255,69,0,0.35);
+}
+
+.emp-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+    width: 220px;
+    justify-content: flex-start;
+}
+
+.emp-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* ============================================
+   BADGES & STATUS
+   ============================================ */
 .jabatan-badge { 
     background: #EEF2FF; 
     color: #4338CA; 
@@ -996,18 +1062,20 @@ body::-webkit-scrollbar { display: none; }
     border-radius: 20px; 
     font-size: 11px; 
     font-weight: 800; 
-    display: inline-block; 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
-.jabatan-manajer { background: var(--orange-lt); color: var(--orange); }
+.jabatan-manajer { background: var(--orange-lt); color: var(--orange); display: inline-flex; align-items: center; justify-content: center; }
 
-/* STATUS */
 .status-pill { 
     display: inline-flex; 
     align-items: center; 
+    justify-content: center;
     gap: 6px; 
-    padding: 7px 16px; 
+    padding: 6px 14px; 
     border-radius: 20px; 
-    font-size: 12px; 
+    font-size: 11px; 
     font-weight: 800; 
     text-transform: uppercase; 
     letter-spacing: .3px; 
@@ -1018,7 +1086,24 @@ body::-webkit-scrollbar { display: none; }
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-/* TOGGLE SWITCH */
+/* JK BADGE */
+.jk-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.jk-laki { background: #EFF6FF; color: #3B82F6; }
+.jk-perempuan { background: #FDF2F8; color: #EC4899; }
+
+/* ============================================
+   TOGGLE SWITCH
+   ============================================ */
 .toggle-switch { 
     position: relative; 
     display: inline-flex; 
@@ -1057,15 +1142,15 @@ body::-webkit-scrollbar { display: none; }
 .toggle-switch:hover .toggle-slider { opacity: .9; }
 
 /* ACTIONS */
-.actions { display: flex; gap: 10px; justify-content: flex-start; align-items: center; }
+.actions { display: flex; gap: 8px; justify-content: center; align-items: center; }
 .btn-action { 
-    width: 36px; 
-    height: 36px; 
+    width: 32px; 
+    height: 32px; 
     display: inline-flex; 
     align-items: center; 
     justify-content: center; 
-    border-radius: 10px; 
-    font-size: 14px; 
+    border-radius: 8px; 
+    font-size: 13px; 
     font-weight: 700; 
     transition: all .25s cubic-bezier(.4,0,.2,1); 
     border: 1.5px solid transparent; 
@@ -1646,6 +1731,30 @@ body::-webkit-scrollbar { display: none; }
     border-color: #9CA3AF !important;
     color: #1F2937 !important;
 }
+
+/* ============================================
+   MATIKAN SEMUA ANIMASI SWEETALERT2 
+   ============================================ */
+.swal2-popup {
+    animation: none !important;
+    transition: none !important;
+}
+.swal2-icon {
+    animation: none !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring,
+.swal2-icon.swal2-success [class^="swal2-success-line"],
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+.swal2-icon.swal2-warning {
+    animation: none !important;
+}
+
+/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+html.swal2-shown,
+body.swal2-shown,
+body.swal2-height-auto {
+    padding-right: 0 !important;
+}
 </style>
 </head>
 <body>
@@ -1835,12 +1944,9 @@ include '../includes/topbar.php';
                             <label>Urut Berdasarkan</label>
                             <select id="filterSortBy" class="filter-input">
                                 <option value="Nama_Karyawan" <?= $sort_by == 'Nama_Karyawan' ? 'selected' : '' ?>>Nama Lengkap</option>
-                                <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan</option>
                                 <option value="Jenis_Kelamin" <?= $sort_by == 'Jenis_Kelamin' ? 'selected' : '' ?>>Jenis Kelamin</option>
-                                <option value="No_Telepon" <?= $sort_by == 'No_Telepon' ? 'selected' : '' ?>>No. Telepon</option>
+                                <option value="Jabatan" <?= $sort_by == 'Jabatan' ? 'selected' : '' ?>>Jabatan</option>
                                 <option value="Status" <?= $sort_by == 'Status' ? 'selected' : '' ?>>Status</option>
-                                <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>Tanggal Dibuat</option>
-                                <option value="Modified_Date" <?= $sort_by == 'Modified_Date' ? 'selected' : '' ?>>Tanggal Diubah</option>
                             </select>
                         </div>
                         <div class="filter-group">
@@ -1895,7 +2001,7 @@ include '../includes/topbar.php';
                             <tr>
                                 <th>No</th>
                                 <th>Nama Lengkap</th>
-                                <th>NIK</th>
+                                <th>Jenis Kelamin</th>
                                 <th>Jabatan</th>
                                 <th>Status</th>
                                 <th>Aksi</th>
@@ -1934,11 +2040,24 @@ include '../includes/topbar.php';
                                     }
                                     $telp = $row['No_Telepon'] ?? '';
                                     $alamat = $row['Alamat'] ?? '';
+                                    $initials = getInitials($nama_kry);
+                                    $jk_label = $map_jk[$jk] ?? 'Tidak diketahui';
+                                    $jk_class = ($jk == 1) ? 'jk-laki' : 'jk-perempuan';
+                                    $jk_icon = ($jk == 1) ? 'fa-mars' : 'fa-venus';
                             ?>
                             <tr id="row-<?= htmlspecialchars($id_karyawan) ?>" data-status="<?= $is_active ? 'aktif' : 'nonaktif' ?>">
                                 <td class="row-num"><?= $row_num ?></td>
-                                <td><div class="emp-name"><?= htmlspecialchars($nama_kry) ?></div></td>
-                                <td><span class="info-val-mono" style="font-size:13px;"><?= htmlspecialchars($nik) ?></span></td>
+                                <td>
+                                    <div class="emp-name-cell">
+                                        <div class="emp-avatar"><?= $initials ?></div>
+                                        <div class="emp-name"><?= htmlspecialchars($nama_kry) ?></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="jk-badge <?= $jk_class ?>">
+                                        <i class="fa-solid <?= $jk_icon ?>"></i> <?= strtoupper($jk_label) ?>
+                                    </span>
+                                </td>
                                 <td><span class="jabatan-badge <?= $jabatan_class ?>"><?= htmlspecialchars($jabatan_label) ?></span></td>
                                 <td>
                                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
@@ -1960,7 +2079,7 @@ include '../includes/topbar.php';
                                             '<?= $jabatan_val ?>',
                                             '<?= htmlspecialchars($telp) ?>',
                                             '<?= $status_label ?>',
-                                            '<?= addslashes($alamat) ?>'
+                                            '<?= htmlspecialchars($alamat) ?>'
                                         )" class="btn-action btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
                                         <a href="?page=<?= $page ?>&edit_id=<?= $id_karyawan ?>" class="btn-action btn-edit" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></a>
                                         <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> karyawan">
@@ -2348,7 +2467,6 @@ function confirmDelete(id, nama) {
 function handleToggleClick(id, nama, isCurrentlyActive, checkbox) {
     const action = isCurrentlyActive ? 'nonaktifkan' : 'aktifkan';
     const iconType = isCurrentlyActive ? 'warning' : 'question';
-    const originalState = isCurrentlyActive;
 
     Swal.fire({
         title: 'Konfirmasi Perubahan Status',
@@ -2373,8 +2491,7 @@ function handleToggleClick(id, nama, isCurrentlyActive, checkbox) {
                 window.location.href = '?toggle_id=' + id;
             }, 600);
         } else {
-            // Revert checkbox to original state
-            checkbox.checked = originalState;
+            checkbox.checked = isCurrentlyActive;
         }
     });
 }
@@ -2405,7 +2522,7 @@ function openDetail(nik, nama, username, password, email, jk, tempatLahir, tangg
 
     const jkColor = jk == '1' ? '#3B82F6' : '#EC4899';
     const jkBg = jk == '1' ? '#EFF6FF' : '#FDF2F8';
-    document.getElementById('dJK').innerHTML = `<span class="status-pill" style="background: ${jkBg}; color: ${jkColor}; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-block;">${mapJK[jk] || '-'}</span>`;
+    document.getElementById('dJK').innerHTML = `<span class="jk-badge" style="background: ${jkBg}; color: ${jkColor};">${mapJK[jk] || '-'}</span>`;
 
     const jabColor = jabatan == '2' ? '#FF4500' : '#4338CA';
     const jabBg = jabatan == '2' ? 'rgba(255,69,0,0.1)' : '#EEF2FF';
@@ -2480,25 +2597,6 @@ if (btnFilterToggle && filterCard) {
     });
 }
 
-
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
-function showToast(type, title, message) {
-    Swal.fire({
-        icon: type,
-        title: title,
-        text: message,
-        timer: 3000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end',
-        timerProgressBar: true,
-        showCloseButton: true
-    });
-}
-
 // ============================================
 // URL PARAMETER NOTIFICATIONS
 // ============================================
@@ -2545,20 +2643,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-    }
-    document.addEventListener('click', function() {
-        if (userDropdown) userDropdown.classList.remove('active');
-    });
-});
-
-// Close triggers
+// ============================================
+// KEYBOARD SHORTCUTS
+// ============================================
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeDetail();
         if (btnFilterToggle) btnFilterToggle.classList.remove('active');
         if (filterCard) filterCard.classList.remove('open');
     }
+});
+
+window.Swal = Swal.mixin({
+    scrollbarPadding: false
 });
 </script>
 </body>

@@ -1061,19 +1061,6 @@ function statusBookingLabel($status)
             cursor: not-allowed;
             pointer-events: none;
         }
-
-        .text-center {
-            text-align: center !important;
-        }
-
-        .text-right {
-            text-align: right !important;
-        }
-
-        /* KARTU TETAP LEBAR PENUH, TETAPI TABEL DI DALAMNYA MENGKERUT RAPAT */
-
-
-        /* MEMAKSA KOLOM TABEL MONITOR MERAPAT SEPADAT MUNGKIN */
     </style>
 </head>
 
@@ -1437,6 +1424,10 @@ function statusBookingLabel($status)
                 }
             }
         });
+
+        window.Swal = Swal.mixin({
+    scrollbarPadding: false
+});
     </script>
 </body>
 

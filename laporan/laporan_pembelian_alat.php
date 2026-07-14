@@ -77,12 +77,24 @@ if ($filter_type === 'today') {
 }
 
 // Alat filter
+// FIX: pakai EXISTS (bukan "dba.ID_Alat = ?") supaya kondisi ini tetap valid
+// di query manapun yang pakai $where_sql, baik yang JOIN Detail_Beli_Alat
+// (detail_sql, pop_sql, dst) MAUPUN yang TIDAK join sama sekali (beli_sql,
+// stats header). Sebelumnya beli_sql error "Invalid column name 'dba'"
+// setiap kali filter Alat dipakai karena beli_sql gak join Detail_Beli_Alat.
 if ($alat_filter !== 'all') {
-    $where_clauses[] = "dba.ID_Alat = ?";
+    $where_clauses[] = "EXISTS (SELECT 1 FROM Detail_Beli_Alat dba_f WHERE dba_f.ID_Beli = ba.ID_Beli AND dba_f.ID_Alat = ?)";
     $params[] = $alat_filter;
 }
 
-// Status filter
+// Simpan checkpoint SEBELUM status filter ditambahkan -> dipakai khusus
+// buat query Total Profit di bawah (profit selalu dari transaksi Berhasil
+// saja, terlepas dari pilihan dropdown Status di filter bar).
+$where_clauses_base = $where_clauses;
+$params_base = $params;
+
+// Status filter (ini yang ngikutin pilihan dropdown user, dipakai buat
+// tabel/statistik biasa)
 if ($status_filter !== 'all') {
     $where_clauses[] = "ba.Status = ?";
     $params[] = $status_filter;
@@ -90,33 +102,73 @@ if ($status_filter !== 'all') {
 
 $where_sql = implode(" AND ", $where_clauses);
 
+// Where khusus Total Profit: base (tanggal + alat) + HARDCODE Status = 1
+// (Berhasil), gak ikut dropdown filter Status di halaman.
+$where_sql_profit = implode(" AND ", array_merge($where_clauses_base, ["ba.Status = 1"]));
+$params_profit = $params_base;
+
+
 // ============================================
 // STATISTIK
 // ============================================
+// FIX: dulu 1 query gabungan LEFT JOIN Detail_Beli_Alat + SUM(ba.Total_Bayar)
+// -> Total_Bayar (nilai di level HEADER) ke-duplikat sebanyak jumlah item
+// di transaksi itu (fan-out JOIN), jadi total pendapatan kegedean.
+// Sekarang dipisah: agregat level transaksi (transaksi/status/pendapatan)
+// dari Beli_Alat SAJA, dan agregat level item (total_item) query terpisah.
 $total_transaksi = 0;
 $total_berhasil = 0;
 $total_pending = 0;
+$total_ditolak = 0;
 $total_pendapatan = 0;
 $total_item = 0;
+$total_profit = 0;
 
-$stats_sql = "SELECT 
-    COUNT(DISTINCT ba.ID_Beli) as total_transaksi,
+$stats_header_sql = "SELECT 
+    COUNT(*) as total_transaksi,
     SUM(CASE WHEN ba.Status = 1 THEN 1 ELSE 0 END) as berhasil,
     SUM(CASE WHEN ba.Status = 0 THEN 1 ELSE 0 END) as pending,
-    SUM(ba.Total_Bayar) as pendapatan,
-    SUM(dba.Jumlah) as total_item
+    SUM(CASE WHEN ba.Status = 2 THEN 1 ELSE 0 END) as ditolak,
+    SUM(ba.Total_Bayar) as pendapatan
 FROM Beli_Alat ba
-LEFT JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
 WHERE " . $where_sql;
 
-$q = safeQuery($conn, $stats_sql, $params);
+$q = safeQuery($conn, $stats_header_sql, $params);
 $d = safeFetch($q);
 if ($d) {
     $total_transaksi = $d['total_transaksi'] ?? 0;
     $total_berhasil = $d['berhasil'] ?? 0;
     $total_pending = $d['pending'] ?? 0;
+    $total_ditolak = $d['ditolak'] ?? 0;
     $total_pendapatan = $d['pendapatan'] ?? 0;
+}
+
+$stats_item_sql = "SELECT 
+    SUM(dba.Jumlah) as total_item
+FROM Beli_Alat ba
+INNER JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
+WHERE " . $where_sql;
+
+$q = safeQuery($conn, $stats_item_sql, $params);
+$d = safeFetch($q);
+if ($d) {
     $total_item = $d['total_item'] ?? 0;
+}
+
+// FIX/NEW: Total Profit = SUM((Harga_Jual - Harga_Beli) * Jumlah), HANYA dari
+// transaksi Status = Berhasil (1) -- gak ikut dropdown filter Status di
+// halaman, karena profit cuma masuk akal dihitung dari penjualan yang
+// beneran kejadian. Tetap ikut filter Periode & Alat seperti biasa.
+$profit_sql = "SELECT SUM((a.Harga_Jual - a.Harga_Beli) * dba.Jumlah) as total_profit
+FROM Beli_Alat ba
+INNER JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
+INNER JOIN Alat a ON dba.ID_Alat = a.ID_Alat
+WHERE " . $where_sql_profit;
+
+$q = safeQuery($conn, $profit_sql, $params_profit);
+$d = safeFetch($q);
+if ($d) {
+    $total_profit = $d['total_profit'] ?? 0;
 }
 
 // ============================================
@@ -149,10 +201,11 @@ if ($q !== null) {
 // DETAIL ITEM PER TRANSAKSI
 // ============================================
 $detail_items = [];
+// FIX: Harga_Alat -> Harga_Jual (kolom Harga_Alat tidak ada di tabel Alat)
 $detail_sql = "SELECT 
     dba.ID_Beli,
     a.Nama_Alat,
-    a.Harga_Alat,
+    a.Harga_Jual,
     dba.Jumlah,
     dba.SubTotal
 FROM Detail_Beli_Alat dba
@@ -172,9 +225,10 @@ if ($q !== null) {
 // ALAT POPULER
 // ============================================
 $alat_populer = [];
+// FIX: Harga_Alat -> Harga_Jual
 $pop_sql = "SELECT 
     a.Nama_Alat,
-    a.Harga_Alat,
+    a.Harga_Jual,
     SUM(dba.Jumlah) as jumlah_terjual,
     SUM(dba.SubTotal) as total_pendapatan,
     a.Stok as stok_tersedia
@@ -182,7 +236,7 @@ FROM Detail_Beli_Alat dba
 LEFT JOIN Alat a ON dba.ID_Alat = a.ID_Alat
 LEFT JOIN Beli_Alat ba ON dba.ID_Beli = ba.ID_Beli
 WHERE " . $where_sql . "
-GROUP BY a.ID_Alat, a.Nama_Alat, a.Harga_Alat, a.Stok
+GROUP BY a.ID_Alat, a.Nama_Alat, a.Harga_Jual, a.Stok
 ORDER BY jumlah_terjual DESC";
 
 $q = safeQuery($conn, $pop_sql, $params);
@@ -196,7 +250,9 @@ if ($q !== null) {
 // DAFTAR ALAT UNTUK FILTER
 // ============================================
 $daftar_alat = [];
-$q = safeQuery($conn, "SELECT ID_Alat, Nama_Alat, Harga_Alat FROM Alat WHERE Is_Deleted = 0 ORDER BY ID_Alat");
+// FIX: Harga_Alat -> Harga_Jual (query ini gagal total sebelumnya,
+// jadi dropdown filter "Alat" cuma nampilin "Semua Alat" doang)
+$q = safeQuery($conn, "SELECT ID_Alat, Nama_Alat, Harga_Jual FROM Alat WHERE Is_Deleted = 0 ORDER BY ID_Alat");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $daftar_alat[] = $row;
@@ -206,34 +262,70 @@ if ($q !== null) {
 // ============================================
 // CHART DATA: Pembelian per Bulan
 // ============================================
+// FIX: sama seperti stats, dipisah jadi 2 query supaya SUM(ba.Total_Bayar)
+// per bulan tidak ikut ke-fanout gara-gara JOIN Detail_Beli_Alat.
 $chart_labels = [];
 $chart_data = [];
 $chart_item = [];
 
-$chart_sql = "SELECT 
+$chart_map = [];
+$monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+$chart_header_sql = "SELECT 
     MONTH(ba.Tanggal_Beli) as bulan,
     YEAR(ba.Tanggal_Beli) as tahun,
-    COUNT(DISTINCT ba.ID_Beli) as jumlah_transaksi,
-    SUM(dba.Jumlah) as jumlah_item,
     SUM(ba.Total_Bayar) as total_pendapatan
 FROM Beli_Alat ba
-LEFT JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
 WHERE " . $where_sql . "
 GROUP BY MONTH(ba.Tanggal_Beli), YEAR(ba.Tanggal_Beli)
 ORDER BY YEAR(ba.Tanggal_Beli), MONTH(ba.Tanggal_Beli)";
 
-$q = safeQuery($conn, $chart_sql, $params);
+$q = safeQuery($conn, $chart_header_sql, $params);
 if ($q !== null) {
-    $monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $chart_labels[] = $monthNames[$row['bulan']] . ' ' . $row['tahun'];
-        $chart_data[] = $row['total_pendapatan'] ?? 0;
-        $chart_item[] = $row['jumlah_item'] ?? 0;
+        $key = (int)$row['tahun'] * 100 + (int)$row['bulan'];
+        $chart_map[$key] = [
+            'label' => $monthNames[$row['bulan']] . ' ' . $row['tahun'],
+            'pendapatan' => $row['total_pendapatan'] ?? 0,
+            'item' => 0,
+        ];
     }
 }
 
+$chart_item_sql = "SELECT 
+    MONTH(ba.Tanggal_Beli) as bulan,
+    YEAR(ba.Tanggal_Beli) as tahun,
+    SUM(dba.Jumlah) as jumlah_item
+FROM Beli_Alat ba
+INNER JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
+WHERE " . $where_sql . "
+GROUP BY MONTH(ba.Tanggal_Beli), YEAR(ba.Tanggal_Beli)";
+
+$q = safeQuery($conn, $chart_item_sql, $params);
+if ($q !== null) {
+    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
+        $key = (int)$row['tahun'] * 100 + (int)$row['bulan'];
+        if (isset($chart_map[$key])) {
+            $chart_map[$key]['item'] = $row['jumlah_item'] ?? 0;
+        }
+    }
+}
+
+ksort($chart_map);
+foreach ($chart_map as $row) {
+    $chart_labels[] = $row['label'];
+    $chart_data[] = $row['pendapatan'];
+    $chart_item[] = $row['item'];
+}
+
+// FIX: tambah case Status = 2 (Ditolak). Sebelumnya cuma cek Status==1,
+// jadi transaksi Ditolak ikut ke-label "Menunggu" (salah).
 function statusBeliLabel($status) {
-    return $status == 1 ? ['Berhasil', 'sp-active'] : ['Menunggu', 'sp-pending'];
+    switch ((int)$status) {
+        case 1: return ['Berhasil', 'sp-active'];
+        case 2: return ['Ditolak', 'sp-rejected'];
+        default: return ['Menunggu', 'sp-pending'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -301,9 +393,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .filter-btn.secondary:hover { background: var(--border-lt); }
 
 /* STAT GRID */
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-@media(max-width:1200px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
-.stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
+.stat-grid { display: flex; flex-wrap: nowrap; gap: 16px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; }
+.stat-grid::-webkit-scrollbar { height: 6px; }
+.stat-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+.stat-grid::-webkit-scrollbar-track { background: transparent; }
+.stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; flex: 1 1 0; min-width: 170px; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
 .sc-blue::before { background: var(--blue); }
@@ -334,19 +428,24 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 /* TABLE */
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th { padding: 12px 14px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); }
-.data-table td { padding: 14px 14px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.data-table th { padding: 13px 16px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); white-space: nowrap; }
+.data-table td { padding: 16px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr { transition: background .15s; }
-.data-table tbody tr:hover td { background: #FAFAFA; }
+.data-table tbody tr:nth-child(even) td { background: #FBFBFC; }
+.data-table tbody tr:hover td { background: #FFF7ED; }
+.data-table th.text-right, .data-table td.text-right { text-align: right; }
+.data-table th.text-center, .data-table td.text-center { text-align: center; }
+.data-table td.text-right .cell-price { text-align: right; }
 
 .cell-name { font-weight: 700; color: var(--text); }
 .cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.cell-price { font-weight: 800; color: var(--text); }
+.cell-price { font-weight: 800; color: var(--text); white-space: nowrap; }
 
 .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-block; }
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
+.sp-rejected { background: var(--red-lt); color: var(--red); }
 
 /* CHART */
 .chart-container { position: relative; height: 320px; }
@@ -356,6 +455,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 @media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
 
 /* POPULAR ITEM */
+.popular-list { max-height: 400px; overflow-y: auto; padding-right: 6px; margin-right: -6px; }
+.popular-list::-webkit-scrollbar { width: 6px; }
+.popular-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+.popular-list::-webkit-scrollbar-thumb:hover { background: #C7CBD1; }
+.popular-list::-webkit-scrollbar-track { background: transparent; }
 .popular-item { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: var(--bg); border-radius: 10px; margin-bottom: 10px; border: 1px solid var(--border); transition: .2s; }
 .popular-item:hover { border-color: var(--orange); background: var(--orange-lt); }
 .popular-item:last-child { margin-bottom: 0; }
@@ -369,12 +473,46 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .item-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .item-tag { background: var(--orange-lt); color: var(--orange); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 
+/* RINGKASAN KEUANGAN */
+.ringkasan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media(max-width:900px){ .ringkasan-grid { grid-template-columns: 1fr; } }
+.ringkasan-box { text-align: center; padding: 22px 20px; border-radius: 14px; border: 1px solid; transition: transform .2s ease; }
+.ringkasan-box:hover { transform: translateY(-2px); }
+.ringkasan-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin: 0 auto 12px; }
+.ringkasan-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.ringkasan-value { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; }
+.rk-green { background: var(--green-lt); border-color: rgba(16,185,129,.2); }
+.rk-green .ringkasan-icon { background: rgba(16,185,129,.15); color: var(--green); }
+.rk-green .ringkasan-value { color: var(--green); }
+.rk-blue { background: var(--blue-lt); border-color: rgba(59,130,246,.2); }
+.rk-blue .ringkasan-icon { background: rgba(59,130,246,.15); color: var(--blue); }
+.rk-blue .ringkasan-value { color: var(--blue); }
+.rk-purple { background: var(--purple-lt); border-color: rgba(139,92,246,.2); }
+.rk-purple .ringkasan-icon { background: rgba(139,92,246,.15); color: var(--purple); }
+.rk-purple .ringkasan-value { color: var(--purple); }
+
+/* PRINT HEADER (logo, hanya muncul pas print/PDF) */
+.print-header { display: none; }
+.print-header-inner { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+.print-logo { display: flex; align-items: center; gap: 12px; }
+.print-logo-icon { width: 44px; height: 44px; background: var(--orange); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; flex-shrink: 0; }
+.print-logo-text { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -.3px; line-height: 1; }
+.print-logo-text span { color: var(--orange); }
+.print-logo-sub { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
+.print-meta { text-align: right; }
+.print-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; color: var(--text); }
+.print-date { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
 /* PRINT */
 @media print {
     .sidebar, .topbar, .filter-bar, .sb-bottom { display: none !important; }
     .main { margin-left: 0 !important; }
     .content { padding: 20px !important; }
     .card { break-inside: avoid; page-break-inside: avoid; }
+    .print-header { display: block !important; }
+    .popular-list { max-height: none !important; overflow: visible !important; padding-right: 0 !important; margin-right: 0 !important; }
+    .stat-grid { overflow: visible !important; flex-wrap: wrap !important; }
+    .stat-card { min-width: 0 !important; }
 }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
@@ -418,6 +556,30 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     border-color: #9CA3AF !important;
     color: #1F2937 !important;
 }
+
+/* ============================================
+   MATIKAN SEMUA ANIMASI SWEETALERT2 
+   ============================================ */
+.swal2-popup {
+    animation: none !important;
+    transition: none !important;
+}
+.swal2-icon {
+    animation: none !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring,
+.swal2-icon.swal2-success [class^="swal2-success-line"],
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+.swal2-icon.swal2-warning {
+    animation: none !important;
+}
+
+/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+html.swal2-shown,
+body.swal2-shown,
+body.swal2-height-auto {
+    padding-right: 0 !important;
+}
 </style>
 </head>
 <body>
@@ -438,6 +600,23 @@ include '../includes/topbar.php';
 ?>
 
 <div class="content">
+    <!-- Print Header (cuma muncul pas Cetak/PDF, gantiin sidebar yang di-hide) -->
+    <div class="print-header">
+        <div class="print-header-inner">
+            <div class="print-logo">
+                <div class="print-logo-icon"><i class="fa-solid fa-basketball"></i></div>
+                <div>
+                    <div class="print-logo-text">HOOP<span>BALL</span></div>
+                    <div class="print-logo-sub">Sistem Manajemen</div>
+                </div>
+            </div>
+            <div class="print-meta">
+                <div class="print-title">Laporan Pembelian Alat</div>
+                <div class="print-date"><?= date('d M Y, H:i') ?> WIB</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Filter Bar -->
     <form method="GET" class="filter-bar">
         <div class="filter-group">
@@ -474,6 +653,7 @@ include '../includes/topbar.php';
                 <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>Semua Status</option>
                 <option value="0" <?= $status_filter == '0' ? 'selected' : '' ?>>Menunggu</option>
                 <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Berhasil</option>
+                <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Ditolak</option>
             </select>
         </div>
         <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan" style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
@@ -490,6 +670,10 @@ include '../includes/topbar.php';
         <div class="stat-card sc-green">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div></div>
             <div class="stat-value"><?= $total_berhasil ?></div><div class="stat-label">Berhasil</div>
+        </div>
+        <div class="stat-card sc-red">
+            <div class="stat-header"><div class="stat-icon-wrap si-red"><i class="fa-solid fa-circle-xmark"></i></div></div>
+            <div class="stat-value"><?= $total_ditolak ?></div><div class="stat-label">Ditolak</div>
         </div>
         <div class="stat-card sc-orange">
             <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-boxes-stacked"></i></div></div>
@@ -511,6 +695,7 @@ include '../includes/topbar.php';
             <div class="card-header"><div class="card-title"><i class="fa-solid fa-trophy"></i> Alat Terlaris</div></div>
             <div class="card-body">
                 <?php if(count($alat_populer) > 0): ?>
+                <div class="popular-list">
                 <?php $rank = 1; foreach($alat_populer as $ap): ?>
                 <div class="popular-item">
                     <div class="popular-rank"><?= $rank++ ?></div>
@@ -521,6 +706,7 @@ include '../includes/topbar.php';
                     <div class="popular-omzet"><?= rupiahFormat($ap['total_pendapatan']) ?></div>
                 </div>
                 <?php endforeach; ?>
+                </div>
                 <?php else: ?>
                 <div style="text-align:center; padding:30px; color:var(--muted);">
                     <i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i>
@@ -546,8 +732,8 @@ include '../includes/topbar.php';
                         <th>Tanggal Beli</th>
                         <th>Item Dibeli</th>
                         <th>Metode Bayar</th>
-                        <th>Total Bayar</th>
-                        <th>Status</th>
+                        <th class="text-right">Total Bayar</th>
+                        <th class="text-center">Status</th>
                         <th>Karyawan</th>
                     </tr>
                 </thead>
@@ -576,8 +762,8 @@ include '../includes/topbar.php';
                             <?php endif; ?>
                         </td>
                         <td><?= htmlspecialchars($ba['Metode_Pembayaran']) ?></td>
-                        <td><div class="cell-price"><?= rupiahFormat($ba['Total_Bayar']) ?></div></td>
-                        <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
+                        <td class="text-right"><div class="cell-price"><?= rupiahFormat($ba['Total_Bayar']) ?></div></td>
+                        <td class="text-center"><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
                         <td><div class="cell-name"><?= htmlspecialchars($ba['Nama_Karyawan_Konfirm'] ?? '-') ?></div></td>
                     </tr>
                 <?php endforeach; ?>
@@ -596,18 +782,21 @@ include '../includes/topbar.php';
     <div class="card">
         <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan Pembelian Alat</div></div>
         <div class="card-body">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                <div style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Pendapatan</div>
-                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);"><?= rupiahFormat($total_pendapatan) ?></div>
+            <div class="ringkasan-grid">
+                <div class="ringkasan-box rk-green">
+                    <div class="ringkasan-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+                    <div class="ringkasan-label">Total Pendapatan</div>
+                    <div class="ringkasan-value"><?= rupiahFormat($total_pendapatan) ?></div>
                 </div>
-                <div style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Rata-rata per Transaksi</div>
-                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);"><?= $total_transaksi > 0 ? rupiahFormat($total_pendapatan / $total_transaksi) : rupiahFormat(0) ?></div>
+                <div class="ringkasan-box rk-blue">
+                    <div class="ringkasan-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                    <div class="ringkasan-label">Total Profit</div>
+                    <div class="ringkasan-value"><?= rupiahFormat($total_profit) ?></div>
                 </div>
-                <div style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Item Terjual</div>
-                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);"><?= $total_item ?> unit</div>
+                <div class="ringkasan-box rk-purple">
+                    <div class="ringkasan-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                    <div class="ringkasan-label">Item Terjual</div>
+                    <div class="ringkasan-value"><?= $total_item ?> unit</div>
                 </div>
             </div>
         </div>
@@ -690,6 +879,10 @@ new Chart(ctx, {
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }
+});
+
+window.Swal = Swal.mixin({
+    scrollbarPadding: false
 });
 </script>
 </body>
