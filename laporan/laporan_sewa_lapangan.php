@@ -1121,8 +1121,12 @@ function statusBookingLabel($status)
                     </select>
                 </div>
                 <a href="cetak_pdf_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
-                    style="background-color: var(--green); margin-left: auto; text-decoration: none;">
+                    style="background-color: var(--red); margin-left: auto; text-decoration: none;">
                     <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+                </a>
+                <a href="cetak_excel_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                    style="background-color: #10B981; margin-left: 2px; text-decoration: none;">
+                    <i class="fa-solid fa-file-excel"></i> Unduh Excel
                 </a>
                 <a href="laporan_sewa_lapangan.php" class="filter-btn secondary"><i
                         class="fa-solid fa-rotate-right"></i> Reset</a>
@@ -1320,56 +1324,56 @@ function statusBookingLabel($status)
                 <?php endif; ?>
             </div>
 
-        <!-- Ringkasan Omzet -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div>
-            </div>
-            <div class="card-body">
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
-                    <div
-                        style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
+            <!-- Ringkasan Omzet -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
                         <div
-                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                            Omzet Booking</div>
-                        <div
-                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);">
-                            <?= rupiahFormat($total_omzet) ?>
+                            style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
+                            <div
+                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                                Omzet Booking</div>
+                            <div
+                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);">
+                                <?= rupiahFormat($total_omzet) ?>
+                            </div>
                         </div>
-                    </div>
-                    <div
-                        style="text-align: center; padding: 20px; background: var(--red-lt); border-radius: 12px; border: 1px solid rgba(239,68,68,.2);">
                         <div
-                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                            Total Refund</div>
-                        <div
-                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--red);">
-                            <?= rupiahFormat($total_refund) ?>
+                            style="text-align: center; padding: 20px; background: var(--red-lt); border-radius: 12px; border: 1px solid rgba(239,68,68,.2);">
+                            <div
+                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                                Total Refund</div>
+                            <div
+                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--red);">
+                                <?= rupiahFormat($total_refund) ?>
+                            </div>
                         </div>
-                    </div>
-                    <div
-                        style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
                         <div
-                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                            Omzet Bersih</div>
-                        <div
-                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);">
-                            <?= rupiahFormat($omzet_bersih) ?>
+                            style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
+                            <div
+                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                                Omzet Bersih</div>
+                            <div
+                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);">
+                                <?= rupiahFormat($omzet_bersih) ?>
+                            </div>
                         </div>
-                    </div>
-                    <div
-                        style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
                         <div
-                            style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                            Rata-rata/Booking</div>
-                        <div
-                            style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);">
-                            <?= $total_booking > 0 ? rupiahFormat($total_omzet / $total_booking) : rupiahFormat(0) ?>
+                            style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
+                            <div
+                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
+                                Rata-rata/Booking</div>
+                            <div
+                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);">
+                                <?= $total_booking > 0 ? rupiahFormat($total_omzet / $total_booking) : rupiahFormat(0) ?>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
         </div>
     </main>
 
@@ -1426,8 +1430,8 @@ function statusBookingLabel($status)
         });
 
         window.Swal = Swal.mixin({
-    scrollbarPadding: false
-});
+            scrollbarPadding: false
+        });
     </script>
 </body>
 
