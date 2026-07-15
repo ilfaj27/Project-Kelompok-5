@@ -726,7 +726,7 @@ html.swal2-height-auto { padding-right: 0px !important; }
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari tipe member..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari tipe member...(Tekan Enter)" onkeyup="searchTable()">
             </div>
 
             <div style="display: flex; gap: 12px; align-items: center;">

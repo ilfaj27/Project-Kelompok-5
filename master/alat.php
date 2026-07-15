@@ -1025,7 +1025,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari alat..." onkeyup="searchGrid()">
+                <input type="text" id="src" placeholder="Cari alat...(Tekan Enter)" onkeyup="searchGrid()">
             </div>
             <div style="display:flex;gap:12px;align-items:center;">
                 <div class="filter-dropdown-wrap">
