@@ -18,21 +18,16 @@ header("Expires: 0");
 // ============================================
 // FORMAT RUPIAH & TANGGAL
 // ============================================
-function rupiahFormat($n) {
+function rupiahFormat($n)
+{
     return 'Rp ' . number_format($n, 0, ',', '.');
 }
-
-date_default_timezone_set('Asia/Jakarta');
-$bulan_indo = [
-    1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
-$tgl_cetak = date('d ') . $bulan_indo[(int)date('m')] . date(' Y, H:i') . ' WIB';
 
 // ============================================
 // UTILITY DATABASE
 // ============================================
-function safeQuery($conn, $sql, $params = array()) {
+function safeQuery($conn, $sql, $params = array())
+{
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
         error_log("SQL Error: " . print_r(sqlsrv_errors(), true));
@@ -41,8 +36,10 @@ function safeQuery($conn, $sql, $params = array()) {
     return $stmt;
 }
 
-function safeFetch($stmt) {
-    if ($stmt === null) return false;
+function safeFetch($stmt)
+{
+    if ($stmt === null)
+        return false;
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
@@ -68,25 +65,6 @@ $params = array(
     array($p_lapangan, SQLSRV_PARAM_IN),
     array($p_status, SQLSRV_PARAM_IN)
 );
-
-// ============================================
-// PERIODE LABEL GENERATOR
-// ============================================
-$periode_lbl = 'Semua Waktu';
-if ($filter_type === 'today') {
-    $periode_lbl = 'Hari Ini (' . date('d ') . $bulan_indo[(int)date('m')] . date(' Y') . ')';
-} elseif ($filter_type === 'week') {
-    $periode_lbl = '7 Hari Terakhir';
-} elseif ($filter_type === 'month') {
-    $periode_lbl = 'Bulan Ini (' . $bulan_indo[(int)date('m')] . date(' Y') . ')';
-} elseif ($filter_type === 'year') {
-    $periode_lbl = 'Tahun Ini (' . date('Y') . ')';
-} elseif ($filter_type === 'custom' && !empty($start_date) && !empty($end_date)) {
-    $start_dt = new DateTime($start_date);
-    $end_dt = new DateTime($end_date);
-    $periode_lbl = $start_dt->format('d ') . $bulan_indo[(int)$start_dt->format('m')] . $start_dt->format(' Y') . ' s/d ' . 
-                  $end_dt->format('d ') . $bulan_indo[(int)$end_dt->format('m')] . $end_dt->format(' Y');
-}
 
 // ============================================
 // AMBIL DATA STATISTIK & TRANSAKSI
@@ -128,9 +106,9 @@ $total_transaksi = count($print_bookings);
 
 // 1. Rekam output Kop Laporan secara otomatis dari file kop_laporan.php Anda
 ob_start();
-$judul_cetak = "LAPORAN SEWA LAPANGAN KESELURUHAN"; 
+$judul_cetak = "LAPORAN SEWA LAPANGAN KESELURUHAN";
 $jumlah_data_cetak = count($print_bookings);
-include '../includes/kop_laporan_excel.php'; 
+include '../includes/kop_laporan_excel.php';
 $kop_html = ob_get_clean();
 
 // 2. Gabungkan isi Kop Laporan dengan struktur tabel transaksi di bawah ini
