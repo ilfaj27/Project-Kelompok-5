@@ -471,7 +471,6 @@ CREATE TABLE Pembatalan_Booking (
     Biaya_Batal     DECIMAL(18,2)   NOT NULL,
     Nominal_Refund  DECIMAL(18,2)   NOT NULL,
     Metode_Refund   VARCHAR(20)     NOT NULL,
-    Bukti_Pembayaran VARCHAR(255)   NULL,
     Status          INT             NOT NULL CHECK (Status IN (0,1)),
     Created_By      VARCHAR(50)     NOT NULL,
     Created_Date    DATETIME        NOT NULL,
