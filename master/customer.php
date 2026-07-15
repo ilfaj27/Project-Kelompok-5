@@ -2,6 +2,36 @@
 session_start();
 include '../includes/config.php';
 include '../includes/helpers.php';
+// ============================================
+// HELPER: Generate initials from name
+// ============================================
+function getInitials($name) {
+    $clean_name = trim($name);
+    $name_parts = explode(' ', $clean_name);
+    if (count($name_parts) >= 2) {
+        return strtoupper(substr($name_parts[0], 0, 1) . substr(end($name_parts), 0, 1));
+    }
+    return strtoupper(substr($clean_name, 0, 2));
+}
+
+function parseUmurRange($range) {
+    if ($range === 'all' || empty($range)) return null;
+    $parts = explode('-', $range);
+    if (count($parts) == 2) {
+        return ['min' => intval($parts[0]), 'max' => intval($parts[1])];
+    }
+    return null;
+}
+
+function filterByUmur($rows, $umur_range) {
+    $range = parseUmurRange($umur_range);
+    if (!$range) return $rows;
+    return array_filter($rows, function($row) use ($range) {
+        $umur = isset($row['Umur']) ? intval($row['Umur']) : 0;
+        return $umur >= $range['min'] && $umur <= $range['max'];
+    });
+}
+
 
 if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION['role'] !== 'pemilik')) {
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
@@ -64,13 +94,14 @@ $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
 $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
 $filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : -1;
 $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
+$umur_range = isset($_GET['umur_range']) ? $_GET['umur_range'] : 'all';
 
 $allowed_sort = ['ID_Customer', 'Nama_Customer', 'Umur', 'Created_Date'];
 if (!in_array($sort_by, $allowed_sort))
     $sort_by = 'ID_Customer';
 
 // --- Susun parameter URL untuk pagination secara dinamis ---
-$filter_url = "&sort=" . urlencode($sort_by) . "&order=" . urlencode($sort_order) . "&jk=" . urlencode($filter_jk) . "&status_filter=" . urlencode($filter_status);
+$filter_url = "&sort=" . urlencode($sort_by) . "&order=" . urlencode($sort_order) . "&jk=" . urlencode($filter_jk) . "&status_filter=" . urlencode($filter_status) . "&umur_range=" . urlencode($umur_range);
 if (!empty($search)) {
     $filter_url .= "&src=" . urlencode($search);
 }
@@ -301,12 +332,69 @@ $sidebar_photo = $profile_photo;
         }
 
         /* Kolom 2: Nama Customer */
-        .data-table th:nth-child(2),
+        .data-table th:nth-child(2) {
+            width: 24%;
+            text-align: center !important;
+        }
         .data-table td:nth-child(2) {
             width: 24%;
-            text-align: Center !important;
-            /* Dikurangi agar muat 7 kolom */
+            text-align: left !important;
         }
+
+
+/* ============================================
+   CUSTOMER AVATAR & NAME - MATCH KARYAWAN STYLE
+   ============================================ */
+.cust-avatar {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--orange), #ff6b35);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(255,69,0,0.2);
+    border: 2px solid #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cust-avatar:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(255,69,0,0.35);
+}
+
+/* Avatar hover on row hover */
+.data-table tbody tr:hover .cust-avatar {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(255,69,0,0.35);
+}
+
+.cust-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 12px;
+    vertical-align: middle;
+}
+
+.cust-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
 
         .cust-name {
             font-weight: 700;
@@ -917,11 +1005,16 @@ $sidebar_photo = $profile_photo;
             z-index: 3000;
             padding: 24px;
             overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
             opacity: 0;
             visibility: hidden;
             transform: translateY(-10px) scale(0.98);
             transform-origin: top right;
             transition: all .2s cubic-bezier(.4, 0, .2, 1);
+        }
+        .filter-card::-webkit-scrollbar {
+            display: none;
         }
 
         .filter-card.open {
@@ -1162,7 +1255,7 @@ $sidebar_photo = $profile_photo;
                 </div>
                 <div class="action-right">
                     <div class="filter-wrap">
-                        <?php if ($filter_jk >= 0 || $filter_status != 'all'): ?>
+                        <?php if ($filter_jk >= 0 || $filter_status != 'all' || $umur_range != 'all'): ?>
                             <span class="filter-active-badge"><i class="fa-solid fa-filter"></i> Filter Aktif</span>
                         <?php endif; ?>
                         <button class="btn-filter" id="btnFilterToggle">
@@ -1187,8 +1280,6 @@ $sidebar_photo = $profile_photo;
                                             Nama Lengkap</option>
                                         <option value="Umur" <?= $sort_by == 'Umur' ? 'selected' : '' ?>>
                                             Umur</option>
-                                        <option value="Created_Date" <?= $sort_by == 'Created_Date' ? 'selected' : '' ?>>
-                                            Tanggal Dibuat</option>
                                     </select>
                                 </div>
 
@@ -1209,6 +1300,17 @@ $sidebar_photo = $profile_photo;
                                         </option>
                                         <option value="1" <?= $filter_jk == 1 ? 'selected' : '' ?>>Laki-laki</option>
                                         <option value="0" <?= $filter_jk == 0 ? 'selected' : '' ?>>Perempuan</option>
+                                    </select>
+                                </div>
+
+                                <div class="filter-group">
+                                    <label class="filter-label">Rentang Umur</label>
+                                    <select name="umur_range" class="filter-select">
+                                        <option value="all" <?= ($umur_range ?? 'all') == 'all' ? 'selected' : '' ?>>Semua Umur</option>
+                                        <option value="18-25" <?= ($umur_range ?? '') == '18-25' ? 'selected' : '' ?>>18 - 25 Tahun (Muda)</option>
+                                        <option value="26-35" <?= ($umur_range ?? '') == '26-35' ? 'selected' : '' ?>>26 - 35 Tahun (Dewasa)</option>
+                                        <option value="36-50" <?= ($umur_range ?? '') == '36-50' ? 'selected' : '' ?>>36 - 50 Tahun (Paruh Baya)</option>
+                                        <option value="51-100" <?= ($umur_range ?? '') == '51-100' ? 'selected' : '' ?>>51+ Tahun (Lansia)</option>
                                     </select>
                                 </div>
 
@@ -1258,21 +1360,48 @@ $sidebar_photo = $profile_photo;
                         </thead>
                         <tbody>
                             <?php
+                            // Collect all rows first for filtering
+                            $all_rows = [];
+                            if ($query):
+                                while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                                    $all_rows[] = $row;
+                                endwhile;
+                            endif;
+
+                            // Apply umur filter
+                            if ($umur_range !== 'all' && !empty($umur_range)) {
+                                $all_rows = filterByUmur($all_rows, $umur_range);
+                                $all_rows = array_values($all_rows); // re-index
+                            }
+
+                            // Recalculate total and pagination after filtering
+                            $total_cust = count($all_rows);
+                            $total_pages = max(1, ceil($total_cust / $limit));
+                            $page = min($page, $total_pages);
+                            $offset = ($page - 1) * $limit;
+
+                            // Slice for current page
+                            $page_rows = array_slice($all_rows, $offset, $limit);
+
                             $has_data = false;
                             $row_num = 0;
                             $no = $offset + 1;
-                            if ($query):
-                                while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                                    $has_data = true;
-                                    $row_num++;
-                                    $status_int = isset($row['Status']) ? intval($row['Status']) : 1;
+                            foreach ($page_rows as $row):
+                                $has_data = true;
+                                $row_num++;
+                                $status_int = isset($row['Status']) ? intval($row['Status']) : 1;
 
                                     $jk_icon = $row['Jenis_Kelamin'] == 1 ? 'fa-mars' : 'fa-venus';
                                     $jk_color = $row['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
                                     ?>
                                     <tr>
                                         <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
-                                        <td class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></td>
+                                        <td>
+                                    <div class="cust-name-cell">
+                                        <div class="cust-avatar"><?= getInitials($row['Nama_Customer']) ?></div>
+                                        <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
+                                    </div>
+                                </td>
                                         <td class="cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
 
                                         <!-- Tambahan Baru: Kolom Jenis Kelamin -->
@@ -1308,7 +1437,7 @@ $sidebar_photo = $profile_photo;
                                             </div>
                                         </td>
                                     </tr>
-                                <?php endwhile; endif; ?>
+                            <?php endforeach; ?>
                             <?php if (!$has_data): ?>
                                 <tr>
                                     <td colspan="7"> <!-- SUDAH DIUBAH MENJADI 6 -->
@@ -1404,7 +1533,9 @@ $sidebar_photo = $profile_photo;
                     $jk_color = $detail_data['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
                     ?>
                     <div class="detail-photo-card">
-                        <div class="detail-icon-wrap"><i class="fa-solid fa-user"></i></div>
+                        <div class="detail-icon-wrap" style="background: linear-gradient(135deg, var(--orange), #ff6b35); color: #fff; font-family: 'Barlow', sans-serif; font-weight: 900; font-size: 24px; text-transform: uppercase;">
+                            <?= getInitials($detail_data['Nama_Customer']) ?>
+                        </div>
                         <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Customer']) ?></div>
                     </div>
 
