@@ -214,6 +214,30 @@ if ($q !== null) {
     }
 }
 
+// ============================================
+// DAFTAR LAPANGAN TERLARIS (TOP 5)
+// ============================================
+$top_lapangan = [];
+
+/* Menggunakan fn_GetBookingReport yang SUDAH ADA di DB Anda, lalu dikelompokkan */
+$top_lapangan_sql = "
+    SELECT TOP 5 
+        Nama_Lapangan, 
+        COUNT(ID_Booking) as jumlah_sewa, 
+        SUM(Total_Bayar) as omzet_lapangan
+    FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?) 
+    WHERE Status IN (1, 2) -- Hanya hitung yang Berhasil (1) dan Selesai (2)
+    GROUP BY Nama_Lapangan
+    ORDER BY jumlah_sewa DESC, omzet_lapangan DESC
+";
+
+$q_top = safeQuery($conn, $top_lapangan_sql, $params);
+if ($q_top !== null) {
+    while ($row = sqlsrv_fetch_array($q_top, SQLSRV_FETCH_ASSOC)) {
+        $top_lapangan[] = $row;
+    }
+}
+
 function statusBookingLabel($status)
 {
     switch ($status) {
@@ -1080,7 +1104,10 @@ function statusBookingLabel($status)
 
         <div class="content">
             <!-- Filter Bar -->
+            <!-- Filter Bar Lengkap -->
             <form method="GET" class="filter-bar">
+
+                <!-- 1. Filter Periode -->
                 <div class="filter-group">
                     <label>Periode</label>
                     <select name="filter" onchange="toggleCustomDate(this)">
@@ -1092,16 +1119,22 @@ function statusBookingLabel($status)
                         <option value="custom" <?= $filter_type == 'custom' ? 'selected' : '' ?>>Rentang Tanggal</option>
                     </select>
                 </div>
+
+                <!-- 2. Filter Dari Tanggal (Hanya tampil jika memilih Rentang Tanggal) -->
                 <div class="filter-group" id="custom-start"
                     style="display:<?= $filter_type == 'custom' ? 'flex' : 'none' ?>">
                     <label>Dari Tanggal</label>
                     <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>">
                 </div>
+
+                <!-- 3. Filter Sampai Tanggal (Hanya tampil jika memilih Rentang Tanggal) -->
                 <div class="filter-group" id="custom-end"
                     style="display:<?= $filter_type == 'custom' ? 'flex' : 'none' ?>">
                     <label>Sampai Tanggal</label>
                     <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>">
                 </div>
+
+                <!-- 4. Filter Lapangan -->
                 <div class="filter-group">
                     <label>Lapangan</label>
                     <select name="lapangan">
@@ -1111,25 +1144,51 @@ function statusBookingLabel($status)
                         <?php endforeach; ?>
                     </select>
                 </div>
+
+                <!-- 5. Filter Status -->
                 <div class="filter-group">
                     <label>Status</label>
                     <select name="status">
                         <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>Semua Status</option>
-                        <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Berhasil</option>
                         <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Selesai</option>
                         <option value="3" <?= $status_filter == '3' ? 'selected' : '' ?>>Dibatalkan</option>
                     </select>
                 </div>
-                <a href="cetak_pdf_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
-                    style="background-color: var(--red); margin-left: auto; text-decoration: none;">
-                    <i class="fa-solid fa-file-pdf"></i> Unduh PDF
-                </a>
-                <a href="cetak_excel_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
-                    style="background-color: #10B981; margin-left: 2px; text-decoration: none;">
-                    <i class="fa-solid fa-file-excel"></i> Unduh Excel
-                </a>
-                <a href="laporan_sewa_lapangan.php" class="filter-btn secondary"><i
-                        class="fa-solid fa-rotate-right"></i> Reset</a>
+
+                <!-- ELEMEN SPACER KOSONG (Ini yang mendorong tombol ke kanan) -->
+                <div style="flex-grow: 1; min-width: 0;"></div>
+
+                <!-- Menghapus margin-left: auto dan justify-content agar tombol rapat ke kiri saat turun baris -->
+                <div style="display: flex; gap: 6px; align-items: end; flex-wrap: wrap;">
+
+                    <!-- Tombol Cari -->
+                    <button type="submit" class="filter-btn"
+                        style="background-color: var(--orange); border: none; font-family: 'Barlow', sans-serif; font-weight: 800; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                        <i class="fa-solid fa-magnifying-glass"></i> Cari
+                    </button>
+
+                    <!-- Tombol Reset -->
+                    <a href="laporan_sewa_lapangan.php" class="filter-btn secondary"
+                        style="text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px; display: inline-flex; align-items: center; background-color: var(--bg); border: 1px solid var(--border); color: var(--text);">
+                        <i class="fa-solid fa-rotate-right"></i> Reset
+                    </a>
+
+                    <!-- Garis Pembatas Vertikal -->
+                    <div style="width: 1px; height: 32px; background-color: var(--border); margin: 0 4px;"></div>
+
+                    <!-- Tombol Unduh PDF -->
+                    <a href="cetak_pdf_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                        style="background-color: var(--red); text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                        <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+                    </a>
+
+                    <!-- Tombol Unduh Excel -->
+                    <a href="cetak_excel_sewa.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                        style="background-color: #10B981; text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                        <i class="fa-solid fa-file-excel"></i> Unduh Excel
+                    </a>
+
+                </div>
             </form>
 
             <!-- Statistik -->
@@ -1146,7 +1205,7 @@ function statusBookingLabel($status)
                         <div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div>
                     </div>
                     <div class="stat-value"><?= $total_berhasil + $total_selesai ?></div>
-                    <div class="stat-label">Berhasil/Selesai</div>
+                    <div class="stat-label">Selesai</div>
                 </div>
                 <div class="stat-card sc-red">
                     <div class="stat-header">
@@ -1158,8 +1217,10 @@ function statusBookingLabel($status)
             </div>
 
             <!-- Chart & Populer -->
-            <div class="dashboard-grid">
-                <div class="card">
+            <div class="dashboard-grid" style="grid-template-columns: 2fr 1fr;">
+
+                <!-- Card Kiri: Chart -->
+                <div class="card" style="margin-bottom: 0;">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid fa-chart-column"></i> Trend Booking per Periode</div>
                     </div>
@@ -1167,7 +1228,38 @@ function statusBookingLabel($status)
                         <div class="chart-container"><canvas id="bookingChart"></canvas></div>
                     </div>
                 </div>
+
+                <!-- Card Kanan: Lapangan Terlaris -->
+                <div class="card" style="margin-bottom: 0;">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-trophy" style="color:var(--orange);"></i> Lapangan
+                            Terlaris</div>
+                    </div>
+                    <div class="card-body" style="padding-top: 14px; max-height: 385px; overflow-y: auto;">
+                        <?php if (count($top_lapangan) > 0): ?>
+                            <?php $rank = 1;
+                            foreach ($top_lapangan as $top): ?>
+                                <div class="popular-item">
+                                    <div class="popular-rank"><?= $rank++ ?></div>
+                                    <div class="popular-info">
+                                        <div class="popular-name"><?= htmlspecialchars($top['Nama_Lapangan'] ?? 'Lapangan') ?>
+                                        </div>
+                                        <div class="popular-count"><?= $top['jumlah_sewa'] ?> disewa</div>
+                                    </div>
+                                    <div class="popular-omzet"><?= rupiahFormat($top['omzet_lapangan'] ?? 0) ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div
+                                style="text-align:center; padding:30px 0; color:var(--muted); font-size:13px; font-weight:600;">
+                                Belum ada penyewaan pada periode ini
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
             </div>
+            <br>
 
             <!-- Tabel Detail Booking -->
             <div class="card">
@@ -1330,7 +1422,7 @@ function statusBookingLabel($status)
                     <div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div>
                 </div>
                 <div class="card-body">
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                         <div
                             style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
                             <div
@@ -1361,16 +1453,6 @@ function statusBookingLabel($status)
                                 <?= rupiahFormat($omzet_bersih) ?>
                             </div>
                         </div>
-                        <div
-                            style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
-                            <div
-                                style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">
-                                Rata-rata/Booking</div>
-                            <div
-                                style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);">
-                                <?= $total_booking > 0 ? rupiahFormat($total_omzet / $total_booking) : rupiahFormat(0) ?>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1386,25 +1468,35 @@ function statusBookingLabel($status)
 
         const ctx = document.getElementById('bookingChart').getContext('2d');
         new Chart(ctx, {
-            type: 'bar',
+            type: 'line', // Mengubah tipe chart menjadi line chart
             data: {
                 labels: <?= json_encode($chart_labels) ?>,
                 datasets: [
                     {
                         label: 'Berhasil/Selesai',
                         data: <?= json_encode($chart_data_berhasil) ?>,
-                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                        borderColor: '#10B981',
-                        borderWidth: 2,
-                        borderRadius: 6,
+                        borderColor: '#10B981', // Warna hijau garis utama
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)', // Warna background transparan di bawah garis
+                        fill: true, // Mengaktifkan area fill di bawah garis
+                        tension: 0.4, // Membuat garis melengkung halus (bezier curve) seperti di gambar
+                        pointBackgroundColor: '#10B981',
+                        pointBorderColor: '#FFFFFF',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
                     },
                     {
                         label: 'Dibatalkan',
                         data: <?= json_encode($chart_data_batal) ?>,
-                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                        borderColor: '#EF4444',
-                        borderWidth: 2,
-                        borderRadius: 6,
+                        borderColor: '#FF4500', // Warna oranye garis utama
+                        backgroundColor: 'rgba(255, 69, 0, 0.05)', // Warna background transparan oranye
+                        fill: true,
+                        tension: 0.4, // Membuat garis melengkung halus
+                        pointBackgroundColor: '#FF4500',
+                        pointBorderColor: '#FFFFFF',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
                     }
                 ]
             },
@@ -1412,7 +1504,16 @@ function statusBookingLabel($status)
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'top', labels: { font: { family: 'Barlow', size: 12 }, usePointStyle: true, padding: 20 } },
+                    legend: {
+                        position: 'top',
+                        align: 'end', // Menyejajarkan legenda ke kanan atas seperti di gambar
+                        labels: {
+                            font: { family: 'Barlow', size: 12, weight: '600' },
+                            usePointStyle: true, // Menggunakan titik lingkaran pada legenda
+                            boxWidth: 8,
+                            padding: 20
+                        }
+                    },
                     tooltip: {
                         backgroundColor: '#1F2937',
                         titleColor: '#fff',
@@ -1423,8 +1524,24 @@ function statusBookingLabel($status)
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } },
-                    x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                        ticks: {
+                            font: { family: 'Barlow', size: 11 },
+                            color: '#6B7280',
+                            // Mengubah format agar menampilkan jumlah transaksi, bukan rupiah
+                            callback: function (value) {
+                                if (Math.floor(value) === value) { // Hanya menampilkan angka bulat
+                                    return value + ' Transaksi';
+                                }
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' }
+                    }
                 }
             }
         });

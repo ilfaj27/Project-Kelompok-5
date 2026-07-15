@@ -145,15 +145,15 @@ if ($total_transaksi > 0) {
         $total_bayar_html = rupiahFormat($b['Total_Bayar']);
         if ($b['Status'] == 3 && $b['Nominal_Refund'] > 0) {
             // Menggunakan ganti baris <br> dan warna merah khusus untuk nominal refund
-            $total_bayar_html .= '<br><span style="color: #EF4444; font-size: 7px; font-weight: bold;">Refund: ' . rupiahFormat($b['Nominal_Refund']) . '</span>';
+            $total_bayar_html .= '<br><span style="color: #EF4444; font-size: 9px; font-weight: bold;">Refund: ' . rupiahFormat($b['Nominal_Refund']) . '</span>';
         }
         $html .= '
         <tr>
             <td align="center" valign="center" style="width: 5%; vertical-align: middle;">' . $no++ . '</td>
             <!-- Menggunakan ganti baris <br> dan font abu-abu agar bersusun rapi (Sama dengan PDF) -->
-            <td align="left" valign="center" style="width: 22%; vertical-align: middle;"><strong>' . htmlspecialchars($b['Nama_Lapangan']) . '</strong><br><span style="color: #6B7280; font-size: 7px;">' . rupiahFormat($b['Harga_Sewa']) . '/jam</span></td>
+            <td align="left" valign="center" style="width: 22%; vertical-align: middle;"><strong>' . htmlspecialchars($b['Nama_Lapangan']) . '</strong><br><span style="color: #6B7280; font-size: 9px;">' . rupiahFormat($b['Harga_Sewa']) . '/jam</span></td>
             <!-- Menggunakan ganti baris <br> dan font abu-abu agar bersusun rapi (Sama dengan PDF) -->
-            <td align="left" valign="center" style="width: 18%; vertical-align: middle;">' . $tanggal_main . '<br><span style="color: #6B7280; font-size: 7px;">' . $jam_mulai . ' - ' . $jam_selesai . '</span></td>
+            <td align="left" valign="center" style="width: 18%; vertical-align: middle;">' . $tanggal_main . '<br><span style="color: #6B7280; font-size: 9px;">' . $jam_mulai . ' - ' . $jam_selesai . '</span></td>
             <td align="center" valign="center" style="width: 13%; vertical-align: middle;">' . $tanggal_booking . '</td>
             <td align="left" valign="center" style="width: 12%; vertical-align: middle;">' . htmlspecialchars($b['Metode_Pembayaran']) . '</td>
             <td align="left" valign="center" style="width: 15%; vertical-align: middle;">' . $diskon_info . '</td>
@@ -161,7 +161,7 @@ if ($total_transaksi > 0) {
         </tr>';
     }
 } else {
-    $html .= '<tr><td colspan="7" style="text-align: center; padding: 20px;">Tidak ada data booking</td></tr>';
+    $html .= '<tr><td colspan="9" style="text-align: center; padding: 20px;">Tidak ada data booking</td></tr>';
 }
 
 $html .= '

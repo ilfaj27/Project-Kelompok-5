@@ -813,27 +813,37 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('beliChart').getContext('2d');
 new Chart(ctx, {
-    type: 'bar',
+    type: 'line', // Diubah menjadi line chart
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Pendapatan',
                 data: <?= json_encode($chart_data) ?>,
-                backgroundColor: 'rgba(255, 69, 0, 0.8)',
-                borderColor: '#FF4500',
-                borderWidth: 2,
-                borderRadius: 6,
-                yAxisID: 'y'
+                borderColor: '#FF4500', // Warna oranye utama
+                backgroundColor: 'rgba(255, 69, 0, 0.1)', // Fill area transparan oranye di bawah garis
+                fill: true, // Mengaktifkan area fill
+                tension: 0.4, // Membuat kurva melengkung halus (smooth bezier)
+                pointBackgroundColor: '#FF4500',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                yAxisID: 'y' // Terikat ke sumbu Y kiri (Rupiah)
             },
             {
                 label: 'Item Terjual',
                 data: <?= json_encode($chart_item) ?>,
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                borderColor: '#3B82F6',
-                borderWidth: 2,
-                borderRadius: 6,
-                yAxisID: 'y1'
+                borderColor: '#3B82F6', // Warna biru utama
+                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Fill area transparan biru di bawah garis
+                fill: true, // Mengaktifkan area fill
+                tension: 0.4, // Membuat kurva melengkung halus (smooth bezier)
+                pointBackgroundColor: '#3B82F6',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                yAxisID: 'y1' // Terikat ke sumbu Y kanan (Unit)
             }
         ]
     },
@@ -841,7 +851,16 @@ new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: 'top', labels: { font: { family: 'Barlow', size: 12 }, usePointStyle: true, padding: 20 } },
+            legend: { 
+                position: 'top', 
+                align: 'end', // Menyejajarkan legenda ke kanan atas
+                labels: { 
+                    font: { family: 'Barlow', size: 12, weight: '600' }, 
+                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    boxWidth: 8,
+                    padding: 20 
+                } 
+            },
             tooltip: {
                 backgroundColor: '#1F2937',
                 titleColor: '#fff',
@@ -863,18 +882,32 @@ new Chart(ctx, {
             y: { 
                 type: 'linear', 
                 display: true, 
-                position: 'left',
+                position: 'left', // Sumbu Y kiri untuk nominal Pendapatan
                 beginAtZero: true, 
                 grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, 
-                ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', callback: function(value) { return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; } } 
+                ticks: { 
+                    font: { family: 'Barlow', size: 11 }, 
+                    color: '#6B7280', 
+                    callback: function(value) { 
+                        return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; 
+                    } 
+                } 
             },
             y1: { 
                 type: 'linear', 
                 display: true, 
-                position: 'right',
+                position: 'right', // Sumbu Y kanan untuk jumlah Item Terjual
                 beginAtZero: true, 
-                grid: { drawOnChartArea: false }, 
-                ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } 
+                grid: { drawOnChartArea: false }, // Agar grid line tidak bertabrakan dengan sumbu kiri
+                ticks: { 
+                    font: { family: 'Barlow', size: 11 }, 
+                    color: '#6B7280',
+                    callback: function(value) {
+                        if (Math.floor(value) === value) { // Menampilkan angka bulat saja
+                            return value + ' unit';
+                        }
+                    }
+                } 
             },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }

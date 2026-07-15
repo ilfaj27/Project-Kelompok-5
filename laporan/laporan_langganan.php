@@ -658,41 +658,61 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('langgananChart').getContext('2d');
 new Chart(ctx, {
-    type: 'bar',
+    type: 'line', // Diubah menjadi line chart
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Aktif',
                 data: <?= json_encode($chart_data_aktif) ?>,
-                backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                borderColor: '#10B981',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#10B981', // Hijau
+                backgroundColor: 'rgba(16, 185, 129, 0.08)', // Area fill transparan hijau
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Berakhir',
                 data: <?= json_encode($chart_data_berakhir) ?>,
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                borderColor: '#3B82F6',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#3B82F6', // Biru
+                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Area fill transparan biru
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus
+                pointBackgroundColor: '#3B82F6',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Menunggu',
                 data: <?= json_encode($chart_data_menunggu) ?>,
-                backgroundColor: 'rgba(245, 158, 11, 0.8)',
-                borderColor: '#F59E0B',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#F59E0B', // Kuning/Oranye
+                backgroundColor: 'rgba(245, 158, 11, 0.05)', // Area fill transparan kuning
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus
+                pointBackgroundColor: '#F59E0B',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Ditolak',
                 data: <?= json_encode($chart_data_ditolak) ?>,
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                borderColor: '#EF4444',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#EF4444', // Merah
+                backgroundColor: 'rgba(239, 68, 68, 0.05)', // Area fill transparan merah
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus
+                pointBackgroundColor: '#EF4444',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             }
         ]
     },
@@ -700,7 +720,16 @@ new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: 'top', labels: { font: { family: 'Barlow', size: 12 }, usePointStyle: true, padding: 20 } },
+            legend: { 
+                position: 'top', 
+                align: 'end', // Menyejajarkan legenda ke kanan atas
+                labels: { 
+                    font: { family: 'Barlow', size: 12, weight: '600' }, 
+                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    boxWidth: 8,
+                    padding: 20 
+                } 
+            },
             tooltip: {
                 backgroundColor: '#1F2937',
                 titleColor: '#fff',
@@ -711,7 +740,20 @@ new Chart(ctx, {
             }
         },
         scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, 
+                ticks: { 
+                    font: { family: 'Barlow', size: 11 }, 
+                    color: '#6B7280',
+                    // Format ke angka bulat dengan keterangan "Transaksi"
+                    callback: function(value) {
+                        if (Math.floor(value) === value) {
+                            return value + ' Transaksi';
+                        }
+                    }
+                } 
+            },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }
