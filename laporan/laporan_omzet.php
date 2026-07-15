@@ -310,6 +310,7 @@ function statusLanggananLabel($status) {
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
 :root {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
@@ -326,7 +327,6 @@ function statusLanggananLabel($status) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* MAIN & TOPBAR */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
 .topbar-left { display: flex; flex-direction: column; }
@@ -351,55 +351,32 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .dd-item i { font-size: 14px; width: 18px; text-align: center; }
 .dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
-/* CONTENT */
 .content { padding: 32px 40px; flex: 1; }
 
-/* FILTER BAR */
 .filter-bar { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
 .filter-group { display: flex; flex-direction: column; gap: 6px; }
 .filter-group label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 .filter-group select, .filter-group input { padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); background: var(--bg); min-width: 160px; outline: none; transition: .2s; }
 .filter-group select:focus, .filter-group input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
-.filter-btn { padding: 10px 20px; background: var(--orange); color: #fff; border: none; border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 800; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 8px; }
+.filter-btn { padding: 10px 20px; background: var(--orange); color: #fff; border: none; border-radius: 10px; font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 800; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 8px; text-decoration: none; }
 .filter-btn:hover { background: var(--orange-dk); transform: translateY(-1px); }
 .filter-btn.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
 .filter-btn.secondary:hover { background: var(--border-lt); }
 
-/* STAT GRID - BIG */
-.stat-grid-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
-@media(max-width:1100px){ .stat-grid-big { grid-template-columns: 1fr; } }
-.stat-card-big { background: var(--card-bg); border-radius: 20px; padding: 28px 32px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
-.stat-card-big:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,.1); }
-.stat-card-big::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; border-radius: 4px 4px 0 0; }
-.scb-orange::before { background: var(--orange); }
-.scb-green::before { background: var(--green); }
-.scb-blue::before { background: var(--blue); }
-.scb-purple::before { background: var(--purple); }
-.scb-red::before { background: var(--red); }
-.scb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.scb-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
-.scbi-orange { background: var(--orange-lt); color: var(--orange); }
-.scbi-green { background: var(--green-lt); color: var(--green); }
-.scbi-blue { background: var(--blue-lt); color: var(--blue); }
-.scbi-purple { background: var(--purple-lt); color: var(--purple); }
-.scbi-red { background: var(--red-lt); color: var(--red); }
-.scbi-yellow { background: var(--yellow-lt); color: var(--yellow); }
-.scb-value { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 8px; }
-.scb-label { font-size: 13px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.scb-detail { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 600; }
-
-/* STAT GRID SMALL */
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-@media(max-width:1100px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media(max-width:1200px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media(max-width:768px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 .stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
-.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0, 0, 0, .08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+.sc-orange::before { background: var(--orange); }
 .sc-green::before { background: var(--green); }
 .sc-blue::before { background: var(--blue); }
 .sc-purple::before { background: var(--purple); }
 .sc-red::before { background: var(--red); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .stat-icon-wrap { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.si-orange { background: var(--orange-lt); color: var(--orange); }
 .si-green { background: var(--green-lt); color: var(--green); }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
 .si-purple { background: var(--purple-lt); color: var(--purple); }
@@ -407,7 +384,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 
-/* CARD */
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; margin-bottom: 24px; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
@@ -416,8 +392,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card-badge { background: var(--orange-lt); color: var(--orange); font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; }
 .card-body { padding: 20px 24px; }
 
-/* TABLE */
-.data-table { width: 100%; border-collapse: collapse; }
+.data-table { width: 100%; border-collapse: collapse; table-layout: auto; }
 .data-table th { padding: 12px 14px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); }
 .data-table td { padding: 14px 14px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
@@ -436,14 +411,11 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 
-/* CHART */
-.chart-container { position: relative; height: 380px; }
+.chart-container { position: relative; height: 320px; }
 
-/* GRID LAYOUT */
 .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 @media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
 
-/* BREAKDOWN */
 .breakdown-item { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--bg); border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--border); transition: .2s; }
 .breakdown-item:hover { border-color: var(--orange); }
 .breakdown-item:last-child { margin-bottom: 0; }
@@ -461,7 +433,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .breakdown-value.green { color: var(--green); }
 .breakdown-value.red { color: var(--red); }
 
-/* PRINT */
 @media print {
     .sidebar, .topbar, .filter-bar, .sb-bottom { display: none !important; }
     .main { margin-left: 0 !important; }
@@ -469,70 +440,30 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .card { break-inside: avoid; page-break-inside: avoid; }
 }
 
-/* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
-.clock-time { 
-    font-family: 'Barlow Condensed', sans-serif; 
-    font-size: 26px; 
-    font-weight: 900; 
-    color: var(--orange); 
-    display: flex; 
-    align-items: center; 
-    gap: 6px; 
-    line-height: 1; 
-}
+.clock-time { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 900; color: var(--orange); display: flex; align-items: center; gap: 6px; line-height: 1; }
 .clock-colon { color: var(--orange); opacity: .5; animation: blink 1s infinite; }
 @keyframes blink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .clock-divider { width: 1.5px; height: 28px; background-color: var(--border); }
-.clock-date { 
-    font-family: 'Barlow', sans-serif; 
-    font-size: 13px; 
-    font-weight: 700; 
-    color: var(--muted); 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px; 
-}
+.clock-date { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
-
 .topbar-user { background-color: #FFFFFF !important; }
+.topbar-btn:hover, .topbar-user:hover { background-color: #E5E7EB !important; border-color: #D1D5DB !important; color: #4B5563 !important; }
+.topbar-btn:active, .topbar-user:active { background-color: #D1D5DB !important; border-color: #9CA3AF !important; color: #1F2937 !important; }
 
-.topbar-btn:hover, .topbar-user:hover {
-    background-color: #E5E7EB !important;
-    border-color: #D1D5DB !important;
-    color: #4B5563 !important;
-}
+.text-center { text-align: center !important; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
 
-.topbar-btn:active, .topbar-user:active {
-    background-color: #D1D5DB !important;
-    border-color: #9CA3AF !important;
-    color: #1F2937 !important;
-}
-
-/* ============================================
-   MATIKAN SEMUA ANIMASI SWEETALERT2 
-   ============================================ */
-.swal2-popup {
-    animation: none !important;
-    transition: none !important;
-}
-.swal2-icon {
-    animation: none !important;
-}
+.swal2-popup { animation: none !important; transition: none !important; }
+.swal2-icon { animation: none !important; }
 .swal2-icon.swal2-success .swal2-success-ring,
 .swal2-icon.swal2-success [class^="swal2-success-line"],
 .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
-.swal2-icon.swal2-warning {
-    animation: none !important;
-}
-
-/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
-html.swal2-shown,
-body.swal2-shown,
-body.swal2-height-auto {
-    padding-right: 0 !important;
-}
+.swal2-icon.swal2-warning { animation: none !important; }
+html.swal2-shown, body.swal2-shown, body.swal2-height-auto { padding-right: 0 !important; }
 </style>
 </head>
 <body>
@@ -546,14 +477,10 @@ include '../includes/sidebar.php';
 <main class="main">
 
 <?php
-// ============================================================
-// SET TOPBAR VARIABLES & INCLUDE UNIFIED TOPBAR
-// ============================================================
 $topbar_title = 'Laporan Omzet';
 $topbar_breadcrumb = 'Laporan / Omzet';
 include '../includes/topbar.php';
 ?>
-
 
 <div class="content">
     <!-- Filter Bar -->
@@ -577,59 +504,43 @@ include '../includes/topbar.php';
             <label>Sampai Tanggal</label>
             <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>">
         </div>
-        <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan" style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
-        <button type="submit" class="filter-btn"><i class="fa-solid fa-filter"></i> Terapkan</button>
-        <a href="laporan_omzet.php" class="filter-btn secondary"><i class="fa-solid fa-rotate-right"></i> Reset</a>
+
+        <div style="flex-grow: 1; min-width: 0;"></div>
+
+        <div style="display: flex; gap: 6px; align-items: end; flex-wrap: wrap;">
+            <button type="submit" class="filter-btn" style="background-color: var(--orange); border: none; font-family: 'Barlow', sans-serif; font-weight: 800; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-magnifying-glass"></i> Cari
+            </button>
+            <a href="laporan_omzet.php" class="filter-btn secondary" style="text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px; display: inline-flex; align-items: center; background-color: var(--bg); border: 1px solid var(--border); color: var(--text);">
+                <i class="fa-solid fa-rotate-right"></i> Reset
+            </a>
+            <div style="width: 1px; height: 32px; background-color: var(--border); margin: 0 4px;"></div>
+            <a href="cetak_pdf_omzet.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: var(--red); text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+            </a>
+            <a href="cetak_excel_omzet.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: #10B981; text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-excel"></i> Unduh Excel
+            </a>
+        </div>
     </form>
 
-    <!-- BIG STAT CARDS -->
-    <div class="stat-grid-big">
-        <div class="stat-card-big scb-orange">
-            <div class="scb-header">
-                <div class="scb-icon-wrap scbi-orange"><i class="fa-solid fa-money-bill-wave"></i></div>
-                <span class="card-badge">TOTAL</span>
-            </div>
-            <div class="scb-value"><?= rupiahFormat($total_omzet_kotor) ?></div>
-            <div class="scb-label">Total Omzet Kotor</div>
-            <div class="scb-detail">Dari <?= $total_booking + $total_langganan + $total_beli ?> transaksi</div>
-        </div>
-        <div class="stat-card-big scb-red">
-            <div class="scb-header">
-                <div class="scb-icon-wrap scbi-red"><i class="fa-solid fa-rotate-left"></i></div>
-                <span class="card-badge">REFUND</span>
-            </div>
-            <div class="scb-value"><?= rupiahFormat($total_refund) ?></div>
-            <div class="scb-label">Total Refund (Pembatalan)</div>
-            <div class="scb-detail"><?= $total_batal_count ?> booking dibatalkan</div>
-        </div>
-        <div class="stat-card-big scb-green">
-            <div class="scb-header">
-                <div class="scb-icon-wrap scbi-green"><i class="fa-solid fa-wallet"></i></div>
-                <span class="card-badge">BERSIH</span>
-            </div>
-            <div class="scb-value"><?= rupiahFormat($total_omzet_bersih) ?></div>
-            <div class="scb-label">Omzet Bersih</div>
-            <div class="scb-detail">Omzet Kotor - Refund</div>
-        </div>
-    </div>
-
-    <!-- SMALL STAT CARDS -->
+    <!-- STAT GRID (4 kolom, sama seperti langganan) -->
     <div class="stat-grid">
-        <div class="stat-card sc-green">
-            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-calendar-check"></i></div></div>
-            <div class="stat-value" style="font-size:22px;"><?= rupiahFormat($omzet_booking) ?></div><div class="stat-label">Omzet Sewa Lapangan</div>
-        </div>
-        <div class="stat-card sc-blue">
-            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-crown"></i></div></div>
-            <div class="stat-value" style="font-size:22px;"><?= rupiahFormat($omzet_langganan) ?></div><div class="stat-label">Omzet Langganan</div>
-        </div>
-        <div class="stat-card sc-purple">
-            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-basketball"></i></div></div>
-            <div class="stat-value" style="font-size:22px;"><?= rupiahFormat($omzet_beli_alat) ?></div><div class="stat-label">Omzet Pembelian Alat</div>
+        <div class="stat-card sc-orange">
+            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-money-bill-wave"></i></div></div>
+            <div class="stat-value"><?= rupiahFormat($total_omzet_kotor) ?></div><div class="stat-label">Total Omzet Kotor</div>
         </div>
         <div class="stat-card sc-red">
-            <div class="stat-header"><div class="stat-icon-wrap si-red"><i class="fa-solid fa-ban"></i></div></div>
-            <div class="stat-value" style="font-size:22px;"><?= rupiahFormat($total_batal) ?></div><div class="stat-label">Biaya Pembatalan (50%)</div>
+            <div class="stat-header"><div class="stat-icon-wrap si-red"><i class="fa-solid fa-rotate-left"></i></div></div>
+            <div class="stat-value"><?= rupiahFormat($total_refund) ?></div><div class="stat-label">Total Refund</div>
+        </div>
+        <div class="stat-card sc-green">
+            <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-wallet"></i></div></div>
+            <div class="stat-value"><?= rupiahFormat($total_omzet_bersih) ?></div><div class="stat-label">Omzet Bersih</div>
+        </div>
+        <div class="stat-card sc-blue">
+            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-receipt"></i></div></div>
+            <div class="stat-value"><?= $total_booking + $total_langganan + $total_beli ?></div><div class="stat-label">Total Transaksi</div>
         </div>
     </div>
 
@@ -690,6 +601,27 @@ include '../includes/topbar.php';
                     <div class="breakdown-count">Omzet Kotor - Refund</div>
                 </div>
                 <div class="breakdown-value green"><?= rupiahFormat($total_omzet_bersih) ?></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ringkasan Keuangan -->
+    <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div></div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Omzet Kotor</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);"><?= rupiahFormat($total_omzet_kotor) ?></div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Refund</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);"><?= rupiahFormat($total_refund) ?></div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Omzet Bersih</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);"><?= rupiahFormat($total_omzet_bersih) ?></div>
+                </div>
             </div>
         </div>
     </div>
@@ -761,17 +693,17 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('omzetChart').getContext('2d');
 new Chart(ctx, {
-    type: 'line', // Diubah menjadi line chart
+    type: 'line',
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Sewa Lapangan (Bersih)',
                 data: <?= json_encode($chart_booking) ?>,
-                borderColor: '#10B981', // Hijau
-                backgroundColor: 'rgba(16, 185, 129, 0.08)', // Area fill transparan hijau
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                tension: 0.4,
                 pointBackgroundColor: '#10B981',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
@@ -781,10 +713,10 @@ new Chart(ctx, {
             {
                 label: 'Langganan',
                 data: <?= json_encode($chart_langganan) ?>,
-                borderColor: '#3B82F6', // Biru
-                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Area fill transparan biru
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                tension: 0.4,
                 pointBackgroundColor: '#3B82F6',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
@@ -794,10 +726,10 @@ new Chart(ctx, {
             {
                 label: 'Pembelian Alat',
                 data: <?= json_encode($chart_beli) ?>,
-                borderColor: '#8B5CF6', // Ungu
-                backgroundColor: 'rgba(139, 92, 246, 0.05)', // Area fill transparan ungu
+                borderColor: '#8B5CF6',
+                backgroundColor: 'rgba(139, 92, 246, 0.05)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                tension: 0.4,
                 pointBackgroundColor: '#8B5CF6',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
@@ -812,10 +744,10 @@ new Chart(ctx, {
         plugins: {
             legend: { 
                 position: 'top', 
-                align: 'end', // Menyejajarkan legenda ke kanan atas
+                align: 'end',
                 labels: { 
                     font: { family: 'Barlow', size: 12, weight: '600' }, 
-                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    usePointStyle: true,
                     boxWidth: 8,
                     padding: 20 
                 } 
