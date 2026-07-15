@@ -168,7 +168,7 @@ function statusLanggananLabel($status) {
 ob_start();
 $judul_cetak = "LAPORAN OMZET KESELURUHAN";
 $jumlah_data_cetak = $total_transaksi;
-include '../includes/kop_laporan_excel.php';
+include '../includes/kop_laporan_excel_omzet.php';
 $kop_html = ob_get_clean();
 
 $html = $kop_html . '
