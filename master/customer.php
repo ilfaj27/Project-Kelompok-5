@@ -304,43 +304,91 @@ $sidebar_photo = $profile_photo;
             overflow-x: auto;
         }
 
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+/* CARD & TABLE */
+.card { 
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    overflow: hidden; 
+    transition: all .2s ease; 
+    background-color: #FFFFFF !important;
+}
+.card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.card-header { 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.card-title { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { 
+    background: var(--orange-lt); 
+    color: var(--orange); 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
+.table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.table-wrap::-webkit-scrollbar { display: none; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+    font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
+    color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
+    padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
+    background: #ff6f00 !important;
+}
+.data-table td { 
+    padding: 14px 16px; 
+    vertical-align: middle; 
+    font-size: 13px;
+    text-align: center;
+}
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+.data-table tbody tr { height: 68px; }
 
-        .data-table th {
-            font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
-            color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
-            padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
-            background: #ff6f00 !important;
-        }
 
-        .data-table th,
-        .data-table td {
-            padding: 16px 20px;
-            vertical-align: middle;
-        }
+/* Row number styling */
+.row-num {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+    font-size: 14px;
+}
+/* ============================================
+   TABLE COLUMN WIDTHS - FIXED PIXEL BASED
+   ============================================ */
+.data-table th:nth-child(1), 
+.data-table td:nth-child(1) { width: 50px; text-align: center; }
 
-        .data-table th:nth-child(1),
-        .data-table td:nth-child(1) {
-            text-align: center !important;
-            width: 6%;
-            font-size: 15px;
-            font-weight: 700;
-            /* Dikurangi agar seimbang */
-        }
+.data-table th:nth-child(2) { width: 280px; text-align: center; }
+.data-table td:nth-child(2) { width: 280px; text-align: center; }
 
-        /* Kolom 2: Nama Customer */
-        .data-table th:nth-child(2) {
-            width: 24%;
-            text-align: center !important;
-        }
-        .data-table td:nth-child(2) {
-            width: 24%;
-            text-align: left !important;
-        }
+.data-table th:nth-child(3), 
+.data-table td:nth-child(3) { width: 120px; text-align: center; }
 
+.data-table th:nth-child(4), 
+.data-table td:nth-child(4) { width: 120px; text-align: center; }
+
+.data-table th:nth-child(5), 
+.data-table td:nth-child(5) { width: 100px; text-align: center; }
+
+.data-table th:nth-child(6), 
+.data-table td:nth-child(6) { width: 100px; text-align: center; }
+
+.data-table th:nth-child(7), 
+.data-table td:nth-child(7) { width: 160px; text-align: center; }
 
 /* ============================================
    CUSTOMER AVATAR & NAME - MATCH KARYAWAN STYLE
@@ -369,7 +417,6 @@ $sidebar_photo = $profile_photo;
     box-shadow: 0 4px 16px rgba(255,69,0,0.35);
 }
 
-/* Avatar hover on row hover */
 .data-table tbody tr:hover .cust-avatar {
     transform: scale(1.08);
     box-shadow: 0 4px 16px rgba(255,69,0,0.35);
@@ -380,10 +427,8 @@ $sidebar_photo = $profile_photo;
     align-items: center;
     gap: 12px;
     height: 100%;
-    width: 100%;
+    width: 220px;
     justify-content: flex-start;
-    padding-left: 12px;
-    vertical-align: middle;
 }
 
 .cust-name {
@@ -393,258 +438,143 @@ $sidebar_photo = $profile_photo;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 180px;
+    max-width: 200px;
 }
 
-        .cust-name {
-            font-weight: 700;
-            color: var(--text);
-            font-size: 15px;
-        }
+.cust-email {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+}
 
-        /* Kolom 3: Email */
-        .data-table th:nth-child(3),
-        .data-table td:nth-child(3) {
-            width: 22%;
-            text-align: Center !important;
-            /* Dikurangi agar muat 7 kolom */
-        }
+/* ============================================
+   BADGES & STATUS
+   ============================================ */
+.status-pill { 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 6px; 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-size: 11px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    letter-spacing: .3px; 
+}
+.sp-active { background: var(--green-lt); color: var(--green); }
+.sp-inactive { background: var(--red-lt); color: var(--red); }
+.sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.sp-active .sp-dot { background: var(--green); }
+.sp-inactive .sp-dot { background: var(--red); }
 
-        .cust-email {
-            font-family: 'Barlow', sans-serif;
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text);
-        }
+/* JK BADGE */
+.jk-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.jk-laki { background: #EFF6FF; color: #3B82F6; }
+.jk-perempuan { background: #FDF2F8; color: #EC4899; }
 
-        /* Kolom 4: Jenis Kelamin (Baru) */
-        .data-table th:nth-child(4),
-        .data-table td:nth-child(4) {
-            width: 15%;
-            text-align: center !important;
-            font-size: 14px;
-        }
+/* ============================================
+   TOGGLE SWITCH
+   ============================================ */
+.toggle-switch { 
+    position: relative; 
+    display: inline-flex; 
+    align-items: center; 
+    width: 44px; 
+    height: 24px; 
+    cursor: pointer; 
+    margin: 0; 
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0; 
+    background-color: var(--red); 
+    transition: .3s; 
+    border-radius: 24px; 
+}
+.toggle-slider::before { 
+    position: absolute; 
+    content: ""; 
+    height: 18px; 
+    width: 18px; 
+    left: 3px; 
+    bottom: 3px; 
+    background-color: white; 
+    transition: .3s; 
+    border-radius: 50%; 
+    box-shadow: 0 2px 4px rgba(0,0,0,.2); 
+}
+.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.toggle-switch:hover .toggle-slider { opacity: .9; }
 
-        /* Kolom 5: Umur (Geser dari Kolom 4 ke 5) */
-        .data-table th:nth-child(5),
-        .data-table td:nth-child(5) {
-            width: 10%;
-            text-align: center !important;
-            font-size: 15px !important;
-        }
-
-        /* Kolom 6: Status (Geser dari Kolom 5 ke 6) */
-        .data-table th:nth-child(6),
-        .data-table td:nth-child(6) {
-            width: 11%;
-            text-align: center !important;
-        }
-
-        /* Menyesuaikan target style untuk status-pill pada kolom ke-6 */
-        .data-table td:nth-child(6) .status-pill {
-            position: relative;
-            display: inline-flex !important;
-            font-size: 12px !important;
-            margin: 0 !important;
-        }
-
-        /* Kolom 7: Aksi (Geser dari Kolom 6 ke 7) */
-        .data-table th:nth-child(7),
-        .data-table td:nth-child(7) {
-            width: 12%;
-            text-align: center !important;
-        }
-
-        /* STATUS PILL */
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-        }
-
-        .sp-active {
-            background: var(--green-lt);
-            color: var(--green);
-        }
-
-        .sp-inactive {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-
-        .sp-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .sp-active .sp-dot {
-            background: var(--green);
-        }
-
-        .sp-inactive .sp-dot {
-            background: var(--red);
-        }
-
-        /* STATUS BADGE (LEGACY - UNTUK MODAL DETAIL) */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-        }
-
-        .status-badge::before {
-            content: '';
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .status-active {
-            background: var(--green-lt);
-            color: var(--green);
-        }
-
-        .status-active::before {
-            background: var(--green);
-        }
-
-        .status-inactive {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-
-        .status-inactive::before {
-            background: var(--red);
-        }
-
-        /* ACTIONS */
-        .actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-start;
-            align-items: center;
-        }
-
-        .btn-action {
-            width: 38px;
-            height: 38px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            transition: all .25s cubic-bezier(.4, 0, .2, 1);
-            border: 1.5px solid transparent;
-            cursor: pointer;
-            background: none;
-        }
-
-        .btn-view {
-            background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
-            color: #1E40AF;
-            border-color: #BFDBFE;
-        }
-
-        .btn-view:hover {
-            background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-            color: #fff;
-            border-color: #3B82F6;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, .35);
-        }
-
-        /* TOGGLE SWITCH - DIPERBAIKI */
-        .toggle-switch {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            width: 44px;
-            height: 24px;
-            cursor: pointer;
-            margin: 0;
-            flex-shrink: 0;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--red);
-            transition: .3s;
-            border-radius: 24px;
-        }
-
-        .toggle-slider::before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .3s;
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
-        }
-
-        .toggle-switch input:checked+.toggle-slider {
-            background-color: var(--green);
-        }
-
-        .toggle-switch input:checked+.toggle-slider::before {
-            transform: translateX(20px);
-        }
-
-        .toggle-switch:hover .toggle-slider {
-            opacity: .9;
-        }
-
-        /* ZEBRA STRIPING & HOVER */
-        .data-table tbody tr:nth-child(odd) {
-            background-color: #FFF7ED;
-        }
-
-        .data-table tbody tr:nth-child(even) {
-            background-color: #FFFFFF;
-        }
-
-        .data-table tbody tr:hover td {
-            background-color: #FFEDD5 !important;
-        }
-
-        .data-table tbody tr:nth-child(odd):hover {
-            background-color: #FFEDD5;
-        }
-
-        .data-table tbody tr:nth-child(even):hover {
-            background-color: #FFEDD5;
-        }
+/* ACTIONS */
+.actions { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.btn-action { 
+    width: 32px; 
+    height: 32px; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 8px; 
+    font-size: 13px; 
+    font-weight: 700; 
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    border: 1.5px solid transparent; 
+    cursor: pointer; 
+}
+.btn-edit { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE; 
+}
+.btn-edit:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35); 
+}
+.btn-delete { 
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); 
+    color: #DC2626; 
+    border-color: #FECACA; 
+}
+.btn-delete:hover { 
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
+    color: #fff; 
+    border-color: #EF4444; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(239,68,68,.35); 
+}
+.btn-view { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE; 
+}
+.btn-view:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35); 
+}
 
         .pagination-wrap {
             background: var(--card-bg);
@@ -1345,17 +1275,21 @@ $sidebar_photo = $profile_photo;
             </div>
 
             <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-users"></i> Data Customer</div>
+                <span class="card-badge"><?= $total_cust ?> total</span>
+            </div>
                 <div class="table-wrap">
                     <table class="data-table" id="tbl">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">No</th>
+                                <th>No</th>
                                 <th>Nama</th>
-                                <th style="text-align: left; width: 25%;">Email</th>
-                                <th style="width: 150px; text-align: center;">Jenis Kelamin</th> <!-- Tambahan Baru -->
-                                <th style="width: 120px;">Umur</th>
-                                <th style="width: 150px;">Status</th>
-                                <th style="text-align: left; width: 180px;">Aksi</th>
+                                <th>Email</th>
+                                <th>Jenis Kelamin</th>
+                                <th>Umur</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1393,29 +1327,23 @@ $sidebar_photo = $profile_photo;
 
                                     $jk_icon = $row['Jenis_Kelamin'] == 1 ? 'fa-mars' : 'fa-venus';
                                     $jk_color = $row['Jenis_Kelamin'] == 1 ? 'var(--blue)' : 'var(--pink)';
+                                    $jk_class = $row['Jenis_Kelamin'] == 1 ? 'jk-laki' : 'jk-perempuan';
                                     ?>
                                     <tr>
-                                        <td style="font-family:'Barlow'; font-weight:700; color:var(--text);"><?= $no++ ?></td>
+                                        <td class="row-num"><?= $no++ ?></td>
                                         <td>
-                                    <div class="cust-name-cell">
-                                        <div class="cust-avatar"><?= getInitials($row['Nama_Customer']) ?></div>
-                                        <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
-                                    </div>
-                                </td>
+                                            <div class="cust-name-cell">
+                                                <div class="cust-avatar"><?= getInitials($row['Nama_Customer']) ?></div>
+                                                <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
+                                            </div>
+                                        </td>
                                         <td class="cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
-
-                                        <!-- Tambahan Baru: Kolom Jenis Kelamin -->
-                                        <td
-                                            style="text-align: center; font-family:'Barlow'; font-weight:700; color: <?= $jk_color ?>;">
-                                            <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($row['Jenis_Kelamin']) ?>
+                                        <td>
+                                            <span class="jk-badge <?= $jk_class ?>">
+                                                <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($row['Jenis_Kelamin']) ?>
+                                            </span>
                                         </td>
-
-                                        <!-- TAMBAHAN BARU -->
-                                        <td
-                                            style="font-family:'Barlow'; font-weight:700; color:var(--text); text-align: center;">
-                                            <?= htmlspecialchars($row['Umur'] ?? '-') ?> Tahun
-                                        </td>
-
+                                        <td><?= htmlspecialchars($row['Umur'] ?? '-') ?> Tahun</td>
                                         <td>
                                             <span class="status-pill <?= $status_int === 1 ? 'sp-active' : 'sp-inactive' ?>">
                                                 <span class="sp-dot"></span>
@@ -1440,7 +1368,7 @@ $sidebar_photo = $profile_photo;
                             <?php endforeach; ?>
                             <?php if (!$has_data): ?>
                                 <tr>
-                                    <td colspan="7"> <!-- SUDAH DIUBAH MENJADI 6 -->
+                                    <td colspan="7">
                                         <div class="empty-state"><i class="fa-solid fa-users"></i>
                                             <div>Belum ada data customer</div>
                                             <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">

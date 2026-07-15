@@ -405,67 +405,249 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .main, .content { background-color: #F3F4F6 !important; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
 .table-wrap { overflow-x: auto; }
+/* CARD & TABLE */
+.card { 
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    overflow: hidden; 
+    transition: all .2s ease; 
+    background-color: #FFFFFF !important;
+}
+.card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.card-header { 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.card-title { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { 
+    background: var(--orange-lt); 
+    color: var(--orange); 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
+.table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.table-wrap::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
-
 .data-table th {
     font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
     color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
     padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
     background: #ff6f00 !important;
 }
-.data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
+.data-table td { 
+    padding: 14px 16px; 
+    vertical-align: middle; 
+    font-size: 13px;
+    text-align: center;
+}
+.data-table tbody tr:nth-child(odd) { background-color: #FFF7ED; }
+.data-table tbody tr:nth-child(even) { background-color: #FFFFFF; }
+.data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
+.data-table tbody tr { height: 68px; }
 
-/* Kolom No */
-.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
-/* Kolom Nama Tipe */
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 25%; text-align: center; }
-.tipe-name { font-weight: 700; color: var(--text); font-size: 15px; }
-/* Kolom Harga Member */
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 20%; text-align: center !important; }
-.tipe-harga { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px; color: var(--text); }
-/* Kolom Potongan */
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 20%; text-align: center !important; }
-.tipe-potongan { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px; color: var(--green); }
-/* Kolom Status */
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 15%; text-align: center !important; }
-.data-table th:nth-child(5) { position: relative; }
-.data-table td:nth-child(5) { font-size: 0 !important; }
-.data-table td:nth-child(5) .status-pill { position: relative; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
-/* Kolom Aksi */
-.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 20%; text-align: center !important; }
 
-.tipe-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
+/* Row number styling */
+.row-num {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+    font-size: 14px;
+}
+/* ============================================
+   TABLE COLUMN WIDTHS - FIXED PIXEL BASED
+   ============================================ */
+.data-table th:nth-child(1), 
+.data-table td:nth-child(1) { width: 50px; text-align: center; }
 
-/* STATUS TOGGLE SWITCH - SAMA PERSIS LAPANGAN.PHP */
-.toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 24px; will-change: background-color; }
-.toggle-slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: all .3s cubic-bezier(.4, 0, .2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); will-change: transform; }
-.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
-.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
-.toggle-switch:hover .toggle-slider { opacity: .9; }
+.data-table th:nth-child(2) { width: 280px; text-align: center; }
+.data-table td:nth-child(2) { width: 280px; text-align: center; }
 
-.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.data-table th:nth-child(3), 
+.data-table td:nth-child(3) { width: 120px; text-align: center; }
+
+.data-table th:nth-child(4), 
+.data-table td:nth-child(4) { width: 120px; text-align: center; }
+
+.data-table th:nth-child(5), 
+.data-table td:nth-child(5) { width: 100px; text-align: center; }
+
+.data-table th:nth-child(6), 
+.data-table td:nth-child(6) { width: 160px; text-align: center; }
+
+/* ============================================
+   TIPE NAME & PRICE - CLEANED UP
+   ============================================ */
+.tipe-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.tipe-harga {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.tipe-potongan {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--green);
+}
+
+/* ============================================
+   BADGES & STATUS
+   ============================================ */
+.status-pill { 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 6px; 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-size: 11px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    letter-spacing: .3px; 
+}
 .sp-active { background: var(--green-lt); color: var(--green); }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
+/* ============================================
+   TOGGLE SWITCH
+   ============================================ */
+.toggle-switch { 
+    position: relative; 
+    display: inline-flex; 
+    align-items: center; 
+    width: 44px; 
+    height: 24px; 
+    cursor: pointer; 
+    margin: 0; 
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0; 
+    background-color: var(--red); 
+    transition: .3s; 
+    border-radius: 24px; 
+}
+.toggle-slider::before { 
+    position: absolute; 
+    content: ""; 
+    height: 18px; 
+    width: 18px; 
+    left: 3px; 
+    bottom: 3px; 
+    background-color: white; 
+    transition: .3s; 
+    border-radius: 50%; 
+    box-shadow: 0 2px 4px rgba(0,0,0,.2); 
+}
+.toggle-switch input:checked + .toggle-slider { background-color: var(--green); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.toggle-switch:hover .toggle-slider { opacity: .9; }
+
 /* ACTIONS */
-.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
-.btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; }
-.btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
-.btn-edit:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
-.btn-delete { background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #DC2626; border-color: #FECACA; }
-.btn-delete:hover { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: #fff; border-color: #EF4444; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239,68,68,.35); }
-.btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
-.btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
+.actions { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.btn-action { 
+    width: 32px; 
+    height: 32px; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 8px; 
+    font-size: 13px; 
+    font-weight: 700; 
+    transition: all .25s cubic-bezier(.4,0,.2,1); 
+    border: 1.5px solid transparent; 
+    cursor: pointer; 
+}
+.btn-edit { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE; 
+}
+.btn-edit:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35); 
+}
+.btn-delete { 
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); 
+    color: #DC2626; 
+    border-color: #FECACA; 
+}
+.btn-delete:hover { 
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
+    color: #fff; 
+    border-color: #EF4444; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(239,68,68,.35); 
+}
+.btn-view { 
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); 
+    color: #1E40AF; 
+    border-color: #BFDBFE; 
+}
+.btn-view:hover { 
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+    color: #fff; 
+    border-color: #3B82F6; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(59,130,246,.35); 
+}
 
 /* MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.modal-overlay { 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0,0,0,.55); 
+    backdrop-filter: blur(6px); 
+    display: none; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 2000; 
+}
 .modal-overlay.open { display: flex; }
-.modal-box { background: #fff; border-radius: 20px; width: 480px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,.2); position: relative; }
+.modal-box { 
+    background: #fff; 
+    border-radius: 20px; 
+    width: 480px; 
+    overflow: hidden; 
+    box-shadow: 0 25px 60px rgba(0,0,0,.2); 
+    position: relative; 
+}
 .modal-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); }
 .modal-subtitle { font-size: 10px; font-weight: 800; color: var(--orange); text-transform: uppercase; margin-bottom: 6px; letter-spacing: .8px; }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); }
@@ -485,12 +667,17 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .modal-close { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border: none; background: var(--border-lt); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; transition: all .2s; }
 .modal-close:hover { background: var(--red-lt); color: var(--red); }
 
-/* VALIDASI ERROR STATE */
-.modal-input.error { border-color: var(--red) !important; background-color: #FEF2F2 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important; }
-.modal-input.error:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important; }
-.val-msg { font-size: 11px; color: var(--red); font-weight: 600; margin-bottom: 10px; display: none; min-height: 16px; }
-.val-msg.show { display: block; }
-.val-msg i { margin-right: 4px; }
+/* DETAIL MODAL */
+.detail-photo-card { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border); }
+.detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
+.detail-main-name { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--text); text-transform: uppercase; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-lt); }
+.info-row:last-child { border-bottom: none; }
+.info-key { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.info-key i { color: var(--orange); font-size: 14px; width: 18px; text-align: center; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.info-val.price { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--orange); font-weight: 800; }
+.info-val.discount { font-family: 'Barlow Condensed'; font-size: 18px; color: var(--green); font-weight: 800; }
 
 /* PAGINATION */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
@@ -653,54 +840,6 @@ html.swal2-height-auto { padding-right: 0px !important; }
     </div>
 </div>
 
-<!-- MODAL DETAIL TIPE MEMBER -->
-<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
-    <div class="modal-box" style="width: 440px;">
-        <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
-        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
-            <div class="modal-subtitle">Informasi Tipe Member</div>
-            <div class="modal-title">Profil Tipe Member</div>
-        </div>
-        <div class="modal-body" style="padding-top: 10px;">
-            <?php if ($detail_data): 
-                $is_active_detail = $detail_data['Status'] == 1;
-            ?>
-                <div class="detail-photo-card">
-                    <div class="detail-icon-wrap"><i class="fa-solid fa-star"></i></div>
-                    <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></div>
-                </div>
-
-                <!-- ID_Tipe hidden -->
-                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Tipe'] ?? '') ?>">
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-star"></i> Nama Tipe</span>
-                    <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Member</span>
-                    <span class="info-val price"><?= rupiah($detail_data['Harga_Member']) ?></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-tags"></i> Potongan Harga</span>
-                    <span class="info-val discount"><?= rupiah($detail_data['Potongan_Harga']) ?></span>
-                </div>
-                <div class="info-row" style="border-bottom:none;">
-                    <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
-                    <span class="info-val">
-                        <span class="status-pill <?= $is_active_detail ? 'sp-active' : 'sp-inactive' ?>">
-                            <span class="sp-dot"></span>
-                            <?= $is_active_detail ? 'AKTIF' : 'NONAKTIF' ?>
-                        </span>
-                    </span>
-                </div>
-            <?php endif; ?>
-
-            <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
-                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- SIDEBAR -->
 <?php include '../includes/sidebar.php'; ?>
@@ -769,6 +908,10 @@ html.swal2-height-auto { padding-right: 0px !important; }
 
         <!-- TABLE CARD -->
         <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-star"></i> Data Tipe Member</div>
+                <span class="card-badge"><?= $total_data ?> total</span>
+            </div>
             <?php if ($query_error): ?>
                 <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
                     <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
@@ -779,12 +922,12 @@ html.swal2-height-auto { padding-right: 0px !important; }
                     <table class="data-table" id="tbl">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">No</th>
+                                <th>No</th>
                                 <th>Nama Tipe</th>
                                 <th>Harga Member</th>
                                 <th>Potongan Harga</th>
-                                <th style="width: 150px;">Status</th>
-                                <th style="text-align: left; width: 180px;">Aksi</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -799,8 +942,8 @@ html.swal2-height-auto { padding-right: 0px !important; }
                             $row_num++;
                             $is_active = $row['Status'] == 1;
                         ?>
-                            <tr class="row-<?= $row_num % 2 == 1 ? 'odd' : 'even' ?>">
-                                <td style="font-family:'Barlow'; font-weight:700;"><?= $no++ ?></td>
+                            <tr>
+                                <td class="row-num"><?= $no++ ?></td>
                                 <td>
                                     <div class="tipe-name"><?= htmlspecialchars($row['Nama_Tipe']) ?></div>
                                 </td>
@@ -1307,5 +1450,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     });
 </script>
+
+<!-- MODAL DETAIL TIPE MEMBER -->
+
+
+<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+    <div class="modal-box" style="width: 440px;">
+        <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+            <div class="modal-subtitle">Informasi Tipe Member</div>
+            <div class="modal-title">Profil Tipe Member</div>
+        </div>
+        <div class="modal-body" style="padding-top: 10px;">
+            <?php if ($detail_data): 
+                $is_active_detail = $detail_data['Status'] == 1;
+            ?>
+                <div class="detail-photo-card">
+                    <div class="detail-icon-wrap"><i class="fa-solid fa-star"></i></div>
+                    <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></div>
+                </div>
+
+                <!-- ID_Tipe hidden -->
+                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Tipe'] ?? '') ?>">
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-star"></i> Nama Tipe</span>
+                    <span class="info-val" style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Member</span>
+                    <span class="info-val price"><?= rupiah($detail_data['Harga_Member']) ?></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-key"><i class="fa-solid fa-tags"></i> Potongan Harga</span>
+                    <span class="info-val discount"><?= rupiah($detail_data['Potongan_Harga']) ?></span>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
+                    <span class="info-val">
+                        <span class="status-pill <?= $is_active_detail ? 'sp-active' : 'sp-inactive' ?>">
+                            <span class="sp-dot"></span>
+                            <?= $is_active_detail ? 'AKTIF' : 'NONAKTIF' ?>
+                        </span>
+                    </span>
+                </div>
+            <?php endif; ?>
+
+            <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+            </button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

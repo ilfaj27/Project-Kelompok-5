@@ -376,9 +376,37 @@ $sidebar_photo = $profile_photo;
             box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
         }
 
+/* CARD HEADER - synced with customer */
+.card-header { 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.card-title { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { 
+    background: var(--orange-lt); 
+    color: var(--orange); 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
         .table-wrap {
             overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
+        .table-wrap::-webkit-scrollbar { display: none; }
 
         .data-table {
             width: 100%;
@@ -392,78 +420,22 @@ $sidebar_photo = $profile_photo;
             background: #ff6f00 !important;
         }
 
-        .data-table th,
         .data-table td {
-            padding: 16px 20px;
+            padding: 14px 16px;
             vertical-align: middle;
+            font-size: 13px;
+            text-align: center;
         }
-
-        /* 1. Kolom No (Rata Tengah) */
-        .data-table th:nth-child(1),
-        .data-table td:nth-child(1) {
-            text-align: center !important;
-            padding-left: 65px !important;
-            width: 8%;
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        /* 2. Kolom Nama Fasilitas */
-        .data-table th:nth-child(2),
-        .data-table td:nth-child(2) {
-            width: 32%;
-            text-align: left !important;
-            padding-left: 135px !important;
-        }
-
+        .data-table tbody tr { height: 68px; }
         .fas-name {
             font-weight: 700;
             color: var(--text);
-            font-size: 15px;
+            font-size: 14px;
         }
-
         .fas-detail {
             font-size: 12px;
             color: var(--muted);
             margin-top: 2px;
-        }
-
-        /* 3. Kolom Stok (Sisa/Total) */
-        .data-table th:nth-child(3),
-        .data-table td:nth-child(3) {
-            width: 22%;
-            text-align: center !important;
-        }
-
-        /* 4. Kolom Status (Tengah Presisi) */
-        .data-table th:nth-child(4),
-        .data-table td:nth-child(4) {
-            width: 18%;
-            text-align: center !important;
-            padding-left: 0 !important;
-        }
-
-        .data-table th:nth-child(4) {
-            position: relative;
-        }
-
-        .data-table td:nth-child(4) {
-            font-size: 0 !important;
-        }
-
-        .data-table td:nth-child(4) .status-pill {
-            position: relative;
-            display: inline-flex !important;
-            font-size: 12px !important;
-            margin: 0 !important;
-        }
-
-        /* 5. Kolom Aksi (Rata Kiri) */
-        .data-table th:nth-child(5),
-        .data-table td:nth-child(5) {
-            width: 20%;
-            text-align: Center !important;
-            /* Menggunakan CENTER */
         }
 
         /* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */
@@ -507,19 +479,19 @@ $sidebar_photo = $profile_photo;
         /* ═══ ACTIONS ═══ */
         .actions {
             display: flex;
-            gap: 12px;
-            justify-content: flex-start;
+            gap: 8px;
+            justify-content: center;
             align-items: center;
         }
 
         .btn-action {
-            width: 38px;
-            height: 38px;
+            width: 32px;
+            height: 32px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 700;
             transition: all .25s cubic-bezier(.4, 0, .2, 1);
             border: 1.5px solid transparent;
@@ -1362,6 +1334,10 @@ $sidebar_photo = $profile_photo;
             </div>
 
             <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-list-check"></i> Data Fasilitas</div>
+                    <span class="card-badge"><?= $total_data ?> total</span>
+                </div>
                 <div class="table-wrap">
                     <table class="data-table" id="tbl">
                         <thead>
