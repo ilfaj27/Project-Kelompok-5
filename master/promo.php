@@ -847,7 +847,7 @@ html.swal2-height-auto { padding-right: 0px !important; }
                                 <th>Nama Promo</th>
                                 <th>Diskon</th>
                                 <th style="width: 150px;">Status</th> 
-                                <th style="text-align: left; width: 180px;">Aksi</th>
+                                <th style="text-align: center; width: 180px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>

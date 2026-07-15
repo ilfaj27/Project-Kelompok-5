@@ -358,14 +358,6 @@ $sidebar_photo = $profile_photo;
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 .data-table tbody tr { height: 68px; }
 
-
-/* Row number styling */
-.row-num {
-    font-family: 'Barlow', sans-serif;
-    font-weight: 800;
-    color: var(--text);
-    font-size: 14px;
-}
 /* ============================================
    TABLE COLUMN WIDTHS - FIXED PIXEL BASED
    ============================================ */
@@ -427,8 +419,8 @@ $sidebar_photo = $profile_photo;
     align-items: center;
     gap: 12px;
     height: 100%;
-    width: 220px;
-    justify-content: flex-start;
+    width: 150px;
+    justify-content: center;
 }
 
 .cust-name {
@@ -439,6 +431,8 @@ $sidebar_photo = $profile_photo;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
+    text-align: center;
+    margin: 0 auto;
 }
 
 .cust-email {
@@ -446,6 +440,15 @@ $sidebar_photo = $profile_photo;
     font-weight: 700;
     font-size: 13px;
     color: var(--text);
+    text-align: center;
+}
+
+.row-num {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+    font-size: 14px;
+    text-align: center;
 }
 
 /* ============================================

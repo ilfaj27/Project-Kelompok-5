@@ -466,6 +466,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-weight: 800;
     color: var(--text);
     font-size: 14px;
+    text-align: center;
 }
 /* ============================================
    TABLE COLUMN WIDTHS - FIXED PIXEL BASED
@@ -499,6 +500,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
+    text-align: center;
+    margin: 0 auto;
 }
 
 .tipe-harga {
@@ -506,6 +509,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-weight: 700;
     font-size: 14px;
     color: var(--text);
+    text-align: center;
 }
 
 .tipe-potongan {
@@ -513,6 +517,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     font-weight: 700;
     font-size: 14px;
     color: var(--green);
+    text-align: center;
 }
 
 /* ============================================
