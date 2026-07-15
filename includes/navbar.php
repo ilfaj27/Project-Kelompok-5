@@ -419,21 +419,29 @@ function isActive($page, $dir = '') {
             if (isset($_SESSION['id_customer']) || isset($_SESSION['ID_Customer'])) {
                 $nav_id = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? '';
                 if (!empty($nav_id) && isset($conn)) {
+                    // Ambil photo profile
                     $nav_stmt = sqlsrv_query($conn, "SELECT Photo_Profile FROM Customer WHERE ID_Customer = ? AND Is_Deleted = 0", array($nav_id));
                     if ($nav_stmt) {
                         $nav_data = sqlsrv_fetch_array($nav_stmt, SQLSRV_FETCH_ASSOC);
                         $nav_photo = $nav_data['Photo_Profile'] ?? '';
                     }
-                    // Cek member aktif
+                    
+                    // Cek member aktif - ambil NAMA TIPE MEMBER
                     $nav_member_check = sqlsrv_query($conn, 
-                        "SELECT TOP 1 T.Nama_Tipe FROM Langganan L INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe WHERE L.ID_Customer = ? AND L.Status = 1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai ORDER BY L.Tanggal_Selesai DESC", 
+                        "SELECT TOP 1 T.Nama_Tipe 
+                         FROM Langganan L 
+                         INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
+                         WHERE L.ID_Customer = ? 
+                           AND L.Status = 1 
+                           AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai 
+                         ORDER BY L.Tanggal_Selesai DESC", 
                         array($nav_id)
                     );
                     if ($nav_member_check) {
                         $nav_member_data = sqlsrv_fetch_array($nav_member_check, SQLSRV_FETCH_ASSOC);
                         if ($nav_member_data) {
                             $nav_has_member = true;
-                            $nav_member_tipe = $nav_member_data['Nama_Tipe'];
+                            $nav_member_tipe = $nav_member_data['Nama_Tipe']; // Gold, Silver, Platinum, dll
                         }
                     }
                 }
@@ -455,7 +463,7 @@ function isActive($page, $dir = '') {
                         <i class="fa-solid fa-circle-user profile-icon-orange"></i>
                     <?php endif; ?>
                     <span class="profile-trigger-name"><?= htmlspecialchars($nav_nama) ?></span>
-                    <?php if ($nav_has_member): ?>
+                    <?php if ($nav_has_member && !empty($nav_member_tipe)): ?>
                         <span class="member-badge-nav"><i class="fa-solid fa-crown"></i> <?= htmlspecialchars($nav_member_tipe) ?></span>
                     <?php endif; ?>
                     <i class="fa-solid fa-chevron-down chevron-icon"></i>
