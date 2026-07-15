@@ -61,45 +61,8 @@ $filter_type = $_GET['filter'] ?? 'all';
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 
-$where_booking = ["1=1"];
-$where_langganan = ["1=1"];
-$where_beli = ["1=1"];
-$params_b = [];
-$params_l = [];
-$params_ba = [];
-
-// Date filter
-if ($filter_type === 'today') {
-    $where_booking[] = "CAST(b.Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)";
-    $where_langganan[] = "CAST(lg.Tanggal_Mulai AS DATE) = CAST(GETDATE() AS DATE)";
-    $where_beli[] = "CAST(ba.Tanggal_Beli AS DATE) = CAST(GETDATE() AS DATE)";
-} elseif ($filter_type === 'week') {
-    $where_booking[] = "b.Tanggal_Booking >= DATEADD(day, -7, CAST(GETDATE() AS DATE))";
-    $where_langganan[] = "lg.Tanggal_Mulai >= DATEADD(day, -7, CAST(GETDATE() AS DATE))";
-    $where_beli[] = "ba.Tanggal_Beli >= DATEADD(day, -7, CAST(GETDATE() AS DATE))";
-} elseif ($filter_type === 'month') {
-    $where_booking[] = "MONTH(b.Tanggal_Booking) = MONTH(GETDATE()) AND YEAR(b.Tanggal_Booking) = YEAR(GETDATE())";
-    $where_langganan[] = "MONTH(lg.Tanggal_Mulai) = MONTH(GETDATE()) AND YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())";
-    $where_beli[] = "MONTH(ba.Tanggal_Beli) = MONTH(GETDATE()) AND YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())";
-} elseif ($filter_type === 'year') {
-    $where_booking[] = "YEAR(b.Tanggal_Booking) = YEAR(GETDATE())";
-    $where_langganan[] = "YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())";
-    $where_beli[] = "YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())";
-} elseif ($filter_type === 'custom' && !empty($start_date) && !empty($end_date)) {
-    $where_booking[] = "b.Tanggal_Booking BETWEEN ? AND ?";
-    $where_langganan[] = "lg.Tanggal_Mulai BETWEEN ? AND ?";
-    $where_beli[] = "ba.Tanggal_Beli BETWEEN ? AND ?";
-    $params_b[] = $start_date; $params_b[] = $end_date;
-    $params_l[] = $start_date; $params_l[] = $end_date;
-    $params_ba[] = $start_date; $params_ba[] = $end_date;
-}
-
-$where_booking_sql = implode(" AND ", $where_booking);
-$where_langganan_sql = implode(" AND ", $where_langganan);
-$where_beli_sql = implode(" AND ", $where_beli);
-
 // ============================================
-// STATISTIK OMZET
+// STATISTIK OMZET - MENGGUNAKAN UDF
 // ============================================
 $omzet_booking = 0;
 $omzet_langganan = 0;
@@ -107,62 +70,52 @@ $omzet_beli_alat = 0;
 $total_refund = 0;
 $total_batal = 0;
 
-// Omzet Booking (Status 1=Berhasil, 2=Selesai)
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking b WHERE b.Status IN (1,2) AND " . $where_booking_sql, $params_b);
+// UDF: fn_GetOmzetBookingStats - Statistik Omzet Booking
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetOmzetBookingStats(?, ?, ?)", array($filter_type, $start_date, $end_date));
 $d = safeFetch($q);
-if ($d) $omzet_booking = $d['total'] ?? 0;
+if ($d) {
+    $omzet_booking = $d['omzet'] ?? 0;
+    $total_refund = $d['total_refund'] ?? 0;
+    $total_batal = $d['total_biaya_batal'] ?? 0;
+}
 
-// Total Refund dari Pembatalan
-$q = safeQuery($conn, "SELECT ISNULL(SUM(pb.Nominal_Refund), 0) as total FROM Pembatalan_Booking pb 
-    LEFT JOIN Booking b ON pb.ID_Booking = b.ID_Booking WHERE " . $where_booking_sql, $params_b);
+// UDF: fn_GetOmzetLanggananStats - Statistik Omzet Langganan
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetOmzetLanggananStats(?, ?, ?)", array($filter_type, $start_date, $end_date));
 $d = safeFetch($q);
-if ($d) $total_refund = $d['total'] ?? 0;
+if ($d) {
+    $omzet_langganan = $d['omzet'] ?? 0;
+}
 
-// Total Biaya Batal (50% yang tetap jadi omzet)
-$q = safeQuery($conn, "SELECT ISNULL(SUM(pb.Biaya_Batal), 0) as total FROM Pembatalan_Booking pb 
-    LEFT JOIN Booking b ON pb.ID_Booking = b.ID_Booking WHERE " . $where_booking_sql, $params_b);
+// UDF: fn_GetOmzetBeliAlatStats - Statistik Omzet Beli Alat
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetOmzetBeliAlatStats(?, ?, ?)", array($filter_type, $start_date, $end_date));
 $d = safeFetch($q);
-if ($d) $total_batal = $d['total'] ?? 0;
-
-// Omzet Langganan
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Langganan lg WHERE " . $where_langganan_sql, $params_l);
-$d = safeFetch($q);
-if ($d) $omzet_langganan = $d['total'] ?? 0;
-
-// Omzet Beli Alat
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Beli_Alat ba WHERE ba.Status = 1 AND " . $where_beli_sql, $params_ba);
-$d = safeFetch($q);
-if ($d) $omzet_beli_alat = $d['total'] ?? 0;
+if ($d) {
+    $omzet_beli_alat = $d['omzet'] ?? 0;
+}
 
 $total_omzet_kotor = $omzet_booking + $omzet_langganan + $omzet_beli_alat;
 $total_omzet_bersih = $total_omzet_kotor - $total_refund;
 
 // ============================================
-// STATISTIK JUMLAH TRANSAKSI
+// STATISTIK JUMLAH TRANSAKSI - MENGGUNAKAN UDF
 // ============================================
 $total_booking = 0;
 $total_langganan = 0;
 $total_beli = 0;
 $total_batal_count = 0;
 
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking b WHERE " . $where_booking_sql, $params_b);
+// UDF: fn_GetTransaksiCount - Total transaksi per kategori
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetTransaksiCount(?, ?, ?)", array($filter_type, $start_date, $end_date));
 $d = safeFetch($q);
-if ($d) $total_booking = $d['total'] ?? 0;
-
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan lg WHERE " . $where_langganan_sql, $params_l);
-$d = safeFetch($q);
-if ($d) $total_langganan = $d['total'] ?? 0;
-
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat ba WHERE ba.Status = 1 AND " . $where_beli_sql, $params_ba);
-$d = safeFetch($q);
-if ($d) $total_beli = $d['total'] ?? 0;
-
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking b WHERE b.Status = 3 AND " . $where_booking_sql, $params_b);
-$d = safeFetch($q);
-if ($d) $total_batal_count = $d['total'] ?? 0;
+if ($d) {
+    $total_booking = $d['total_booking'] ?? 0;
+    $total_langganan = $d['total_langganan'] ?? 0;
+    $total_beli = $d['total_beli'] ?? 0;
+    $total_batal_count = $d['total_batal'] ?? 0;
+}
 
 // ============================================
-// CHART DATA: Omzet per Sumber per Bulan
+// CHART DATA: Omzet per Sumber per Bulan - MENGGUNAKAN UDF
 // ============================================
 $chart_labels = [];
 $chart_booking = [];
@@ -170,112 +123,43 @@ $chart_langganan = [];
 $chart_beli = [];
 $chart_refund = [];
 
-// Booking per bulan
-$booking_months = [];
-$q = safeQuery($conn, 
-    "SELECT MONTH(b.Tanggal_Booking) as bulan, YEAR(b.Tanggal_Booking) as tahun,
-     ISNULL(SUM(CASE WHEN b.Status IN (1,2) THEN b.Total_Bayar ELSE 0 END), 0) as omzet,
-     ISNULL(SUM(pb.Nominal_Refund), 0) as refund
-     FROM Booking b
-     LEFT JOIN Pembatalan_Booking pb ON b.ID_Booking = pb.ID_Booking
-     WHERE " . $where_booking_sql . "
-     GROUP BY MONTH(b.Tanggal_Booking), YEAR(b.Tanggal_Booking)
-     ORDER BY YEAR(b.Tanggal_Booking), MONTH(b.Tanggal_Booking)", $params_b);
+// UDF: fn_GetOmzetChartData - Data chart omzet per bulan
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetOmzetChartData(?, ?, ?) ORDER BY tahun, bulan", array($filter_type, $start_date, $end_date));
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $key = $row['tahun'] . '-' . str_pad($row['bulan'], 2, '0', STR_PAD_LEFT);
-        $booking_months[$key] = ['omzet' => $row['omzet'] ?? 0, 'refund' => $row['refund'] ?? 0];
+        $monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        $chart_labels[] = $monthNames[(int)$row['bulan']] . ' ' . $row['tahun'];
+        $chart_booking[] = ($row['booking_omzet'] ?? 0) - ($row['booking_refund'] ?? 0);
+        $chart_langganan[] = $row['langganan_omzet'] ?? 0;
+        $chart_beli[] = $row['beli_omzet'] ?? 0;
+        $chart_refund[] = $row['booking_refund'] ?? 0;
     }
-}
-
-// Langganan per bulan
-$langganan_months = [];
-$q = safeQuery($conn, 
-    "SELECT MONTH(lg.Tanggal_Mulai) as bulan, YEAR(lg.Tanggal_Mulai) as tahun,
-     ISNULL(SUM(lg.Total_Bayar), 0) as omzet
-     FROM Langganan lg
-     WHERE " . $where_langganan_sql . "
-     GROUP BY MONTH(lg.Tanggal_Mulai), YEAR(lg.Tanggal_Mulai)
-     ORDER BY YEAR(lg.Tanggal_Mulai), MONTH(lg.Tanggal_Mulai)", $params_l);
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $key = $row['tahun'] . '-' . str_pad($row['bulan'], 2, '0', STR_PAD_LEFT);
-        $langganan_months[$key] = $row['omzet'] ?? 0;
-    }
-}
-
-// Beli Alat per bulan
-$beli_months = [];
-$q = safeQuery($conn, 
-    "SELECT MONTH(ba.Tanggal_Beli) as bulan, YEAR(ba.Tanggal_Beli) as tahun,
-     ISNULL(SUM(ba.Total_Bayar), 0) as omzet
-     FROM Beli_Alat ba
-     WHERE ba.Status = 1 AND " . $where_beli_sql . "
-     GROUP BY MONTH(ba.Tanggal_Beli), YEAR(ba.Tanggal_Beli)
-     ORDER BY YEAR(ba.Tanggal_Beli), MONTH(ba.Tanggal_Beli)", $params_ba);
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $key = $row['tahun'] . '-' . str_pad($row['bulan'], 2, '0', STR_PAD_LEFT);
-        $beli_months[$key] = $row['omzet'] ?? 0;
-    }
-}
-
-// Merge all months
-$all_months = array_unique(array_merge(array_keys($booking_months), array_keys($langganan_months), array_keys($beli_months)));
-sort($all_months);
-
-$monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-foreach ($all_months as $m) {
-    $parts = explode('-', $m);
-    $chart_labels[] = $monthNames[(int)$parts[1]] . ' ' . $parts[0];
-    $chart_booking[] = ($booking_months[$m]['omzet'] ?? 0) - ($booking_months[$m]['refund'] ?? 0);
-    $chart_langganan[] = $langganan_months[$m] ?? 0;
-    $chart_beli[] = $beli_months[$m] ?? 0;
-    $chart_refund[] = $booking_months[$m]['refund'] ?? 0;
 }
 
 // ============================================
-// DETAIL TRANSAKSI TERBARU
+// DETAIL TRANSAKSI TERBARU - MENGGUNAKAN UDF
 // ============================================
+// UDF: fn_GetRecentBooking - 5 Booking terbaru
 $recent_bookings = [];
-$q = safeQuery($conn, 
-    "SELECT TOP 5 b.ID_Booking, b.Tanggal_Booking, b.Total_Bayar, b.Status, b.Metode_Pembayaran,
-     c.Nama_Customer, l.Nama_Lapangan
-     FROM Booking b
-     LEFT JOIN Customer c ON b.ID_Customer = c.ID_Customer
-     LEFT JOIN Jadwal j ON b.ID_Jadwal = j.ID_Jadwal
-     LEFT JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
-     WHERE " . $where_booking_sql . "
-     ORDER BY b.Tanggal_Booking DESC", $params_b);
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetRecentBooking(?, ?, ?)", array($filter_type, $start_date, $end_date));
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_bookings[] = $row;
     }
 }
 
+// UDF: fn_GetRecentLangganan - 5 Langganan terbaru
 $recent_langganan = [];
-$q = safeQuery($conn, 
-    "SELECT TOP 5 lg.ID_Langganan, lg.Tanggal_Mulai, lg.Total_Bayar, lg.Status,
-     c.Nama_Customer, tm.Nama_Tipe
-     FROM Langganan lg
-     LEFT JOIN Customer c ON lg.ID_Customer = c.ID_Customer
-     LEFT JOIN Tipe_Member tm ON lg.ID_Tipe = tm.ID_Tipe
-     WHERE " . $where_langganan_sql . "
-     ORDER BY lg.Tanggal_Mulai DESC", $params_l);
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetRecentLangganan(?, ?, ?)", array($filter_type, $start_date, $end_date));
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_langganan[] = $row;
     }
 }
 
+// UDF: fn_GetRecentBeliAlat - 5 Pembelian alat terbaru
 $recent_beli = [];
-$q = safeQuery($conn, 
-    "SELECT TOP 5 ba.ID_Beli, ba.Tanggal_Beli, ba.Total_Bayar, ba.Metode_Pembayaran,
-     c.Nama_Customer
-     FROM Beli_Alat ba
-     LEFT JOIN Customer c ON ba.ID_Customer = c.ID_Customer
-     WHERE ba.Status = 1 AND " . $where_beli_sql . "
-     ORDER BY ba.Tanggal_Beli DESC", $params_ba);
+$q = safeQuery($conn, "SELECT * FROM dbo.fn_GetRecentBeliAlat(?, ?, ?)", array($filter_type, $start_date, $end_date));
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_beli[] = $row;
