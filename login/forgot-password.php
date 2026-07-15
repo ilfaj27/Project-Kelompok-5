@@ -21,15 +21,16 @@ if (isset($_GET['clean'])) {
     exit();
 }
 
-$is_verified = isset($_SESSION['reset_id_customer']);
 $redirect_to_login = false;
-$otp_sent = isset($_SESSION['simulated_otp']);
 
-// JIKA HALAMAN DIAKSES SEGAR (GET REQUEST) DAN BELUM ADA OTP YANG DIKIRIM, BARU BERSIHKAN SESI
+// 1. Jalankan pembersihan sesi terlebih dahulu (jika akses GET segar)
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_SESSION['simulated_otp'])) {
     unset($_SESSION['simulated_otp'], $_SESSION['temp_customer_id'], $_SESSION['temp_customer_email'], $_SESSION['otp_expiry'], $_SESSION['reset_id_customer']);
-    $otp_sent = false;
 }
+
+// 2. Baru tentukan status aktifnya setelah sesi dipastikan bersih
+$is_verified = isset($_SESSION['reset_id_customer']);
+$otp_sent = isset($_SESSION['simulated_otp']);
 
 // TAHAP 1A: MEMINTA OTP BERDASARKAN EMAIL (CEK DATABASE)
 if (isset($_POST['request_otp'])) {
@@ -46,12 +47,7 @@ if (isset($_POST['request_otp'])) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
             // 1. Generate kode OTP acak 6 digit yang dinamis
-            try {
-                $otp_code = strval(random_int(100000, 999999));
-            } catch (\Exception $e) {
-                $otp_code = strval(mt_rand(100000, 999999));
-            }
-
+            $otp_code = strval(random_int(100000, 999999));
             // 2. Panggil fungsi pengiriman email dari mail_helper.php
             $kirim_email = sendOtpEmail($row['Email'], $otp_code);
 
@@ -125,12 +121,15 @@ if (isset($_POST['reset_password'])) {
         } else if (strlen($new_pass) < 8) {
             $res_status = "error";
             $res_msg = "Kata sandi baru minimal harus berisi 8 karakter!";
-        } else if ($new_pass === $old_pass) {
+        } else if (password_verify($new_pass, $old_pass)) {
             $res_status = "error";
             $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
         } else {
+            // Enkripsi kata sandi baru menggunakan Argon2id
+            $hashed_new_pass = password_hash($new_pass, PASSWORD_ARGON2ID);
+
             $sql = "UPDATE Customer SET Kata_Sandi = ? WHERE ID_Customer = ?";
-            $stmt = sqlsrv_query($conn, $sql, array($new_pass, $id_customer));
+            $stmt = sqlsrv_query($conn, $sql, array($hashed_new_pass, $id_customer));
 
             if ($stmt !== false) {
                 unset($_SESSION['reset_id_customer']);
@@ -168,11 +167,6 @@ if (isset($_POST['reset_password'])) {
             /* <-- Menempelkan posisi ke bagian atas */
             margin-top: 150px !important;
             /* <-- Mengatur jarak turunnya dari atas agar pas */
-        }
-
-
-        .footer-brand .logo span {
-            color: var(--orange);
         }
 
 
@@ -328,7 +322,7 @@ if (isset($_POST['reset_password'])) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
-    
+
             function setValidationError(inputEl, errorEl, message) {
                 inputEl.parentElement.classList.add('error');
                 inputEl.parentElement.parentElement.classList.add('error-active');
@@ -380,106 +374,106 @@ if (isset($_POST['reset_password'])) {
             }
 
             // ==========================================
-        // VALIDASI FORM OTP (TAHAP 2) SECARA INLINE
-        // ==========================================
-        const verifyOtpForm = document.getElementById('verifyOtpForm');
-        if (verifyOtpForm) {
-            const otpField = document.getElementById('otpField');
-            const otpError = document.getElementById('otpError');
+            // VALIDASI FORM OTP (TAHAP 2) SECARA INLINE
+            // ==========================================
+            const verifyOtpForm = document.getElementById('verifyOtpForm');
+            if (verifyOtpForm) {
+                const otpField = document.getElementById('otpField');
+                const otpError = document.getElementById('otpError');
 
-            verifyOtpForm.addEventListener('submit', function (e) {
-                let isValid = true;
-                const otpVal = otpField.value.trim();
+                verifyOtpForm.addEventListener('submit', function (e) {
+                    let isValid = true;
+                    const otpVal = otpField.value.trim();
 
-                if (otpVal === '') {
-                    setValidationError(otpField, otpError, 'Kode OTP wajib diisi.');
-                    isValid = false;
-                } else if (otpVal.length < 6) {
-                    setValidationError(otpField, otpError, 'Kode OTP harus berisi 6 digit angka.');
-                    isValid = false;
-                } else {
-                    clearValidationError(otpField, otpError);
-                }
+                    if (otpVal === '') {
+                        setValidationError(otpField, otpError, 'Kode OTP wajib diisi.');
+                        isValid = false;
+                    } else if (otpVal.length < 6) {
+                        setValidationError(otpField, otpError, 'Kode OTP harus berisi 6 digit angka.');
+                        isValid = false;
+                    } else {
+                        clearValidationError(otpField, otpError);
+                    }
 
-                // Jika tidak valid, batalkan submit dan getarkan kartu
-                if (!isValid) {
-                    e.preventDefault();
-                    const card = document.querySelector('.auth-card');
-                    card.classList.remove('shake');
-                    void card.offsetWidth;
-                    card.classList.add('shake');
-                }
-            });
-
-            // Menghapus tanda error saat user mengetik & membatasi input hanya angka
-            otpField.addEventListener('input', () => {
-                clearValidationError(otpField, otpError);
-                otpField.value = otpField.value.replace(/[^0-9]/g, ''); // Hanya izinkan angka
-            });
-        }
-
-        // VALIDASI FORM RESET KATA SANDI BARU
-        const resetForm = document.getElementById('resetForm');
-        if (resetForm) {
-            const password = document.getElementById('passwordInput');
-            const passwordConfirm = document.getElementById('passwordConfirmInput');
-
-            const passwordError = document.getElementById('passwordError');
-            const passwordConfirmError = document.getElementById('passwordConfirmError');
-
-            resetForm.addEventListener('submit', function (e) {
-                let isValid = true;
-                const hasLetter = /[a-zA-Z]/;
-                const hasNumber = /[0-9]/;
-                const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'password123'];
-
-                const passwordVal = password.value.trim();
-                if (passwordVal === '') {
-                    setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
-                    isValid = false;
-                } else if (passwordVal.length < 8 || passwordVal.length > 50) {
-                    setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
-                    isValid = false;
-                } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
-                    setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');
-                    isValid = false;
-                } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
-                    setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak. Gunakan kombinasi lain.');
-                    isValid = false;
-                } else {
-                    clearValidationError(password, passwordError);
-                }
-
-                const passwordConfirmVal = passwordConfirm.value.trim();
-                if (passwordConfirmVal === '') {
-                    setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi wajib diisi.');
-                    isValid = false;
-                } else if (passwordConfirmVal !== passwordVal) {
-                    setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi tidak cocok.');
-                    isValid = false;
-                } else {
-                    clearValidationError(passwordConfirm, passwordConfirmError);
-                }
-
-                if (!isValid) {
-                    e.preventDefault();
-                    const card = document.querySelector('.auth-card');
-                    card.classList.remove('shake');
-                    void card.offsetWidth;
-                    card.classList.add('shake');
-                }
-            });
-
-            const fieldsReset = [
-                { el: password, err: passwordError },
-                { el: passwordConfirm, err: passwordConfirmError }
-            ];
-            fieldsReset.forEach(field => {
-                field.el.addEventListener('input', () => {
-                    clearValidationError(field.el, field.err);
+                    // Jika tidak valid, batalkan submit dan getarkan kartu
+                    if (!isValid) {
+                        e.preventDefault();
+                        const card = document.querySelector('.auth-card');
+                        card.classList.remove('shake');
+                        void card.offsetWidth;
+                        card.classList.add('shake');
+                    }
                 });
-            });
-        }
+
+                // Menghapus tanda error saat user mengetik & membatasi input hanya angka
+                otpField.addEventListener('input', () => {
+                    clearValidationError(otpField, otpError);
+                    otpField.value = otpField.value.replace(/[^0-9]/g, ''); // Hanya izinkan angka
+                });
+            }
+
+            // VALIDASI FORM RESET KATA SANDI BARU
+            const resetForm = document.getElementById('resetForm');
+            if (resetForm) {
+                const password = document.getElementById('passwordInput');
+                const passwordConfirm = document.getElementById('passwordConfirmInput');
+
+                const passwordError = document.getElementById('passwordError');
+                const passwordConfirmError = document.getElementById('passwordConfirmError');
+
+                resetForm.addEventListener('submit', function (e) {
+                    let isValid = true;
+                    const hasLetter = /[a-zA-Z]/;
+                    const hasNumber = /[0-9]/;
+                    const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'password123'];
+
+                    const passwordVal = password.value.trim();
+                    if (passwordVal === '') {
+                        setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
+                        isValid = false;
+                    } else if (passwordVal.length < 8 || passwordVal.length > 50) {
+                        setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
+                        isValid = false;
+                    } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
+                        setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');
+                        isValid = false;
+                    } else if (simplePasswords.includes(passwordVal.toLowerCase())) {
+                        setValidationError(password, passwordError, 'Kata sandi terlalu mudah ditebak. Gunakan kombinasi lain.');
+                        isValid = false;
+                    } else {
+                        clearValidationError(password, passwordError);
+                    }
+
+                    const passwordConfirmVal = passwordConfirm.value.trim();
+                    if (passwordConfirmVal === '') {
+                        setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi wajib diisi.');
+                        isValid = false;
+                    } else if (passwordConfirmVal !== passwordVal) {
+                        setValidationError(passwordConfirm, passwordConfirmError, 'Konfirmasi kata sandi tidak cocok.');
+                        isValid = false;
+                    } else {
+                        clearValidationError(passwordConfirm, passwordConfirmError);
+                    }
+
+                    if (!isValid) {
+                        e.preventDefault();
+                        const card = document.querySelector('.auth-card');
+                        card.classList.remove('shake');
+                        void card.offsetWidth;
+                        card.classList.add('shake');
+                    }
+                });
+
+                const fieldsReset = [
+                    { el: password, err: passwordError },
+                    { el: passwordConfirm, err: passwordConfirmError }
+                ];
+                fieldsReset.forEach(field => {
+                    field.el.addEventListener('input', () => {
+                        clearValidationError(field.el, field.err);
+                    });
+                });
+            }
 
         });
 

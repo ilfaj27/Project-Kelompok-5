@@ -212,5 +212,11 @@ $html .= '
 // Eksekusi penulisan HTML ke halaman PDF
 $pdf->writeHTML($html, true, false, true, false, '');
 
-// Output PDF langsung memicu download di browser
-$pdf->Output('Laporan_Sewa_Lapangan.pdf', 'D');
+// Membuat format tanggal ddmmyy (contoh: 150726 untuk 15 Juli 2026)
+$tanggal_unduh = date('dmy');
+
+// Menyusun format nama file LaporanXXX_ddmmyy.pdf
+$nama_file = 'LaporanSewaLapangan_' . $tanggal_unduh . '.pdf';
+
+// Output PDF langsung memicu download di browser dengan nama dinamis
+$pdf->Output($nama_file, 'D');

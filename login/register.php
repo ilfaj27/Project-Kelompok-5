@@ -22,7 +22,9 @@ if (isset($_POST['register'])) {
     $email = trim($_POST['email']);
     $telp = trim($_POST['telp']);
     $jk_input = $_POST['jk'];
-    $password = $_POST['password'];
+    $password_raw = $_POST['password'];
+    // Mengamankan password menggunakan Argon2id sebelum disimpan
+    $password = password_hash($password_raw, PASSWORD_ARGON2ID);
     $alamat = trim($_POST['alamat']);
     $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
     $tmp_lahir = trim($_POST['tempat_lahir'] ?? '');

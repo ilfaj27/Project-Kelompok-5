@@ -761,14 +761,10 @@ include '../includes/topbar.php';
     <div class="card">
         <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div></div>
         <div class="card-body">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
                 <div style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
                     <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Pendapatan</div>
                     <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);"><?= rupiahFormat($total_pendapatan) ?></div>
-                </div>
-                <div style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
-                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Rata-rata per Transaksi</div>
-                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);"><?= $total_langganan > 0 ? rupiahFormat($total_pendapatan / $total_langganan) : rupiahFormat(0) ?></div>
                 </div>
                 <div style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
                     <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Member Aktif</div>

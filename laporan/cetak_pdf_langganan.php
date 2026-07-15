@@ -185,4 +185,12 @@ $html .= '
 </table>';
 
 $pdf->writeHTML($html, true, false, true, false, '');
-$pdf->Output('Laporan_Langganan_Member.pdf', 'D');
+
+// Membuat format tanggal ddmmyy (contoh: 150726 untuk 15 Juli 2026)
+$tanggal_unduh = date('dmy');
+
+// Menyusun format nama file LaporanXXX_ddmmyy.pdf
+$nama_file = 'LaporanLanggananMember_' . $tanggal_unduh . '.pdf';
+
+// Output PDF langsung memicu download di browser dengan nama dinamis
+$pdf->Output($nama_file, 'D');
