@@ -440,7 +440,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                         <th style="text-align: right;">Tanggal Batal</th>
                         <th style="text-align: right;">Denda / Refund</th>
                         <th style="text-align: center;">Status</th>
-                        <th style="text-align:center;">Aksi</th>
+                        <th style="text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
