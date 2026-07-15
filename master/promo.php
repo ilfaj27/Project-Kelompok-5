@@ -224,7 +224,7 @@ $show_add = isset($_GET['add']) && $_GET['add'] == '1';
 
 // --- FILTER DAN SORTING DINAMIS ---
 $filter_status = isset($_GET['f_status']) ? $_GET['f_status'] : null;
-$sort_by = isset($_GET['f_sort']) ? $_GET['f_sort'] : 'nama_asc';
+$sort_by = isset($_GET['f_sort']) && $_GET['f_sort'] !== '' ? $_GET['f_sort'] : 'nama_asc';
 
 // --- STATISTIK SINKRON MENGGUNAKAN UDF ---
 $q_stats = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetStats", [], false);
@@ -244,7 +244,13 @@ $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
 // Hitung total data terfilter menggunakan SP
-$count_res = safe_sqlsrv_query($conn, "EXEC sp_Promo_GetCount @Filter_Status=?", array($filter_status), false);
+$count_res = safe_sqlsrv_query($conn, 
+    $filter_status !== null && $filter_status !== '' 
+        ? "EXEC sp_Promo_GetCount @Filter_Status=?" 
+        : "EXEC sp_Promo_GetCount",
+    $filter_status !== null && $filter_status !== '' ? array($filter_status) : array(),
+    false
+);
 $total_data_filtered = 0;
 if ($count_res) {
     $total_row = safe_sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
@@ -257,8 +263,12 @@ $offset = ($page - 1) * $limit;
 
 // Query paging terfilter menggunakan SP
 $query = safe_sqlsrv_query($conn, 
-    "EXEC sp_Promo_GetAll @Page=?, @Limit=?, @Filter_Status=?, @Sort_By=?", 
-    array($page, $limit, $filter_status, $sort_by), 
+    $filter_status !== null && $filter_status !== '' 
+        ? "EXEC sp_Promo_GetAll @Page=?, @Limit=?, @Filter_Status=?, @Sort_By=?" 
+        : "EXEC sp_Promo_GetAll @Page=?, @Limit=?, @Sort_By=?",
+    $filter_status !== null && $filter_status !== '' 
+        ? array($page, $limit, $filter_status, $sort_by) 
+        : array($page, $limit, $sort_by),
     false
 );
 
@@ -274,8 +284,8 @@ if ($query_error) {
 }
 
 $filter_url = "";
-if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
+if ($sort_by !== 'nama_asc') $filter_url .= "&f_sort=" . urlencode($sort_by);
+if ($filter_status !== null && $filter_status !== '') $filter_url .= "&f_status=" . urlencode($filter_status);
 
 // --- PENDING COUNT ---
 $q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
@@ -753,7 +763,7 @@ html.swal2-height-auto { padding-right: 0px !important; }
         <div class="action-bar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari promo..." onkeyup="searchTable()">
+                <input type="text" id="src" placeholder="Cari promo...(Tekan Enter)" onkeyup="searchTable()">
             </div>
 
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -765,20 +775,21 @@ html.swal2-height-auto { padding-right: 0px !important; }
                     <div class="filter-card" id="filterCard">
                         <h4>Filter Data</h4>
                         <form method="GET" action="promo.php">
+                            <input type="hidden" name="page" value="1">
                             <div class="filter-group">
                                 <label>Urut Berdasarkan</label>
                                 <select name="f_sort" class="filter-input">
-                                    <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
-                                    <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Z - A</option>
+                                    <option value="nama_asc" <?= $sort_by === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
+                                    <option value="nama_desc" <?= $sort_by === 'nama_desc' ? 'selected' : '' ?>>Nama Z - A</option>
                                 </select>
                             </div>
 
                             <div class="filter-group">
                                 <label>Status Promo</label>
                                 <select name="f_status" class="filter-input">
-                                    <option value="">Semua Status</option>
-                                    <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
-                                    <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>KADALUARSA</option>
+                                    <option value="" <?= ($filter_status === null || $filter_status === '') ? 'selected' : '' ?>>Semua Status</option>
+                                    <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>AKTIF</option>
+                                    <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>KADALUARSA</option>
                                 </select>
                             </div>
 
@@ -789,10 +800,9 @@ html.swal2-height-auto { padding-right: 0px !important; }
                         </form>
                     </div>
                 </div>
-                <a href="promo.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
+                <a href="promo.php?add=1<?= $filter_url ?>" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
             </div>
         </div>
-
         <!-- TABLE CARD -->
         <div class="card">
             <?php if ($query_error): ?>
@@ -842,10 +852,10 @@ html.swal2-height-auto { padding-right: 0px !important; }
                                 </td>
                                 <td>
                                     <div class="actions">
-                                        <a href="?detail_id=<?= $row['ID_Promo'] ?>" class="btn-action btn-view" title="Lihat Detail">
+                                        <a href="?detail_id=<?= $row['ID_Promo'] ?><?= $filter_url ?>" class="btn-action btn-view" title="Lihat Detail">
                                             <i class="fa-solid fa-eye"></i>
                                         </a>
-                                        <a href="?edit_id=<?= $row['ID_Promo'] ?>" class="btn-action btn-edit" title="Edit Promo">
+                                        <a href="?edit_id=<?= $row['ID_Promo'] ?><?= $filter_url ?>" class="btn-action btn-edit" title="Edit Promo">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </a>
                                         <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
@@ -963,7 +973,7 @@ setInterval(updateClock, 1000);
 
 // MODAL FUNCTIONS
 function closeModal() { 
-    window.location.href = 'promo.php'; 
+    window.location.href = 'promo.php?page=1<?= $filter_url ?>'; 
 }
 
 // SEARCH TABLE
@@ -1125,7 +1135,7 @@ function confirmToggle(id, name, currentStatus, event) {
                 }
             });
             setTimeout(function() {
-                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
+                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus + '<?= $filter_url ?>';
             }, 600);
         } else {
             checkbox.checked = !checkbox.checked;
@@ -1157,7 +1167,7 @@ function confirmDelete(id, name) {
                 }
             });
             setTimeout(() => {
-                window.location.href = '?delete_id=' + id;
+                window.location.href = '?delete_id=' + id + '<?= $filter_url ?>';
             }, 600);
         }
     });
@@ -1182,7 +1192,7 @@ if (btnFilterToggle && filterCard) {
 }
 
 function resetFilter() {
-    window.location.href = 'promo.php';
+    window.location.href = 'promo.php?page=1';
 }
 
 // URL PARAMETER NOTIFICATION (CENTERED MODAL)
