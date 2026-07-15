@@ -10,13 +10,14 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 
-// FIX: Get profile photo from session, fallback to database
+// FIX: Get profile photo from session, fallback to database via Stored Procedure
 $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 
 if (empty($profile_photo) || (!empty($profile_photo) && !file_exists($profile_photo))) {
     $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
     if (!empty($id_karyawan_session)) {
-        $photo_query = safeQuery($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0", array($id_karyawan_session));
+        // Menggunakan Stored Procedure untuk mengambil data karyawan (Master Read)
+        $photo_query = safeQuery($conn, "{CALL sp_GetKaryawanPhoto(?)}", array($id_karyawan_session));
         if ($photo_query !== null) {
             $row_photo = safeFetch($photo_query);
             if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -50,108 +51,154 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-function rupiahFormat($n) { 
-    return 'Rp ' . number_format($n, 0, ',', '.'); 
-}
-
 // ============================================
-// FILTER HANDLING
+// FILTER HANDLING (Disiapkan untuk parameter UDF)
 // ============================================
 $filter_type = $_GET['filter'] ?? 'all';
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
+$start_date = $_GET['start_date'] ?? null;
+$end_date = $_GET['end_date'] ?? null;
 $tipe_filter = $_GET['tipe'] ?? 'all';
 $status_filter = $_GET['status'] ?? 'all';
 
-$where_clauses = ["1=1"];
-$params = [];
+$p_filter_type = $filter_type;
+$p_start_date = (!empty($start_date) && $filter_type === 'custom') ? $start_date : null;
+$p_end_date = (!empty($end_date) && $filter_type === 'custom') ? $end_date : null;
+$p_tipe = ($tipe_filter !== 'all') ? (int) $tipe_filter : null;
+$p_status = ($status_filter !== 'all') ? (int) $status_filter : null;
 
-// Date filter
-if ($filter_type === 'today') {
-    $where_clauses[] = "CAST(lg.Tanggal_Mulai AS DATE) = CAST(GETDATE() AS DATE)";
-} elseif ($filter_type === 'week') {
-    $where_clauses[] = "lg.Tanggal_Mulai >= DATEADD(day, -7, CAST(GETDATE() AS DATE))";
-} elseif ($filter_type === 'month') {
-    $where_clauses[] = "MONTH(lg.Tanggal_Mulai) = MONTH(GETDATE()) AND YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())";
-} elseif ($filter_type === 'year') {
-    $where_clauses[] = "YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())";
-} elseif ($filter_type === 'custom' && !empty($start_date) && !empty($end_date)) {
-    $where_clauses[] = "lg.Tanggal_Mulai BETWEEN ? AND ?";
-    $params[] = $start_date;
-    $params[] = $end_date;
+// Struktur parameter terpadu untuk fungsi UDF
+$params = array(
+    array($p_filter_type, SQLSRV_PARAM_IN),
+    array($p_start_date, SQLSRV_PARAM_IN),
+    array($p_end_date, SQLSRV_PARAM_IN),
+    array($p_tipe, SQLSRV_PARAM_IN),
+    array($p_status, SQLSRV_PARAM_IN)
+);
+
+function isExpired($tanggal_selesai) {
+    if (!$tanggal_selesai) return false;
+    $today = new DateTime();
+    $end = new DateTime($tanggal_selesai->format('Y-m-d'));
+    return $today > $end;
 }
-
-// Tipe filter
-if ($tipe_filter !== 'all') {
-    $where_clauses[] = "lg.ID_Tipe = ?";
-    $params[] = $tipe_filter;
-}
-
-// Status filter
-if ($status_filter !== 'all') {
-    $where_clauses[] = "lg.Status = ?";
-    $params[] = $status_filter;
-}
-
-$where_sql = implode(" AND ", $where_clauses);
 
 // ============================================
-// STATISTIK
+// PENGAMBILAN DATA KESELURUHAN UNTUK STATISTIK & CHART DINAMIS
 // ============================================
 $total_langganan = 0;
 $total_aktif = 0;
 $total_berakhir = 0;
-$total_menunggu = 0;
 $total_ditolak = 0;
 $total_pendapatan = 0;
 
-$stats_sql = "SELECT 
-    COUNT(*) as total,
-    SUM(CASE WHEN lg.Status = 1 THEN 1 ELSE 0 END) as aktif,
-    SUM(CASE WHEN lg.Status = 2 THEN 1 ELSE 0 END) as berakhir,
-    SUM(CASE WHEN lg.Status = 0 THEN 1 ELSE 0 END) as menunggu,
-    SUM(CASE WHEN lg.Status = 3 THEN 1 ELSE 0 END) as ditolak,
-    SUM(lg.Total_Bayar) as pendapatan
-FROM Langganan lg
-WHERE " . $where_sql;
+$all_records = [];
+$all_sql = "SELECT Tanggal_Mulai, Tanggal_Selesai, Total_Bayar, Status 
+            FROM dbo.fn_GetLanggananReport(?, ?, ?, ?, ?) 
+            WHERE Status <> 0";
+$q_all = safeQuery($conn, $all_sql, $params);
+if ($q_all !== null) {
+    while ($row = sqlsrv_fetch_array($q_all, SQLSRV_FETCH_ASSOC)) {
+        $all_records[] = $row;
+    }
+}
 
-$q = safeQuery($conn, $stats_sql, $params);
-$d = safeFetch($q);
-if ($d) {
-    $total_langganan = $d['total'] ?? 0;
-    $total_aktif = $d['aktif'] ?? 0;
-    $total_berakhir = $d['berakhir'] ?? 0;
-    $total_menunggu = $d['menunggu'] ?? 0;
-    $total_ditolak = $d['ditolak'] ?? 0;
-    $total_pendapatan = $d['pendapatan'] ?? 0;
+// Hitung statistik dinamis di PHP agar akurat dengan tanggal kedaluwarsa
+$chart_raw = [];
+foreach ($all_records as $item) {
+    $expired = isExpired($item['Tanggal_Selesai'] ?? null);
+    $status = $item['Status'];
+    $total_pendapatan += $item['Total_Bayar'] ?? 0;
+
+    // Menentukan Status Riil
+    $real_status = $status;
+    if ($status == 1 && $expired) {
+        $real_status = 2; // Override menjadi Berakhir
+    }
+
+    if ($real_status == 1) {
+        $total_aktif++;
+    } elseif ($real_status == 2) {
+        $total_berakhir++;
+    } elseif ($real_status == 3) {
+        $total_ditolak++;
+    }
+
+    // Pengelompokan Data untuk Chart secara Dinamis
+    if ($item['Tanggal_Mulai']) {
+        $bulan = (int)$item['Tanggal_Mulai']->format('m');
+        $tahun = (int)$item['Tanggal_Mulai']->format('Y');
+        $key = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT);
+        
+        if (!isset($chart_raw[$key])) {
+            $chart_raw[$key] = [
+                'bulan' => $bulan,
+                'tahun' => $tahun,
+                'aktif' => 0,
+                'berakhir' => 0,
+                'ditolak' => 0
+            ];
+        }
+        
+        if ($real_status == 1) {
+            $chart_raw[$key]['aktif']++;
+        } elseif ($real_status == 2) {
+            $chart_raw[$key]['berakhir']++;
+        } elseif ($real_status == 3) {
+            $chart_raw[$key]['ditolak']++;
+        }
+    }
+}
+$total_langganan = $total_aktif + $total_berakhir + $total_ditolak;
+
+// Menyusun Data Chart Dinamis
+ksort($chart_raw); // Urutkan berdasarkan waktu
+$chart_labels = [];
+$chart_data_aktif = [];
+$chart_data_berakhir = [];
+$chart_data_ditolak = [];
+
+$monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+foreach ($chart_raw as $c) {
+    $chart_labels[] = $monthNames[$c['bulan']] . ' ' . $c['tahun'];
+    $chart_data_aktif[] = $c['aktif'];
+    $chart_data_berakhir[] = $c['berakhir'];
+    $chart_data_ditolak[] = $c['ditolak'];
 }
 
 // ============================================
-// DATA LANGGANAN
+// DATA LANGGANAN DENGAN PAGINATION (TAMPILAN TABEL)
 // ============================================
+$limit = 10; 
+$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+if ($page < 1) $page = 1;
+
+$total_rows = count($all_records);
+$total_pages = ceil($total_rows / $limit);
+if ($page > $total_pages && $total_pages > 0) $page = $total_pages;
+$offset = ($page - 1) * $limit;
+
 $langganan_list = [];
 $lg_sql = "SELECT 
-    lg.ID_Langganan,
-    lg.Tanggal_Mulai,
-    lg.Tanggal_Selesai,
-    lg.Total_Bayar,
-    lg.Metode_Pembayaran,
-    lg.Status,
-    c.Nama_Customer,
-    c.Email,
-    c.No_Telepon,
-    k.Nama_Karyawan as Nama_Karyawan_Konfirm,
-    tm.Nama_Tipe,
-    tm.Harga_Member,
-    tm.Potongan_Harga
-FROM Langganan lg
-LEFT JOIN Customer c ON lg.ID_Customer = c.ID_Customer
-LEFT JOIN Karyawan k ON lg.ID_Karyawan = k.ID_Karyawan
-LEFT JOIN Tipe_Member tm ON lg.ID_Tipe = tm.ID_Tipe
-WHERE " . $where_sql . "
-ORDER BY lg.Tanggal_Mulai DESC, lg.ID_Langganan DESC";
+    ID_Langganan, Tanggal_Mulai, Tanggal_Selesai, Total_Bayar, Metode_Pembayaran, Status,
+    Nama_Customer, Email, No_Telepon, Nama_Karyawan_Konfirm, Nama_Tipe, Harga_Member, Potongan_Harga
+FROM dbo.fn_GetLanggananReport(?, ?, ?, ?, ?)
+WHERE Status <> 0
+ORDER BY 
+    CASE 
+        WHEN Status = 1 THEN 1 
+        WHEN Status = 2 THEN 2 
+        WHEN Status = 3 THEN 3 
+        ELSE 4 
+    END ASC,
+    Tanggal_Mulai DESC, 
+    ID_Langganan DESC
+OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
-$q = safeQuery($conn, $lg_sql, $params);
+$langganan_params = $params;
+$langganan_params[] = array($offset, SQLSRV_PARAM_IN);
+$langganan_params[] = array($limit, SQLSRV_PARAM_IN);
+
+$q = safeQuery($conn, $lg_sql, $langganan_params);
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $langganan_list[] = $row;
@@ -159,21 +206,10 @@ if ($q !== null) {
 }
 
 // ============================================
-// TIPE MEMBER POPULER
+// TIPE MEMBER POPULER (Menggunakan UDF: fn_GetTipeMemberPopuler)
 // ============================================
 $tipe_populer = [];
-$pop_sql = "SELECT 
-    tm.Nama_Tipe,
-    tm.Harga_Member,
-    tm.Potongan_Harga,
-    COUNT(*) as jumlah,
-    SUM(lg.Total_Bayar) as total_pendapatan
-FROM Langganan lg
-LEFT JOIN Tipe_Member tm ON lg.ID_Tipe = tm.ID_Tipe
-WHERE " . $where_sql . "
-GROUP BY tm.ID_Tipe, tm.Nama_Tipe, tm.Harga_Member, tm.Potongan_Harga
-ORDER BY jumlah DESC";
-
+$pop_sql = "SELECT Nama_Tipe, Harga_Member, Potongan_Harga, jumlah, total_pendapatan FROM dbo.fn_GetTipeMemberPopuler(?, ?, ?, ?, ?)";
 $q = safeQuery($conn, $pop_sql, $params);
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
@@ -182,64 +218,18 @@ if ($q !== null) {
 }
 
 // ============================================
-// DAFTAR TIPE MEMBER UNTUK FILTER
+// DAFTAR TIPE MEMBER UNTUK FILTER (Menggunakan SP: sp_GetActiveTipeMember)
 // ============================================
 $daftar_tipe = [];
-$q = safeQuery($conn, "SELECT ID_Tipe, Nama_Tipe, Harga_Member FROM Tipe_Member WHERE Is_Deleted = 0 ORDER BY ID_Tipe");
+$q = safeQuery($conn, "{CALL sp_GetActiveTipeMember}");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $daftar_tipe[] = $row;
     }
 }
 
-// ============================================
-// CHART DATA: Langganan per Bulan
-// ============================================
-$chart_labels = [];
-$chart_data_aktif = [];
-$chart_data_berakhir = [];
-$chart_data_menunggu = [];
-$chart_data_ditolak = [];
-
-$chart_sql = "SELECT 
-    MONTH(lg.Tanggal_Mulai) as bulan,
-    YEAR(lg.Tanggal_Mulai) as tahun,
-    SUM(CASE WHEN lg.Status = 1 THEN 1 ELSE 0 END) as aktif,
-    SUM(CASE WHEN lg.Status = 2 THEN 1 ELSE 0 END) as berakhir,
-    SUM(CASE WHEN lg.Status = 0 THEN 1 ELSE 0 END) as menunggu,
-    SUM(CASE WHEN lg.Status = 3 THEN 1 ELSE 0 END) as ditolak
-FROM Langganan lg
-WHERE " . $where_sql . "
-GROUP BY MONTH(lg.Tanggal_Mulai), YEAR(lg.Tanggal_Mulai)
-ORDER BY YEAR(lg.Tanggal_Mulai), MONTH(lg.Tanggal_Mulai)";
-
-$q = safeQuery($conn, $chart_sql, $params);
-if ($q !== null) {
-    $monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $chart_labels[] = $monthNames[$row['bulan']] . ' ' . $row['tahun'];
-        $chart_data_aktif[] = $row['aktif'] ?? 0;
-        $chart_data_berakhir[] = $row['berakhir'] ?? 0;
-        $chart_data_menunggu[] = $row['menunggu'] ?? 0;
-        $chart_data_ditolak[] = $row['ditolak'] ?? 0;
-    }
-}
-
-function statusLanggananLabel($status) {
-    switch($status) {
-        case 0: return ['Menunggu', 'sp-pending'];
-        case 1: return ['Aktif', 'sp-active'];
-        case 2: return ['Berakhir', 'sp-done'];
-        case 3: return ['Ditolak', 'sp-inactive'];
-        default: return ['Unknown', 'sp-pending'];
-    }
-}
-
-function isExpired($tanggal_selesai) {
-    if (!$tanggal_selesai) return false;
-    $today = new DateTime();
-    $end = new DateTime($tanggal_selesai->format('Y-m-d'));
-    return $today > $end;
+function rupiahFormat($n) { 
+    return 'Rp ' . number_format($n, 0, ',', '.'); 
 }
 ?>
 <!DOCTYPE html>
@@ -250,6 +240,7 @@ function isExpired($tanggal_selesai) {
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
 :root {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
@@ -306,26 +297,22 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .filter-btn.secondary:hover { background: var(--border-lt); }
 
 /* STAT GRID */
-.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
-@media(max-width:1200px){ .stat-grid { grid-template-columns: repeat(3, 1fr); } }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+@media(max-width:1200px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width:768px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 .stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
-.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0, 0, 0, .08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
 .sc-blue::before { background: var(--blue); }
 .sc-green::before { background: var(--green); }
-.sc-orange::before { background: var(--orange); }
 .sc-purple::before { background: var(--purple); }
 .sc-red::before { background: var(--red); }
-.sc-yellow::before { background: var(--yellow); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .stat-icon-wrap { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
 .si-green { background: var(--green-lt); color: var(--green); }
-.si-orange { background: var(--orange-lt); color: var(--orange); }
 .si-purple { background: var(--purple-lt); color: var(--purple); }
 .si-red { background: var(--red-lt); color: var(--red); }
-.si-yellow { background: var(--yellow-lt); color: var(--yellow); }
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 
@@ -339,7 +326,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card-body { padding: 20px 24px; }
 
 /* TABLE */
-.data-table { width: 100%; border-collapse: collapse; }
+.data-table { width: 100%; border-collapse: collapse; table-layout: auto; }
 .data-table th { padding: 12px 14px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); }
 .data-table td { padding: 14px 14px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
@@ -360,7 +347,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .chart-container { position: relative; height: 320px; }
 
 /* GRID LAYOUT */
-.dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; }
+.dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
 @media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
 
 /* POPULAR ITEM */
@@ -407,7 +394,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
-
 .topbar-user { background-color: #FFFFFF !important; }
 
 .topbar-btn:hover, .topbar-user:hover {
@@ -421,6 +407,66 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     border-color: #9CA3AF !important;
     color: #1F2937 !important;
 }
+
+/* PAGINATION STYLES */
+.pagination-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--card-bg);
+}
+.pagination-info {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+}
+.pagination-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.pagination-link {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    color: #4B5563;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.pagination-link:hover {
+    border-color: var(--orange);
+    color: var(--orange);
+    background: var(--orange-lt);
+}
+.pagination-link.active {
+    background: var(--orange);
+    color: #FFFFFF;
+    border: none;
+    box-shadow: 0 4px 12px rgba(255, 69, 0, 0.35);
+}
+.pagination-link.disabled {
+    background: #FFFFFF;
+    border-color: #F3F4F6;
+    color: #D1D5DB;
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ALIGNMENT UTILITIES */
+.text-center { text-align: center !important; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
 
 /* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
@@ -439,7 +485,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     animation: none !important;
 }
 
-/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
 html.swal2-shown,
 body.swal2-shown,
 body.swal2-height-auto {
@@ -465,7 +510,6 @@ $topbar_title = 'Laporan Langganan';
 $topbar_breadcrumb = 'Laporan / Langganan';
 include '../includes/topbar.php';
 ?>
-
 
 <div class="content">
     <!-- Filter Bar -->
@@ -502,33 +546,56 @@ include '../includes/topbar.php';
             <label>Status</label>
             <select name="status">
                 <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>Semua Status</option>
-                <option value="0" <?= $status_filter == '0' ? 'selected' : '' ?>>Menunggu Konfirmasi</option>
                 <option value="1" <?= $status_filter == '1' ? 'selected' : '' ?>>Aktif</option>
                 <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Berakhir</option>
                 <option value="3" <?= $status_filter == '3' ? 'selected' : '' ?>>Ditolak</option>
             </select>
         </div>
-        <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan" style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
-        <button type="submit" class="filter-btn"><i class="fa-solid fa-filter"></i> Terapkan</button>
-        <a href="laporan_langganan.php" class="filter-btn secondary"><i class="fa-solid fa-rotate-right"></i> Reset</a>
+
+        <!-- ELEMEN SPACER KOSONG (Mendorong tombol ke kanan) -->
+        <div style="flex-grow: 1; min-width: 0;"></div>
+
+        <!-- Tombol Aksi Rapat Kanan -->
+        <div style="display: flex; gap: 6px; align-items: end; flex-wrap: wrap;">
+            <!-- Tombol Cari -->
+            <button type="submit" class="filter-btn" style="background-color: var(--orange); border: none; font-family: 'Barlow', sans-serif; font-weight: 800; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-magnifying-glass"></i> Cari
+            </button>
+
+            <!-- Tombol Reset -->
+            <a href="laporan_langganan.php" class="filter-btn secondary" style="text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px; display: inline-flex; align-items: center; background-color: var(--bg); border: 1px solid var(--border); color: var(--text);">
+                <i class="fa-solid fa-rotate-right"></i> Reset
+            </a>
+
+            <!-- Garis Pembatas Vertikal -->
+            <div style="width: 1px; height: 32px; background-color: var(--border); margin: 0 4px;"></div>
+
+            <!-- Tombol Unduh PDF -->
+            <a href="cetak_pdf_langganan.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                style="background-color: var(--red); text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+            </a>
+
+            <!-- Tombol Unduh Excel -->
+            <a href="cetak_excel_langganan.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn"
+                style="background-color: #10B981; text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-excel"></i> Unduh Excel
+            </a>
+        </div>
     </form>
 
     <!-- Statistik -->
     <div class="stat-grid">
-        <div class="stat-card sc-blue">
-            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-crown"></i></div></div>
+        <div class="stat-card sc-purple">
+            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-crown"></i></div></div>
             <div class="stat-value"><?= $total_langganan ?></div><div class="stat-label">Total Langganan</div>
         </div>
         <div class="stat-card sc-green">
             <div class="stat-header"><div class="stat-icon-wrap si-green"><i class="fa-solid fa-check-circle"></i></div></div>
             <div class="stat-value"><?= $total_aktif ?></div><div class="stat-label">Aktif</div>
         </div>
-        <div class="stat-card sc-orange">
-            <div class="stat-header"><div class="stat-icon-wrap si-orange"><i class="fa-solid fa-clock"></i></div></div>
-            <div class="stat-value"><?= $total_menunggu ?></div><div class="stat-label">Menunggu</div>
-        </div>
-        <div class="stat-card sc-purple">
-            <div class="stat-header"><div class="stat-icon-wrap si-purple"><i class="fa-solid fa-flag-checkered"></i></div></div>
+        <div class="stat-card sc-blue">
+            <div class="stat-header"><div class="stat-icon-wrap si-blue"><i class="fa-solid fa-flag-checkered"></i></div></div>
             <div class="stat-value"><?= $total_berakhir ?></div><div class="stat-label">Berakhir</div>
         </div>
         <div class="stat-card sc-red">
@@ -538,14 +605,17 @@ include '../includes/topbar.php';
     </div>
 
     <!-- Chart & Populer -->
-    <div class="dashboard-grid">
-        <div class="card">
+    <div class="dashboard-grid" style="grid-template-columns: 2fr 1fr;">
+        <!-- Card Kiri: Chart -->
+        <div class="card" style="margin-bottom: 0;">
             <div class="card-header"><div class="card-title"><i class="fa-solid fa-chart-column"></i> Trend Langganan per Periode</div></div>
             <div class="card-body"><div class="chart-container"><canvas id="langgananChart"></canvas></div></div>
         </div>
-        <div class="card">
-            <div class="card-header"><div class="card-title"><i class="fa-solid fa-trophy"></i> Tipe Member Populer</div></div>
-            <div class="card-body">
+
+        <!-- Card Kanan: Populer -->
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header"><div class="card-title"><i class="fa-solid fa-trophy" style="color:var(--orange);"></i> Tipe Member Populer</div></div>
+            <div class="card-body" style="padding-top: 14px; max-height: 385px; overflow-y: auto;">
                 <?php if(count($tipe_populer) > 0): ?>
                 <?php $rank = 1; foreach($tipe_populer as $tp): ?>
                 <div class="popular-item">
@@ -558,43 +628,47 @@ include '../includes/topbar.php';
                 </div>
                 <?php endforeach; ?>
                 <?php else: ?>
-                <div style="text-align:center; padding:30px; color:var(--muted);">
-                    <i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i>
-                    <div style="font-size:13px; font-weight:700;">Belum ada data</div>
+                <div style="text-align:center; padding:30px 0; color:var(--muted); font-size:13px; font-weight:600;">
+                    Belum ada data pada periode ini
                 </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
+    <br>
 
     <!-- Tabel Detail Langganan -->
     <div class="card">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-list"></i> Detail Transaksi Langganan</div>
-            <span class="card-badge"><?= count($langganan_list) ?> transaksi</span>
+            <span class="card-badge"><?= $total_rows ?> transaksi</span>
         </div>
         <div style="overflow-x:auto;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Nomor</th>
-                        <th>Customer</th>
-                        <th>Tipe Member</th>
-                        <th>Periode</th>
-                        <th>Metode Bayar</th>
-                        <th>Total Bayar</th>
-                        <th>Status</th>
-                        <th>Karyawan</th>
+                        <th class="text-center" style="width: 60px;">No.</th>
+                        <th class="text-left" style="width: 240px;">Customer</th>
+                        <th class="text-left" style="width: 200px;">Tipe Member</th>
+                        <th class="text-center" style="width: 220px;">Periode</th>
+                        <th class="text-left" style="width: 150px;">Metode Bayar</th>
+                        <th class="text-right" style="width: 150px;">Total Bayar</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if(count($langganan_list) > 0): ?>
                 <?php foreach($langganan_list as $lg): 
-                    list($status_lbl, $status_cls) = statusLanggananLabel($lg['Status']);
                     $expired = isExpired($lg['Tanggal_Selesai'] ?? null);
                 ?>
                     <tr>
-                        <td><div class="cell-name">#<?= $lg['ID_Langganan'] ?></div></td>
+                        <?php
+                        if (!isset($start_number)) {
+                            $start_number = $offset + 1;
+                        }
+                        ?>
+                        <td class="text-center">
+                            <div class="cell-name"><?= $start_number++ ?></div>
+                        </td>
                         <td>
                             <div class="cell-name"><?= htmlspecialchars($lg['Nama_Customer']) ?></div>
                             <div class="cell-detail"><?= htmlspecialchars($lg['Email'] ?? '') ?></div>
@@ -603,20 +677,18 @@ include '../includes/topbar.php';
                             <div class="cell-name"><?= htmlspecialchars($lg['Nama_Tipe']) ?> Member</div>
                             <div class="cell-detail"><?= rupiahFormat($lg['Harga_Member']) ?> | Potongan <?= rupiahFormat($lg['Potongan_Harga']) ?></div>
                         </td>
-                        <td>
+                        <td class="text-center">
                             <div class="cell-name"><?= $lg['Tanggal_Mulai'] ? $lg['Tanggal_Mulai']->format('d M Y') : '-' ?> - <?= $lg['Tanggal_Selesai'] ? $lg['Tanggal_Selesai']->format('d M Y') : '-' ?></div>
-                            <?php if($expired && $lg['Status'] == 1): ?>
+                            <?php if($expired): ?>
                             <div class="cell-detail" style="color:var(--red);"><i class="fa-solid fa-circle-exclamation"></i> Masa berlaku habis</div>
                             <?php endif; ?>
                         </td>
                         <td><?= htmlspecialchars($lg['Metode_Pembayaran']) ?></td>
-                        <td><div class="cell-price"><?= rupiahFormat($lg['Total_Bayar']) ?></div></td>
-                        <td><span class="status-pill <?= $status_cls ?>"><?= $status_lbl ?></span></td>
-                        <td><div class="cell-name"><?= htmlspecialchars($lg['Nama_Karyawan_Konfirm'] ?? '-') ?></div></td>
+                        <td class="text-right"><div class="cell-price"><?= rupiahFormat($lg['Total_Bayar']) ?></div></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php else: ?>
-                    <tr><td colspan="8" style="text-align:center; padding:40px; color:var(--muted);">
+                    <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--muted);">
                         <i class="fa-solid fa-inbox" style="font-size:40px; margin-bottom:12px; opacity:.5; display:block;"></i>
                         <div style="font-size:14px; font-weight:700;">Tidak ada data langganan untuk filter yang dipilih</div>
                     </td></tr>
@@ -624,11 +696,70 @@ include '../includes/topbar.php';
                 </tbody>
             </table>
         </div>
+
+        <!-- Navigasi Pagination Kontrol -->
+        <?php if ($total_pages > 1): ?>
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_rows) ?> dari <?= $total_rows ?> transaksi
+                </div>
+                <div class="pagination-buttons">
+                    <?php
+                    $query_params = $_GET;
+
+                    // Halaman Pertama (<<)
+                    $query_params['page'] = 1;
+                    $first_url = '?' . http_build_query($query_params);
+                    ?>
+                    <a href="<?= $first_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+
+                    <?php
+                    // Halaman Sebelumnya (<)
+                    $query_params['page'] = $page - 1;
+                    $prev_url = '?' . http_build_query($query_params);
+                    ?>
+                    <a href="<?= $prev_url ?>" class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
+                        <i class="fa-solid fa-angle-left"></i>
+                    </a>
+
+                    <?php
+                    // Angka Halaman
+                    for ($i = 1; $i <= $total_pages; $i++):
+                        $query_params['page'] = $i;
+                        $page_url = '?' . http_build_query($query_params);
+                        ?>
+                        <a href="<?= $page_url ?>" class="pagination-link <?= $page == $i ? 'active' : '' ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+
+                    <?php
+                    // Halaman Selanjutnya (>)
+                    $query_params['page'] = $page + 1;
+                    $next_url = '?' . http_build_query($query_params);
+                    ?>
+                    <a href="<?= $next_url ?>" class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </a>
+
+                    <?php
+                    // Halaman Terakhir (>>)
+                    $query_params['page'] = $total_pages;
+                    $last_url = '?' . http_build_query($query_params);
+                    ?>
+                    <a href="<?= $last_url ?>" class="pagination-link <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Ringkasan Pendapatan -->
     <div class="card">
-        <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan Langganan</div></div>
+        <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan</div></div>
         <div class="card-body">
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                 <div style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
@@ -658,17 +789,17 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('langgananChart').getContext('2d');
 new Chart(ctx, {
-    type: 'line', // Diubah menjadi line chart
+    type: 'line',
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Aktif',
                 data: <?= json_encode($chart_data_aktif) ?>,
-                borderColor: '#10B981', // Hijau
-                backgroundColor: 'rgba(16, 185, 129, 0.08)', // Area fill transparan hijau
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus
+                tension: 0.4,
                 pointBackgroundColor: '#10B981',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
@@ -678,24 +809,11 @@ new Chart(ctx, {
             {
                 label: 'Berakhir',
                 data: <?= json_encode($chart_data_berakhir) ?>,
-                borderColor: '#3B82F6', // Biru
-                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Area fill transparan biru
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus
+                tension: 0.4,
                 pointBackgroundColor: '#3B82F6',
-                pointBorderColor: '#FFFFFF',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-            },
-            {
-                label: 'Menunggu',
-                data: <?= json_encode($chart_data_menunggu) ?>,
-                borderColor: '#F59E0B', // Kuning/Oranye
-                backgroundColor: 'rgba(245, 158, 11, 0.05)', // Area fill transparan kuning
-                fill: true,
-                tension: 0.4, // Kurva melengkung halus
-                pointBackgroundColor: '#F59E0B',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
                 pointRadius: 5,
@@ -704,10 +822,10 @@ new Chart(ctx, {
             {
                 label: 'Ditolak',
                 data: <?= json_encode($chart_data_ditolak) ?>,
-                borderColor: '#EF4444', // Merah
-                backgroundColor: 'rgba(239, 68, 68, 0.05)', // Area fill transparan merah
+                borderColor: '#EF4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
                 fill: true,
-                tension: 0.4, // Kurva melengkung halus
+                tension: 0.4,
                 pointBackgroundColor: '#EF4444',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
@@ -722,10 +840,10 @@ new Chart(ctx, {
         plugins: {
             legend: { 
                 position: 'top', 
-                align: 'end', // Menyejajarkan legenda ke kanan atas
+                align: 'end',
                 labels: { 
                     font: { family: 'Barlow', size: 12, weight: '600' }, 
-                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    usePointStyle: true,
                     boxWidth: 8,
                     padding: 20 
                 } 
@@ -746,7 +864,6 @@ new Chart(ctx, {
                 ticks: { 
                     font: { family: 'Barlow', size: 11 }, 
                     color: '#6B7280',
-                    // Format ke angka bulat dengan keterangan "Transaksi"
                     callback: function(value) {
                         if (Math.floor(value) === value) {
                             return value + ' Transaksi';
