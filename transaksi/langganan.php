@@ -42,23 +42,38 @@ if (!empty($profile_photo)) {
 
 // ============================================================================
 // STATUS LANGGANAN
-// 0 = Menunggu Konfirmasi | 1 = Aktif | 2 = Berakhir | 3 = Ditolak
 // ============================================================================
 $status_labels = [
     0 => ['label' => 'Menunggu Konfirmasi', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
     1 => ['label' => 'Aktif', 'class' => 'sp-active', 'icon' => 'fa-circle-check'],
-    2 => ['label' => 'Berakhir', 'class' => 'sp-ended', 'icon' => 'fa-circle-xmark'],
-    3 => ['label' => 'Ditolak', 'class' => 'sp-rejected', 'icon' => 'fa-ban']
+    2 => ['label' => 'Berakhir', 'class' => 'sp-success', 'icon' => 'fa-circle-xmark'],
+    3 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
 ];
 
 // ============================================================================
-// AUTO EXPIRE LANGGANAN (gunakan SP_AutoExpireLangganan)
+// RESOLVE BUKTI PEMBAYARAN PATH
 // ============================================================================
-// Panggil SP auto expire saat halaman dimuat
+function resolveBuktiPath($path) {
+    if (empty($path)) return '';
+    if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) return $path;
+    if (strpos($path, '../') === 0) return $path;
+    if (strpos($path, '/') === 0) return '..' . $path;
+    return '../' . $path;
+}
+
+function checkBuktiExists($path) {
+    $resolved = resolveBuktiPath($path);
+    if (empty($resolved)) return false;
+    return file_exists($resolved);
+}
+
+// ============================================================================
+// AUTO EXPIRE LANGGANAN
+// ============================================================================
 sqlsrv_query($conn, "EXEC SP_AutoExpireLangganan @Modified_By = ?", array($nama));
 
 // ============================================================================
-// PROSES KONFIRMASI PEMBAYARAN (menggunakan SP_KonfirmasiLangganan)
+// PROSES KONFIRMASI PEMBAYARAN
 // ============================================================================
 if (isset($_POST['konfirmasi_bayar'])) {
     $id_langganan = $_POST['id_langganan'];
@@ -86,7 +101,7 @@ if (isset($_POST['konfirmasi_bayar'])) {
 }
 
 // ============================================================================
-// PROSES TOLAK PEMBAYARAN (menggunakan SP_TolakLangganan)
+// PROSES TOLAK PEMBAYARAN
 // ============================================================================
 if (isset($_POST['tolak_bayar'])) {
     $id_langganan = $_POST['id_langganan'];
@@ -114,23 +129,20 @@ if (isset($_POST['tolak_bayar'])) {
 }
 
 // ============================================================================
-// AMBIL DATA LANGGANAN (menggunakan SP_GetLanggananList)
+// AMBIL DATA LANGGANAN
 // ============================================================================
 $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : '';
 $filter_customer = isset($_GET['filter_customer']) ? $_GET['filter_customer'] : '';
 $filter_tanggal = isset($_GET['filter_tanggal']) ? $_GET['filter_tanggal'] : '';
 
-// Convert filter_status to integer or NULL
 $filter_status_param = null;
 if ($filter_status !== '' && $filter_status !== 'all') {
     $filter_status_param = (int)$filter_status;
 }
 
-// Paging parameters
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-// Hitung total data menggunakan SP_GetLanggananList dengan page 1, size 1 untuk get count
 $count_query = sqlsrv_query($conn,
     "EXEC SP_GetLanggananList @Filter_Status = ?, @Filter_Customer = ?, @Filter_TanggalMulai = ?, @Filter_TanggalSelesai = ?, @PageNumber = 1, @PageSize = 1",
     array($filter_status_param, $filter_customer ?: null, $filter_tanggal ?: null, null)
@@ -138,21 +150,18 @@ $count_query = sqlsrv_query($conn,
 
 $total_data = 0;
 if ($count_query) {
-    // First result set is count
     if (sqlsrv_has_rows($count_query)) {
         $count_row = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
         if ($count_row) {
             $total_data = $count_row['Total_Count'] ?? 0;
         }
     }
-    // Move to next result set (data)
     sqlsrv_next_result($count_query);
 }
 
 $total_pages = max(1, ceil($total_data / $limit));
 $page = min($page, $total_pages);
 
-// Ambil data langganan dengan paging
 $langganans = [];
 $offset = ($page - 1) * $limit;
 
@@ -162,16 +171,32 @@ $data_query = sqlsrv_query($conn,
 );
 
 if ($data_query) {
-    // Skip count result set
     sqlsrv_next_result($data_query);
-    // Read data result set
     while ($row = sqlsrv_fetch_array($data_query, SQLSRV_FETCH_ASSOC)) {
         $langganans[] = $row;
     }
 }
 
 // ============================================================================
-// HITUNG STATISTIK (menggunakan SP_GetDashboardStats)
+// FIX: AMBIL BUKTI PEMBAYARAN LANGSUNG DARI TABEL (fallback jika SP tidak return)
+// ============================================================================
+$bukti_map = [];
+$bukti_query = sqlsrv_query($conn, "SELECT ID_Langganan, Bukti_Pembayaran FROM Langganan WHERE Bukti_Pembayaran IS NOT NULL");
+if ($bukti_query) {
+    while ($brow = sqlsrv_fetch_array($bukti_query, SQLSRV_FETCH_ASSOC)) {
+        $bukti_map[$brow['ID_Langganan']] = $brow['Bukti_Pembayaran'];
+    }
+}
+foreach ($langganans as &$lrow) {
+    $id_l = $lrow['ID_Langganan'];
+    if (empty($lrow['Bukti_Pembayaran']) && isset($bukti_map[$id_l])) {
+        $lrow['Bukti_Pembayaran'] = $bukti_map[$id_l];
+    }
+}
+unset($lrow);
+
+// ============================================================================
+// HITUNG STATISTIK
 // ============================================================================
 $stats = [
     'total' => 0, 'menunggu' => 0, 'aktif' => 0, 'berakhir' => 0, 'ditolak' => 0,
@@ -200,7 +225,6 @@ function formatTanggal($tanggal) {
     return date('d M Y', strtotime($tanggal));
 }
 
-// Build URL params untuk paging (pertahankan filter)
 function buildPageUrl($page_num) {
     $parts = [];
     if (isset($_GET['filter_status']) && $_GET['filter_status'] !== '') $parts[] = 'filter_status=' . urlencode($_GET['filter_status']);
@@ -213,7 +237,6 @@ function buildPageUrl($page_num) {
 $current_page = 'langganan';
 $sidebar_folder = 'transaksi';
 
-// Topbar variables
 $topbar_title = 'Kelola Langganan';
 $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 ?>
@@ -228,13 +251,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 <link rel="stylesheet" href="../asset/css/global.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-/* ============================================================
-   Style SIDEBAR, TOPBAR & CLOCK dihapus dari file ini.
-   Semuanya mengikuti ../asset/css/global.css supaya konsisten
-   dengan fasilitas_lapangan.php & booking.php
-   ============================================================ */
-
-/* variabel tambahan khusus halaman ini */
 :root { --gray: #6B7280; --gray-lt: rgba(107,114,128,.10); }
 
 .content { padding: 32px 40px; flex: 1; }
@@ -284,15 +300,17 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 .cell-price { font-weight: 800; color: var(--orange); }
 .status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
+.sp-success { background: var(--blue-lt); color: var(--blue); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
-.sp-ended { background: var(--gray-lt); color: var(--gray); }
-.sp-rejected { background: var(--red-lt); color: var(--red); }
+.sp-inactive { background: var(--red-lt); color: var(--red); }
 .action-btns { display: flex; gap: 6px; }
 .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
 .btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 .btn-icon:active { transform: scale(0.95); }
 .btn-icon.view { color: var(--blue); border-color: rgba(59,130,246,.25); background: var(--blue-lt); }
 .btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
+.btn-icon.bukti { color: #8B5CF6; border-color: rgba(139,92,246,.25); background: rgba(139,92,246,.1); }
+.btn-icon.bukti:hover { background: #8B5CF6; color: #fff; border-color: #8B5CF6; box-shadow: 0 4px 14px rgba(139,92,246,.35); }
 .btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
 .btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
 .btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
@@ -313,7 +331,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 /* ---- MODAL DETAIL ---- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
-.modal { background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .3s ease-out; }
+.modal { background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .3s ease-out; scrollbar-width: none; -ms-overflow-style: none; }
+.modal::-webkit-scrollbar { display: none; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .modal-header { padding: 24px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .modal-title { font-size: 18px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
@@ -380,7 +399,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
         <i class="fa-solid fa-circle-info" style="color: var(--blue); font-size: 20px;"></i>
         <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
             <strong>Peran Karyawan:</strong> Customer mendaftar langganan member melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer.
-            <span style="color: var(--muted);">Langganan baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
+            <span style="color: var(--muted);">Langganan baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda. Gunakan tombol <strong>Bukti Pembayaran</strong> untuk memeriksa bukti transfer/QRIS yang diunggah customer sebelum mengkonfirmasi.</span>
         </div>
     </div>
 
@@ -422,7 +441,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                         <th style="text-align: center;">Metode Bayar</th>
                         <th style="text-align: right;">Total Bayar</th>
                         <th style="text-align: center;">Status</th>
-                        <th>Aksi</th>
+                        <th style="text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -431,6 +450,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                             $status = $status_labels[$l['Status']] ?? $status_labels[0];
                             $tgl_mulai = formatTanggal($l['Tanggal_Mulai']);
                             $tgl_selesai = formatTanggal($l['Tanggal_Selesai']);
+                            $bukti_path = $l['Bukti_Pembayaran'] ?? '';
+                            $bukti_exists = checkBuktiExists($bukti_path);
                         ?>
                         <tr>
                             <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
@@ -440,20 +461,29 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                             </td>
                             <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($l['Nama_Tipe']) ?></div>
-                                <div class="cell-detail"><?= rupiahFormat($l['Harga_Member']) ?> /bulan</div>
+                                <div class="cell-detail">
+                                    <?php if (isset($l['Harga_Member']) && $l['Harga_Member'] > 0): ?>
+                                        <?= rupiahFormat($l['Harga_Member']) ?> /bulan
+                                    <?php else: ?>
+                                        - /bulan
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td style="text-align: right;">
                                 <div class="cell-name"><?= $tgl_mulai ?></div>
                                 <div class="cell-detail">s/d <?= $tgl_selesai ?></div>
                             </td>
-                            <td style="text-align: center;"><?= $l['Metode_Pembayaran'] ?></td>
-                            <td class="cell-price" style="text-align: right;"><?= rupiahFormat($l['Total_Bayar']) ?></td>
+                            <td style="text-align: center;"><?= htmlspecialchars($l['Metode_Pembayaran'] ?? '-') ?></td>
+                            <td class="cell-price" style="text-align: right;"><?= rupiahFormat($l['Total_Bayar'] ?? 0) ?></td>
                             <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
                             <td>
                                 <div class="action-btns">
                                     <button class="btn-icon view" onclick="showDetail(<?= $l['ID_Langganan'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
+                                    <?php if (!empty($bukti_path)): ?>
+                                        <button class="btn-icon bukti" onclick="showBukti(<?= $l['ID_Langganan'] ?>)" title="Lihat Bukti Pembayaran<?= $bukti_exists ? '' : ' (File tidak ditemukan)' ?>"><i class="fa-solid fa-receipt"></i></button>
+                                    <?php endif; ?>
                                     <?php if ($l['Status'] == 0): ?>
-                                        <button class="btn-icon success" onclick="confirmBayar(<?= $l['ID_Langganan'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
+                                        <button class="btn-icon success" onclick="confirmKonfirmasi(<?= $l['ID_Langganan'] ?>)" title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
                                         <button class="btn-icon danger" onclick="confirmTolak(<?= $l['ID_Langganan'] ?>)" title="Tolak"><i class="fa-solid fa-xmark"></i></button>
                                     <?php endif; ?>
                                 </div>
@@ -533,6 +563,20 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
     </div>
 </div>
 
+<!-- MODAL BUKTI PEMBAYARAN -->
+<div class="modal-overlay" id="modalBukti">
+    <div class="modal" style="max-width: 520px;">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-receipt"></i> Bukti Pembayaran</div>
+            <button class="modal-close" onclick="closeModal('modalBukti')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="buktiContent" style="text-align: center;"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeModal('modalBukti')"><i class="fa-solid fa-xmark"></i> Tutup</button>
+        </div>
+    </div>
+</div>
+
 <!-- HIDDEN FORMS -->
 <form method="POST" id="formKonfirmasi" style="display: none;">
     <input type="hidden" name="id_langganan" id="konfirmasiId">
@@ -544,7 +588,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
     <input type="hidden" name="tolak_bayar" value="1">
 </form>
 
-<!-- GLOBAL JS: clock, dropdown, dsb -->
 <script src="../asset/js/global.js"></script>
 
 <script>
@@ -567,48 +610,45 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     });
 });
 
-function showDetail(id) {
+// ============ BUKTI PEMBAYARAN ============
+function resolveBuktiPath(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('../')) return path;
+    if (path.startsWith('/')) return '..' + path;
+    return '../' + path;
+}
+
+function showBukti(id) {
     const langganan = langgananData.find(l => l.ID_Langganan == id);
-    if (!langganan) return;
+    if (!langganan || !langganan.Bukti_Pembayaran) {
+        Swal.fire({ icon: 'info', title: 'Belum Ada Bukti', text: 'Customer belum mengunggah bukti pembayaran untuk langganan ini.', confirmButtonColor: 'var(--orange)' });
+        return;
+    }
 
-    const statusMap = {
-        0: { label: 'Menunggu Konfirmasi', class: 'sp-pending', icon: 'fa-clock' },
-        1: { label: 'Aktif', class: 'sp-active', icon: 'fa-circle-check' },
-        2: { label: 'Berakhir', class: 'sp-ended', icon: 'fa-circle-xmark' },
-        3: { label: 'Ditolak', class: 'sp-rejected', icon: 'fa-ban' }
-    };
-    const status = statusMap[langganan.Status] || statusMap[0];
-
-    const tglMulai = langganan.Tanggal_Mulai ? new Date(langganan.Tanggal_Mulai.date || langganan.Tanggal_Mulai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
-    const tglSelesai = langganan.Tanggal_Selesai ? new Date(langganan.Tanggal_Selesai.date || langganan.Tanggal_Selesai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
-
-    const html = `
-        <div class="detail-grid">
-            <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
-            <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${langganan.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${langganan.Email} | ${langganan.No_Telepon}</div></div>
-            <div class="detail-item"><div class="detail-label">Tipe Member</div><div class="detail-value">${langganan.Nama_Tipe}</div></div>
-            <div class="detail-item"><div class="detail-label">Tanggal Mulai</div><div class="detail-value">${tglMulai}</div></div>
-            <div class="detail-item"><div class="detail-label">Tanggal Selesai</div><div class="detail-value">${tglSelesai}</div></div>
-            <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${langganan.Metode_Pembayaran}</div></div>
-            <div class="detail-item"><div class="detail-label">Input Oleh</div><div class="detail-value">${langganan.Nama_Karyawan_Input || 'System'}</div></div>
-            <div class="detail-item"><div class="detail-label">Harga Member</div><div class="detail-value">${formatRupiah(langganan.Harga_Member)}</div></div>
-            <div class="detail-item"><div class="detail-label">Potongan Harga</div><div class="detail-value">${formatRupiah(langganan.Potongan_Harga || 0)}</div></div>
-            <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(langganan.Total_Bayar)}</div></div>
-        </div>
-    `;
-
-    document.getElementById('detailContent').innerHTML = html;
-    openModal('modalDetail');
+    const url = resolveBuktiPath(langganan.Bukti_Pembayaran);
+    console.log('Bukti path resolved:', url, 'Original:', langganan.Bukti_Pembayaran);
+    const ext = url.split('.').pop().toLowerCase();
+    let html = '';
+    if (ext === 'pdf') {
+        html = `<iframe src="${url}" style="width:100%;height:480px;border:1px solid var(--border);border-radius:10px"></iframe>
+        <div style="margin-top:14px"><a href="${url}" target="_blank" class="btn-secondary"><i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru</a></div>`;
+    } else {
+        html = `<img src="${url}" alt="Bukti Pembayaran" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
+        <div style="margin-top:14px"><a href="${url}" target="_blank" class="btn-secondary"><i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru</a></div>`;
+    }
+    document.getElementById('buktiContent').innerHTML = html;
+    openModal('modalBukti');
 }
 
-function formatRupiah(angka) {
-    return 'Rp ' + angka.toLocaleString('id-ID');
-}
+// ============ KONFIRMASI & TOLAK ============
+function confirmKonfirmasi(id) {
+    const langganan = langgananData.find(l => l.ID_Langganan == id);
+    const namaCustomer = langganan ? langganan.Nama_Customer : 'Customer';
 
-function confirmBayar(id) {
     Swal.fire({
         title: 'Konfirmasi Pembayaran?',
-        html: 'Customer sudah melakukan pembayaran?<br><span style="color: var(--muted); font-size: 12px;">Status langganan akan berubah menjadi <strong>Aktif</strong></span>',
+        html: `Customer <strong>${namaCustomer}</strong> sudah melakukan pembayaran?<br><span style="color: var(--muted); font-size: 12px;">Status langganan akan berubah menjadi <strong>Aktif</strong></span>`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#10B981',
@@ -625,9 +665,12 @@ function confirmBayar(id) {
 }
 
 function confirmTolak(id) {
+    const langganan = langgananData.find(l => l.ID_Langganan == id);
+    const namaCustomer = langganan ? langganan.Nama_Customer : 'Customer';
+
     Swal.fire({
-        title: 'Tolak Langganan?',
-        html: 'Langganan ini akan ditolak.<br><span style="color: var(--red); font-size: 12px;">Customer perlu mendaftar ulang.</span><br><br><textarea id="alasanTolak" class="swal2-textarea" placeholder="Alasan penolakan (opsional)" style="width: 100%; min-height: 80px; resize: vertical;"></textarea>',
+        title: 'Tolak Pembayaran?',
+        html: `Anda yakin ingin <strong style="color: var(--red);">MENOLAK</strong> pembayaran dari <strong>${namaCustomer}</strong>?<br><span style="color: var(--red); font-size: 12px;">Langganan ini akan ditolak dan customer perlu mendaftar ulang.</span><br><br><textarea id="alasanTolakSwal" class="swal2-textarea" placeholder="Alasan penolakan (opsional)" style="width: 100%; min-height: 80px; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"></textarea>`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
@@ -636,7 +679,7 @@ function confirmTolak(id) {
         cancelButtonText: 'Batal',
         reverseButtons: true,
         preConfirm: () => {
-            return document.getElementById('alasanTolak').value;
+            return document.getElementById('alasanTolakSwal').value;
         }
     }).then((result) => {
         if (result.isConfirmed) {
@@ -645,6 +688,53 @@ function confirmTolak(id) {
             document.getElementById('formTolak').submit();
         }
     });
+}
+
+function showDetail(id) {
+    const langganan = langgananData.find(l => l.ID_Langganan == id);
+    if (!langganan) return;
+
+    const statusMap = {
+        0: { label: 'Menunggu Konfirmasi', class: 'sp-pending', icon: 'fa-clock' },
+        1: { label: 'Aktif', class: 'sp-active', icon: 'fa-circle-check' },
+        2: { label: 'Berakhir', class: 'sp-success', icon: 'fa-circle-xmark' },
+        3: { label: 'Ditolak', class: 'sp-inactive', icon: 'fa-ban' }
+    };
+    const status = statusMap[langganan.Status] || statusMap[0];
+
+    const tglMulai = langganan.Tanggal_Mulai ? new Date(langganan.Tanggal_Mulai.date || langganan.Tanggal_Mulai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
+    const tglSelesai = langganan.Tanggal_Selesai ? new Date(langganan.Tanggal_Selesai.date || langganan.Tanggal_Selesai).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
+
+    const hargaMember = (langganan.Harga_Member !== undefined && langganan.Harga_Member !== null) ? formatRupiah(langganan.Harga_Member) : '-';
+    const potongan = (langganan.Potongan_Harga !== undefined && langganan.Potongan_Harga !== null) ? formatRupiah(langganan.Potongan_Harga) : '-';
+
+    const buktiInfo = langganan.Bukti_Pembayaran
+        ? `<div class="detail-item"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value"><button class="btn-secondary" style="margin-top:4px" onclick="closeModal('modalDetail'); showBukti(${langganan.ID_Langganan});"><i class="fa-solid fa-receipt"></i> Lihat Bukti Pembayaran</button></div></div>`
+        : `<div class="detail-item"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value" style="color:var(--muted);font-weight:500">Belum diunggah customer</div></div>`;
+
+    const html = `
+        <div class="detail-grid">
+            <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
+            <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${langganan.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${langganan.Email || '-'} | ${langganan.No_Telepon || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Tipe Member</div><div class="detail-value">${langganan.Nama_Tipe}</div></div>
+            <div class="detail-item"><div class="detail-label">Tanggal Mulai</div><div class="detail-value">${tglMulai}</div></div>
+            <div class="detail-item"><div class="detail-label">Tanggal Selesai</div><div class="detail-value">${tglSelesai}</div></div>
+            <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${langganan.Metode_Pembayaran || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Input Oleh</div><div class="detail-value">${langganan.Nama_Karyawan_Input || 'System'}</div></div>
+            <div class="detail-item"><div class="detail-label">Harga Member</div><div class="detail-value">${hargaMember}</div></div>
+            <div class="detail-item"><div class="detail-label">Potongan Harga</div><div class="detail-value">${potongan}</div></div>
+            ${buktiInfo}
+            <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(langganan.Total_Bayar || 0)}</div></div>
+        </div>
+    `;
+
+    document.getElementById('detailContent').innerHTML = html;
+    openModal('modalDetail');
+}
+
+function formatRupiah(angka) {
+    const num = parseFloat(angka);
+    return 'Rp ' + (isNaN(num) ? 0 : num).toLocaleString('id-ID');
 }
 
 // ============================================

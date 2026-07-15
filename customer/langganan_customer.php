@@ -49,19 +49,19 @@ if (!empty($id_customer)) {
 // CEK STATUS MEMBER AKTIF (menggunakan SP_GetLanggananByCustomer)
 // ============================================================================
 $member_aktif = null;
+$member_pending = null;  // <-- TAMBAH: variabel untuk member menunggu konfirmasi
 $member_check = sqlsrv_query($conn,
     "EXEC SP_GetLanggananByCustomer @ID_Customer = ?, @StatusFilter = NULL",
     array($id_customer)
 );
 if ($member_check) {
-    // Ambil yang paling atas (Aktif > Menunggu > Berakhir > Ditolak)
     while ($row = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC)) {
         if ($row['Status'] == 1) {
-            $member_aktif = $row;
+            $member_aktif = $row;      // Member aktif (status 1)
             break;
         }
-        if (!$member_aktif) {
-            $member_aktif = $row;
+        if ($row['Status'] == 0 && !$member_pending) {  // <-- PERBAIKI: hanya simpan yang menunggu (status 0)
+            $member_pending = $row;
         }
     }
 }
@@ -112,35 +112,75 @@ if (isset($_POST['beli_langganan'])) {
     if (empty($id_tipe) || empty($metode_pembayaran)) {
         $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
     } else {
-        // Gunakan SP_CreateLangganan untuk pendaftaran
-        $stmt_sp = sqlsrv_query($conn,
-            "EXEC SP_CreateLangganan @ID_Customer = ?, @ID_Tipe = ?, @Metode_Pembayaran = ?, @Created_By = ?",
-            array($id_customer, $id_tipe, $metode_pembayaran, $nama_customer)
-        );
-
-        if ($stmt_sp) {
-            $result = sqlsrv_fetch_array($stmt_sp, SQLSRV_FETCH_ASSOC);
-            if ($result && $result['Status'] === 'SUCCESS') {
-                // Ambil nama tipe untuk notifikasi
-                $stmt_tipe_name = sqlsrv_query($conn,
-                    "SELECT Nama_Tipe FROM Tipe_Member WHERE ID_Tipe = ?",
-                    array($id_tipe)
-                );
-                $tipe_name = 'Member';
-                if ($stmt_tipe_name) {
-                    $row_tipe = sqlsrv_fetch_array($stmt_tipe_name, SQLSRV_FETCH_ASSOC);
-                    if ($row_tipe) {
-                        $tipe_name = $row_tipe['Nama_Tipe'];
-                    }
-                }
-                header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Paket: " . urlencode($tipe_name) . ". Menunggu konfirmasi admin.");
-                exit();
-            } else {
-                $pembelian_error = $result['Message'] ?? 'Gagal mendaftar. Silakan coba lagi.';
-            }
+        // --- Validasi & unggah bukti pembayaran (wajib sebelum konfirmasi) ---
+        $bukti_pembayaran_db = '';
+        if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK) {
+            $pembelian_error = 'Bukti pembayaran wajib diunggah sebelum konfirmasi.';
         } else {
-            $errors = sqlsrv_errors();
-            $pembelian_error = 'Gagal mendaftar. Error: ' . ($errors[0]['message'] ?? 'Unknown');
+            $allowed_ext = ['jpg', 'jpeg', 'png', 'pdf'];
+            $file_tmp = $_FILES['bukti_pembayaran']['tmp_name'];
+            $file_name_asli = $_FILES['bukti_pembayaran']['name'];
+            $file_ext = strtolower(pathinfo($file_name_asli, PATHINFO_EXTENSION));
+
+            if (!in_array($file_ext, $allowed_ext)) {
+                $pembelian_error = 'Format bukti pembayaran harus JPG, PNG, atau PDF.';
+            } elseif ($_FILES['bukti_pembayaran']['size'] > 5 * 1024 * 1024) {
+                $pembelian_error = 'Ukuran bukti pembayaran maksimal 5MB.';
+            } else {
+                $upload_dir = '../asset/Bukti_Pembayaran/';
+                if (!is_dir($upload_dir)) {
+                    @mkdir($upload_dir, 0755, true);
+                }
+                $new_file_name = 'bukti_langganan_' . $id_customer . '_' . time() . '_' . uniqid() . '.' . $file_ext;
+                $target_path = $upload_dir . $new_file_name;
+
+                if (!move_uploaded_file($file_tmp, $target_path)) {
+                    $pembelian_error = 'Gagal mengunggah bukti pembayaran. Silakan coba lagi.';
+                } else {
+                    $bukti_pembayaran_db = 'asset/Bukti_Pembayaran/' . $new_file_name;
+                }
+            }
+        }
+
+        if (empty($pembelian_error)) {
+            // Gunakan SP_CreateLangganan untuk pendaftaran
+            $stmt_sp = sqlsrv_query($conn,
+                "EXEC SP_CreateLangganan @ID_Customer = ?, @ID_Tipe = ?, @Metode_Pembayaran = ?, @Created_By = ?",
+                array($id_customer, $id_tipe, $metode_pembayaran, $nama_customer)
+            );
+
+            if ($stmt_sp) {
+                $result = sqlsrv_fetch_array($stmt_sp, SQLSRV_FETCH_ASSOC);
+                if ($result && $result['Status'] === 'SUCCESS') {
+                    // Update bukti pembayaran jika berhasil
+                    if (!empty($bukti_pembayaran_db) && !empty($result['ID_Langganan'])) {
+                        sqlsrv_query($conn,
+                            "UPDATE Langganan SET Bukti_Pembayaran = ? WHERE ID_Langganan = ?",
+                            array($bukti_pembayaran_db, $result['ID_Langganan'])
+                        );
+                    }
+
+                    // Ambil nama tipe untuk notifikasi
+                    $stmt_tipe_name = sqlsrv_query($conn,
+                        "SELECT Nama_Tipe FROM Tipe_Member WHERE ID_Tipe = ?",
+                        array($id_tipe)
+                    );
+                    $tipe_name = 'Member';
+                    if ($stmt_tipe_name) {
+                        $row_tipe = sqlsrv_fetch_array($stmt_tipe_name, SQLSRV_FETCH_ASSOC);
+                        if ($row_tipe) {
+                            $tipe_name = $row_tipe['Nama_Tipe'];
+                        }
+                    }
+                    header("Location: langganan_customer.php?status=success&msg=Pendaftaran member berhasil! Paket: " . urlencode($tipe_name) . ". Menunggu konfirmasi admin.");
+                    exit();
+                } else {
+                    $pembelian_error = $result['Message'] ?? 'Gagal mendaftar. Silakan coba lagi.';
+                }
+            } else {
+                $errors = sqlsrv_errors();
+                $pembelian_error = 'Gagal mendaftar. Error: ' . ($errors[0]['message'] ?? 'Unknown');
+            }
         }
     }
 }
@@ -950,24 +990,86 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         .payment-section{border-top:1px solid var(--border-lt);padding:20px 0 10px}
         .payment-header{font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px}
         .payment-header i{color:var(--muted)}
-        .payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-        .payment-card{border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition-smooth);user-select:none;position:relative;overflow:hidden}
-        .payment-card::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,90,31,.1);border-radius:50%;transform:translate(-50%,-50%);transition:width .4s,height .4s}
-        .payment-card:hover::before{width:200px;height:200px}
-        .payment-card:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 4px 12px rgba(255,90,31,.1)}
-        .payment-card.selected{border-color:var(--orange);background:var(--orange-lt);animation: scaleIn 0.3s ease-out}
-        .payment-card:hover .payment-name {
-            color: var(--orange);
-            transition: color 0.3s ease;
+        /* ═══ PAYMENT OPTIONS (sama dengan booking_customer.php) ═══ */
+        .payment-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
         }
-        .custom-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
-        .payment-card.selected .custom-radio{border-color:var(--orange)}
-        .custom-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--orange);display:none}
-        .payment-card.selected .custom-radio::after{display:block;animation:scaleIn .2s ease-out}
-        .payment-card-content{display:flex;flex-direction:column;justify-content:center}
-        .payment-name{font-size:11px;font-weight:700;color:var(--text-primary);line-height:1.3}
-        .payment-sub{font-size:9px;color:var(--muted);margin-top:1px;font-weight:500}
-        .qris-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;color:#000;letter-spacing:-.5px}
+        .payment-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            background: var(--white);
+            user-select: none;
+        }
+        .payment-option:hover {
+            border-color: var(--orange);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255,90,31,.1);
+        }
+        .payment-option.selected {
+            border-color: var(--orange);
+            background: var(--orange-lt);
+            animation: scaleIn 0.3s ease-out;
+        }
+        .payment-radio {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: var(--transition-smooth);
+        }
+        .payment-option.selected .payment-radio {
+            border-color: var(--orange);
+        }
+        .payment-radio::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--orange);
+            display: none;
+        }
+        .payment-option.selected .payment-radio::after {
+            display: block;
+            animation: scaleIn 0.2s ease-out;
+        }
+        .payment-info {
+            flex: 1;
+        }
+        .payment-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .payment-desc {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .payment-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--orange-lt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--orange);
+            font-size: 16px;
+            flex-shrink: 0;
+        }
         .btn-booking{width:100%;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:var(--transition-smooth);position:relative;overflow:hidden}
         .btn-booking::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .6s,height .6s}
         .btn-booking:hover::before{width:400px;height:400px}
@@ -1244,6 +1346,54 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
             .footer-grid { grid-template-columns: 1fr; }
             footer { padding: 30px 20px; }
         }
+
+        /* ═══ UPLOAD BUKTI PEMBAYARAN (sama dengan booking_customer.php) ═══ */
+        .bukti-upload-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 22px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            transition: var(--transition-smooth);
+            margin-top: 12px;
+        }
+        .bukti-upload-box:hover {
+            border-color: var(--orange);
+            background: var(--orange-lt);
+            color: var(--orange);
+        }
+        .bukti-upload-box i {
+            font-size: 22px;
+            color: var(--orange);
+        }
+        .bukti-upload-box.filled {
+            border-style: solid;
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-lt);
+        }
+        .bukti-upload-box.filled i {
+            color: var(--green);
+        }
+        .bukti-preview-wrap {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .bukti-preview-wrap img {
+            max-width: 100%;
+            max-height: 180px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border);
+        }
 </style>
 </head>
 <body>
@@ -1278,15 +1428,15 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
     <!-- MEMBER STATUS CARD -->
     <div class="member-status-card">
         <div class="member-status-header">
-            <div class="member-status-icon <?php echo $has_member ? 'active' : ($member_aktif ? 'pending' : 'inactive'); ?>">
-                <i class="fa-solid <?php echo $has_member ? 'fa-crown' : ($member_aktif ? 'fa-clock' : 'fa-user'); ?>"></i>
+            <div class="member-status-icon <?php echo $has_member ? 'active' : ($member_pending ? 'pending' : 'inactive'); ?>">
+                <i class="fa-solid <?php echo $has_member ? 'fa-crown' : ($member_pending ? 'fa-clock' : 'fa-user'); ?>"></i>
             </div>
             <div class="member-status-text">
                 <h3>
                     <?php
                     if ($has_member) {
                         echo 'Member ' . htmlspecialchars($member_tipe) . ' Aktif';
-                    } elseif ($member_aktif) {
+                    } elseif ($member_pending) {
                         echo 'Menunggu Konfirmasi';
                     } else {
                         echo 'Belum Berlangganan';
@@ -1297,7 +1447,7 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
                     <?php
                     if ($has_member) {
                         echo 'Nikmati keuntungan member Anda';
-                    } elseif ($member_aktif) {
+                    } elseif ($member_pending) {
                         echo 'Pendaftaran member sedang diproses oleh admin';
                     } else {
                         echo 'Daftar sekarang untuk mendapatkan keuntungan';
@@ -1339,18 +1489,18 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
                 ?>
             </span>
         </div>
-        <?php elseif ($member_aktif): ?>
+        <?php elseif ($member_pending): ?>
         <div class="member-detail-row">
             <span class="member-detail-label">Tipe Member</span>
-            <span class="member-detail-value primary"><?php echo htmlspecialchars($member_aktif['Nama_Tipe']); ?></span>
+            <span class="member-detail-value primary"><?php echo htmlspecialchars($member_pending['Nama_Tipe']); ?></span>
         </div>
         <div class="member-detail-row">
             <span class="member-detail-label">Total Bayar</span>
-            <span class="member-detail-value"><?php echo rupiahFormat($member_aktif['Total_Bayar']); ?></span>
+            <span class="member-detail-value"><?php echo rupiahFormat($member_pending['Total_Bayar']); ?></span>
         </div>
         <div class="member-detail-row">
             <span class="member-detail-label">Tanggal Daftar</span>
-            <span class="member-detail-value"><?php echo formatTanggal($member_aktif['Created_Date']); ?></span>
+            <span class="member-detail-value"><?php echo formatTanggal($member_pending['Created_Date']); ?></span>
         </div>
         <div class="member-detail-row">
             <span class="member-detail-label">Status</span>
@@ -1413,6 +1563,10 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
                 <?php
                 $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
                 $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
+
+                // Tentukan apakah tombol harus disabled
+                $is_blocked = ($has_member || $member_pending);
+
                 foreach ($tipe_member_list as $tipe):
                     $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
                     $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
@@ -1445,11 +1599,11 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
                 </ul>
                 <button class="btn-pilih"
                         onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
-                        <?php echo ($has_member || $member_aktif) ? 'disabled' : ''; ?>>
+                        <?php echo $is_blocked ? 'disabled' : ''; ?>>
                     <?php
                     if ($has_member) {
                         echo 'Sudah Aktif';
-                    } elseif ($member_aktif) {
+                    } elseif ($member_pending) {
                         echo 'Menunggu Konfirmasi';
                     } else {
                         echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
@@ -1461,10 +1615,6 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
             </div>
         </div>
     </section>
-
-
-
-
 
     <!-- RIWAYAT LANGGANAN -->
     <section style="margin-top: 40px;">
@@ -1519,11 +1669,62 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         <?php endif; ?>
     </section>
 
-
 </main>
 
 <!-- FOOTER -->
 <?php include '../includes/footer.php'; ?>
+
+<!-- ═══ MODAL 1: CHECKOUT ═══ -->
+<div class="booking-modal-overlay" id="checkoutModal">
+    <div class="summary-card">
+        <button class="booking-modal-close" onclick="tutupCheckoutModal()"><i class="fa-solid fa-xmark"></i></button>
+        <p class="summary-title">Ringkasan Pembelian</p>
+        <div class="summary-item-info">
+            <div class="summary-icon"><i class="fa-solid fa-crown"></i></div>
+            <div class="summary-details">
+                <span class="summary-item-name" id="summaryNamaTipe">Member</span>
+                <span class="summary-item-sub">Paket langganan 30 hari</span>
+            </div>
+        </div>
+        <div class="pricing-breakdown">
+            <div class="price-row">
+                <span>Harga Paket</span>
+                <span id="summaryHarga">Rp 0</span>
+            </div>
+            <div class="price-row total-row">
+                <span>Total Bayar</span>
+                <span class="total-amount" id="summaryTotal">Rp 0</span>
+            </div>
+        </div>
+        <div class="payment-section">
+            <div class="payment-header"><i class="fa-solid fa-wallet"></i> Pilih Metode Pembayaran</div>
+            <div class="payment-options">
+                <div class="payment-option selected" data-method="Transfer Bank" onclick="selectPayment(this)">
+                    <div class="payment-radio"></div>
+                    <div class="payment-icon"><i class="fa-solid fa-building-columns"></i></div>
+                    <div class="payment-info">
+                        <div class="payment-name">Transfer Bank</div>
+                        <div class="payment-desc">Virtual Account</div>
+                    </div>
+                </div>
+                <div class="payment-option" data-method="QRIS" onclick="selectPayment(this)">
+                    <div class="payment-radio"></div>
+                    <div class="payment-icon"><i class="fa-solid fa-qrcode"></i></div>
+                    <div class="payment-info">
+                        <div class="payment-name">QRIS</div>
+                        <div class="payment-desc">Scan & Pay</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button class="btn-booking" id="btnLanjutBayar" onclick="lanjutKePembayaran()" disabled>
+            Lanjutkan Pembayaran <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <div class="booking-disclaimer">
+            <i class="fa-solid fa-shield-halved"></i> Pembayaran aman & terenkripsi
+        </div>
+    </div>
+</div>
 
 <!-- ═══ MODAL 2: INSTRUKSI PEMBAYARAN ═══ -->
 <div class="booking-modal-overlay" id="paymentInstructionModal">
@@ -1604,9 +1805,25 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         </div>
 
         <hr class="modal-divider">
-        <form method="POST" action="" id="formPembayaran">
+        <form method="POST" action="" id="formPembayaran" enctype="multipart/form-data">
             <input type="hidden" name="id_tipe" id="formIdTipe">
             <input type="hidden" name="metode_pembayaran" id="formMetode">
+
+            <!-- Upload Bukti Pembayaran -->
+            <div style="margin: 20px 0;">
+                <div class="payment-header" style="margin-bottom: 8px;">
+                    <i class="fa-solid fa-receipt"></i> Unggah Bukti Pembayaran <span style="color: var(--red);">*</span>
+                </div>
+                <label for="buktiPembayaranInput" class="bukti-upload-box" id="buktiUploadBox">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="buktiUploadText">Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)</span>
+                </label>
+                <input type="file" name="bukti_pembayaran" id="buktiPembayaranInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleBuktiFileChange(this)">
+                <div class="bukti-preview-wrap" id="buktiPreviewWrap">
+                    <img id="buktiPreviewImg" src="" alt="Preview Bukti Pembayaran">
+                </div>
+            </div>
+
             <button type="submit" name="beli_langganan" class="btn-done-pay" id="btnDonePayment">
                 Saya Sudah Bayar <i class="fa-solid fa-circle-check"></i>
             </button>
@@ -1615,8 +1832,73 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
 </div>
 
 <script>
-/* ─── ENHANCED ANIMATIONS (moved from head) ─── */
-// Add hover tilt effect to pricing cards
+/* ─── BUKTI PEMBAYARAN HANDLER (sama dengan booking_customer.php) ─── */
+let buktiFile = null;
+
+function handleBuktiFileChange(input) {
+    const file = input.files[0];
+    const box = document.getElementById('buktiUploadBox');
+    const textEl = document.getElementById('buktiUploadText');
+    const previewWrap = document.getElementById('buktiPreviewWrap');
+    const previewImg = document.getElementById('buktiPreviewImg');
+
+    if (!file) { buktiFile = null; return; }
+
+    const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Format Tidak Didukung',
+            text: 'Gunakan file JPG, PNG, atau PDF.',
+            confirmButtonColor: '#FF5A1F',
+            confirmButtonText: 'OK'
+        });
+        input.value = '';
+        buktiFile = null;
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Ukuran Terlalu Besar',
+            text: 'Ukuran file maksimal 5MB.',
+            confirmButtonColor: '#FF5A1F',
+            confirmButtonText: 'OK'
+        });
+        input.value = '';
+        buktiFile = null;
+        return;
+    }
+
+    buktiFile = file;
+    if (box) box.classList.add('filled');
+    if (textEl) textEl.innerText = file.name;
+
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            if (previewImg) previewImg.src = e.target.result;
+            if (previewWrap) previewWrap.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        if (previewWrap) previewWrap.style.display = 'none';
+    }
+}
+
+function resetBuktiUpload() {
+    buktiFile = null;
+    const inputEl = document.getElementById('buktiPembayaranInput');
+    if (inputEl) inputEl.value = '';
+    const box = document.getElementById('buktiUploadBox');
+    if (box) box.classList.remove('filled');
+    const textEl = document.getElementById('buktiUploadText');
+    if (textEl) textEl.innerText = 'Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)';
+    const previewWrap = document.getElementById('buktiPreviewWrap');
+    if (previewWrap) previewWrap.style.display = 'none';
+}
+
+/* ─── ENHANCED ANIMATIONS ─── */
 document.querySelectorAll('.pricing-card').forEach(card => {
     card.addEventListener('mousemove', (e) => {
         const rect = card.getBoundingClientRect();
@@ -1633,7 +1915,6 @@ document.querySelectorAll('.pricing-card').forEach(card => {
     });
 });
 
-// Add parallax effect to floating balls on mouse move
 document.querySelector('.hero').addEventListener('mousemove', (e) => {
     const balls = document.querySelectorAll('.floating-ball');
     const x = (e.clientX / window.innerWidth - 0.5) * 20;
@@ -1644,7 +1925,6 @@ document.querySelector('.hero').addEventListener('mousemove', (e) => {
     });
 });
 
-// Enhanced reveal with stagger for pricing cards
 const pricingObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry, index) => {
         if (entry.isIntersecting) {
@@ -1664,7 +1944,6 @@ document.querySelectorAll('.pricing-card').forEach(card => {
     pricingObserver.observe(card);
 });
 
-// Animate member detail rows on scroll
 const memberObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -1689,7 +1968,6 @@ if (memberCard) {
     memberObserver.observe(memberCard);
 }
 
-// Hide page loader when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
     const loader = document.getElementById('pageLoader');
     if (loader) {
@@ -1697,8 +1975,6 @@ window.addEventListener('DOMContentLoaded', () => {
             loader.classList.add('hidden');
         }, 500);
     }
-
-    // Initialize scroll arrow visibility
     updateScrollArrows();
 });
 
@@ -1706,7 +1982,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function scrollPricing(direction) {
     const grid = document.getElementById('pricingGrid');
     if (!grid) return;
-    const scrollAmount = 340; // card width + gap
+    const scrollAmount = 340;
     if (direction === 'left') {
         grid.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     } else {
@@ -1718,21 +1994,16 @@ function updateScrollArrows() {
     const grid = document.getElementById('pricingGrid');
     if (!grid) return;
 
-    const leftArrow = document.querySelector('.scroll-arrow:first-child');
-    const rightArrow = document.querySelector('.scroll-arrow:last-child');
-
-    if (leftArrow) {
-        leftArrow.style.opacity = grid.scrollLeft > 10 ? '1' : '0.4';
-        leftArrow.style.pointerEvents = grid.scrollLeft > 10 ? 'auto' : 'none';
-    }
-    if (rightArrow) {
+    const arrows = document.querySelectorAll('.scroll-arrow');
+    if (arrows.length >= 2) {
+        arrows[0].style.opacity = grid.scrollLeft > 10 ? '1' : '0.4';
+        arrows[0].style.pointerEvents = grid.scrollLeft > 10 ? 'auto' : 'none';
         const canScrollRight = grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 10;
-        rightArrow.style.opacity = canScrollRight ? '1' : '0.4';
-        rightArrow.style.pointerEvents = canScrollRight ? 'auto' : 'none';
+        arrows[1].style.opacity = canScrollRight ? '1' : '0.4';
+        arrows[1].style.pointerEvents = canScrollRight ? 'auto' : 'none';
     }
 }
 
-// Update arrows on scroll
 const pricingGrid = document.getElementById('pricingGrid');
 if (pricingGrid) {
     pricingGrid.addEventListener('scroll', updateScrollArrows);
@@ -1758,7 +2029,6 @@ function filterTipeMember(query) {
             card.style.opacity = '0';
             card.style.transform = 'translateY(30px) scale(0.95)';
 
-            // Stagger animation
             setTimeout(() => {
                 card.style.opacity = '1';
                 card.style.transform = 'translateY(0) scale(1)';
@@ -1771,14 +2041,12 @@ function filterTipeMember(query) {
         }
     });
 
-    // Scroll to first visible card
     if (firstVisible && grid) {
         setTimeout(() => {
             firstVisible.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
         }, 100);
     }
 
-    // Show "no results" message if needed
     let noResults = document.getElementById('noResultsMsg');
     if (visibleCount === 0) {
         if (!noResults) {
@@ -1806,7 +2074,6 @@ document.addEventListener('keydown', (e) => {
         scrollPricing('right');
     }
 });
-
 
 /* ─── SCROLL PROGRESS ─── */
 window.addEventListener('scroll', () => {
@@ -1851,10 +2118,11 @@ function tutupCheckoutModal() {
     document.body.style.overflow = '';
 }
 
-function pilihMetode(method, element) {
-    document.querySelectorAll('#checkoutModal .payment-card').forEach(el => el.classList.remove('selected'));
-    element.classList.add('selected');
-    selectedPaymentMethod = method;
+function selectPayment(el) {
+    document.querySelectorAll('.payment-option').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPaymentMethod = el.dataset.method;
+    document.getElementById('btnLanjutBayar').disabled = false;
 }
 
 /* ─── MODAL 2: INSTRUKSI PEMBAYARAN ─── */
@@ -1874,6 +2142,7 @@ function tutupInstructionModal() {
     clearInterval(countdownInterval);
     document.getElementById('paymentInstructionModal').style.display = 'none';
     document.body.style.overflow = '';
+    resetBuktiUpload();
 }
 
 function switchPaymentMethod(method) {
@@ -1929,6 +2198,22 @@ function copyVA() {
     });
 }
 
+/* ─── FORM VALIDATION ─── */
+document.getElementById('formPembayaran').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('buktiPembayaranInput');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Bukti Pembayaran Wajib',
+            text: 'Silakan unggah bukti pembayaran terlebih dahulu sebelum konfirmasi.',
+            confirmButtonColor: '#FF5A1F',
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+});
+
 /* ─── CLOSE MODAL ON OUTSIDE CLICK ─── */
 window.addEventListener('click', function(e) {
     const cModal = document.getElementById('checkoutModal');
@@ -1954,22 +2239,14 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-
-    /* ============================================================
-   KONFIRMASI SEBELUM KELUAR (LOGOUT)
-   Berlaku untuk semua link yang mengarah ke logout.php,
-   di sidebar maupun di dropdown topbar, pada SEMUA halaman.
-   ============================================================ */
+/* ─── KONFIRMASI LOGOUT ─── */
 (function () {
     const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
     let swalLoading = null;
 
-    // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
-    // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
     function ensureSwal() {
         if (typeof Swal !== 'undefined') return Promise.resolve();
         if (swalLoading) return swalLoading;
-
         swalLoading = new Promise(function (resolve, reject) {
             const s = document.createElement('script');
             s.src = SWAL_CDN;
@@ -1996,7 +2273,6 @@ if (status && msg) {
             allowOutsideClick: false
         }).then(function (result) {
             if (!result.isConfirmed) return;
-
             Swal.fire({
                 title: 'Sedang keluar...',
                 text: 'Mohon tunggu sebentar.',
@@ -2004,7 +2280,6 @@ if (status && msg) {
                 allowEscapeKey: false,
                 didOpen: function () { Swal.showLoading(); }
             });
-
             setTimeout(function () { window.location.href = url; }, 500);
         });
     }
@@ -2012,14 +2287,11 @@ if (status && msg) {
     document.addEventListener('click', function (e) {
         const link = e.target.closest('a[href*="logout.php"]');
         if (!link) return;
-
         e.preventDefault();
         const url = link.getAttribute('href');
-
         ensureSwal()
             .then(function () { showLogoutDialog(url); })
             .catch(function () {
-                // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
                 if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
             });
     });

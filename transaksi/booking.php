@@ -1015,7 +1015,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
                                 <th style="text-align: center;">Metode Bayar</th>
                                 <th style="text-align: right;">Total Bayar</th>
                                 <th style="text-align: center;">Status</th>
-                                <th>Aksi</th>
+                                <th style="text-align: center;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>

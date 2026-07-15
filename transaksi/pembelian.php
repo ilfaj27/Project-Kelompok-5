@@ -529,14 +529,14 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th class="col-no text-center">No.</th>
-                        <th class="col-customer">Customer</th>
-                        <th class="col-tanggal">Tanggal Beli</th>
-                        <th>Detail Alat</th>
-                        <th class="col-metode text-center">Metode Bayar</th>
-                        <th class="col-total text-right">Total Bayar</th>
-                        <th class="col-status text-center">Status</th>
-                        <th class="col-aksi text-center">Aksi</th>
+                        <th style="text-align: center;">No.</th>
+                        <th style="text-align: center;">Customer</th>
+                        <th style="text-align: right;">Tanggal Beli</th>
+                        <th style="text-align: center;">Detail Alat</th>
+                        <th style="text-align: center;">Metode Bayar</th>
+                        <th style="text-align: right;">Total Bayar</th>
+                        <th style="text-align: center;">Status</th>
+                        <th style="text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -546,12 +546,12 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                         ?>
                         <tr>
                             <td class="text-center nowrap" style="font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td>
+                            <td style="text-align: center;">
                                 <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($p['Email'] ?? '-') ?></div>
                             </td>
-                            <td class="nowrap"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
-                            <td>
+                            <td class="nowrap" style="text-align: right;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
+                            <td style="text-align: center;">
                                 <?php foreach ($p['details'] as $detail):
                                     $uk = trim($detail['Ukuran'] ?? '');
                                 ?>
