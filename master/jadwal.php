@@ -464,7 +464,33 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; background-color: #FFFFFF !important; }
 .main, .content { background-color: #F3F4F6 !important; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
-.table-wrap { overflow-x: auto; }
+/* CARD HEADER - synced with customer */
+.card-header { 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.card-title { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { 
+    background: var(--orange-lt); 
+    color: var(--orange); 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
+.table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.table-wrap::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
 
 .data-table th {
@@ -473,22 +499,23 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
     background: #ff6f00 !important;
 }
-.data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
-
-.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: center !important; }
-.jadwal-lapangan { font-weight: 700; color: var(--text); font-size: 15px; }
+.data-table td { 
+    padding: 14px 16px; 
+    vertical-align: middle; 
+    font-size: 13px;
+    text-align: center;
+}
+.data-table tbody tr { height: 68px; }
+.jadwal-lapangan { font-weight: 700; color: var(--text); font-size: 14px; }
 .jadwal-id-tag { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 40%; text-align: center !important; }
-.jadwal-waktu { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 16px; color: var(--orange); }
-
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; text-align: center !important; }
-.data-table th:nth-child(4) { position: relative;}
-.data-table td:nth-child(4) { font-size: 0 !important; }
-.data-table td:nth-child(4) .status-pill { position: relative; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
-
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; text-align: center !important; }
+.jadwal-waktu { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 14px; color: var(--orange); }
+/* Row number styling */
+.row-num {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+    font-size: 14px;
+}
 
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
 .sp-active { background: var(--green-lt); color: var(--green); }
@@ -497,8 +524,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sp-active .sp-dot { background: var(--green); }
 .sp-inactive .sp-dot { background: var(--red); }
 
-.actions { display: flex; gap: 12px; justify-content: flex-start; align-items: center; }
-.btn-action { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 14px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
+.actions { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.btn-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all .25s cubic-bezier(.4,0,.2,1); border: 1.5px solid transparent; cursor: pointer; }
 .btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
 .btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
 .btn-edit { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE; }
@@ -1019,6 +1046,10 @@ input[type="time"].modal-input {
 <?php else: ?>
         <!-- ===== MODE HISTORY: TABEL PAGINATED ===== -->
         <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Jadwal</div>
+                <span class="card-badge"><?= $hist_total ?> total</span>
+            </div>
             <div class="table-wrap">
                 <table class="data-table">
                     <thead>
@@ -1037,7 +1068,7 @@ input[type="time"].modal-input {
                         foreach ($history_rows as $row):
                     ?>
                         <tr>
-                            <td style="font-weight:700;"><?= $no++ ?></td>
+                            <td class="row-num"><?= $no++ ?></td>
                             <td><div class="jadwal-lapangan"><?= htmlspecialchars($row['Nama_Lapangan']) ?></div></td>
                             <td><?= formatInputDate($row['Tanggal']) ?></td>
                             <td><div class="jadwal-waktu"><?= formatInputTime($row['Jam_Mulai']) ?> - <?= formatInputTime($row['Jam_Selesai']) ?> WIB</div></td>

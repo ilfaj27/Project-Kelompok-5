@@ -448,7 +448,33 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .2s ease; background-color: #FFFFFF !important; }
 .main, .content { background-color: #F3F4F6 !important; }
 .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
-.table-wrap { overflow-x: auto; }
+/* CARD HEADER - synced with customer */
+.card-header { 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.card-title { 
+    font-size: 15px; 
+    font-weight: 800; 
+    color: var(--text); 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.card-title i { color: var(--orange); font-size: 14px; }
+.card-badge { 
+    background: var(--orange-lt); 
+    color: var(--orange); 
+    font-size: 11px; 
+    font-weight: 800; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
+.table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.table-wrap::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
 
 .data-table th {
@@ -457,17 +483,15 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
     background: #ff6f00 !important;
 }
-.data-table th, .data-table td { padding: 16px 20px; vertical-align: middle; }
-.data-table th:nth-child(1), .data-table td:nth-child(1) { text-align: center !important; width: 8%; font-size: 15px; font-weight: 700; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 32%; text-align: center !important; }
-.promo-name { font-weight: 700; color: var(--text); font-size: 15px; }
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 22%; text-align: center !important; padding-left: 0 !important; position: relative; }
-.promo-disc { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px; color: var(--text); }
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 18%; min-width: 140px; text-align: center !important; padding-left: 0 !important; }
-.data-table th:nth-child(4) { position: relative; }
-.data-table td:nth-child(4) { font-size: 0 !important; }
-.data-table td:nth-child(4) .status-pill { position: relative; display: inline-flex !important; font-size: 12px !important; margin: 0 !important; }
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 20%; min-width: 220px; text-align: center !important; }
+.data-table td { 
+    padding: 14px 16px; 
+    vertical-align: middle; 
+    font-size: 13px;
+    text-align: center;
+}
+.data-table tbody tr { height: 68px; }
+.promo-name { font-weight: 700; color: var(--text); font-size: 14px; }
+.promo-disc { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); }
 .promo-id-badge { color: var(--orange); font-weight: 800; font-family: 'Barlow Condensed'; font-size: 16px; }
 
 .toggle-switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; margin: 0; flex-shrink: 0; }
@@ -805,6 +829,10 @@ html.swal2-height-auto { padding-right: 0px !important; }
         </div>
         <!-- TABLE CARD -->
         <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-tag"></i> Data Promo</div>
+                <span class="card-badge"><?= $total_data_filtered ?> total</span>
+            </div>
             <?php if ($query_error): ?>
                 <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
                     <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
