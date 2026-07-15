@@ -878,17 +878,21 @@ include '../includes/topbar.php';
 <script>
 const ctx = document.getElementById('omzetChart').getContext('2d');
 const omzetChart = new Chart(ctx, {
-    type: 'bar',
+    type: 'line', // Diubah menjadi line chart
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [{
             label: 'Omzet',
             data: <?= json_encode($chart_data) ?>,
-            backgroundColor: 'rgba(255, 69, 0, 0.8)',
-            borderColor: '#FF4500',
-            borderWidth: 2,
-            borderRadius: 8,
-            borderSkipped: false,
+            borderColor: '#FF4500', // Warna oranye utama
+            backgroundColor: 'rgba(255, 69, 0, 0.1)', // Area fill transparan oranye di bawah garis
+            fill: true,
+            tension: 0.4, // Kurva melengkung halus (smooth bezier)
+            pointBackgroundColor: '#FF4500',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
         }]
     },
     options: {
@@ -911,7 +915,17 @@ const omzetChart = new Chart(ctx, {
             }
         },
         scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', callback: function(value) { return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; } } },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, 
+                ticks: { 
+                    font: { family: 'Barlow', size: 11 }, 
+                    color: '#6B7280', 
+                    callback: function(value) { 
+                        return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; 
+                    } 
+                } 
+            },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }

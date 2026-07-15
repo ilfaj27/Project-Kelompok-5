@@ -761,33 +761,48 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('omzetChart').getContext('2d');
 new Chart(ctx, {
-    type: 'bar',
+    type: 'line', // Diubah menjadi line chart
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Sewa Lapangan (Bersih)',
                 data: <?= json_encode($chart_booking) ?>,
-                backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                borderColor: '#10B981',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#10B981', // Hijau
+                backgroundColor: 'rgba(16, 185, 129, 0.08)', // Area fill transparan hijau
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Langganan',
                 data: <?= json_encode($chart_langganan) ?>,
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                borderColor: '#3B82F6',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#3B82F6', // Biru
+                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Area fill transparan biru
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                pointBackgroundColor: '#3B82F6',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Pembelian Alat',
                 data: <?= json_encode($chart_beli) ?>,
-                backgroundColor: 'rgba(139, 92, 246, 0.8)',
-                borderColor: '#8B5CF6',
-                borderWidth: 2,
-                borderRadius: 6,
+                borderColor: '#8B5CF6', // Ungu
+                backgroundColor: 'rgba(139, 92, 246, 0.05)', // Area fill transparan ungu
+                fill: true,
+                tension: 0.4, // Kurva melengkung halus (smooth bezier)
+                pointBackgroundColor: '#8B5CF6',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             }
         ]
     },
@@ -795,7 +810,16 @@ new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: 'top', labels: { font: { family: 'Barlow', size: 12 }, usePointStyle: true, padding: 20 } },
+            legend: { 
+                position: 'top', 
+                align: 'end', // Menyejajarkan legenda ke kanan atas
+                labels: { 
+                    font: { family: 'Barlow', size: 12, weight: '600' }, 
+                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    boxWidth: 8,
+                    padding: 20 
+                } 
+            },
             tooltip: {
                 backgroundColor: '#1F2937',
                 titleColor: '#fff',
@@ -811,7 +835,17 @@ new Chart(ctx, {
             }
         },
         scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280', callback: function(value) { return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; } } },
+            y: { 
+                beginAtZero: true, 
+                grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, 
+                ticks: { 
+                    font: { family: 'Barlow', size: 11 }, 
+                    color: '#6B7280', 
+                    callback: function(value) { 
+                        return 'Rp ' + (value/1000000).toFixed(1) + 'jt'; 
+                    } 
+                } 
+            },
             x: { grid: { display: false }, ticks: { font: { family: 'Barlow', size: 11 }, color: '#6B7280' } }
         }
     }
