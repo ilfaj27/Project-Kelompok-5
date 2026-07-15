@@ -412,17 +412,24 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
 
     <!-- FILTER BAR -->
     <div class="action-bar">
-        <form method="GET" class="filter-group" style="flex:1;">
-            <select name="filter_status" class="filter-input" style="min-width:160px;">
-                <option value="all" <?= $filter_status === '' || $filter_status === 'all' ? 'selected' : '' ?>>Semua Status</option>
-                <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>Menunggu Transfer</option>
-                <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>Selesai Ditransfer</option>
-            </select>
-            <input type="text" name="filter_customer" class="filter-input" placeholder="Cari nama customer..." value="<?= htmlspecialchars($filter_customer) ?>" style="min-width:200px;">
-            <input type="date" name="filter_tanggal" class="filter-input" value="<?= htmlspecialchars($filter_tanggal) ?>">
-            <button type="submit" class="btn-orange"><i class="fa-solid fa-filter"></i> Filter</button>
-            <a href="pembatalan.php" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-        </form>
+        <div class="filter-group">
+            <form method="GET" action=""
+                style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select name="filter_status" class="filter-input" onchange="this.form.submit()">
+                    <option value="all">Semua Status</option>
+                    <option value="0" <?= $filter_status === '0' ? 'selected' : '' ?>>Menunggu Transfer</option>
+                    <option value="1" <?= $filter_status === '1' ? 'selected' : '' ?>>Selesai Ditransfer</option>
+                </select>
+                <input type="text" name="filter_customer" class="filter-input" placeholder="Cari nama customer..."
+                    value="<?= htmlspecialchars($filter_customer) ?>">
+                <input type="date" name="filter_tanggal" class="filter-input"
+                    value="<?= htmlspecialchars($filter_tanggal) ?>">
+                <button type="submit" class="btn-secondary"><i class="fa-solid fa-filter"></i> Filter</button>
+                <?php if (($filter_status !== '' && $filter_status !== 'all') || $filter_customer !== '' || $filter_tanggal !== ''): ?>
+                    <a href="pembatalan.php" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
+                <?php endif; ?>
+            </form>
+        </div>
     </div>
 
     <!-- DATA TABLE -->
