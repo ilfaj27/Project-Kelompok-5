@@ -1,4 +1,5 @@
 <?php
+$path_prefix = "../";
 // ============================================================================
 // AJAX HANDLER — Cek Username Duplikat (MENGGUNAKAN SP)
 // ============================================================================
@@ -174,13 +175,19 @@ if (isset($_POST['update_biodata'])) {
 
     // --- MENGGUNAKAN SP: Cek duplikat dengan sp_CheckCustomerDuplicate ---
     if (empty($field_errors)) {
-        $cek_dup = sqlsrv_query($conn, "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?", 
-            array($username_input, $email, $telepon, $ID_Customer));
+        $cek_dup = sqlsrv_query(
+            $conn,
+            "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?",
+            array($username_input, $email, $telepon, $ID_Customer)
+        );
         if ($cek_dup && sqlsrv_fetch_array($cek_dup, SQLSRV_FETCH_ASSOC)) {
             // Cek kolom mana yang duplikat
             sqlsrv_free_stmt($cek_dup);
-            $cek_detail = sqlsrv_query($conn, "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?", 
-                array($username_input, $email, $telepon, $ID_Customer));
+            $cek_detail = sqlsrv_query(
+                $conn,
+                "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?, ?",
+                array($username_input, $email, $telepon, $ID_Customer)
+            );
             while ($dup = sqlsrv_fetch_array($cek_detail, SQLSRV_FETCH_ASSOC)) {
                 if (strtolower($dup['Username']) === strtolower($username_input)) {
                     $field_errors['username'] = 'Nama Pengguna sudah digunakan oleh customer lain.';
@@ -207,7 +214,8 @@ if (isset($_POST['update_biodata'])) {
             array($ID_Customer, $nama, $username_input, $jk, $tgl_lahir, $tmp_lahir, $alamat, $telepon, $email, $modified_by)
         );
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {}
+            while (sqlsrv_next_result($stmt)) {
+            }
             sqlsrv_free_stmt($stmt);
             $_SESSION['nama'] = $nama;
             $_SESSION['nama_user'] = $nama;
@@ -266,7 +274,8 @@ if (isset($_POST['update_password'])) {
             array($ID_Customer, $new_pass, $modified_by)
         );
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {}
+            while (sqlsrv_next_result($stmt)) {
+            }
             sqlsrv_free_stmt($stmt);
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
@@ -309,7 +318,8 @@ if (isset($_POST['delete_account'])) {
         );
 
         if ($stmt) {
-            while (sqlsrv_next_result($stmt)) {}
+            while (sqlsrv_next_result($stmt)) {
+            }
             sqlsrv_free_stmt($stmt);
 
             session_unset();
@@ -485,6 +495,7 @@ function format_date_display($date)
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
@@ -512,244 +523,6 @@ function format_date_display($date)
             color: var(--dark-text);
             overflow-x: hidden;
             min-height: 100vh;
-        }
-
-        /* ---- NAVBAR (PUTIH - TIDAK DIUBAH) ---- */
-        nav {
-            background: var(--white);
-            padding: 0 80px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 76px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid #E5E5EA;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-        }
-
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            gap: 10px;
-        }
-
-        .nav-logo img {
-            height: 70px;
-            width: auto;
-        }
-
-        .nav-logo span {
-            color: var(--dark-text);
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .nav-links a {
-            color: #636366;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 20px;
-            transition: all 0.2s ease;
-        }
-
-        .nav-links a:hover {
-            color: var(--dark-text);
-        }
-
-        .nav-links a.active {
-            color: var(--primary);
-            font-weight: 600;
-        }
-
-        /* ---- USER DROPDOWN (Sesi Terintegrasi) ---- */
-        .nav-user-container {
-            position: relative;
-            height: 76px;
-            display: flex;
-            align-items: center;
-        }
-
-        .nav-user {
-            background: #F2F2F7;
-            border: 1px solid #E5E5EA;
-            padding: 8px 16px;
-            border-radius: 50px;
-            color: var(--dark-text);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: 0.2s;
-        }
-
-        .nav-user:hover {
-            background: #E5E5EA;
-            border-color: var(--primary);
-        }
-
-        .nav-user img.user-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .nav-user i.user-icon {
-            font-size: 16px;
-            color: var(--primary);
-        }
-
-        .nav-user i.arrow {
-            font-size: 11px;
-            color: #8E8E93;
-            transition: 0.3s;
-        }
-
-        .nav-user-container:hover i.arrow {
-            transform: rotate(180deg);
-            color: var(--primary);
-        }
-
-        /* ---- USER DROPDOWN (TEMA TERANG & PEMICU HOVER) ---- */
-        .dropdown-menu {
-            position: absolute;
-            top: 85%;
-            right: 0;
-            background: #FFFFFF !important;
-            /* Warna latar putih */
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid #E5E5EA !important;
-            /* Garis tepi tipis abu-abu */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            /* Bayangan halus */
-            padding: 8px 0;
-            display: none;
-            /* Sembunyi saat awal */
-            z-index: 1001;
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        /* PEMICU HOVER (Harus ada agar menu muncul saat kursor didekatkan) */
-        .nav-user-container:hover .dropdown-menu {
-            display: block !important;
-        }
-
-        .dropdown-menu .user-info-header {
-            padding: 12px 20px 10px 20px;
-            border-bottom: 1px solid #E5E5EA !important;
-            /* Memberi garis pembatas tipis di bawah CUSTOMER */
-            margin-bottom: 6px;
-            display: flex;
-            flex-direction: column;
-            /* Memaksa teks tersusun ke bawah */
-            gap: 4px;
-            /* Jarak antara Nama dan CUSTOMER */
-        }
-
-        .dropdown-menu .user-info-header span {
-            display: block !important;
-            /* Memastikan setiap teks berada di baris baru */
-        }
-
-        .dropdown-menu .user-info-header .u-name {
-            color: #1C1C1E !important;
-            /* Nama teks hitam gelap */
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .dropdown-menu .user-info-header .u-role {
-            color: #8E8E93 !important;
-            /* Role teks abu-abu */
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-
-        /* WARNA TEKS MENU AKTIF */
-        .dropdown-menu a {
-            display: flex !important;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            color: #48484A !important;
-            /* Teks abu-abu gelap */
-            text-decoration: none !important;
-            font-size: 13px;
-            font-weight: 600;
-            transition: 0.2s;
-        }
-
-        .dropdown-menu a i {
-            font-size: 14px;
-            width: 16px;
-            text-align: center;
-            color: #8E8E93 !important;
-            /* Warna ikon */
-            transition: 0.2s;
-        }
-
-        /* EFEK HOVER INDIVIDU */
-        .dropdown-menu a:hover {
-            background: #F2F2F7 !important;
-            /* Highlight background saat hover */
-            color: #FF5200 !important;
-            /* Teks berubah oranye */
-        }
-
-        .dropdown-menu a:hover i {
-            color: #FF5200 !important;
-            /* Ikon berubah oranye */
-        }
-
-        /* GARIS PEMBATAS TENGAH */
-        .dropdown-divider {
-            display: none !important;
-        }
-
-        /* KHUSUS TOMBOL KELUAR */
-        .dropdown-menu a.logout {
-            color: #48484A !important;
-        }
-
-        .dropdown-menu a.logout:hover {
-            background: #FFEBEA !important;
-            /* Latar merah sangat tipis */
-            color: #FF3B30 !important;
-            /* Teks menjadi merah */
-        }
-
-        .dropdown-menu a.logout:hover i {
-            color: #FF3B30 !important;
-            /* Ikon menjadi merah */
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         /* ---- HERO BANNER ---- */
@@ -1067,7 +840,6 @@ function format_date_display($date)
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 585px;
         }
 
         .form-card-title {
@@ -1455,128 +1227,6 @@ function format_date_display($date)
         .badge-act-status.blue {
             background: #E3F2FD;
             color: #007AFF;
-        }
-
-        /* ---- FOOTER STYLES (DIPERBAIKI) ---- */
-        /* ---- FOOTER STYLES (DISAMAKAN DENGAN INDEX) ---- */
-        footer {
-            background: #0F172A;
-            color: #94A3B8;
-            padding: 80px 8% 40px 8%;
-            margin-top: 60px;
-        }
-
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1fr;
-            gap: 40px;
-            margin-bottom: 60px;
-            max-width: 1440px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .footer-brand .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            margin-bottom: 24px;
-        }
-
-        .footer-brand .logo img {
-            width: auto;
-            height: 90px;
-            max-width: 100%;
-            object-fit: contain;
-            display: block;
-            filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
-            transition: transform 0.3s ease;
-        }
-
-        .footer-brand .logo:hover img {
-            transform: scale(1.05);
-        }
-
-        .footer-brand p {
-            font-size: 13px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-            color: #94A3B8;
-        }
-
-        .social-links {
-            display: flex;
-            gap: 16px;
-        }
-
-        .social-links a {
-            width: 36px;
-            height: 36px;
-            background: #1E293B;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            transition: all 0.3s ease;
-        }
-
-        .social-links a:hover {
-            background: var(--primary);
-        }
-
-        .footer-col h4 {
-            color: white;
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 24px;
-            text-transform: none;
-            letter-spacing: normal;
-        }
-
-        .footer-links {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .footer-links li a {
-            color: #94A3B8;
-            font-size: 13px;
-            transition: color 0.3s ease;
-            text-decoration: none;
-        }
-
-        .footer-links li a:hover {
-            color: white;
-        }
-
-        .footer-contact-info {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .contact-item {
-            display: flex;
-            gap: 12px;
-            font-size: 13px;
-            color: #94A3B8;
-        }
-
-        .contact-item i {
-            color: var(--primary);
-            margin-top: 3px;
-        }
-
-        .footer-bottom {
-            padding-top: 40px;
-            border-top: 1px solid #1E293B;
-            text-align: center;
-            font-size: 12px;
-            color: #94A3B8;
         }
 
 
@@ -2784,35 +2434,18 @@ function format_date_display($date)
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
         }
 
-        /* ============ SCROLL PROGRESS BAR ============ */
-        .scroll-progress {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary), #FF8C42);
-            z-index: 9999;
-            transform-origin: left;
-            transform: scaleX(0);
-            transition: transform 0.1s ease-out;
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            display: none;
         }
 
-        /* ============ CUSTOM SCROLLBAR ============ */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-hover);
+        /* Menyembunyikan scrollbar untuk Firefox dan IE/Edge */
+        html,
+        body {
+            -ms-overflow-style: none;
+            /* IE dan Edge */
+            scrollbar-width: none;
+            /* Firefox */
         }
 
         /* ============ SELECTION COLOR ============ */
@@ -2837,43 +2470,8 @@ function format_date_display($date)
 </head>
 
 <body>
-    <div class="scroll-progress" id="scrollProgress"></div>
 
-    <!-- NAVBAR (PUTIH - TIDAK DIUBAH) -->
-    <nav class="anim-fade-down">
-        <a href="../customer/view_customer.php" class="nav-logo">
-            <img src="../asset/image/logo2.png" alt="HoopBall">
-        </a>
-        <div class="nav-links">
-            <a href="../index.php">Beranda</a>
-            <a href="../customer/booking_customer.php">Booking</a>
-            <a href="../customer/pembatalan_customer.php">Pembatalan</a>
-            <a href="../customer/langganan_customer.php">Member</a>
-            <a href="../customer/pembelian_alat.php">Pembelian</a>
-        </div>
-
-        <div class="nav-user-container">
-            <div class="nav-user">
-                <?php if (!empty($profile_photo) && file_exists($profile_photo)): ?>
-                    <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Avatar" class="user-avatar">
-                <?php else: ?>
-                    <div class="user-avatar"
-                        style="background: #FF5200; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; text-transform: uppercase;">
-                        <?= strtoupper(substr($nama, 0, 1)) ?>
-                    </div>
-                <?php endif; ?>
-                <span><?php echo htmlspecialchars($nama); ?></span>
-                <i class="fa-solid fa-chevron-down arrow"></i>
-            </div>
-            <div class="dropdown-menu">
-                <div class="user-info-header">
-                    <span class="u-name"><?php echo htmlspecialchars($nama); ?></span>
-                    <span class="u-role">Customer</span>
-                </div>
-                <a href="../login/logout.php" class="logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-            </div>
-        </div>
-    </nav>
+    <?php include '../includes/navbar.php'; ?>
 
     <!-- HERO BANNER -->
     <section class="hero-banner">
@@ -2891,7 +2489,6 @@ function format_date_display($date)
                 <div class="photo-section" style="position: relative;">
                     <form method="POST" enctype="multipart/form-data" id="photoForm">
                         <div class="photo-wrapper-ringkasan"
-                            onclick="document.getElementById('profilePhotoInput').click();"
                             style="position: relative; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid var(--primary); cursor: pointer;">
                             <?php if ($profile_photo && file_exists($profile_photo)): ?>
                                 <img src="<?= $profile_photo ?>" alt="Profile"
@@ -2982,46 +2579,21 @@ function format_date_display($date)
                             <i class="fa-solid fa-user-minus"></i> Hapus Akun
                         </button>
                         <div class="menu-btn-divider"></div>
-                        <a href="../login/logout.php" class="menu-btn" style="color: var(--primary);">
+                        <a href="../login/logout.php" class="menu-btn" style="color: var(--primary);"
+                            onclick="event.preventDefault(); showLogoutDialog(this.href);">
                             <i class="fa-solid fa-right-from-bracket"></i> Keluar
                         </a>
                     </div>
                 </div>
 
-                <!-- Ringkasan Info (Bagian Bawah Sidebar agar Sejajar Tinggi) -->
-                <div class="sidebar-menu-card" style="padding: 20px;">
-                    <h3
-                        style="font-size: 14px; font-weight: 800; color: var(--dark-text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-address-card" style="color: var(--primary); font-size: 14px;"></i>
-                        Ringkasan Akun
-                    </h3>
-                    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 11px;">
-                        <div
-                            style="display: flex; justify-content: space-between; border-bottom: 1px solid #F2F2F7; padding-bottom: 6px;">
-                            <span style="color: var(--muted-text); font-weight: 600;">Nama Pengguna</span>
-                            <span
-                                style="color: var(--dark-text); font-weight: 700;"><?= htmlspecialchars($username) ?></span>
-                        </div>
-                        <div
-                            style="display: flex; justify-content: space-between; border-bottom: 1px solid #F2F2F7; padding-bottom: 6px;">
-                            <span style="color: var(--muted-text); font-weight: 600;">No. Telepon</span>
-                            <span
-                                style="color: var(--dark-text); font-weight: 700;"><?= htmlspecialchars($telepon) ?></span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--muted-text); font-weight: 600;">Jenis Kelamin</span>
-                            <span style="color: var(--dark-text); font-weight: 700;"><?= jk_label($jk) ?></span>
-                        </div>
-                    </div>
-                </div>
+
 
             </aside>
 
             <!-- SISI KANAN: FORM EDIT BIODATA (Tinggi menyesuaikan stretch secara otomatis) -->
             <div class="form-card" id="profile-form-card" class="reveal-right" style="justify-content: flex-start;">
                 <div class="form-card-title">Informasi Pribadi</div>
-                <form method="POST" id="formBiodata"
-                    style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
+                <form method="POST" id="formBiodata" style="display: flex; flex-direction: column; flex: 1;">
                     <div>
                         <div class="form-row-2">
                             <!-- Nama Lengkap -->
@@ -3404,67 +2976,7 @@ function format_date_display($date)
             </div>
     </main>
 
-    <!-- FOOTER -->
-    <footer id="tentang-kami" class="reveal">
-        <div class="footer-grid">
-            <div class="footer-brand">
-                <a href="../index.php" class="logo">
-                    <img src="../asset/image/logo2.png" alt="HoopBall">
-                </a>
-                <p>Platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
-                <div class="social-links">
-                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#"><i class="fa-brands fa-facebook"></i></a>
-                    <a href="#"><i class="fa-brands fa-youtube"></i></a>
-                    <a href="#"><i class="fa-brands fa-tiktok"></i></a>
-                </div>
-            </div>
-
-            <div class="footer-col">
-                <h4>Kontak Kami</h4>
-                <div class="footer-contact-info">
-                    <div class="contact-item">
-                        <i class="fa-solid fa-phone"></i>
-                        <span>0812-3456-7890</span>
-                    </div>
-                    <div class="contact-item">
-                        <i class="fa-solid fa-envelope"></i>
-                        <span>info@hoopball.id</span>
-                    </div>
-                    <div class="contact-item">
-                        <i class="fa-solid fa-location-dot"></i>
-                        <span>Jl. Sunset Road No. 123, Jakarta Selatan, 12050</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="footer-col">
-                <h4>Tautan</h4>
-                <ul class="footer-links">
-                    <li><a href="../customer/booking_customer.php">Booking</a></li>
-                    <li><a href="../customer/langganan_customer.php">Member</a></li>
-                    <li><a href="../customer/pembelian_customer.php">Alat Basket</a></li>
-                    <li><a href="../index.php#tentang-kami">Tentang Kami</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-col">
-                <h4>Informasi</h4>
-                <ul class="footer-links">
-                    <li><a href="#">Cara Pemesanan</a></li>
-                    <li><a href="#">Syarat & Ketentuan</a></li>
-                    <li><a href="#">Kebijakan Privasi</a></li>
-                    <li><a href="#">FAQ</a></li>
-                    <li><a href="#">Hubungi Kami</a></li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="footer-bottom">
-            <p>&copy; 2024 HoopBall. All rights reserved.</p>
-        </div>
-    </footer>
-
+    <?php include '../includes/footer.php'; ?>
     <script>
 
         // FUNGSI UTAMA UNTUK HANDLING PAGINATION
@@ -3926,16 +3438,6 @@ function format_date_display($date)
                 revealObserver.observe(el);
             });
 
-            // Scroll progress bar
-            const scrollProgress = document.getElementById('scrollProgress');
-            if (scrollProgress) {
-                window.addEventListener('scroll', () => {
-                    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-                    const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                    const scrollPercent = scrollTop / scrollHeight;
-                    scrollProgress.style.transform = `scaleX(${scrollPercent})`;
-                });
-            }
         });
 
     </script>
