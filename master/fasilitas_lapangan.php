@@ -386,14 +386,10 @@ $sidebar_photo = $profile_photo;
         }
 
         .data-table th {
-            font-family: 'Barlow Condensed', sans-serif !important;
-            font-size: 13px !important;
-            font-weight: 900 !important;
-            color: var(--muted) !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.8px !important;
-            padding: 14px 20px;
-            border-bottom: 2px solid var(--border-lt);
+            font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
+            color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
+            padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
+            background: #ff6f00 !important;
         }
 
         .data-table th,

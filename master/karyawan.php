@@ -962,17 +962,11 @@ body::-webkit-scrollbar { display: none; }
 .table-wrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .table-wrap::-webkit-scrollbar { display: none; }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th { 
-    font-family: 'Barlow Condensed', sans-serif !important; 
-    font-size: 12px !important; 
-    font-weight: 900 !important; 
-    color: var(--muted) !important; 
-    text-transform: uppercase !important; 
-    letter-spacing: 0.8px !important; 
-    padding: 14px 16px; 
-    border-bottom: 2px solid var(--border-lt); 
-    vertical-align: middle;
-    text-align: center;
+.data-table th {
+    font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
+    color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
+    padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
+    background: #ff6f00 !important;
 }
 .data-table td { 
     padding: 14px 16px; 

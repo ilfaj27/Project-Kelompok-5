@@ -279,14 +279,10 @@ $sidebar_photo = $profile_photo;
         }
 
         .data-table th {
-            font-family: 'Barlow Condensed', sans-serif !important;
-            font-size: 13px !important;
-            font-weight: 900 !important;
-            color: var(--muted) !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.8px !important;
-            padding: 14px 20px;
-            border-bottom: 2px solid var(--border-lt);
+            font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
+            color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
+            padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
+            background: #ff6f00 !important;
         }
 
         .data-table th,
@@ -308,8 +304,7 @@ $sidebar_photo = $profile_photo;
         .data-table th:nth-child(2),
         .data-table td:nth-child(2) {
             width: 24%;
-            text-align: left !important;
-            padding-left: 110px !important;
+            text-align: Center !important;
             /* Dikurangi agar muat 7 kolom */
         }
 
@@ -323,8 +318,7 @@ $sidebar_photo = $profile_photo;
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
             width: 22%;
-            text-align: left !important;
-            padding-left: 70px !important;
+            text-align: Center !important;
             /* Dikurangi agar muat 7 kolom */
         }
 
@@ -340,7 +334,6 @@ $sidebar_photo = $profile_photo;
         .data-table td:nth-child(4) {
             width: 15%;
             text-align: center !important;
-            padding-left: 0px !important;
             font-size: 14px;
         }
 
@@ -349,7 +342,6 @@ $sidebar_photo = $profile_photo;
         .data-table td:nth-child(5) {
             width: 10%;
             text-align: center !important;
-            padding-left: 0px !important;
             font-size: 15px !important;
         }
 
