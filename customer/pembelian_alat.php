@@ -579,52 +579,7 @@ function resolvePhotoPath($photo_path) {
     .btn-done-pay i { transition: transform 0.3s ease; }
     .btn-done-pay:hover i { transform: scale(1.2); }
 
-    /* ═══ FOOTER ═══ */
-    footer { background:var(--dark-bg); color:#8E8E93; padding:80px 80px 40px; border-top:1px solid #1C1C1E; position:relative; overflow:hidden; animation: fadeInUp 0.6s ease-out both; }
-    footer::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--primary),transparent); animation:shimmer 3s linear infinite; background-size:200% 100%; }
-    .footer-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:60px; max-width: 1440px; margin: 0 auto 60px; }
-    .footer-logo { display:flex; align-items:center; gap:10px; margin-bottom:16px; transition:transform .3s ease; }
-    .footer-logo:hover { transform:scale(1.05); }
-    .footer-logo img { height:50px; transition:transform .5s ease; }
-    .footer-logo:hover img { transform:rotate(5deg); }
-    .footer-logo span { color:var(--white); font-size:20px; font-weight:800; }
-    .footer-desc { font-size:13px; line-height:1.6; margin-bottom:24px; }
-    .social-links { display:flex; gap:12px; }
-    .social-btn { width:36px; height:36px; border-radius:50%; background:#1C1C1E; color:var(--white); display:flex; align-items:center; justify-content:center; text-decoration:none; transition:all .3s cubic-bezier(.34,1.56,.64,1); }
-    .social-btn:hover { background:var(--primary); transform:translateY(-3px) scale(1.1); box-shadow:0 8px 20px rgba(255,82,0,.3); }
-    .footer-col h4 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:20px; position:relative; display:inline-block; }
-    .footer-col h4::after { content:''; position:absolute; bottom:-4px; left:0; width:30px; height:2px; background:var(--primary); transition:width .3s ease; }
-    .footer-col:hover h4::after { width:100%; }
-    .footer-col ul { list-style:none; }
-    .footer-col ul li { margin-bottom:12px; }
-    .footer-col ul li a { color:#8E8E93; text-decoration:none; font-size:13px; transition:all .3s ease; display:inline-block; position:relative; }
-    .footer-col ul li a:hover { color:var(--white); transform:translateX(5px); }
-    .contact-item { display:flex; gap:12px; font-size:13px; line-height:1.5; margin-bottom:16px; transition:var(--transition-smooth); padding:4px; border-radius:6px; }
-    .contact-item:hover { background:rgba(255,82,0,.05); transform:translateX(5px); }
-    .contact-item i { color:var(--primary); font-size:14px; margin-top:3px; transition:transform .3s ease; }
-    .contact-item:hover i { transform:scale(1.2); }
-    .footer-bottom { border-top:1px solid #1C1C1E; padding-top:30px; text-align:center; font-size:13px; }
-
-    .swal-toast { border-radius: 12px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
-
-    @media(max-width: 1100px) {
-        .hero { flex-direction: column; padding: 40px; }
-        .cart-widget { min-width: auto; width: 100%; max-width: none; }
-        .main-container { padding: 40px; }
-        nav { padding: 0 40px; }
-        .alat-grid { grid-template-columns: repeat(2, 1fr); }
-        .footer-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media(max-width: 768px) {
-        .nav-links { display: none; }
-        .main-container { padding: 20px; }
-        nav { padding: 0 20px; height: auto; flex-direction: column; gap: 15px; padding: 15px 20px; }
-        .hero { padding: 30px 20px; }
-        .hero-title { font-size: 28px; }
-        .alat-grid { grid-template-columns: 1fr; }
-        .footer-grid { grid-template-columns: 1fr; }
-    }
-</style>
+    </style>
 </head>
 <body>
 
@@ -784,45 +739,7 @@ function resolvePhotoPath($photo_path) {
 </main>
 
 <!-- FOOTER -->
-<footer>
-    <div class="footer-grid">
-        <div>
-            <div class="footer-logo"><img src="../asset/image/logo.png" alt="HoopBall"></div>
-            <p class="footer-desc">HoopBall adalah platform penyewaan lapangan basket online yang mudah, cepat, dan terpercaya.</p>
-            <div class="social-links">
-                <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
-                <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
-            </div>
-        </div>
-        <div class="footer-col">
-            <h4>Navigasi</h4>
-            <ul>
-                <li><a href="../index.php">Beranda</a></li>
-                <li><a href="booking_customer.php">Booking</a></li>
-                <li><a href="pembatalan_customer.php">Pembatalan</a></li>
-                <li><a href="langganan_customer.php">Member</a></li>
-                <li><a href="pembelian_alat.php">Pembelian</a></li>
-            </ul>
-        </div>
-        <div class="footer-col">
-            <h4>Informasi</h4>
-            <ul>
-                <li><a href="#">Cara Pemesanan</a></li>
-                <li><a href="#">Syarat & Ketentuan</a></li>
-                <li><a href="#">FAQ</a></li>
-            </ul>
-        </div>
-        <div class="footer-col">
-            <h4>Hubungi Kami</h4>
-            <div class="contact-item"><i class="fa-solid fa-location-dot"></i>Jl. Olahraga No. 10, Jakarta Selatan</div>
-            <div class="contact-item"><i class="fa-solid fa-phone"></i>+62 812-3456-7890</div>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <p>&copy; 2025 HoopBall. All rights reserved.</p>
-    </div>
-</footer>
+<?php include '../includes/footer.php'; ?>
 
 <!-- MODAL 1: RINGKASAN CHECKOUT -->
 <div class="booking-modal-overlay" id="checkoutModal">
