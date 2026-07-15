@@ -10,8 +10,11 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
 // ============================================
 // TRIGGER DOWNLOAD EXCEL (.XLS)
 // ============================================
+$tanggal_unduh = date('dmy');
+$nama_file = 'LaporanLanggananMember_' . $tanggal_unduh . '.xls';
+
 header("Content-type: application/vnd-ms-excel");
-header("Content-Disposition: attachment; filename=Laporan_Langganan_Member.xls");
+header("Content-Disposition: attachment; filename=" . $nama_file); // Memanggil variabel nama file
 header("Pragma: no-cache");
 header("Expires: 0");
 
