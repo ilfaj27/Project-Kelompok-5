@@ -886,8 +886,8 @@ html.swal2-height-auto { padding-right: 0px !important; }
                                         <a href="?edit_id=<?= $row['ID_Promo'] ?><?= $filter_url ?>" class="btn-action btn-edit" title="Edit Promo">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </a>
-                                        <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
-                                            <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
+                                        <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> promo">
+                                            <input type="checkbox" <?= $is_active ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo'], ENT_QUOTES) ?>', <?= $is_active ? 1 : 0 ?>, event)">
                                             <span class="toggle-slider"></span>
                                         </label>
                                         <button onclick="confirmDelete('<?= $row['ID_Promo'] ?>', '<?= htmlspecialchars($row['Nama_Promo']) ?>')" class="btn-action btn-delete" title="Hapus Promo">
