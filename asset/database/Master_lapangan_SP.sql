@@ -80,8 +80,8 @@ GO
 -- Return: 1 baris jika duplikat ditemukan, kosong jika tidak
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CheckLapanganDuplicate
-    @Nama_Lapangan VARCHAR(25),
-    @Exclude_ID INT = 0  -- ID yang dikecualikan (untuk mode edit)
+    @Nama_Lapangan VARCHAR(50), -- Diperlebar dari 25 menjadi 50
+    @Exclude_ID INT = 0  
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -101,7 +101,7 @@ GO
 -- @Facilities_Json format: [{"id":1,"qty":2},{"id":3,"qty":4}]
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CreateLapangan
-    @Nama_Lapangan   VARCHAR(25),
+    @Nama_Lapangan   VARCHAR(50), -- Diperlebar dari 25 menjadi 50
     @Harga_Sewa      DECIMAL(18,2),
     @Photo_Lapangan  VARCHAR(255),
     @Created_By      VARCHAR(50),
@@ -153,7 +153,7 @@ GO
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateLapangan
     @ID_Lapangan     INT,
-    @Nama_Lapangan   VARCHAR(25),
+    @Nama_Lapangan   VARCHAR(50), -- Diperlebar dari 25 menjadi 50
     @Harga_Sewa      DECIMAL(18,2),
     @Photo_Lapangan  VARCHAR(255),
     @Modified_By     VARCHAR(50),

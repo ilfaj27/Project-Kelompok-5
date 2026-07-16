@@ -343,6 +343,61 @@ BEGIN
 END;
 GO
 
+
+-- ============================================================
+-- 1. Pembuatan Tabel Log Riwayat Aktivitas Fasilitas Lapangan
+-- ============================================================
+CREATE TABLE Log_Fasilitas_Lapangan (
+    Log_ID INT IDENTITY(1,1) PRIMARY KEY,
+    ID_Fasilitas INT,
+    Aksi VARCHAR(50),
+    Nama_Fas_Lama VARCHAR(100),
+    Nama_Fas_Baru VARCHAR(100),
+    Stok_Total_Lama INT,
+    Stok_Total_Baru INT,
+    Waktu_Log DATETIME DEFAULT GETDATE(),
+    Pengguna VARCHAR(100)
+);
+GO
+
+-- ============================================================
+-- 2. Pembuatan Trigger Log History untuk Fasilitas_Lapangan
+-- ============================================================
+CREATE TRIGGER trg_Fasilitas_Log
+ON Fasilitas_Lapangan
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Operasi INSERT (Penambahan Data)
+    IF EXISTS (SELECT * FROM inserted) AND NOT EXISTS(SELECT * FROM deleted)
+    BEGIN
+        INSERT INTO Log_Fasilitas_Lapangan 
+            (ID_Fasilitas, Aksi, Nama_Fas_Lama, Nama_Fas_Baru, Stok_Total_Lama, Stok_Total_Baru, Pengguna)
+        SELECT 
+            ID_Fasilitas, 'INSERT', NULL, Nama_Fasilitas, NULL, Stok_Total, Created_By
+        FROM inserted;
+    END
+    -- Operasi UPDATE atau SOFT DELETE (Perubahan/Penghapusan Data)
+    ELSE IF EXISTS (SELECT * FROM inserted) AND EXISTS(SELECT * FROM deleted)
+    BEGIN
+        INSERT INTO Log_Fasilitas_Lapangan 
+            (ID_Fasilitas, Aksi, Nama_Fas_Lama, Nama_Fas_Baru, Stok_Total_Lama, Stok_Total_Baru, Pengguna)
+        SELECT 
+            i.ID_Fasilitas, 
+            CASE WHEN i.Is_Deleted = 1 THEN 'DELETE (SOFT)' ELSE 'UPDATE' END, 
+            d.Nama_Fasilitas, 
+            i.Nama_Fasilitas, 
+            d.Stok_Total, 
+            i.Stok_Total, 
+            COALESCE(i.Modified_By, i.Deleted_By, 'SYSTEM')
+        FROM inserted i
+        INNER JOIN deleted d ON i.ID_Fasilitas = d.ID_Fasilitas;
+    END
+END;
+GO
+
 -- ============================================================
 -- VERIFIKASI: Cek semua SP yang dibuat
 -- ============================================================

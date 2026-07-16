@@ -82,6 +82,9 @@ INSERT INTO Karyawan
 ('3471010303930019', 'Citra Lestari',   '1993-03-03', 'Magelang',   'Jl. Pahlawan No.20 Magelang',  0, 1, '081211110019', 'citra.lestari@hoopball.com',   'citra_l',  '$argon2id$v=19$m=65536,t=4,p=1$N0M1VklzR1haV0pHYkVKbg$Y04zQWpveGlGdnVJd3FqcmEwUzBPMzArV0FpMUp3UHE', 1, 0, 'SYSTEM', '2024-01-01 08:00:00'),
 ('3374012808980020', 'Arif Nugroho',    '1998-08-28', 'Purwokerto', 'Jl. Kenari No.21 Purwokerto',  1, 1, '081211110020', 'arif.nugroho@hoopball.com',    'arif_n',   '$argon2id$v=19$m=65536,t=4,p=1$N0M1VklzR1haV0pHYkVKbg$Y04zQWpveGlGdnVJd3FqcmEwUzBPMzArV0FpMUp3UHE', 1, 0, 'SYSTEM', '2024-01-01 08:00:00');
 
+UPDATE Karyawan 
+SET Kata_Sandi = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'
+WHERE Username = 'rizky_p';
 -- ============================================================
 -- 2. TABEL MASTER: Customer
 -- ============================================================
@@ -138,7 +141,6 @@ INSERT INTO Customer
 ('Cindy Maharani',  '2002-12-11', 'Pontianak',    0, 'Jl. Pahlawan No.36 Pontianak',   '08121234018', 'cindy.maharani@gmail.com',  'cindy_m',    '$argon2id$v=19$m=65536,t=4,p=1$N0M1VklzR1haV0pHYkVKbg$Y04zQWpveGlGdnVJd3FqcmEwUzBPMzArV0FpMUp3UHE', 1, 0, 'SYSTEM', '2024-01-22 09:00:00'),
 ('Doni Prabowo',    '1997-01-08', 'Balikpapan',   1, 'Jl. Ahmad Yani No.38 Balikpapan','08121234019', 'doni.prabowo@gmail.com',    'doni_p',     '$argon2id$v=19$m=65536,t=4,p=1$N0M1VklzR1haV0pHYkVKbg$Y04zQWpveGlGdnVJd3FqcmEwUzBPMzArV0FpMUp3UHE', 1, 0, 'SYSTEM', '2024-01-23 09:00:00'),
 ('Nadya Khairunnisa','2001-09-27','Banjarmasin',  0, 'Jl. Hasan Basri No.40 Banjarmasin','08121234020','nadya.kh@gmail.com',       'nadya_k',    '$argon2id$v=19$m=65536,t=4,p=1$N0M1VklzR1haV0pHYkVKbg$Y04zQWpveGlGdnVJd3FqcmEwUzBPMzArV0FpMUp3UHE', 1, 0, 'SYSTEM', '2024-01-24 09:00:00');
-
 
 -- ============================================================
 -- 3. TABEL MASTER: Lapangan
