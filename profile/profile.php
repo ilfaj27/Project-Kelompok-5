@@ -109,7 +109,7 @@ if (isset($_POST['change_password'])) {
     }
 }
 
-// Photo upload
+// Photo upload - PERBAIKAN: simpan ke folder yang konsisten
 $photo_msg = '';
 if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     $file = $_FILES['profile_photo'];
@@ -117,42 +117,90 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         if (in_array($ext, $allowed)) {
+            // Gunakan __DIR__ agar path absolut dan konsisten
+            $upload_dir = __DIR__ . '/uploads/profiles/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+
             $filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
-            if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
-            if (move_uploaded_file($file['tmp_name'], $filename)) {
+            $full_path = __DIR__ . '/' . $filename;
+
+            if (move_uploaded_file($file['tmp_name'], $full_path)) {
                 $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
                 if ($upd) {
-                    $_SESSION['Photo_Profile'] = $filename;
                     $photo_msg = 'success';
+                    // Refresh data
                     $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
                     $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                    // Update session dengan path lengkap
+                    $_SESSION['Photo_Profile'] = $filename;
+                    $_SESSION['nama'] = $user_data['Nama_Karyawan'];
+                } else {
+                    $photo_msg = 'Gagal menyimpan ke database!';
                 }
+            } else {
+                $photo_msg = 'Gagal memindahkan file!';
             }
         } else {
-            $photo_msg = 'Format file tidak didukung!';
+            $photo_msg = 'Format file tidak didukung! (jpg, jpeg, png, gif)';
         }
+    } else {
+        $photo_msg = 'Error upload: ' . $file['error'];
     }
 }
 
-// ── PHOTO PATH FIX ──
+// ── RESOLVE FOTO - CARI FILE DI SEMUA KEMUNGKINAN PATH ──
 $profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
+$photo_base64 = '';
 
-if (!empty($profile_photo)) {
-    if (strpos($profile_photo, '../') === 0) {
-        $photo_path = $profile_photo;
-    } elseif (strpos($profile_photo, 'uploads/') === 0) {
-        $photo_path = '../' . $profile_photo;
-    } else {
-        $photo_path = '../uploads/profiles/' . $profile_photo;
+function findPhotoFile($photo_val) {
+    if (empty($photo_val)) return '';
+    if (strpos($photo_val, 'data:image') === 0) return $photo_val;
+
+    $paths = [];
+    $paths[] = $photo_val;
+    $paths[] = '../' . $photo_val;
+    $paths[] = '../../' . $photo_val;
+
+    $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
+    $script_dir = dirname($_SERVER['SCRIPT_FILENAME'] ?? '');
+
+    $paths[] = $script_dir . '/' . $photo_val;
+    $paths[] = dirname($script_dir) . '/' . $photo_val;
+    $paths[] = dirname(dirname($script_dir)) . '/' . $photo_val;
+    $paths[] = $doc_root . '/' . $photo_val;
+    $paths[] = $doc_root . '/Project-Kelompok-5/' . $photo_val;
+    $paths[] = $doc_root . '/Project-Kelompok-5/uploads/profiles/' . basename($photo_val);
+
+    foreach ($paths as $p) {
+        if (file_exists($p) && is_file($p)) {
+            return $p;
+        }
     }
-    if (!file_exists($photo_path)) {
-        $photo_path = '';
+    return '';
+}
+
+$found_path = findPhotoFile($profile_photo);
+
+if (!empty($found_path)) {
+    $photo_path = $found_path;
+    $mime = mime_content_type($found_path) ?: 'image/jpeg';
+    $data = file_get_contents($found_path);
+    if ($data !== false) {
+        $photo_base64 = 'data:' . $mime . ';base64,' . base64_encode($data);
     }
 }
 
-$sidebar_photo = $photo_path;
-$_SESSION['Photo_Profile'] = $photo_path;
+// Simpan path relatif ke session agar halaman lain bisa resolve
+if (!empty($photo_path)) {
+    $_SESSION['Photo_Profile'] = $profile_photo; // path asli dari database
+}
+
+// Variabel untuk sidebar dan topbar
+$sidebar_photo = $photo_base64;  // base64 langsung untuk jaminan tampil
+$profile_photo = $photo_base64; // untuk topbar.php
 
 // ── VARIABEL UNTUK TOPBAR.PHP ──
 $topbar_title = 'Profil Saya';
@@ -197,9 +245,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 
-/* ============================================
-   TOPBAR STYLES - WAJIB ADA agar topbar.php render dengan benar
-   ============================================ */
+/* TOPBAR */
 .topbar { 
     background: var(--card-bg); 
     height: var(--topbar-h); 
@@ -323,9 +369,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     letter-spacing: 0.5px; 
 }
 
-/* ============================================
-   CONTENT STYLES
-   ============================================ */
+/* CONTENT */
 .content { padding: 32px 40px; flex: 1; }
 .page-header { margin-bottom: 28px; }
 .page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
@@ -567,29 +611,15 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     .topbar { padding: 0 20px; }
 }
 
-/* ============================================
-   MATIKAN SEMUA ANIMASI SWEETALERT2 
-   ============================================ */
-.swal2-popup {
-    animation: none !important;
-    transition: none !important;
-}
-.swal2-icon {
-    animation: none !important;
-}
+/* MATIKAN ANIMASI SWEETALERT2 */
+.swal2-popup { animation: none !important; transition: none !important; }
+.swal2-icon { animation: none !important; }
 .swal2-icon.swal2-success .swal2-success-ring,
 .swal2-icon.swal2-success [class^="swal2-success-line"],
 .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
-.swal2-icon.swal2-warning {
-    animation: none !important;
-}
+.swal2-icon.swal2-warning { animation: none !important; }
 
-/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
-html.swal2-shown,
-body.swal2-shown,
-body.swal2-height-auto {
-    padding-right: 0 !important;
-}
+html.swal2-shown, body.swal2-shown, body.swal2-height-auto { padding-right: 0 !important; }
 </style>
 </head>
 <body>
@@ -609,8 +639,8 @@ body.swal2-height-auto {
             <!-- 1. KIRI ATAS: FOTO PROFIL -->
             <div class="profile-card">
                 <div class="profile-photo-wrap">
-                    <?php if ($photo_path && file_exists($photo_path)): ?>
-                        <img src="<?= $photo_path ?>" alt="Profile">
+                    <?php if (!empty($photo_base64)): ?>
+                        <img src="<?= $photo_base64 ?>" alt="Profile">
                     <?php else: ?>
                         <span style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
                     <?php endif; ?>

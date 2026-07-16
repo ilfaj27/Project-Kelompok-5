@@ -28,19 +28,35 @@ if (empty($profile_photo)) {
     $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 }
 
-// FIX: Sesuaikan path foto untuk folder dashboard/ (sama seperti customer.php tapi path relatif berbeda)
+// FIX: Foto disimpan oleh profile.php di folder profile/uploads/profiles/,
+// dan di database cuma tersimpan sebagai "uploads/profiles/namafile.jpg"
+// (tanpa prefix "profile/"). Dari folder dashboard/ butuh "../profile/" di depan.
+// Sebelumnya kode lama hanya menambahkan "../" saja (kurang "profile/"),
+// jadi file_exists() selalu gagal dan foto tidak pernah muncul di topbar.
+// Di sini foto langsung dikonversi ke base64 dari file di server supaya
+// tidak lagi bergantung pada path relatif URL yang gampang salah.
 $sidebar_photo = '';
 if (!empty($profile_photo)) {
-    if (strpos($profile_photo, '../') === 0) {
+    if (strpos($profile_photo, 'data:image') === 0) {
+        // Sudah dalam bentuk base64 (dari sumber lain)
         $sidebar_photo = $profile_photo;
-    } elseif (strpos($profile_photo, 'uploads/') === 0) {
-        $sidebar_photo = '../' . $profile_photo;
     } else {
-        $sidebar_photo = '../uploads/profiles/' . $profile_photo;
-    }
-    // Cek file exists, jika tidak ada kosongkan
-    if (!file_exists($sidebar_photo)) {
-        $sidebar_photo = '';
+        $possible_paths = [
+            __DIR__ . '/../profile/' . $profile_photo,   // lokasi asli yang benar
+            __DIR__ . '/../' . $profile_photo,           // fallback lama
+            __DIR__ . '/' . $profile_photo,              // fallback tambahan
+            __DIR__ . '/../profile/uploads/profiles/' . basename($profile_photo),
+        ];
+        foreach ($possible_paths as $p) {
+            if (file_exists($p) && is_file($p)) {
+                $mime = mime_content_type($p) ?: 'image/jpeg';
+                $data = @file_get_contents($p);
+                if ($data !== false) {
+                    $sidebar_photo = 'data:' . $mime . ';base64,' . base64_encode($data);
+                }
+                break;
+            }
+        }
     }
 }
 
@@ -1261,9 +1277,10 @@ html { scroll-behavior:smooth; }
         <div class="dropdown-wrap">
             <div class="topbar-user">
                 <div class="t-avatar">
-                    <i class="fa-solid fa-user"></i>
                     <?php if (!empty($sidebar_photo)): ?>
-                        <img src="<?= $sidebar_photo ?>" alt="Profile" onerror="this.style.display='none';">
+                        <img src="<?= $sidebar_photo ?>" alt="Profile">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
                     <?php endif; ?>
                 </div>
                 <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">KARYAWAN</div></div>
