@@ -1,29 +1,42 @@
+// ============================================
+// JAM REAL-TIME (AMAN DARI CRASH)
+// ============================================
 function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
+    const hEl = document.getElementById('h');
+    const mEl = document.getElementById('m');
+    const sEl = document.getElementById('s');
+    const dateEl = document.getElementById('full-date');
 
-    document.getElementById('h').innerText = h;
-    document.getElementById('m').innerText = m;
-    document.getElementById('s').innerText = s;
+    // Hanya berjalan jika elemen jam ditemukan di halaman
+    if (hEl && mEl && sEl) {
+        const now = new Date();
+        hEl.innerText = String(now.getHours()).padStart(2, '0');
+        mEl.innerText = String(now.getMinutes()).padStart(2, '0');
+        sEl.innerText = String(now.getSeconds()).padStart(2, '0');
 
-    const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        if (dateEl) {
+            const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+            const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
-    const dayName = days[now.getDay()];
-    const date = now.getDate();
-    const monthName = months[now.getMonth()];
-    const year = now.getFullYear();
+            const dayName = days[now.getDay()];
+            const date = now.getDate();
+            const monthName = months[now.getMonth()];
+            const year = now.getFullYear();
 
-    document.getElementById('full-date').innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
+            dateEl.innerText = dayName + ', ' + date + ' ' + monthName + ' ' + year;
+        }
+    }
 }
 
-updateClock();
-setInterval(updateClock, 1000);
+// Jalankan jam pertama kali setelah DOM siap agar tidak memicu null-pointer error
+document.addEventListener('DOMContentLoaded', function() {
+    updateClock();
+    setInterval(updateClock, 1000);
+});
 
-
-// FILTER DROPDOWN
+// ============================================
+// FILTER DROPDOWN GLOBAL
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const btnFilterToggle = document.getElementById('btnFilterToggle');
     const filterCard = document.getElementById('filterCard');

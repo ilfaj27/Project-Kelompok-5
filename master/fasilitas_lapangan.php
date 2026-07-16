@@ -19,170 +19,288 @@ if (!isset($nama) || empty($nama)) {
 $topbar_title = 'Kelola Fasilitas';
 $topbar_breadcrumb = 'Operasional / Fasilitas Lapangan';
 
-// --- (AJAX Handler Detail & Edit) ---
-if (isset($_GET['ajax_detail_id'])) {
+// ── PROSES AJAX REQUESTS ──
+$is_ajax = isset($_GET['action']) || isset($_POST['action']);
+if ($is_ajax) {
     header('Content-Type: application/json');
-    $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [intval($_GET['ajax_detail_id'])]);
-    if ($r) {
-        $detail_data = safeFetch($r);
-        if ($detail_data) {
-            echo json_encode(['status' => 'success', 'data' => $detail_data]);
+    $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+    // Action: Ambil Detail / Edit data (AJAX)
+    if ($action === 'get_detail') {
+        $id = intval($_GET['id'] ?? 0);
+        $r = safeQuery($conn, "EXEC dbo.sp_GetFasilitasDetail ?", [$id]);
+        if ($r && $row = safeFetch($r)) {
+            echo json_encode(['success' => true, 'data' => $row]);
         } else {
-            echo json_encode(['status' => 'error', 'msg' => 'Data fasilitas tidak ditemukan.']);
+            echo json_encode(['success' => false, 'msg' => 'Data fasilitas tidak ditemukan.']);
         }
-    } else {
-        echo json_encode(['status' => 'error', 'msg' => 'Gagal mengambil data dari database.']);
-    }
-    exit();
-}
-
-// PROSES CRUD (SIMPAN / EDIT)
-if (isset($_POST['save_fasilitas'])) {
-    $id = isset($_POST['id_fas']) ? intval($_POST['id_fas']) : 0;
-    $nama_fasilitas = trim($_POST['nama_fasilitas'] ?? '');
-    $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
-    $stok_total = isset($_POST['stok_total']) ? intval($_POST['stok_total']) : 0;
-
-    $errors = [];
-
-    // Validasi format nama dan detail
-    if (empty($nama_fasilitas)) {
-        $errors[] = "Nama fasilitas wajib diisi!";
-    } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $nama_fasilitas)) {
-        $errors[] = "Nama fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
+        exit();
     }
 
-    if (empty($detail_fasilitas)) {
-        $errors[] = "Detail fasilitas wajib diisi!";
-    } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $detail_fasilitas)) {
-        $errors[] = "Detail fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
-    }
+    // Action: Simpan Data (Tambah & Edit AJAX)
+    if ($action === 'save') {
+        $id = isset($_POST['id_fas']) ? intval($_POST['id_fas']) : 0;
+        $nama_fasilitas = trim($_POST['nama_fasilitas'] ?? '');
+        $detail_fasilitas = trim($_POST['detail_fasilitas'] ?? '');
+        $stok_total = isset($_POST['stok_total']) ? intval($_POST['stok_total']) : 0;
 
-    if ($stok_total <= 0) {
-        $errors[] = "Stok total harus lebih dari 0!";
-    }
+        $errors = [];
 
-    if (empty($errors)) {
-        // Cek duplikasi nama fasilitas secara global
-        $q_check = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasDuplicate ?, ?", [$nama_fasilitas, $id]);
-        if ($q_check) {
-            $dup_data = safeFetch($q_check);
-            if ($dup_data && ($dup_data['CountDuplicate'] ?? 0) > 0) {
-                $errors[] = "Nama fasilitas sudah terdaftar di sistem!";
+        // Validasi format nama dan detail
+        if (empty($nama_fasilitas)) {
+            $errors[] = "Nama fasilitas wajib diisi!";
+        } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $nama_fasilitas)) {
+            $errors[] = "Nama fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
+        }
+
+        if (empty($detail_fasilitas)) {
+            $errors[] = "Detail fasilitas wajib diisi!";
+        } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $detail_fasilitas)) {
+            $errors[] = "Detail fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
+        }
+
+        if ($stok_total <= 0) {
+            $errors[] = "Stok total harus lebih dari 0!";
+        }
+
+        if (empty($errors)) {
+            // Cek duplikasi nama fasilitas secara global
+            $q_check = safeQuery($conn, "EXEC dbo.sp_CheckFasilitasDuplicate ?, ?", [$nama_fasilitas, $id]);
+            if ($q_check) {
+                $dup_data = safeFetch($q_check);
+                if ($dup_data && ($dup_data['CountDuplicate'] ?? 0) > 0) {
+                    $errors[] = "Nama fasilitas sudah terdaftar di sistem!";
+                }
             }
         }
-    }
 
-    if (empty($errors)) {
+        if (!empty($errors)) {
+            echo json_encode(['success' => false, 'msg' => implode(' | ', $errors)]);
+            exit();
+        }
+
         if (isset($_POST['edit_mode']) && $id > 0) {
-            // EXEC sp_UpdateFasilitas - 5 parameter
+            // EXEC sp_UpdateFasilitas
             $result = safeQuery($conn, "EXEC dbo.sp_UpdateFasilitas ?, ?, ?, ?, ?", [$id, $nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
             if ($result !== false) {
-                header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil diperbarui!");
+                echo json_encode(['success' => true, 'msg' => 'Fasilitas berhasil diperbarui!']);
             } else {
-                // Tangkap pesan error dari SQL Server
                 $sql_error = '';
-                if (($errors = sqlsrv_errors()) != null) {
-                    foreach ($errors as $error) {
-                        $sql_error .= $error['message'];
+                if (($db_errors = sqlsrv_errors()) != null) {
+                    foreach ($db_errors as $error) {
+                        $sql_error .= $error['message'] . ' ';
                     }
                 }
                 $error_msg = !empty($sql_error) ? $sql_error : 'Gagal memperbarui fasilitas. Stok baru tidak boleh kurang dari jumlah terpasang!';
-                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode($error_msg));
+                echo json_encode(['success' => false, 'msg' => $error_msg]);
             }
         } else {
-            // EXEC sp_CreateFasilitas - 4 parameter
+            // EXEC sp_CreateFasilitas
             $result = safeQuery($conn, "EXEC dbo.sp_CreateFasilitas ?, ?, ?, ?", [$nama_fasilitas, $detail_fasilitas, $stok_total, $nama]);
             if ($result !== false) {
-                header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas baru berhasil ditambahkan!");
+                echo json_encode(['success' => true, 'msg' => 'Fasilitas baru berhasil ditambahkan!']);
             } else {
                 $sql_error = '';
-                if (($errors = sqlsrv_errors()) != null) {
-                    foreach ($errors as $error) {
-                        $sql_error .= $error['message'];
+                if (($db_errors = sqlsrv_errors()) != null) {
+                    foreach ($db_errors as $error) {
+                        $sql_error .= $error['message'] . ' ';
                     }
                 }
                 $error_msg = !empty($sql_error) ? $sql_error : 'Gagal menambahkan fasilitas!';
-                header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode($error_msg));
+                echo json_encode(['success' => false, 'msg' => $error_msg]);
             }
-        }
-    } else {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=" . urlencode(implode(' | ', $errors)));
-    }
-    exit();
-}
-
-// TOGGLE STATUS
-if (isset($_GET['toggle_id'])) {
-    $toggle_id = intval($_GET['toggle_id']);
-    $s_baru = (isset($_GET['s']) && $_GET['s'] == '1') ? 0 : 1;
-
-    $stmt = safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?, ?", [$toggle_id, $s_baru, $nama]);
-
-    // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
-    if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
-        header('Content-Type: application/json');
-        if ($stmt !== false) {
-            echo json_encode(['status' => 'success', 'msg' => 'Status fasilitas berhasil diubah!', 'new_status' => $s_baru]);
-        } else {
-            $sql_error = '';
-            if (($errors = sqlsrv_errors()) != null) {
-                foreach ($errors as $error) {
-                    $sql_error .= $error['message'];
-                }
-            }
-            echo json_encode(['status' => 'error', 'msg' => $sql_error ?: 'Gagal mengubah status fasilitas.']);
         }
         exit();
     }
 
-    if ($stmt !== false) {
-        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Status fasilitas berhasil diubah!");
-    } else {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal mengubah status fasilitas.");
-    }
-    exit();
-}
+    // Action: Toggle Status Aktif / Nonaktif (AJAX)
+    if ($action === 'toggle') {
+        $id = intval($_GET['id'] ?? 0);
+        $current_status = intval($_GET['status'] ?? 0);
+        $new_status = $current_status === 1 ? 0 : 1;
 
-// DELETE
-if (isset($_GET['delete_id'])) {
-    $delete_id = intval($_GET['delete_id']);
-    $stmt = safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$delete_id, $nama]);
-
-    // Jika diproses lewat AJAX, kembalikan respon JSON tanpa reload
-    if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
-        header('Content-Type: application/json');
+        $stmt = safeQuery($conn, "EXEC dbo.sp_UpdateStatusFasilitas ?, ?, ?", [$id, $new_status, $nama]);
         if ($stmt !== false) {
-            echo json_encode(['status' => 'success', 'msg' => 'Fasilitas berhasil dihapus!']);
+            echo json_encode(['success' => true, 'msg' => 'Status fasilitas berhasil diubah!', 'new_status' => $new_status]);
         } else {
             $sql_error = '';
-            if (($errors = sqlsrv_errors()) != null) {
-                foreach ($errors as $error) {
-                    $sql_error .= $error['message'];
+            if (($db_errors = sqlsrv_errors()) != null) {
+                foreach ($db_errors as $error) {
+                    $sql_error .= $error['message'] . ' ';
                 }
             }
-            echo json_encode(['status' => 'error', 'msg' => $sql_error ?: 'Gagal menghapus fasilitas.']);
+            echo json_encode(['success' => false, 'msg' => $sql_error ?: 'Gagal mengubah status fasilitas.']);
         }
         exit();
     }
 
-    if ($stmt !== false) {
-        header("Location: fasilitas_lapangan.php?page=1&status=success&msg=Fasilitas berhasil dihapus!");
-    } else {
-        header("Location: fasilitas_lapangan.php?page=1&status=error&msg=Gagal menghapus fasilitas.");
+    // Action: Soft Delete Fasilitas (AJAX)
+    if ($action === 'delete') {
+        $id = intval($_GET['id'] ?? 0);
+        $stmt = safeQuery($conn, "EXEC dbo.sp_DeleteFasilitas ?, ?", [$id, $nama]);
+        if ($stmt !== false) {
+            echo json_encode(['success' => true, 'msg' => 'Fasilitas berhasil dihapus!']);
+        } else {
+            $sql_error = '';
+            if (($db_errors = sqlsrv_errors()) != null) {
+                foreach ($db_errors as $error) {
+                    $sql_error .= $error['message'] . ' ';
+                }
+            }
+            echo json_encode(['success' => false, 'msg' => $sql_error ?: 'Gagal menghapus fasilitas.']);
+        }
+        exit();
     }
-    exit();
+
+    // Action: Ambil Data Tabel, Pagination & Statistik Utama (Dynamic AJAX Refresh)
+    if ($action === 'get_table_data') {
+        $f_lapangan = isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '' ? $_GET['f_lapangan'] : 'all';
+        $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
+        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+        $search = isset($_GET['src']) ? trim($_GET['src']) : '';
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+
+        // Ambil Statistik Terkini via UDF
+        $q_stats = safeQuery($conn, "SELECT Total, Aktif, Nonaktif FROM dbo.fn_GetFasilitasStats()", []);
+        $stats = safeFetch($q_stats);
+        $total_fasilitas = $stats['Total'] ?? 0;
+        $aktif_count = $stats['Aktif'] ?? 0;
+        $nonaktif_count = $stats['Nonaktif'] ?? 0;
+
+        // Ambil Daftar Utama (SP sp_ReadFasilitasListWithCount)
+        $query_sql = "EXEC dbo.sp_ReadFasilitasListWithCount ?, ?, ?, ?, ?, ?";
+        $params_sp = array($f_lapangan, $f_status, $f_sort, intval($offset), intval($limit), $search);
+        $query = safeQuery($conn, $query_sql, $params_sp);
+
+        $total_data = 0;
+        if ($query) {
+            $row_count = safeFetch($query);
+            $total_data = intval($row_count['TotalCount'] ?? 0);
+            sqlsrv_next_result($query);
+        }
+
+        $total_pages = max(1, ceil($total_data / $limit));
+        $page = min($page, $total_pages);
+
+        // Render HTML Tabel Body
+        ob_start();
+        $has_data = false;
+        $no = $offset + 1;
+        if ($query):
+            while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                $has_data = true;
+                ?>
+                <tr>
+                    <td class="col-center" style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);">
+                        <?= $no++ ?>
+                    </td>
+                    <td class="col-left">
+                        <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
+                    </td>
+                    <td class="col-left">
+                        <div class="fas-detail-col">
+                            <?= !empty($row['Detail_Fasilitas']) ? htmlspecialchars($row['Detail_Fasilitas']) : '-' ?>
+                        </div>
+                    </td>
+                    <td class="col-center">
+                        <div class="stok-badge">
+                            <span class="stok-sisa"><?= intval($row['Stok_Tersedia']) ?></span>
+                            <span class="stok-pemisah">/</span>
+                            <span class="stok-total"><?= intval($row['Stok_Total']) ?></span>
+                        </div>
+                    </td>
+                    <td class="col-center">
+                        <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
+                            <span class="sp-dot"></span>
+                            <?= $row['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
+                        </span>
+                    </td>
+                    <td class="col-center">
+                        <div class="actions">
+                            <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-view" title="Lihat Detail">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button type="button" onclick="showEditForm('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-edit" title="Edit Fasilitas">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Fasilitas'] ?>', <?= $row['Status'] ?>, event)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button type="button" onclick="confirmDelete('<?= $row['ID_Fasilitas'] ?>', '<?= htmlspecialchars($row['Nama_Fasilitas'], ENT_QUOTES) ?>')" class="btn-action btn-delete" title="Hapus Fasilitas">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <?php endwhile; endif;
+
+        if (!$has_data): ?>
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-list-check"></i>
+                        <div>Belum ada data fasilitas</div>
+                        <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">
+                            Tambah fasilitas baru untuk memulai</div>
+                    </div>
+                </td>
+            </tr>
+        <?php endif;
+        $table_html = ob_get_clean();
+
+        // Render HTML Pagination
+        ob_start();
+        ?>
+        <div class="pagination-info">
+            <?php if ($total_data > 0): ?>
+                Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
+                <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data
+            <?php else: ?>
+                Menampilkan <strong>0</strong> data
+            <?php endif; ?>
+        </div>
+        <div class="pagination-nav">
+            <button onclick="changePage(1)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
+            <button onclick="changePage(<?= max(1, $page - 1) ?>)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                <i class="fa-solid fa-angle-left"></i>
+            </button>
+            <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                <button onclick="changePage(<?= $i ?>)" class="page-btn <?= $i == $page ? 'active' : '' ?>">
+                    <?= $i ?>
+                </button>
+            <?php endfor; ?>
+            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                <i class="fa-solid fa-angle-right"></i>
+            </button>
+            <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                <i class="fa-solid fa-angles-right"></i>
+            </button>
+        </div>
+        <?php
+        $pagination_html = ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'table' => $table_html,
+            'pagination' => $pagination_html,
+            'stats' => [
+                'total' => $total_fasilitas,
+                'aktif' => $aktif_count,
+                'nonaktif' => $nonaktif_count,
+                'total_data' => $total_data
+            ]
+        ]);
+        exit();
+    }
 }
 
-// Mengambil statistik menggunakan UDF
-$q_stats = safeQuery($conn, "SELECT Total, Aktif, Nonaktif FROM dbo.fn_GetFasilitasStats()", []);
-$stats = safeFetch($q_stats);
-
-$total_fasilitas = $stats['Total'] ?? 0;
-$aktif_count = $stats['Aktif'] ?? 0;
-$nonaktif_count = $stats['Nonaktif'] ?? 0;
-
-// Mengambil dropdown list Lapangan menggunakan SP
+// ── BIND LAPANGAN DROP-DOWN (PAGE LOAD PERTAMA) ──
 $lapangan_list = [];
 $q_lap = safeQuery($conn, "EXEC dbo.sp_GetActiveLapanganList", []);
 if ($q_lap) {
@@ -191,47 +309,6 @@ if ($q_lap) {
     }
 }
 
-$limit = 10;
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-
-$f_lapangan = isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '' ? $_GET['f_lapangan'] : 'all';
-$f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
-$f_sort = $_GET['f_sort'] ?? 'nama_asc';
-
-$search = isset($_GET['src']) ? trim($_GET['src']) : '';
-
-// Menghitung offset paging
-$offset = ($page - 1) * $limit;
-
-// Memanggil SP List Utama terpaginasi dengan 6 parameter
-$query_sql = "EXEC dbo.sp_ReadFasilitasListWithCount ?, ?, ?, ?, ?, ?";
-$params_sp = array($f_lapangan, $f_status, $f_sort, intval($offset), intval($limit), $search);
-
-$query = safeQuery($conn, $query_sql, $params_sp);
-
-// Ambil jumlah data terfilter (Hasil 1 dari SP)
-$row_count = safeFetch($query);
-$total_data = intval($row_count['TotalCount'] ?? 0);
-
-// Geser ke hasil list data fasilitas (Hasil 2 dari SP)
-if ($query) {
-    sqlsrv_next_result($query);
-}
-
-// Hitung ulang halaman berdasarkan total data terfilter
-$total_pages = max(1, ceil($total_data / $limit));
-$page = min($page, $total_pages);
-
-$filter_url = "";
-if (isset($_GET['f_sort']))
-    $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_lapangan']))
-    $filter_url .= "&f_lapangan=" . urlencode($_GET['f_lapangan']);
-if (isset($_GET['f_status']))
-    $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
-if (!empty($search)) {
-    $filter_url .= "&src=" . urlencode($search);
-}
 $current_page = 'fasilitas';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
@@ -249,6 +326,11 @@ $sidebar_photo = $profile_photo;
     <link rel="stylesheet" href="../asset/css/global.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        /* CSS Tambahan khusus memaksa SweetAlert2 berada di atas modal bootstrap */
+        .swal2-container {
+            z-index: 3000 !important;
+        }
+
         .page-header {
             display: flex;
             align-items: flex-end;
@@ -1221,7 +1303,7 @@ $sidebar_photo = $profile_photo;
                 <div class="modal-title" id="formModalTitle">Tambah Fasilitas Baru</div>
             </div>
             <div class="modal-body">
-                <form method="POST" id="formFasilitas" onsubmit="return validateForm()" novalidate>
+                <form id="formFasilitas" onsubmit="handleFormSubmit(event)" novalidate>
                     <!-- Hidden inputs untuk edit mode -->
                     <div id="hiddenInputsArea"></div>
 
@@ -1240,7 +1322,7 @@ $sidebar_photo = $profile_photo;
                         maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
                     <div class="val-msg" id="val-detail_fasilitas"></div>
 
-                    <button type="submit" name="save_fasilitas" class="btn-submit" id="btnSubmitForm">
+                    <button type="submit" class="btn-submit" id="btnSubmitForm">
                         <i class="fa-solid fa-plus"></i> Tambah Fasilitas
                     </button>
                     <a onclick="closeModalDirect('modalFasilitas')" class="btn-cancel">Batal</a>
@@ -1304,11 +1386,11 @@ $sidebar_photo = $profile_photo;
                 </div>
                 <div class="stat-chips">
                     <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span
-                            class="chip-val"><?= $aktif_count ?></span></div>
+                            class="chip-val" id="stat-aktif">0</span></div>
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span
-                            class="chip-val"><?= $nonaktif_count ?></span></div>
+                            class="chip-val" id="stat-nonaktif">0</span></div>
                     <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span
-                            class="chip-val"><?= $total_fasilitas ?></span></div>
+                            class="chip-val" id="stat-total">0</span></div>
                 </div>
             </div>
 
@@ -1316,29 +1398,27 @@ $sidebar_photo = $profile_photo;
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <input type="text" id="src" placeholder="Cari fasilitas... (Tekan Enter)"
-                        onkeypress="handleSearch(event)" value="<?= htmlspecialchars($_GET['src'] ?? '') ?>">
-
-                    <?php if (!empty($search)): ?>
-                        <button type="button" onclick="clearSearch()" class="btn-clear-search">
-                            <i class="fa-solid fa-circle-xmark"></i>
-                        </button>
-                    <?php endif; ?>
+                        onkeypress="handleSearch(event)" value="">
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch" style="display: none;">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
-                        <button class="btn-filter" id="btnFilterToggle">
+                        <!-- Perbaikan ID custom dan onclick khusus untuk bypass tabrakan event global.js -->
+                        <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
                             <i class="fa-solid fa-filter"></i> Filter <i
                                 class="fa-solid fa-chevron-down arrow-icon"></i>
                         </button>
-                        <div class="filter-card" id="filterCard">
+                        <div class="filter-card" id="filterCardCustom" onclick="event.stopPropagation()">
                             <h4>Filter Data</h4>
-                            <form method="GET" action="fasilitas_lapangan.php">
+                            <form id="formFilter" onsubmit="handleFilterSubmit(event)">
                                 <div class="filter-group">
                                     <label>Lapangan</label>
-                                    <select name="f_lapangan" class="filter-input">
+                                    <select name="f_lapangan" id="f_lapangan" class="filter-input">
                                         <option value="">Semua Lapangan</option>
                                         <?php foreach ($lapangan_list as $lap): ?>
-                                            <option value="<?= $lap['ID_Lapangan'] ?>" <?= ($_GET['f_lapangan'] ?? '') == $lap['ID_Lapangan'] ? 'selected' : '' ?>>
+                                            <option value="<?= $lap['ID_Lapangan'] ?>">
                                                 <?= htmlspecialchars($lap['Nama_Lapangan']) ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -1346,21 +1426,19 @@ $sidebar_photo = $profile_photo;
                                 </div>
                                 <div class="filter-group">
                                     <label>Status</label>
-                                    <select name="f_status" class="filter-input">
+                                    <select name="f_status" id="f_status" class="filter-input">
                                         <option value="">Semua Status</option>
-                                        <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF
-                                        </option>
-                                        <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>
-                                            NONAKTIF</option>
+                                        <option value="1">AKTIF</option>
+                                        <option value="0">NONAKTIF</option>
                                     </select>
                                 </div>
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
-                                    <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama Fasilitas (A - Z)</option>
-                                        <option value="nama_desc" <?= ($_GET['f_sort'] ?? '') === 'nama_desc' ? 'selected' : '' ?>>Nama Fasilitas (Z - A)</option>
-                                        <option value="stok_desc" <?= ($_GET['f_sort'] ?? '') === 'stok_desc' ? 'selected' : '' ?>>Stok Terbanyak</option>
-                                        <option value="stok_asc" <?= ($_GET['f_sort'] ?? '') === 'stok_asc' ? 'selected' : '' ?>>Stok Tersedikit</option>
+                                    <select name="f_sort" id="f_sort" class="filter-input">
+                                        <option value="nama_asc">Nama Fasilitas (A - Z)</option>
+                                        <option value="nama_desc">Nama Fasilitas (Z - A)</option>
+                                        <option value="stok_desc">Stok Terbanyak</option>
+                                        <option value="stok_asc">Stok Tersedikit</option>
                                     </select>
                                 </div>
                                 <div class="filter-buttons">
@@ -1380,7 +1458,7 @@ $sidebar_photo = $profile_photo;
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-list-check"></i> Data Fasilitas</div>
-                    <span class="card-badge"><?= $total_data ?> total</span>
+                    <span class="card-badge" id="header-badge">0 total</span>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table" id="tbl">
@@ -1395,73 +1473,7 @@ $sidebar_photo = $profile_photo;
                             </tr>
                         </thead>
                         <tbody>
-                            <?php
-                            $has_data = false;
-                            $no = $offset + 1;
-                            if ($query):
-                                while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                                    $has_data = true;
-                                    ?>
-                                    <tr>
-                                        <td class="col-center"
-                                            style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);">
-                                            <?= $no++ ?>
-                                        </td>
-                                        <td class="col-left">
-                                            <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
-                                        </td>
-                                        <td class="col-left">
-                                            <div class="fas-detail-col">
-                                                <?= !empty($row['Detail_Fasilitas']) ? htmlspecialchars($row['Detail_Fasilitas']) : '-' ?>
-                                            </div>
-                                        </td>
-                                        <td class="col-center">
-                                            <div class="stok-badge">
-                                                <span class="stok-sisa"><?= intval($row['Stok_Tersedia']) ?></span>
-                                                <span class="stok-pemisah">/</span>
-                                                <span class="stok-total"><?= intval($row['Stok_Total']) ?></span>
-                                            </div>
-                                        </td>
-                                        <td class="col-center">
-                                            <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
-                                                <span class="sp-dot"></span>
-                                                <?= $row['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
-                                            </span>
-                                        </td>
-                                        <td class="col-center">
-                                            <div class="actions">
-                                                <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')"
-                                                    class="btn-action btn-view" title="Lihat Detail"><i
-                                                        class="fa-solid fa-eye"></i></button>
-                                                <button type="button" onclick="showEditForm('<?= $row['ID_Fasilitas'] ?>')"
-                                                    class="btn-action btn-edit" title="Edit Fasilitas"><i
-                                                        class="fa-solid fa-pen-to-square"></i></button>
-                                                <label class="toggle-switch"
-                                                    title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                                    <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?>
-                                                        onchange="confirmToggle('<?= $row['ID_Fasilitas'] ?>', <?= $row['Status'] ?>)">
-                                                    <span class="toggle-slider"></span>
-                                                </label>
-                                                <button
-                                                    onclick="confirmDelete('<?= $row['ID_Fasilitas'] ?>', '<?= htmlspecialchars($row['Nama_Fasilitas']) ?>')"
-                                                    class="btn-action btn-delete" title="Hapus Fasilitas"><i
-                                                        class="fa-solid fa-trash-can"></i></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endwhile; endif; ?>
-                            <?php if (!$has_data): ?>
-                                <tr>
-                                    <td colspan="6">
-                                        <div class="empty-state">
-                                            <i class="fa-solid fa-list-check"></i>
-                                            <div>Belum ada data fasilitas</div>
-                                            <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">
-                                                Tambah fasilitas baru untuk memulai</div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
+                            <!-- Dinamis diisi lewat AJAX Javascript -->
                         </tbody>
                     </table>
                 </div>
@@ -1469,48 +1481,56 @@ $sidebar_photo = $profile_photo;
 
             <!-- PAGINATION -->
             <div class="pagination-wrap">
-                <div class="pagination-info">
-                    <?php if ($total_data > 0): ?>
-                        Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
-                        <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong>
-                        data
-                    <?php else: ?>
-                        Menampilkan <strong>0</strong> data
-                    <?php endif; ?>
-                </div>
-
-                <div class="pagination-nav">
-                    <!-- Tombol First -->
-                    <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
-                        <i class="fa-solid fa-angles-left"></i>
-                    </a>
-                    <!-- Tombol Prev -->
-                    <a href="?page=<?= max(1, $page - 1) ?><?= $filter_url ?>"
-                        class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
-                        <i class="fa-solid fa-angle-left"></i>
-                    </a>
-                    <!-- Nomor Halaman -->
-                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                        <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>">
-                            <?= $i ?>
-                        </a>
-                    <?php endfor; ?>
-                    <!-- Tombol Next -->
-                    <a href="?page=<?= min($total_pages, $page + 1) ?><?= $filter_url ?>"
-                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                        <i class="fa-solid fa-angle-right"></i>
-                    </a>
-                    <!-- Tombol Last -->
-                    <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
-                        class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                        <i class="fa-solid fa-angles-right"></i>
-                    </a>
-                </div>
+                <!-- Dinamis diisi lewat AJAX Javascript -->
             </div>
         </div>
     </main>
     <script src="../asset/js/global.js"></script>
     <script>
+        // State management untuk Filter & Pagination
+        let currentPage = 1;
+        let currentSort = 'nama_asc';
+        let currentStatus = '';
+        let currentLapangan = '';
+        let currentSearch = '';
+
+        // ============================================
+        // GET DATA TABEL (AJAX REFRESH)
+        // ============================================
+        async function loadTableData() {
+            const url = `fasilitas_lapangan.php?action=get_table_data&page=${currentPage}&f_sort=${currentSort}&f_status=${currentStatus}&f_lapangan=${currentLapangan}&src=${encodeURIComponent(currentSearch)}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    // Update stats
+                    document.getElementById('stat-aktif').textContent = data.stats.aktif;
+                    document.getElementById('stat-nonaktif').textContent = data.stats.nonaktif;
+                    document.getElementById('stat-total').textContent = data.stats.total;
+                    document.getElementById('header-badge').textContent = `${data.stats.total_data} total`;
+
+                    // Update Table & Pagination
+                    document.querySelector('#tbl tbody').innerHTML = data.table;
+                    document.querySelector('.pagination-wrap').innerHTML = data.pagination;
+
+                    // Update Clear Search Button visibility
+                    const btnClear = document.getElementById('btnClearSearch');
+                    if (currentSearch !== '') {
+                        btnClear.style.display = 'block';
+                    } else {
+                        btnClear.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error("Gagal memuat data tabel:", error);
+            }
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadTableData();
+        }
+
         // ============================================
         // VALIDASI FORM - REAL TIME & SUBMIT
         // ============================================
@@ -1544,10 +1564,10 @@ $sidebar_photo = $profile_photo;
             }
 
             if (rules.pattern && value !== '') {
-                const regex = /^[a-zA-Z\s]+$/; // <--- HANYA HURUF DAN SPASI
+                const regex = /^[a-zA-Z0-9\s\-]+$/;
                 if (!regex.test(value)) {
                     field.classList.add('error');
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' hanya boleh berisi huruf';
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' hanya boleh berisi huruf, angka, spasi, dan strip';
                     valMsg.classList.add('show');
                     return false;
                 }
@@ -1559,7 +1579,6 @@ $sidebar_photo = $profile_photo;
         function validateForm() {
             let valid = true;
 
-            // Validasi Input Stok Total (Baru)
             if (!validateField('stok_total', 'val-stok_total', {
                 required: true,
                 label: 'Stok total'
@@ -1584,14 +1603,73 @@ $sidebar_photo = $profile_photo;
         }
 
         // ============================================
-        // TOGGLE STATUS
+        // ALERT HELPER FUNCTIONS (PREVENTS STUCK MODAL)
         // ============================================
-        function confirmToggle(id, status) {
-            const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
-            const iconType = status == 1 ? 'warning' : 'question';
-            const newStatus = status == 1 ? 0 : 1;
+        function showSuccess(title, message) {
+            Swal.close(); // Tutup modal loading terlebih dahulu
+            Swal.fire({
+                icon: 'success',
+                title: title,
+                text: message,
+                confirmButtonColor: '#10B981'
+            });
+        }
+
+        function showError(title, message) {
+            Swal.close(); // Tutup modal loading terlebih dahulu
+            Swal.fire({
+                icon: 'error',
+                title: title,
+                text: message,
+                confirmButtonColor: '#EF4444'
+            });
+        }
+
+        // ============================================
+        // AJAX SUBMIT FORM (TAMBAH / EDIT)
+        // ============================================
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            if (!validateForm()) return;
+
+            const form = document.getElementById('formFasilitas');
+            const formData = new FormData(form);
+            formData.append('action', 'save');
 
             Swal.fire({
+                title: 'Memproses...',
+                text: 'Menyimpan data fasilitas',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const response = await fetch('fasilitas_lapangan.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+                if (res.success) {
+                    closeModalDirect('modalFasilitas');
+                    showSuccess('Berhasil!', res.msg);
+                    loadTableData();
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Gagal memproses data.');
+            }
+        }
+
+        // ============================================
+        // TOGGLE STATUS
+        // ============================================
+        async function confirmToggle(id, status, event) {
+            const checkbox = event.target;
+            const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
+            const iconType = status == 1 ? 'warning' : 'question';
+
+            const result = await Swal.fire({
                 title: 'Konfirmasi Perubahan Status',
                 text: 'Apakah Anda yakin ingin ' + action + ' fasilitas ini?',
                 icon: iconType,
@@ -1602,57 +1680,40 @@ $sidebar_photo = $profile_photo;
                 cancelButtonText: 'Batal',
                 reverseButtons: true,
                 allowOutsideClick: false
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Mengirim request ke server di latar belakang menggunakan AJAX
-                    fetch('?toggle_id=' + id + '&s=' + status + '&ajax=1')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Berhasil!',
-                                    text: data.msg,
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-
-                                // Cari baris tabel tempat tombol ini diklik
-                                const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
-                                const row = checkbox.closest('tr');
-                                const pill = row.querySelector('.status-pill');
-
-                                // Perbarui UI secara langsung tanpa memuat ulang halaman
-                                if (newStatus === 1) {
-                                    pill.className = 'status-pill sp-active';
-                                    pill.innerHTML = '<span class="sp-dot"></span> AKTIF';
-                                    checkbox.checked = true;
-                                    checkbox.setAttribute('onchange', "confirmToggle('" + id + "', 1)");
-                                } else {
-                                    pill.className = 'status-pill sp-inactive';
-                                    pill.innerHTML = '<span class="sp-dot"></span> NONAKTIF';
-                                    checkbox.checked = false;
-                                    checkbox.setAttribute('onchange', "confirmToggle('" + id + "', 0)");
-                                }
-                            } else {
-                                Swal.fire('Gagal!', data.msg, 'error');
-                                const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
-                                if (checkbox) checkbox.checked = !checkbox.checked;
-                            }
-                        });
-                } else {
-                    // Reset checkbox jika batal
-                    const checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
-                    if (checkbox) checkbox.checked = !checkbox.checked;
-                }
             });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Memproses...',
+                    text: 'Mengubah status fasilitas',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`fasilitas_lapangan.php?action=toggle&id=${id}&status=${status}`);
+                    const res = await response.json();
+                    if (res.success) {
+                        showSuccess('Berhasil!', res.msg);
+                        loadTableData();
+                    } else {
+                        checkbox.checked = !checkbox.checked;
+                        showError('Gagal!', res.msg);
+                    }
+                } catch (error) {
+                    checkbox.checked = !checkbox.checked;
+                    showError('Gagal!', 'Terjadi kesalahan saat mengubah status.');
+                }
+            } else {
+                checkbox.checked = !checkbox.checked;
+            }
         }
 
         // ============================================
         // DELETE CONFIRMATION
         // ============================================
-        function confirmDelete(id, name) {
-            Swal.fire({
+        async function confirmDelete(id, name) {
+            const result = await Swal.fire({
                 title: 'Hapus Fasilitas?',
                 html: 'Anda akan menghapus fasilitas <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
                 icon: 'warning',
@@ -1663,50 +1724,192 @@ $sidebar_photo = $profile_photo;
                 cancelButtonText: 'Batal',
                 reverseButtons: true,
                 allowOutsideClick: false
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Mengirim request hapus data ke server di latar belakang
-                    fetch('?delete_id=' + id + '&ajax=1')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Terhapus!',
-                                    text: data.msg,
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-
-                                // Cari baris tombol hapus tempat diklik
-                                const btnDelete = document.querySelector('button[onclick*="confirmDelete(\'' + id + '\'"]');
-                                if (btnDelete) {
-                                    const row = btnDelete.closest('tr');
-
-                                    // Berikan animasi geser & memudar sebelum dihapus secara live
-                                    row.style.transition = 'all 0.5s ease';
-                                    row.style.opacity = '0';
-                                    row.style.transform = 'translateX(-20px)';
-                                    setTimeout(() => {
-                                        row.remove();
-                                    }, 500);
-                                }
-                            } else {
-                                Swal.fire('Gagal!', data.msg, 'error');
-                            }
-                        });
-                }
             });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Memproses...',
+                    text: 'Menghapus data fasilitas',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`fasilitas_lapangan.php?action=delete&id=${id}`);
+                    const res = await response.json();
+                    if (res.success) {
+                        showSuccess('Terhapus!', res.msg);
+                        loadTableData();
+                    } else {
+                        showError('Gagal!', res.msg);
+                    }
+                } catch (error) {
+                    showError('Gagal!', 'Terjadi kesalahan saat menghapus data.');
+                }
+            }
+        }
+
+        // ============================================
+        // SEARCH & FILTER SYSTEM
+        // ============================================
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                currentSearch = document.getElementById('src').value.trim();
+                currentPage = 1;
+                loadTableData();
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('src').value = '';
+            currentSearch = '';
+            currentPage = 1;
+            loadTableData();
+        }
+
+        function handleFilterSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            currentLapangan = form.elements['f_lapangan'].value;
+            currentStatus = form.elements['f_status'].value;
+            currentSort = form.elements['f_sort'].value;
+            currentPage = 1;
+            loadTableData();
+
+            document.getElementById('btnFilterToggleCustom').classList.remove('active');
+            document.getElementById('filterCardCustom').classList.remove('open');
         }
 
         function resetFilter() {
-            window.location.href = 'fasilitas_lapangan.php';
+            document.getElementById('formFilter').reset();
+            currentLapangan = '';
+            currentStatus = '';
+            currentSort = 'nama_asc';
+            currentSearch = '';
+            document.getElementById('src').value = '';
+            currentPage = 1;
+            loadTableData();
+
+            document.getElementById('btnFilterToggleCustom').classList.remove('active');
+            document.getElementById('filterCardCustom').classList.remove('open');
+        }
+
+        // Fungsi Buka Form Tambah Baru
+        function showAddForm() {
+            document.getElementById('formFasilitas').reset();
+            document.getElementById('hiddenInputsArea').innerHTML = '';
+
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+            document.getElementById('formModalTitle').innerText = 'Tambah Fasilitas Baru';
+            document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Fasilitas';
+
+            document.getElementById('modalFasilitas').classList.add('open');
+        }
+
+        // Fungsi Buka Form Edit Data (AJAX)
+        async function showEditForm(id) {
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+
+            try {
+                const response = await fetch(`fasilitas_lapangan.php?action=get_detail&id=${id}`);
+                const res = await response.json();
+                if (res.success) {
+                    const data = res.data;
+
+                    document.getElementById('stok_total').value = data.Stok_Total;
+                    document.getElementById('nama_fasilitas').value = data.Nama_Fasilitas;
+                    document.getElementById('detail_fasilitas').value = data.Detail_Fasilitas;
+
+                    document.getElementById('hiddenInputsArea').innerHTML = `
+                        <input type="hidden" name="edit_mode" value="1">
+                        <input type="hidden" name="id_fas" id="id_fas" value="${data.ID_Fasilitas}">
+                    `;
+
+                    document.getElementById('formModalTitle').innerText = 'Edit Fasilitas';
+                    document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+                    document.getElementById('modalFasilitas').classList.add('open');
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Gagal mengambil data fasilitas.');
+            }
+        }
+
+        // Fungsi Tampilkan Detail Fasilitas (AJAX)
+        async function showDetail(id) {
+            try {
+                const response = await fetch(`fasilitas_lapangan.php?action=get_detail&id=${id}`);
+                const res = await response.json();
+                if (res.success) {
+                    const data = res.data;
+
+                    document.getElementById('det_nama_title').innerText = data.Nama_Fasilitas;
+                    document.getElementById('det_detail').innerText = data.Detail_Fasilitas ? data.Detail_Fasilitas : '-';
+                    document.getElementById('det_stok_total').innerText = data.Stok_Total + ' unit';
+                    document.getElementById('det_stok_tersedia').innerText = data.Stok_Tersedia + ' unit';
+
+                    const pill = document.getElementById('det_status_pill');
+                    const text = document.getElementById('det_status_text');
+                    if (data.Status == 1) {
+                        pill.className = 'status-pill sp-active';
+                        text.innerText = 'AKTIF';
+                    } else {
+                        pill.className = 'status-pill sp-inactive';
+                        text.innerText = 'NONAKTIF';
+                    }
+
+                    document.getElementById('modalDetail').classList.add('open');
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Gagal memproses data.');
+            }
+        }
+
+        // Fungsi Menutup Modal Secara Langsung
+        function closeModalDirect(modalId) {
+            document.getElementById(modalId).classList.remove('open');
         }
 
         // ============================================
-        // REAL-TIME VALIDATION EVENT LISTENERS
+        // PENGENDALI EVENT KLIK FILTER (INLINE FALLBACK)
+        // ============================================
+        function toggleCustomFilterCard(e) {
+            e.stopPropagation();
+            const btn = document.getElementById('btnFilterToggleCustom');
+            const card = document.getElementById('filterCardCustom');
+            if (btn && card) {
+                btn.classList.toggle('active');
+                card.classList.toggle('open');
+            }
+        }
+
+        // Tutup filter card saat pengguna klik di luar area filter
+        window.addEventListener('click', function (e) {
+            const btn = document.getElementById('btnFilterToggleCustom');
+            const card = document.getElementById('filterCardCustom');
+            if (btn && card) {
+                if (!btn.contains(e.target) && !card.contains(e.target)) {
+                    btn.classList.remove('active');
+                    card.classList.remove('open');
+                }
+            }
+        });
+
+        // ============================================
+        // INITIAL LOAD & REAL-TIME VALIDATIONS
         // ============================================
         document.addEventListener('DOMContentLoaded', function () {
+            // Jalankan load data tabel utama
+            loadTableData();
+
+            // Real-time validations
             const namaFas = document.getElementById('nama_fasilitas');
             if (namaFas) {
                 namaFas.addEventListener('blur', function () {
@@ -1753,121 +1956,6 @@ $sidebar_photo = $profile_photo;
                 });
             }
         });
-
-        // Fungsi Buka Form Tambah Baru
-        function showAddForm() {
-            // Reset Form Input
-            document.getElementById('formFasilitas').reset();
-            document.getElementById('hiddenInputsArea').innerHTML = '';
-
-            // Reset Error Visuals
-            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
-            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
-
-            // Set Title & Button Icon
-            document.getElementById('formModalTitle').innerText = 'Tambah Fasilitas Baru';
-            document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Fasilitas';
-
-            // Buka Modal
-            document.getElementById('modalFasilitas').classList.add('open');
-        }
-
-        // Fungsi Buka Form Edit Data (AJAX)
-        function showEditForm(id) {
-            // Ambil data fasilitas dari latar belakang menggunakan Fetch API
-            fetch('?ajax_detail_id=' + id)
-                .then(response => response.json())
-                .then(res => {
-                    if (res.status === 'success') {
-                        const data = res.data;
-
-                        document.getElementById('stok_total').value = data.Stok_Total; // Isi ke Stok Total
-                        document.getElementById('nama_fasilitas').value = data.Nama_Fasilitas;
-                        document.getElementById('detail_fasilitas').value = data.Detail_Fasilitas;
-
-                        // Set hidden input agar form dikirim sebagai EDIT MODE
-                        document.getElementById('hiddenInputsArea').innerHTML = `
-                    <input type="hidden" name="edit_mode" value="1">
-                    <input type="hidden" name="id_fas" id="id_fas" value="${data.ID_Fasilitas}">
-                `;
-
-                        // Ubah Title & Button Icon
-                        document.getElementById('formModalTitle').innerText = 'Edit Fasilitas';
-                        document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
-
-                        // Reset visual error jika ada bekas validasi sebelumnya
-                        document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
-                        document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
-
-                        // Buka Modal
-                        document.getElementById('modalFasilitas').classList.add('open');
-                    } else {
-                        Swal.fire('Gagal!', res.msg, 'error');
-                    }
-                });
-        }
-
-        // Fungsi Tampilkan Detail Fasilitas (AJAX)
-        function showDetail(id) {
-            fetch('?ajax_detail_id=' + id)
-                .then(response => response.json())
-                .then(res => {
-                    if (res.status === 'success') {
-                        const data = res.data;
-
-                        // Tulis nilai ke dalam kolom modal detail secara dinamis
-                        document.getElementById('det_nama_title').innerText = data.Nama_Fasilitas;
-                        document.getElementById('det_detail').innerText = data.Detail_Fasilitas ? data.Detail_Fasilitas : '-';
-                        document.getElementById('det_stok_total').innerText = data.Stok_Total + ' unit';
-                        document.getElementById('det_stok_tersedia').innerText = data.Stok_Tersedia + ' unit';
-
-                        // Pengaturan warna badge status keaktifan
-                        const pill = document.getElementById('det_status_pill');
-                        const text = document.getElementById('det_status_text');
-                        if (data.Status == 1) {
-                            pill.className = 'status-pill sp-active';
-                            text.innerText = 'AKTIF';
-                        } else {
-                            pill.className = 'status-pill sp-inactive';
-                            text.innerText = 'NONAKTIF';
-                        }
-
-                        // Buka Modal Detail
-                        document.getElementById('modalDetail').classList.add('open');
-                    } else {
-                        Swal.fire('Gagal!', res.msg, 'error');
-                    }
-                });
-        }
-
-        // Fungsi Menutup Modal Secara Langsung
-        function closeModalDirect(modalId) {
-            document.getElementById(modalId).classList.remove('open');
-        }
-
-        function handleSearch(event) {
-            if (event.key === 'Enter') {
-                const keyword = document.getElementById('src').value.trim();
-                const urlParams = new URLSearchParams(window.location.search);
-
-                if (keyword) {
-                    urlParams.set('src', keyword);
-                } else {
-                    urlParams.delete('src');
-                }
-
-                urlParams.set('page', 1); // Reset kembali ke halaman 1
-                window.location.href = 'fasilitas_lapangan.php?' + urlParams.toString();
-            }
-        }
-
-        function clearSearch() {
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.delete('src'); // Hapus kata kunci pencarian
-            urlParams.set('page', 1); // Reset kembali ke halaman 1
-            window.location.href = 'fasilitas_lapangan.php?' + urlParams.toString();
-        }
-
     </script>
 </body>
 

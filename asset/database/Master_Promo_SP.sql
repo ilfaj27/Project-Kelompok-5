@@ -345,7 +345,7 @@ IF OBJECT_ID('dbo.sp_Promo_GetById', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_GetById;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_GetById
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_GetById
     @ID_Promo INT
 AS
 BEGIN
@@ -355,11 +355,11 @@ BEGIN
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(Diskon AS VARCHAR), '%') AS DiskonFormatted,
+        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
         Tanggal_Mulai,
-        CONVERT(VARCHAR(10), Tanggal_Mulai, 105) AS TanggalMulaiFormatted,  -- dd-mm-yyyy
+        CONVERT(VARCHAR(10), Tanggal_Mulai, 105) AS TanggalMulaiFormatted,  
         Tanggal_Selesai,
-        CONVERT(VARCHAR(10), Tanggal_Selesai, 105) AS TanggalSelesaiFormatted,  -- dd-mm-yyyy
+        CONVERT(VARCHAR(10), Tanggal_Selesai, 105) AS TanggalSelesaiFormatted,  
         Status,
         dbo.udf_GetPromoStatusText(Status, Tanggal_Selesai) AS StatusText,
         Is_Deleted,
@@ -380,23 +380,22 @@ IF OBJECT_ID('dbo.sp_Promo_GetAll', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_GetAll;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_GetAll
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_GetAll
     @Page         INT = 1,
     @Limit        INT = 10,
-    @Filter_Status VARCHAR(10) = NULL,  -- NULL = Semua, '1' = Aktif, '0' = Kadaluarsa
-    @Sort_By      VARCHAR(20) = 'nama_asc'  -- nama_asc, nama_desc
+    @Filter_Status VARCHAR(10) = NULL,  
+    @Sort_By      VARCHAR(20) = 'nama_asc'  
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE @Offset INT = (@Page - 1) * @Limit;
 
-    -- Query data dengan filter dan sorting
     SELECT 
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(Diskon AS VARCHAR), '%') AS DiskonFormatted,
+        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
         Tanggal_Mulai,
         CONVERT(VARCHAR(10), Tanggal_Mulai, 105) AS TanggalMulaiFormatted,
         Tanggal_Selesai,
@@ -478,7 +477,7 @@ IF OBJECT_ID('dbo.sp_Promo_GetActiveList', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_GetActiveList;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_GetActiveList
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_GetActiveList
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -487,7 +486,7 @@ BEGIN
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(Diskon AS VARCHAR), '%') AS DiskonFormatted,
+        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
         Tanggal_Mulai,
         Tanggal_Selesai
     FROM Promo

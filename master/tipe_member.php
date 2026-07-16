@@ -69,214 +69,359 @@ function safe_sqlsrv_has_rows($stmt)
     return sqlsrv_has_rows($stmt);
 }
 
-// CRUD
-if (isset($_POST['save_tipe'])) {
-    $id = isset($_POST['id_tipe']) ? intval($_POST['id_tipe']) : 0;
-    $nama_tipe = trim($_POST['nama_tipe']);
-    $harga_member_raw = $_POST['harga_member'];
-    $potongan_harga_raw = $_POST['potongan_harga'];
-
-    // ── VALIDASI NAMA TIPE MEMBER ──
-    if ($nama_tipe === '') {
-        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member wajib diisi.");
-        exit();
-    }
-    if (strlen($nama_tipe) < 3) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member minimal 3 karakter.");
-        exit();
-    }
-    if (is_numeric($nama_tipe)) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member tidak boleh hanya angka.");
-        exit();
-    }
-
-    // ── VALIDASI HARGA MEMBER ──
-    if ($harga_member_raw === '') {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga member wajib diisi.");
-        exit();
-    }
-    if (!is_numeric($harga_member_raw)) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga member harus berupa angka.");
-        exit();
-    }
-    $harga_member = floatval($harga_member_raw);
-    if ($harga_member == 0) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga member tidak boleh 0.");
-        exit();
-    }
-    if ($harga_member < 0) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga member tidak boleh kurang dari 0.");
-        exit();
-    }
-    if ($harga_member < 80000) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Harga member minimal 80000.");
-        exit();
-    }
-
-    // ── VALIDASI POTONGAN HARGA ──
-    if ($potongan_harga_raw === '') {
-        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga wajib diisi.");
-        exit();
-    }
-    if (!is_numeric($potongan_harga_raw)) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga harus berupa angka.");
-        exit();
-    }
-    $potongan_harga = floatval($potongan_harga_raw);
-    if ($potongan_harga < 0) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga tidak boleh kurang dari 0.");
-        exit();
-    }
-    if ($potongan_harga < 50000) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga minimal 50000.");
-        exit();
-    }
-    if ($potongan_harga > $harga_member) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Potongan harga tidak boleh lebih besar dari harga member.");
-        exit();
-    }
-
-    // Validasi duplikat nama tipe
-    $sql_check_name = "SELECT ID_Tipe FROM Tipe_Member WHERE Nama_Tipe = ? AND ID_Tipe <> ? AND Is_Deleted = 0";
-    $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_tipe, $id), false);
-    if ($q_check_name && safe_sqlsrv_has_rows($q_check_name)) {
-        header("Location: tipe_member.php?page=1&status=error&msg=Nama tipe member sudah terdaftar.");
-        exit();
-    }
-
-    if (isset($_POST['edit_mode']) && $id > 0) {
-        safe_sqlsrv_query(
-            $conn,
-            "UPDATE Tipe_Member SET Nama_Tipe=?, Harga_Member=?, Potongan_Harga=?, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Tipe=?",
-            array($nama_tipe, $harga_member, $potongan_harga, $nama, $id),
-            false
-        );
-        header("Location: tipe_member.php?page=1&status=success&msg=Data tipe member berhasil diperbarui!");
-    } else {
-        safe_sqlsrv_query(
-            $conn,
-            "INSERT INTO Tipe_Member (Nama_Tipe, Harga_Member, Potongan_Harga, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, 1, 0, ?, GETDATE())",
-            array($nama_tipe, $harga_member, $potongan_harga, $nama),
-            false
-        );
-        header("Location: tipe_member.php?page=1&status=success&msg=Tipe member baru berhasil ditambahkan!");
-    }
-    exit();
-}
-
-if (isset($_GET['toggle_id'])) {
-    $s_baru = ($_GET['s'] == 1) ? 0 : 1;
-    safe_sqlsrv_query($conn, "UPDATE Tipe_Member SET Status=? WHERE ID_Tipe=?", array($s_baru, $_GET['toggle_id']), false);
-    header("Location: tipe_member.php?page=1&status=success&msg=Status tipe member berhasil diubah!");
-    exit();
-}
-
-if (isset($_GET['delete_id'])) {
-    $stmt = safe_sqlsrv_query(
-        $conn,
-        "UPDATE Tipe_Member SET Is_Deleted=1, Deleted_By=?, Deleted_Date=GETDATE() WHERE ID_Tipe=?",
-        array($nama, $_GET['delete_id']),
-        false
-    );
-    header($stmt ? "Location: tipe_member.php?page=1&status=success&msg=Tipe member berhasil dihapus!" : "Location: tipe_member.php?page=1&status=error&msg=Gagal hapus data!");
-    exit();
-}
-
-$edit_data = null;
-if (isset($_GET['edit_id'])) {
-    $r = safe_sqlsrv_query($conn, "SELECT * FROM Tipe_Member WHERE ID_Tipe=? AND Is_Deleted=0", array($_GET['edit_id']), false);
-    if ($r)
-        $edit_data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC);
-}
-
-$detail_data = null;
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r_detail = safe_sqlsrv_query($conn, "SELECT * FROM Tipe_Member WHERE ID_Tipe=? AND Is_Deleted=0", array($_GET['detail_id']), false);
-    if ($r_detail) {
-        $detail_data = safe_sqlsrv_fetch_array($r_detail, SQLSRV_FETCH_ASSOC);
-        $show_detail = true;
-    }
-}
-
-$show_add = isset($_GET['add']) && $_GET['add'] == '1';
-
-// Filter & Sorting
-$where_clauses = array("Is_Deleted = 0");
-$query_params = array();
-if (isset($_GET['f_status']) && $_GET['f_status'] !== '') {
-    $where_clauses[] = "Status = " . intval($_GET['f_status']);
-}
-$where_sql = implode(" AND ", $where_clauses);
-
-$sort_by = "Nama_Tipe ASC";
-if (isset($_GET['f_sort'])) {
-    if ($_GET['f_sort'] === 'nama_asc')
-        $sort_by = "Nama_Tipe ASC";
-    elseif ($_GET['f_sort'] === 'harga_desc')
-        $sort_by = "Harga_Member DESC";
-}
-
-// Statistik
-$q_active = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Tipe_Member WHERE Is_Deleted=0 AND Status=1", [], false);
-$active_count = 0;
-if ($q_active) {
-    $row = safe_sqlsrv_fetch_array($q_active, SQLSRV_FETCH_ASSOC);
-    $active_count = $row['total'] ?? 0;
-}
-
-$q_inactive = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Tipe_Member WHERE Is_Deleted=0 AND Status=0", [], false);
-$inactive_count = 0;
-if ($q_inactive) {
-    $row = safe_sqlsrv_fetch_array($q_inactive, SQLSRV_FETCH_ASSOC);
-    $inactive_count = $row['total'] ?? 0;
-}
-
-$count_res = safe_sqlsrv_query($conn, "SELECT COUNT(*) as total FROM Tipe_Member WHERE $where_sql", $query_params, false);
-$total_data = 0;
-if ($count_res) {
-    $total_row = safe_sqlsrv_fetch_array($count_res, SQLSRV_FETCH_ASSOC);
-    $total_data = $total_row['total'] ?? 0;
-}
-
-$limit = 10;
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$total_pages = max(1, ceil($total_data / $limit));
-$page = min($page, $total_pages);
-$offset = ($page - 1) * $limit;
-
-$query_sql = "SELECT * FROM Tipe_Member WHERE $where_sql ORDER BY $sort_by OFFSET " . intval($offset) . " ROWS FETCH NEXT " . intval($limit) . " ROWS ONLY";
-$query = safe_sqlsrv_query($conn, $query_sql, $query_params, false);
-
-$query_error = ($query === false);
-$query_error_msg = '';
-if ($query_error) {
-    $errors = sqlsrv_errors();
-    if ($errors) {
-        foreach ($errors as $error) {
-            $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
-        }
-    }
-}
-
-$filter_url = "";
-if (isset($_GET['f_sort']))
-    $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_status']))
-    $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
-
-$q_pending = sqlsrv_query($conn, "SELECT COUNT(*) as t FROM Booking WHERE Status=1");
-$total_pending = 0;
-if ($q_pending !== false) {
-    $row_pending = sqlsrv_fetch_array($q_pending, SQLSRV_FETCH_ASSOC);
-    $total_pending = $row_pending['t'] ?? 0;
-}
-
 function rupiah($n)
 {
     return 'Rp ' . number_format($n, 0, ',', '.');
 }
-$current_page = 'tipe_member';
+
+// ── PROSES AJAX REQUESTS ──
+$is_ajax = isset($_GET['action']) || isset($_POST['action']);
+if ($is_ajax) {
+    header('Content-Type: application/json');
+    $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+    // Action: Ambil Detail / Edit data (MENGGUNAKAN STORED PROCEDURE)
+    if ($action === 'get_detail') {
+        $id = intval($_GET['id'] ?? 0);
+        $r = safe_sqlsrv_query($conn, "EXEC sp_GetTipeMemberDetail @ID_Tipe=?", array($id), false);
+        if ($r && $row = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC)) {
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'ID_Tipe' => $row['ID_Tipe'],
+                    'Nama_Tipe' => $row['Nama_Tipe'],
+                    'Harga_Member' => (int)$row['Harga_Member'],
+                    'Potongan_Harga' => (int)$row['Potongan_Harga'],
+                    'Status' => (int)$row['Status']
+                ]
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Data tidak ditemukan atau telah dihapus.']);
+        }
+        exit();
+    }
+
+    // Action: Simpan Data (MENGGUNAKAN UDF & STORED PROCEDURE)
+    if ($action === 'save') {
+        $id = isset($_POST['id_tipe']) ? intval($_POST['id_tipe']) : 0;
+        $nama_tipe = trim($_POST['nama_tipe'] ?? '');
+        $harga_member_raw = $_POST['harga_member'] ?? '';
+        $potongan_harga_raw = $_POST['potongan_harga'] ?? '';
+
+        // Validasi Nama Tipe Member
+        if ($nama_tipe === '') {
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member wajib diisi.']); exit();
+        }
+        if (strlen($nama_tipe) < 3) {
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member minimal 3 karakter.']); exit();
+        }
+        if (is_numeric($nama_tipe)) {
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member tidak boleh hanya angka.']); exit();
+        }
+
+        // Validasi Harga Member
+        if ($harga_member_raw === '') {
+            echo json_encode(['success' => false, 'msg' => 'Harga member wajib diisi.']); exit();
+        }
+        if (!is_numeric($harga_member_raw)) {
+            echo json_encode(['success' => false, 'msg' => 'Harga member harus berupa angka.']); exit();
+        }
+        $harga_member = floatval($harga_member_raw);
+        if ($harga_member == 0) {
+            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh 0.']); exit();
+        }
+        if ($harga_member < 0) {
+            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh kurang dari 0.']); exit();
+        }
+        if ($harga_member < 80000) {
+            echo json_encode(['success' => false, 'msg' => 'Harga member minimal 80000.']); exit();
+        }
+
+        // Validasi Potongan Harga
+        if ($potongan_harga_raw === '') {
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga wajib diisi.']); exit();
+        }
+        if (!is_numeric($potongan_harga_raw)) {
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga harus berupa angka.']); exit();
+        }
+        $potongan_harga = floatval($potongan_harga_raw);
+        if ($potongan_harga < 0) {
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh kurang dari 0.']); exit();
+        }
+        if ($potongan_harga < 50000) {
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga minimal 50000.']); exit();
+        }
+        if ($potongan_harga > $harga_member) {
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh lebih besar dari harga member.']); exit();
+        }
+
+        // Validasi duplikat nama tipe (MENGGUNAKAN USER DEFINED FUNCTION)
+        $q_check_name = safe_sqlsrv_query($conn, "SELECT dbo.fn_CheckTipeMemberDuplicate(?, ?) AS is_duplicate", array($nama_tipe, $id), false);
+        if ($q_check_name) {
+            $row_check = safe_sqlsrv_fetch_array($q_check_name, SQLSRV_FETCH_ASSOC);
+            if (($row_check['is_duplicate'] ?? 0) == 1) {
+                echo json_encode(['success' => false, 'msg' => 'Nama tipe member sudah terdaftar.']); 
+                exit();
+            }
+        }
+
+        if (isset($_POST['edit_mode']) && $id > 0) {
+            // Edit Data (MENGGUNAKAN STORED PROCEDURE)
+            $stmt = safe_sqlsrv_query(
+                $conn,
+                "EXEC sp_UpdateTipeMember @ID_Tipe=?, @Nama_Tipe=?, @Harga_Member=?, @Potongan_Harga=?, @Modified_By=?",
+                array($id, $nama_tipe, $harga_member, $potongan_harga, $nama),
+                false
+            );
+            if ($stmt) {
+                echo json_encode(['success' => true, 'msg' => 'Data tipe member berhasil diperbarui!']);
+            } else {
+                echo json_encode(['success' => false, 'msg' => 'Gagal memperbarui data tipe member.']);
+            }
+        } else {
+            // Tambah Data Baru (MENGGUNAKAN STORED PROCEDURE)
+            $stmt = safe_sqlsrv_query(
+                $conn,
+                "EXEC sp_InsertTipeMember @Nama_Tipe=?, @Harga_Member=?, @Potongan_Harga=?, @Created_By=?",
+                array($nama_tipe, $harga_member, $potongan_harga, $nama),
+                false
+            );
+            if ($stmt) {
+                echo json_encode(['success' => true, 'msg' => 'Tipe member baru berhasil ditambahkan!']);
+            } else {
+                echo json_encode(['success' => false, 'msg' => 'Gagal menambahkan tipe member baru.']);
+            }
+        }
+        exit();
+    }
+
+    // Action: Toggle Status (MENGGUNAKAN STORED PROCEDURE)
+    if ($action === 'toggle') {
+        $id = intval($_GET['id'] ?? 0);
+        $current_status = intval($_GET['status'] ?? 0);
+        $stmt = safe_sqlsrv_query($conn, "EXEC sp_ToggleTipeMemberStatus @ID_Tipe=?, @CurrentStatus=?", array($id, $current_status), false);
+        if ($stmt) {
+            echo json_encode(['success' => true, 'msg' => 'Status tipe member berhasil diubah!']);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Gagal mengubah status tipe member.']);
+        }
+        exit();
+    }
+
+    // Action: Soft Delete Tipe Member (MENGGUNAKAN STORED PROCEDURE)
+    if ($action === 'delete') {
+        $id = intval($_GET['id'] ?? 0);
+        $stmt = safe_sqlsrv_query($conn, "EXEC sp_DeleteTipeMember @ID_Tipe=?, @Deleted_By=?", array($id, $nama), false);
+        if ($stmt) {
+            echo json_encode(['success' => true, 'msg' => 'Tipe member berhasil dihapus!']);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Gagal menghapus tipe member.']);
+        }
+        exit();
+    }
+
+    // Action: Memperbarui Data Tabel dan Pagination (MENGGUNAKAN UDF & STORED PROCEDURE)
+    if ($action === 'get_table_data') {
+        $search_val = isset($_GET['src']) && trim($_GET['src']) !== '' ? trim($_GET['src']) : '';
+        $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? intval($_GET['f_status']) : '';
+        
+        $search_param = ($search_val !== '') ? "%$search_val%" : null;
+        $status_param = ($f_status !== '') ? $f_status : null;
+
+        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+
+        // Hitung Statistik Dashboard (MENGGUNAKAN USER DEFINED FUNCTION)
+        $q_stats = safe_sqlsrv_query($conn, "SELECT * FROM dbo.fn_GetTipeMemberStats()", [], false);
+        $active_count = 0;
+        $inactive_count = 0;
+        $total_data = 0;
+        if ($q_stats) {
+            $row_stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
+            $active_count = $row_stats['ActiveCount'] ?? 0;
+            $inactive_count = $row_stats['InactiveCount'] ?? 0;
+        }
+
+        // Hitung Data Filtered (MENGGUNAKAN USER DEFINED FUNCTION)
+        $q_filtered = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetTipeMemberFilteredCount(?, ?) AS total", array($search_param, $status_param), false);
+        if ($q_filtered) {
+            $row_filtered = safe_sqlsrv_fetch_array($q_filtered, SQLSRV_FETCH_ASSOC);
+            $total_data = $row_filtered['total'] ?? 0;
+        }
+
+        $limit = 10;
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+        $total_pages = max(1, ceil($total_data / $limit));
+        $page = min($page, $total_pages);
+        $offset = ($page - 1) * $limit;
+
+        // Ambil Data Berdasarkan Stored Procedure
+        $query = safe_sqlsrv_query(
+            $conn, 
+            "EXEC sp_GetTipeMemberList @SearchVal=?, @StatusFilter=?, @SortBy=?, @Offset=?, @Limit=?", 
+            array($search_param, $status_param, $f_sort, $offset, $limit), 
+            false
+        );
+
+        $query_error = ($query === false);
+        $query_error_msg = '';
+        if ($query_error) {
+            $errors = sqlsrv_errors();
+            if ($errors) {
+                foreach ($errors as $error) {
+                    $query_error_msg .= "[" . $error['SQLSTATE'] . "] " . $error['message'] . " ";
+                }
+            }
+        }
+
+        // Bangun HTML Body Tabel
+        ob_start();
+        $has_data = false;
+        $no = $offset + 1;
+        if (!$query_error && $query):
+            while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                $has_data = true;
+                $is_active = $row['Status'] == 1;
+                ?>
+                <tr>
+                    <td class="row-num"><?= $no++ ?></td>
+                    <td>
+                        <div class="tipe-name"><?= htmlspecialchars($row['Nama_Tipe']) ?></div>
+                    </td>
+                    <td>
+                        <div class="tipe-harga"><?= rupiah($row['Harga_Member']) ?></div>
+                    </td>
+                    <td>
+                        <div class="tipe-potongan"><?= rupiah($row['Potongan_Harga']) ?></div>
+                    </td>
+                    <td>
+                        <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
+                            <span class="sp-dot"></span>
+                            <?= $is_active ? 'AKTIF' : 'NONAKTIF' ?>
+                        </span>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button onclick="viewDetail(<?= $row['ID_Tipe'] ?>)" class="btn-action btn-view" title="Lihat Detail">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button onclick="openEditModal(<?= $row['ID_Tipe'] ?>)" class="btn-action btn-edit" title="Edit Tipe Member">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> tipe member">
+                                <input type="checkbox" <?= $is_active ? 'checked' : '' ?>
+                                    onchange="confirmToggle('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button onclick="confirmDelete('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>')"
+                                class="btn-action btn-delete" title="Hapus Tipe Member">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <?php endwhile; endif;
+
+        if (!$has_data): ?>
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-star"></i>
+                        <div>Belum ada data tipe member</div>
+                        <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">
+                            Tambah tipe member baru untuk memulai</div>
+                    </div>
+                </td>
+            </tr>
+        <?php endif;
+        $table_html = ob_get_clean();
+
+        // Bangun HTML Pagination
+        ob_start();
+        if ($total_pages > 1): ?>
+            <div class="pagination-info">
+                Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
+                <strong><?= min($page * $limit, $total_data) ?></strong> dari
+                <strong><?= $total_data ?></strong> data
+            </div>
+            <div class="pagination-nav">
+                <button onclick="changePage(1)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
+                    <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <button onclick="changePage(<?= $page - 1 ?>)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
+                    <i class="fa-solid fa-angle-left"></i>
+                </button>
+
+                <?php
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $page + 2);
+                if ($end_page - $start_page < 4 && $total_pages >= 5) {
+                    if ($start_page == 1) {
+                        $end_page = min(5, $total_pages);
+                    } else {
+                        $start_page = max(1, $total_pages - 4);
+                    }
+                }
+                if ($start_page > 1):
+                    ?>
+                    <button onclick="changePage(1)" class="page-btn">1</button>
+                    <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                <?php endif; ?>
+
+                <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                    <button onclick="changePage(<?= $i ?>)" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></button>
+                <?php endfor; ?>
+
+                <?php if ($end_page < $total_pages): ?>
+                    <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
+                    <button onclick="changePage(<?= $total_pages ?>)" class="page-btn"><?= $total_pages ?></button>
+                <?php endif; ?>
+
+                <button onclick="changePage(<?= $page + 1 ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
+                    <i class="fa-solid fa-angle-right"></i>
+                </button>
+                <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
+                    <i class="fa-solid fa-angles-right"></i>
+                </button>
+            </div>
+        <?php else: ?>
+            <div class="pagination-info">
+                Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari
+                <strong><?= $total_data ?></strong> data
+            </div>
+        <?php endif;
+        $pagination_html = ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'table' => $table_html,
+            'pagination' => $pagination_html,
+            'stats' => [
+                'active' => $active_count,
+                'inactive' => $inactive_count,
+                'total' => $total_data
+            ],
+            'error' => $query_error,
+            'error_msg' => $query_error_msg
+        ]);
+        exit();
+    }
+}
+
+// ── GET STATISTICS UNTUK AWAL PAGE LOAD (MENGGUNAKAN UDF) ──
+$q_stats = safe_sqlsrv_query($conn, "SELECT * FROM dbo.fn_GetTipeMemberStats()", [], false);
+$active_count = 0;
+$inactive_count = 0;
+$total_data = 0;
+if ($q_stats) {
+    $row_stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
+    $active_count = $row_stats['ActiveCount'] ?? 0;
+    $inactive_count = $row_stats['InactiveCount'] ?? 0;
+    $total_data = $row_stats['TotalCount'] ?? 0;
+}
+
+$query_error = false;
+$query_error_msg = '';
+
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
 $topbar_title = 'Kelola Tipe Member';
@@ -294,6 +439,11 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        /* CSS Tambahan khusus memaksa SweetAlert2 berada di atas modal bootstrap */
+        .swal2-container {
+            z-index: 3000 !important;
+        }
+
         :root {
             --orange: #FF4500;
             --orange-lt: rgba(255, 69, 0, .10);
@@ -537,7 +687,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             box-shadow: 0 4px 12px rgba(255, 69, 0, .3);
         }
 
-        /* Active indicator pill */
         .sb-link.active::after {
             content: '';
             position: absolute;
@@ -1122,29 +1271,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             border: 1px solid var(--border);
             overflow: hidden;
             transition: all .2s ease;
-            background-color: #ff8800 !important;
-        }
-
-        .main,
-        .content {
-            background-color: #F3F4F6 !important;
-        }
-
-        .card:hover {
-            box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
-        }
-
-        .table-wrap {
-            overflow-x: auto;
-        }
-
-        /* CARD & TABLE */
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            transition: all .2s ease;
             background-color: #FFFFFF !important;
         }
 
@@ -1232,8 +1358,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             height: 68px;
         }
 
-
-        /* Row number styling */
         .row-num {
             font-family: 'Barlow', sans-serif;
             font-weight: 800;
@@ -1242,23 +1366,19 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             text-align: center;
         }
 
-        /* ============================================
-           TABLE COLUMN WIDTHS & ALIGNMENT - ADJUSTED
-           ============================================ */
+        /* TABLE COLUMN WIDTHS & ALIGNMENT */
         .data-table th:nth-child(1),
         .data-table td:nth-child(1) {
             width: 70px;
             text-align: center;
         }
 
-        /* Nama Tipe - Rata Kiri */
         .data-table th:nth-child(2),
         .data-table td:nth-child(2) {
             text-align: left;
             padding-left: 24px;
         }
 
-        /* Harga Member - Rata Kanan */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
             width: 180px;
@@ -1266,7 +1386,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             padding-right: 32px;
         }
 
-        /* Potongan Harga - Rata Kanan */
         .data-table th:nth-child(4),
         .data-table td:nth-child(4) {
             width: 180px;
@@ -1286,9 +1405,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             text-align: center;
         }
 
-        /* ============================================
-           TIPE NAME, PRICE, DISCOUNT - ADJUSTED ALIGNMENT
-           ============================================ */
         .tipe-name {
             font-weight: 700;
             color: var(--text);
@@ -1317,9 +1433,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             text-align: right;
         }
 
-        /* ============================================
-           BADGES & STATUS
-           ============================================ */
+        /* BADGES & STATUS */
         .status-pill {
             display: inline-flex;
             align-items: center;
@@ -1358,9 +1472,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             background: var(--red);
         }
 
-        /* ============================================
-           TOGGLE SWITCH
-           ============================================ */
+        /* TOGGLE SWITCH */
         .toggle-switch {
             position: relative;
             display: inline-flex;
@@ -1576,12 +1688,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         .modal-grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .modal-grid-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
             gap: 16px;
         }
 
@@ -1856,27 +1962,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         .empty-state div {
             font-size: 14px;
             font-weight: 700;
-        }
-
-        /* ZEBRA STRIPING */
-        .data-table tbody tr:nth-child(odd) {
-            background-color: #FFF7ED;
-        }
-
-        .data-table tbody tr:nth-child(even) {
-            background-color: #FFFFFF;
-        }
-
-        .data-table tbody tr:hover td {
-            background-color: #FFEDD5 !important;
-        }
-
-        .data-table tbody tr:nth-child(odd):hover {
-            background-color: #FFEDD5;
-        }
-
-        .data-table tbody tr:nth-child(even):hover {
-            background-color: #FFEDD5;
         }
 
         /* CLOCK */
@@ -2229,32 +2314,45 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         html.swal2-height-auto {
             padding-right: 0px !important;
         }
+
+        /* Tambahan CSS khusus agar tombol hapus pencarian rapi */
+        .btn-clear-search {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 
 <body>
 
     <!-- MODAL FORM TIPE MEMBER -->
-    <div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalTipe">
+    <div class="modal-overlay" id="modalTipe">
         <div class="modal-box">
             <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
             <div class="modal-header">
                 <div class="modal-subtitle">Kelola Tipe Member</div>
-                <div class="modal-title"><?= $edit_data ? 'Edit Tipe Member' : 'Tambah Tipe Member Baru' ?></div>
+                <div class="modal-title" id="form-modal-title">Tambah Tipe Member Baru</div>
             </div>
             <div class="modal-body">
-                <form method="POST" id="formTipe" onsubmit="return validateForm()" novalidate>
-                    <?php if ($edit_data): ?>
-                        <input type="hidden" name="edit_mode" value="1">
-                        <input type="hidden" name="id_tipe" id="id_tipe"
-                            value="<?= htmlspecialchars($edit_data['ID_Tipe'] ?? '') ?>">
-                    <?php endif; ?>
+                <form id="formTipe" onsubmit="handleFormSubmit(event)" novalidate>
+                    <input type="hidden" name="id_tipe" id="id_tipe" value="">
+                    <div id="additional-form-inputs"></div>
 
                     <label class="modal-label">Nama Tipe <span class="required">*</span></label>
                     <input type="text" name="nama_tipe" id="nama_tipe" class="modal-input"
                         placeholder="Masukkan nama tipe (misal: Silver, Gold, Platinum)" autocomplete="off"
-                        value="<?= htmlspecialchars($edit_data['Nama_Tipe'] ?? '') ?>" required minlength="3"
-                        maxlength="10">
+                        value="" required minlength="3" maxlength="10">
                     <div class="val-msg" id="val-nama_tipe"></div>
 
                     <div class="modal-grid-2">
@@ -2262,23 +2360,20 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                             <label class="modal-label">Harga Member (Rp) <span class="required">*</span></label>
                             <input type="number" name="harga_member" id="harga_member" class="modal-input"
                                 placeholder="Contoh: 100000" min="0" step="1000" autocomplete="off"
-                                value="<?= isset($edit_data['Harga_Member']) ? (int) $edit_data['Harga_Member'] : '' ?>"
-                                required>
+                                value="" required>
                             <div class="val-msg" id="val-harga_member"></div>
                         </div>
                         <div>
                             <label class="modal-label">Potongan Harga (Rp) <span class="required">*</span></label>
                             <input type="number" name="potongan_harga" id="potongan_harga" class="modal-input"
                                 placeholder="Contoh: 50000" min="0" step="1000" autocomplete="off"
-                                value="<?= isset($edit_data['Potongan_Harga']) ? (int) $edit_data['Potongan_Harga'] : '' ?>"
-                                required>
+                                value="" required>
                             <div class="val-msg" id="val-potongan_harga"></div>
                         </div>
                     </div>
 
-                    <button type="submit" name="save_tipe" class="btn-submit">
-                        <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                        <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Tipe Member' ?>
+                    <button type="submit" class="btn-submit" id="btn-submit-form">
+                        <i class="fa-solid fa-plus"></i> Tambah Tipe Member
                     </button>
                     <a onclick="closeModal()" class="btn-cancel">Batal</a>
                 </form>
@@ -2302,11 +2397,11 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                 </div>
                 <div class="stat-chips">
                     <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span
-                            class="chip-val"><?= $active_count ?></span></div>
+                            class="chip-val" id="stat-aktif"><?= $active_count ?></span></div>
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span
-                            class="chip-val"><?= $inactive_count ?></span></div>
+                            class="chip-val" id="stat-nonaktif"><?= $inactive_count ?></span></div>
                     <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span
-                            class="chip-val"><?= $total_data ?></span></div>
+                            class="chip-val" id="stat-total"><?= $total_data ?></span></div>
                 </div>
             </div>
 
@@ -2314,24 +2409,27 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             <div class="action-bar">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="src" placeholder="Cari tipe member...(Tekan Enter)" onkeyup="searchTable()">
+                    <input type="text" id="src" placeholder="Cari tipe member... (Tekan Enter)" onkeypress="handleSearch(event)" value="">
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch" style="display: none;">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
                 </div>
 
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
-                        <button class="btn-filter" id="btnFilterToggle">
+                        <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
                             <i class="fa-solid fa-filter"></i> Filter <i
                                 class="fa-solid fa-chevron-down arrow-icon"></i>
                         </button>
 
-                        <div class="filter-card" id="filterCard">
+                        <div class="filter-card" id="filterCardCustom" onclick="event.stopPropagation()">
                             <h4>Filter Data</h4>
-                            <form method="GET" action="tipe_member.php">
+                            <form id="formFilter" onsubmit="handleFilterSubmit(event)">
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc" <?= ($_GET['f_sort'] ?? '') === 'nama_asc' ? 'selected' : '' ?>>Nama A - Z</option>
-                                        <option value="harga_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_desc' ? 'selected' : '' ?>>Harga Tertinggi</option>
+                                        <option value="nama_asc">Nama A - Z</option>
+                                        <option value="harga_desc">Harga Tertinggi</option>
                                     </select>
                                 </div>
 
@@ -2339,10 +2437,8 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                                     <label>Status Tipe Member</label>
                                     <select name="f_status" class="filter-input">
                                         <option value="">Semua Status</option>
-                                        <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF
-                                        </option>
-                                        <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>
-                                            NONAKTIF</option>
+                                        <option value="1">AKTIF</option>
+                                        <option value="0">NONAKTIF</option>
                                     </select>
                                 </div>
 
@@ -2355,7 +2451,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                             </form>
                         </div>
                     </div>
-                    <a href="tipe_member.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
+                    <button onclick="openAddModal()" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</button>
                 </div>
             </div>
 
@@ -2363,10 +2459,10 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-star"></i> Data Tipe Member</div>
-                    <span class="card-badge"><?= $total_data ?> total</span>
+                    <span class="card-badge" id="header-badge"><?= $total_data ?> total</span>
                 </div>
                 <?php if ($query_error): ?>
-                    <div style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
+                    <div id="db-error-banner" style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
                         <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i>
                             Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
                         <p style="color:#666;font-size:11px;margin:5px 0 0;">Error:
@@ -2386,72 +2482,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php
-                                $has_data = false;
-                                $row_num = 0;
-                                $no = $offset + 1;
-
-                                if (!$query_error && $query):
-                                    while ($row = safe_sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                                        $has_data = true;
-                                        $row_num++;
-                                        $is_active = $row['Status'] == 1;
-                                        ?>
-                                        <tr>
-                                            <td class="row-num"><?= $no++ ?></td>
-                                            <td>
-                                                <div class="tipe-name"><?= htmlspecialchars($row['Nama_Tipe']) ?></div>
-                                            </td>
-                                            <td>
-                                                <div class="tipe-harga"><?= rupiah($row['Harga_Member']) ?></div>
-                                            </td>
-                                            <td>
-                                                <div class="tipe-potongan"><?= rupiah($row['Potongan_Harga']) ?></div>
-                                            </td>
-                                            <td>
-                                                <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
-                                                    <span class="sp-dot"></span>
-                                                    <?= $is_active ? 'AKTIF' : 'NONAKTIF' ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div class="actions">
-                                                    <a href="?detail_id=<?= $row['ID_Tipe'] ?>" class="btn-action btn-view"
-                                                        title="Lihat Detail">
-                                                        <i class="fa-solid fa-eye"></i>
-                                                    </a>
-                                                    <a href="?edit_id=<?= $row['ID_Tipe'] ?>" class="btn-action btn-edit"
-                                                        title="Edit Tipe Member">
-                                                        <i class="fa-solid fa-pen-to-square"></i>
-                                                    </a>
-                                                    <label class="toggle-switch"
-                                                        title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> tipe member">
-                                                        <input type="checkbox" <?= $is_active ? 'checked' : '' ?>
-                                                            onchange="confirmToggle('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
-                                                        <span class="toggle-slider"></span>
-                                                    </label>
-                                                    <button
-                                                        onclick="confirmDelete('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe']) ?>')"
-                                                        class="btn-action btn-delete" title="Hapus Tipe Member">
-                                                        <i class="fa-solid fa-trash-can"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endwhile; endif; ?>
-
-                                <?php if (!$has_data): ?>
-                                    <tr>
-                                        <td colspan="6">
-                                            <div class="empty-state">
-                                                <i class="fa-solid fa-star"></i>
-                                                <div>Belum ada data tipe member</div>
-                                                <div style="font-size: 12px; font-weight: 500; margin-top: 8px; opacity: .7;">
-                                                    Tambah tipe member baru untuk memulai</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
+                                <!-- Dinamis diisi lewat AJAX Javascript -->
                             </tbody>
                         </table>
                     </div>
@@ -2459,130 +2490,369 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             </div>
 
             <!-- PAGINATION -->
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">
-                        Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
-                        <strong><?= min($page * $limit, $total_data) ?></strong> dari
-                        <strong><?= $total_data ?></strong> data
-                    </div>
-                    <div class="pagination-nav">
-                        <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"
-                            title="Halaman Pertama">
-                            <i class="fa-solid fa-angles-left"></i>
-                        </a>
-                        <a href="?page=<?= $page - 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
-                            <i class="fa-solid fa-angle-left"></i>
-                        </a>
-
-                        <?php
-                        $start_page = max(1, $page - 2);
-                        $end_page = min($total_pages, $page + 2);
-                        if ($end_page - $start_page < 4 && $total_pages >= 5) {
-                            if ($start_page == 1) {
-                                $end_page = min(5, $total_pages);
-                            } else {
-                                $start_page = max(1, $total_pages - 4);
-                            }
-                        }
-                        if ($start_page > 1):
-                            ?>
-                            <a href="?page=1<?= $filter_url ?>" class="page-btn">1</a>
-                            <?php if ($start_page > 2): ?><span class="page-ellipsis">...</span><?php endif; ?>
-                        <?php endif; ?>
-
-                        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-                            <a href="?page=<?= $i ?><?= $filter_url ?>"
-                                class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></a>
-                        <?php endfor; ?>
-
-                        <?php if ($end_page < $total_pages): ?>
-                            <?php if ($end_page < $total_pages - 1): ?><span class="page-ellipsis">...</span><?php endif; ?>
-                            <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn"><?= $total_pages ?></a>
-                        <?php endif; ?>
-
-                        <a href="?page=<?= $page + 1 ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
-                            <i class="fa-solid fa-angle-right"></i>
-                        </a>
-                        <a href="?page=<?= $total_pages ?><?= $filter_url ?>"
-                            class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
-                            <i class="fa-solid fa-angles-right"></i>
-                        </a>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="pagination-wrap">
-                    <div class="pagination-info">
-                        Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari
-                        <strong><?= $total_data ?></strong> data
-                    </div>
-                </div>
-            <?php endif; ?>
+            <div class="pagination-wrap">
+                <!-- Dinamis diisi lewat AJAX Javascript -->
+            </div>
         </div>
     </main>
 
+    <!-- MODAL DETAIL TIPE MEMBER -->
+    <div class="modal-overlay" id="modalDetail">
+        <div class="modal-box" style="width: 440px;">
+            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <div class="modal-subtitle">Informasi Tipe Member</div>
+                <div class="modal-title">Profil Tipe Member</div>
+            </div>
+            <div class="modal-body" id="detail-modal-body" style="padding-top: 10px;">
+                <!-- Dinamis diisi lewat AJAX Javascript -->
+            </div>
+        </div>
+    </div>
+
+    <script src="../asset/js/global.js"></script>
     <script>
+        // State management untuk Filter & Pagination
+        let currentPage = 1;
+        let currentSort = 'nama_asc';
+        let currentStatus = '';
+        let currentSearch = '';
+
         // ============================================
-        // CLOCK / JAM REAL-TIME
+        // GET DATA TABEL (AJAX REFRESH)
         // ============================================
-        (function initClock() {
-            function updateClock() {
-                try {
-                    const now = new Date();
-                    const h = String(now.getHours()).padStart(2, '0');
-                    const m = String(now.getMinutes()).padStart(2, '0');
-                    const s = String(now.getSeconds()).padStart(2, '0');
+        async function loadTableData() {
+            const url = `tipe_member.php?action=get_table_data&page=${currentPage}&f_sort=${currentSort}&f_status=${currentStatus}&src=${encodeURIComponent(currentSearch)}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    // Update stats
+                    document.getElementById('stat-aktif').textContent = data.stats.active;
+                    document.getElementById('stat-nonaktif').textContent = data.stats.inactive;
+                    document.getElementById('stat-total').textContent = data.stats.total;
+                    document.getElementById('header-badge').textContent = `${data.stats.total} total`;
 
-                    const hEl = document.getElementById('h');
-                    const mEl = document.getElementById('m');
-                    const sEl = document.getElementById('s');
-                    const dateEl = document.getElementById('full-date');
+                    // Update Table & Pagination
+                    document.querySelector('#tbl tbody').innerHTML = data.table;
+                    document.querySelector('.pagination-wrap').innerHTML = data.pagination;
 
-                    if (hEl) hEl.textContent = h;
-                    if (mEl) mEl.textContent = m;
-                    if (sEl) sEl.textContent = s;
-
-                    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-                    if (dateEl) {
-                        dateEl.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+                    // Update Clear Search Button visibility
+                    const btnClear = document.getElementById('btnClearSearch');
+                    if (currentSearch !== '') {
+                        btnClear.style.display = 'block';
+                    } else {
+                        btnClear.style.display = 'none';
                     }
-                } catch (e) {
-                    console.error('Clock error:', e);
                 }
+            } catch (error) {
+                console.error("Gagal memuat data tabel:", error);
             }
+        }
 
-            updateClock();
-            setInterval(updateClock, 1000);
-        })();
+        function changePage(page) {
+            currentPage = page;
+            loadTableData();
+        }
 
         // ============================================
-        // MODAL FUNCTIONS
+        // MODAL ADD / EDIT / DETAIL CONTROL
         // ============================================
         function closeModal() {
-            window.location.href = 'tipe_member.php';
+            document.getElementById('modalTipe').classList.remove('open');
+            document.getElementById('modalDetail').classList.remove('open');
+        }
+
+        function openAddModal() {
+            document.getElementById('formTipe').reset();
+            document.getElementById('id_tipe').value = '';
+            document.getElementById('additional-form-inputs').innerHTML = '';
+            
+            // Bersihkan error validasi sebelumnya
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+
+            // Konfigurasi Title & Button Modal
+            document.getElementById('form-modal-title').textContent = 'Tambah Tipe Member Baru';
+            document.getElementById('btn-submit-form').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Tipe Member';
+
+            document.getElementById('modalTipe').classList.add('open');
+        }
+
+        async function openEditModal(id) {
+            // Bersihkan error validasi sebelumnya
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+
+            try {
+                const response = await fetch(`tipe_member.php?action=get_detail&id=${id}`);
+                const res = await response.json();
+                if (res.success) {
+                    const data = res.data;
+                    document.getElementById('id_tipe').value = data.ID_Tipe;
+                    document.getElementById('nama_tipe').value = data.Nama_Tipe;
+                    document.getElementById('harga_member').value = data.Harga_Member;
+                    document.getElementById('potongan_harga').value = data.Potongan_Harga;
+
+                    document.getElementById('additional-form-inputs').innerHTML = `
+                        <input type="hidden" name="edit_mode" value="1">
+                    `;
+
+                    // Konfigurasi Title & Button Modal
+                    document.getElementById('form-modal-title').textContent = 'Edit Tipe Member';
+                    document.getElementById('btn-submit-form').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+                    document.getElementById('modalTipe').classList.add('open');
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Terjadi kesalahan saat mengambil data.');
+            }
+        }
+
+        async function viewDetail(id) {
+            try {
+                const response = await fetch(`tipe_member.php?action=get_detail&id=${id}`);
+                const res = await response.json();
+                if (res.success) {
+                    const data = res.data;
+                    const formatRupiah = (val) => 'Rp ' + new Intl.NumberFormat('id-ID').format(val);
+                    const isActive = data.Status === 1;
+
+                    const statusPill = isActive 
+                        ? `<span class="status-pill sp-active"><span class="sp-dot"></span>AKTIF</span>`
+                        : `<span class="status-pill sp-inactive"><span class="sp-dot"></span>NONAKTIF</span>`;
+
+                    document.getElementById('detail-modal-body').innerHTML = `
+                        <div class="detail-photo-card">
+                            <div class="detail-icon-wrap"><i class="fa-solid fa-star"></i></div>
+                            <div class="detail-main-name">${data.Nama_Tipe}</div>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-key"><i class="fa-solid fa-star"></i> Nama Tipe</span>
+                            <span class="info-val" style="font-weight:700;">${data.Nama_Tipe}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Member</span>
+                            <span class="info-val price">${formatRupiah(data.Harga_Member)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-key"><i class="fa-solid fa-tags"></i> Potongan Harga</span>
+                            <span class="info-val discount">${formatRupiah(data.Potongan_Harga)}</span>
+                        </div>
+                        <div class="info-row" style="border-bottom:none;">
+                            <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
+                            <span class="info-val">${statusPill}</span>
+                        </div>
+                        <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
+                            <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+                        </button>
+                    `;
+                    document.getElementById('modalDetail').classList.add('open');
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Terjadi kesalahan sistem.');
+            }
         }
 
         // ============================================
-        // SEARCH TABLE
+        // ALERT HELPER FUNCTIONS (PREVENTS STUCK MODAL)
         // ============================================
-        function searchTable() {
-            var input = document.getElementById('src').value.toUpperCase();
-            var rows = document.getElementById('tbl').getElementsByTagName('tr');
-            for (var i = 1; i < rows.length; i++) {
-                var tdName = rows[i].getElementsByTagName('td')[1];
-                if (tdName) {
-                    var match = tdName.textContent.toUpperCase().indexOf(input) > -1;
-                    rows[i].style.display = match ? '' : 'none';
+        function showSuccess(title, message) {
+            Swal.close(); // Tutup modal loading terlebih dahulu
+            Swal.fire({
+                icon: 'success',
+                title: title,
+                text: message,
+                confirmButtonColor: '#10B981'
+            });
+        }
+
+        function showError(title, message) {
+            Swal.close(); // Tutup modal loading terlebih dahulu
+            Swal.fire({
+                icon: 'error',
+                title: title,
+                text: message,
+                confirmButtonColor: '#EF4444'
+            });
+        }
+
+        // ============================================
+        // AJAX SUBMIT FORM (TAMBAH / EDIT)
+        // ============================================
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            if (!validateForm()) return;
+
+            const form = document.getElementById('formTipe');
+            const formData = new FormData(form);
+            formData.append('action', 'save');
+
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Menyimpan data tipe member',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const response = await fetch('tipe_member.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+                if (res.success) {
+                    closeModal();
+                    showSuccess('Berhasil!', res.msg);
+                    loadTableData();
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Gagal!', 'Gagal memproses data.');
+            }
+        }
+
+        // ============================================
+        // SEARCH & FILTER SYSTEM
+        // ============================================
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                currentSearch = document.getElementById('src').value.trim();
+                currentPage = 1;
+                loadTableData();
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('src').value = '';
+            currentSearch = '';
+            currentPage = 1;
+            loadTableData();
+        }
+
+        function handleFilterSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            currentSort = form.elements['f_sort'].value;
+            currentStatus = form.elements['f_status'].value;
+            currentPage = 1;
+            loadTableData();
+            
+            // Tutup filter dropdown
+            document.getElementById('btnFilterToggleCustom').classList.remove('active');
+            document.getElementById('filterCardCustom').classList.remove('open');
+        }
+
+        function resetFilter() {
+            document.getElementById('formFilter').reset();
+            currentSort = 'nama_asc';
+            currentStatus = '';
+            currentSearch = '';
+            document.getElementById('src').value = '';
+            currentPage = 1;
+            loadTableData();
+
+            document.getElementById('btnFilterToggleCustom').classList.remove('active');
+            document.getElementById('filterCardCustom').classList.remove('open');
+        }
+
+        // ============================================
+        // TOGGLE STATUS (MENGGUNAKAN SP)
+        // ============================================
+        async function confirmToggle(id, name, currentStatus, event) {
+            const checkbox = event.target;
+            const newStatus = currentStatus === 1 ? 0 : 1;
+            const statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
+            const icon = newStatus === 1 ? 'success' : 'warning';
+            const confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
+
+            const result = await Swal.fire({
+                title: 'Ubah Status?',
+                html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
+                icon: icon,
+                showCancelButton: true,
+                confirmButtonColor: confirmColor,
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Ya, Ubah!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                allowOutsideClick: false
+            });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Memproses...',
+                    text: 'Mengubah status tipe member',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`tipe_member.php?action=toggle&id=${id}&status=${currentStatus}`);
+                    const res = await response.json();
+                    if (res.success) {
+                        showSuccess('Berhasil!', res.msg);
+                        loadTableData();
+                    } else {
+                        checkbox.checked = !checkbox.checked;
+                        showError('Gagal!', res.msg);
+                    }
+                } catch (error) {
+                    checkbox.checked = !checkbox.checked;
+                    showError('Gagal!', 'Terjadi kesalahan saat mengubah status.');
+                }
+            } else {
+                checkbox.checked = !checkbox.checked;
+            }
+        }
+
+        // ============================================
+        // DELETE CONFIRMATION (MENGGUNAKAN SP)
+        // ============================================
+        async function confirmDelete(id, name) {
+            const result = await Swal.fire({
+                title: 'Hapus Tipe Member?',
+                html: 'Anda akan menghapus tipe member <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                allowOutsideClick: false
+            });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Memproses...',
+                    text: 'Menghapus tipe member',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`tipe_member.php?action=delete&id=${id}`);
+                    const res = await response.json();
+                    if (res.success) {
+                        showSuccess('Terhapus!', res.msg);
+                        loadTableData();
+                    } else {
+                        showError('Gagal!', res.msg);
+                    }
+                } catch (error) {
+                    showError('Gagal!', 'Terjadi kesalahan saat menghapus data.');
                 }
             }
         }
 
         // ============================================
-        // VALIDASI FORM - REAL TIME & SUBMIT
+        // FORM FIELD VALIDATION
         // ============================================
         function validateField(fieldId, valId, rules) {
             const field = document.getElementById(fieldId);
@@ -2654,15 +2924,12 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                     }
                 }
             }
-
             return true;
         }
 
         function validateForm() {
             let valid = true;
-
             if (!validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' })) valid = false;
-
             if (!validateField('harga_member', 'val-harga_member', {
                 required: true,
                 isNumeric: true,
@@ -2670,160 +2937,48 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                 minVal: 80000,
                 label: 'Harga member'
             })) valid = false;
-
             if (!validateField('potongan_harga', 'val-potongan_harga', {
                 required: true,
                 isNumeric: true,
                 minVal: 50000,
                 label: 'Potongan harga'
             })) valid = false;
-
             return valid;
         }
 
         // ============================================
-        // NOTIFIKASI TOAST
+        // PENGENDALI EVENT KLIK FILTER (INLINE FALLBACK)
         // ============================================
-        function showToast(type, title, message) {
-            Swal.fire({
-                icon: type,
-                title: title,
-                text: message,
-                timer: 3000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                timerProgressBar: true,
-                showCloseButton: true,
-                customClass: { popup: 'colored-toast' }
-            });
+        function toggleCustomFilterCard(e) {
+            e.stopPropagation();
+            const btn = document.getElementById('btnFilterToggleCustom');
+            const card = document.getElementById('filterCardCustom');
+            if (btn && card) {
+                btn.classList.toggle('active');
+                card.classList.toggle('open');
+            }
         }
 
-        function showSuccess(title, message) {
-            showToast('success', title, message);
-        }
-
-        function showError(title, message) {
-            showToast('error', title, message);
-        }
-
-        // ============================================
-        // TOGGLE STATUS
-        // ============================================
-        function confirmToggle(id, name, currentStatus, event) {
-            var checkbox = event.target;
-            var newStatus = currentStatus === 1 ? 0 : 1;
-            var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
-            var icon = newStatus === 1 ? 'success' : 'warning';
-            var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
-
-            Swal.fire({
-                title: 'Ubah Status?',
-                html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
-                icon: icon,
-                showCancelButton: true,
-                confirmButtonColor: confirmColor,
-                cancelButtonColor: '#6B7280',
-                confirmButtonText: 'Ya, Ubah!',
-                cancelButtonText: 'Batal',
-                reverseButtons: true,
-                allowOutsideClick: false
-            }).then(function (result) {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Memproses...',
-                        text: 'Mengubah status tipe member',
-                        allowOutsideClick: false,
-                        didOpen: function () {
-                            Swal.showLoading();
-                        }
-                    });
-                    setTimeout(function () {
-                        window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
-                    }, 600);
-                } else {
-                    checkbox.checked = !checkbox.checked;
+        // Tutup filter card saat pengguna klik di luar area filter
+        window.addEventListener('click', function (e) {
+            const btn = document.getElementById('btnFilterToggleCustom');
+            const card = document.getElementById('filterCardCustom');
+            if (btn && card) {
+                if (!btn.contains(e.target) && !card.contains(e.target)) {
+                    btn.classList.remove('active');
+                    card.classList.remove('open');
                 }
-            });
-        }
+            }
+        });
 
         // ============================================
-        // DELETE CONFIRMATION
-        // ============================================
-        function confirmDelete(id, name) {
-            Swal.fire({
-                title: 'Hapus Tipe Member?',
-                html: 'Anda akan menghapus tipe member <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#EF4444',
-                cancelButtonColor: '#6B7280',
-                confirmButtonText: 'Ya, Hapus!',
-                cancelButtonText: 'Batal',
-                reverseButtons: true,
-                allowOutsideClick: false
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Memproses...',
-                        text: 'Menghapus tipe member',
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
-                    setTimeout(() => {
-                        window.location.href = '?delete_id=' + id;
-                    }, 600);
-                }
-            });
-        }
-
-        // ============================================
-        // FILTER DROPDOWN
-        // ============================================
-        const btnFilterToggle = document.getElementById('btnFilterToggle');
-        const filterCard = document.getElementById('filterCard');
-        if (btnFilterToggle && filterCard) {
-            btnFilterToggle.addEventListener('click', function (e) {
-                e.stopPropagation();
-                this.classList.toggle('active');
-                filterCard.classList.toggle('open');
-            });
-            filterCard.addEventListener('click', function (e) {
-                e.stopPropagation();
-            });
-            document.addEventListener('click', function () {
-                btnFilterToggle.classList.remove('active');
-                filterCard.classList.remove('open');
-            });
-        }
-
-        function resetFilter() {
-            window.location.href = 'tipe_member.php';
-        }
-
-        // ============================================
-        // URL PARAMETER NOTIFICATION
+        // INITIAL LOAD & REAL-TIME VALIDATIONS
         // ============================================
         document.addEventListener('DOMContentLoaded', function () {
-            const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
-            const msg = urlParams.get('msg');
+            // Jalankan load data tabel utama
+            loadTableData();
 
-            if (status && msg) {
-                const isSuccess = status === 'success';
-                Swal.fire({
-                    icon: isSuccess ? 'success' : 'error',
-                    title: isSuccess ? 'Berhasil!' : 'Gagal!',
-                    text: msg,
-                    showConfirmButton: true,
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false
-                });
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-
+            // Real-time validations
             const namaTipe = document.getElementById('nama_tipe');
             if (namaTipe) {
                 namaTipe.addEventListener('blur', function () {
@@ -2883,56 +3038,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             }
         });
     </script>
-
-    <!-- MODAL DETAIL TIPE MEMBER -->
-    <div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
-        <div class="modal-box" style="width: 440px;">
-            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
-            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
-                <div class="modal-subtitle">Informasi Tipe Member</div>
-                <div class="modal-title">Profil Tipe Member</div>
-            </div>
-            <div class="modal-body" style="padding-top: 10px;">
-                <?php if ($detail_data):
-                    $is_active_detail = $detail_data['Status'] == 1;
-                    ?>
-                    <div class="detail-photo-card">
-                        <div class="detail-icon-wrap"><i class="fa-solid fa-star"></i></div>
-                        <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></div>
-                    </div>
-
-                    <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Tipe'] ?? '') ?>">
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-star"></i> Nama Tipe</span>
-                        <span class="info-val"
-                            style="font-weight:700;"><?= htmlspecialchars($detail_data['Nama_Tipe']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-money-bill-wave"></i> Harga Member</span>
-                        <span class="info-val price"><?= rupiah($detail_data['Harga_Member']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-key"><i class="fa-solid fa-tags"></i> Potongan Harga</span>
-                        <span class="info-val discount"><?= rupiah($detail_data['Potongan_Harga']) ?></span>
-                    </div>
-                    <div class="info-row" style="border-bottom:none;">
-                        <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
-                        <span class="info-val">
-                            <span class="status-pill <?= $is_active_detail ? 'sp-active' : 'sp-inactive' ?>">
-                                <span class="sp-dot"></span>
-                                <?= $is_active_detail ? 'AKTIF' : 'NONAKTIF' ?>
-                            </span>
-                        </span>
-                    </div>
-                <?php endif; ?>
-
-                <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
-                    <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
-                </button>
-            </div>
-        </div>
-    </div>
-
 </body>
 
 </html>
