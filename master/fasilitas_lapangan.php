@@ -361,7 +361,7 @@ $sidebar_photo = $profile_photo;
             color: #9CA3AF;
         }
 
-        /* ═══ CARD & TABLE (SINKRON DENGAN LAPANGAN) ═══ */
+        /* ═══ CARD & TABLE (PENYELARASAN LAYOUT) ═══ */
         .card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -371,36 +371,38 @@ $sidebar_photo = $profile_photo;
             background-color: #FFFFFF !important;
         }
 
-
         .card:hover {
             box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
         }
 
-/* CARD HEADER - synced with customer */
-.card-header { 
-    padding: 20px 24px; 
-    border-bottom: 1px solid var(--border); 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-}
-.card-title { 
-    font-size: 15px; 
-    font-weight: 800; 
-    color: var(--text); 
-    display: flex; 
-    align-items: center; 
-    gap: 8px; 
-}
-.card-title i { color: var(--orange); font-size: 14px; }
-.card-badge { 
-    background: var(--orange-lt); 
-    color: var(--orange); 
-    font-size: 11px; 
-    font-weight: 800; 
-    padding: 4px 10px; 
-    border-radius: 20px; 
-}
+        .card-header { 
+            padding: 20px 24px; 
+            border-bottom: 1px solid var(--border); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        }
+
+        .card-title { 
+            font-size: 15px; 
+            font-weight: 800; 
+            color: var(--text); 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+        }
+
+        .card-title i { color: var(--orange); font-size: 14px; }
+
+        .card-badge { 
+            background: var(--orange-lt); 
+            color: var(--orange); 
+            font-size: 11px; 
+            font-weight: 800; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+        }
+
         .table-wrap {
             overflow-x: auto;
             scrollbar-width: none;
@@ -414,38 +416,95 @@ $sidebar_photo = $profile_photo;
         }
 
         .data-table th {
-            font-family: 'Barlow Condensed', sans-serif !important; font-size: 13px !important; font-weight: 900 !important; 
-            color: #FFFFFF !important; text-transform: uppercase !important; letter-spacing: 0.8px !important; 
-            padding: 14px 20px; border-bottom: 2px solid var(--border-lt);
+            font-family: 'Barlow Condensed', sans-serif !important; 
+            font-size: 13.5px !important; 
+            font-weight: 900 !important; 
+            color: #FFFFFF !important; 
+            text-transform: uppercase !important; 
+            letter-spacing: 0.8px !important; 
+            padding: 16px 20px; 
+            border-bottom: 2px solid var(--border-lt);
             background: #ff6f00 !important;
         }
 
-        .data-table td {
-            padding: 14px 16px;
-            vertical-align: middle;
-            font-size: 13px;
-            text-align: center;
-        }
-        .data-table tbody tr { height: 68px; }
-        .fas-name {
-            font-weight: 700;
-            color: var(--text);
-            font-size: 14px;
-        }
-        .fas-detail {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 2px;
+        /* Kelas Penjajaran Khusus */
+        .col-left {
+            text-align: left !important;
+            padding-left: 24px !important;
         }
 
-        /* ═══ STATUS PILL (SAMAKAN DENGAN LAPANGAN) ═══ */
+        .col-center {
+            text-align: center !important;
+        }
+
+        .data-table td {
+            padding: 14px 20px;
+            vertical-align: middle;
+            font-size: 13.5px;
+        }
+
+        .data-table tbody tr { 
+            height: 72px; 
+            border-bottom: 1px solid var(--border-lt);
+        }
+
+        .data-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .fas-name {
+            font-weight: 800;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .fas-detail-col {
+            font-size: 13px;
+            color: var(--text-md);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        /* ═══ STOK BADGE (PRO) ═══ */
+        .stok-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 800;
+            font-size: 15px;
+            background: #F3F4F6;
+            padding: 6px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-lt);
+            color: var(--text);
+            min-width: 75px;
+        }
+
+        .stok-sisa {
+            color: var(--green);
+        }
+
+        .stok-pemisah {
+            color: #9CA3AF;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .stok-total {
+            color: var(--text);
+        }
+
+        /* ═══ STATUS PILL ═══ */
         .status-pill {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 7px 16px;
+            padding: 6px 14px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: .3px;
@@ -462,8 +521,8 @@ $sidebar_photo = $profile_photo;
         }
 
         .sp-dot {
-            width: 7px;
-            height: 7px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             display: inline-block;
         }
@@ -476,12 +535,12 @@ $sidebar_photo = $profile_photo;
             background: var(--red);
         }
 
-        /* ═══ ACTIONS ═══ */
+        /* ═══ ACTIONS & SWITCH ═══ */
         .actions {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
+            display: inline-flex;
+            gap: 10px;
             align-items: center;
+            justify-content: center;
         }
 
         .btn-action {
@@ -493,7 +552,7 @@ $sidebar_photo = $profile_photo;
             border-radius: 8px;
             font-size: 13px;
             font-weight: 700;
-            transition: all .25s cubic-bezier(.4, 0, .2, 1);
+            transition: all .2s ease;
             border: 1.5px solid transparent;
             cursor: pointer;
         }
@@ -509,7 +568,7 @@ $sidebar_photo = $profile_photo;
             color: #fff;
             border-color: #3B82F6;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, .35);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, .2);
         }
 
         .btn-edit {
@@ -523,7 +582,7 @@ $sidebar_photo = $profile_photo;
             color: #fff;
             border-color: #3B82F6;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, .35);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, .2);
         }
 
         .btn-delete {
@@ -537,10 +596,9 @@ $sidebar_photo = $profile_photo;
             color: #fff;
             border-color: #EF4444;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, .35);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, .2);
         }
 
-        /* ═══ TOGGLE SWITCH (SAMAKAN DENGAN LAPANGAN) ═══ */
         .toggle-switch {
             position: relative;
             display: inline-flex;
@@ -548,7 +606,7 @@ $sidebar_photo = $profile_photo;
             width: 44px;
             height: 24px;
             cursor: pointer;
-            margin: 0;
+            margin: 0 4px;
         }
 
         .toggle-switch input {
@@ -579,14 +637,18 @@ $sidebar_photo = $profile_photo;
             background-color: white;
             transition: .3s;
             border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
         }
 
-        .toggle-switch:hover .toggle-slider {
-            opacity: .9;
+        .toggle-switch input:checked+.toggle-slider {
+            background-color: var(--green);
         }
 
-        /* ═══ ZEBRA STRIPING & HOVER (SAMAKAN DENGAN LAPANGAN) ═══ */
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(20px);
+        }
+
+        /* ═══ ZEBRA STRIPING ═══ */
         .data-table tbody tr:nth-child(odd) {
             background-color: #FFF7ED;
         }
@@ -597,23 +659,6 @@ $sidebar_photo = $profile_photo;
 
         .data-table tbody tr:hover td {
             background-color: #FFEDD5 !important;
-        }
-
-        .data-table tbody tr:nth-child(odd):hover {
-            background-color: #FFEDD5;
-        }
-
-        .data-table tbody tr:nth-child(even):hover {
-            background-color: #FFEDD5;
-        }
-
-
-        .toggle-switch input:checked+.toggle-slider {
-            background-color: var(--green);
-        }
-
-        .toggle-switch input:checked+.toggle-slider::before {
-            transform: translateX(20px);
         }
 
         .modal-overlay {
@@ -1125,7 +1170,6 @@ $sidebar_photo = $profile_photo;
             color: var(--text);
         }
 
-
         .btn-clear-search {
             position: absolute;
             right: 5px;
@@ -1342,11 +1386,12 @@ $sidebar_photo = $profile_photo;
                     <table class="data-table" id="tbl">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">No</th>
-                                <th>Nama Fasilitas</th>
-                                <th style="width: 150px;">Stok (Sisa/Total)</th>
-                                <th style="width: 150px;">Status</th>
-                                <th>Aksi</th>
+                                <th style="width: 80px;" class="col-center">No</th>
+                                <th style="width: 250px;" class="col-left">Nama Fasilitas</th>
+                                <th class="col-left">Detail Fasilitas</th>
+                                <th style="width: 180px;" class="col-center">Stok (Sisa/Total)</th>
+                                <th style="width: 150px;" class="col-center">Status</th>
+                                <th style="width: 220px;" class="col-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1358,27 +1403,32 @@ $sidebar_photo = $profile_photo;
                                     $has_data = true;
                                     ?>
                                     <tr>
-                                        <td
+                                        <td class="col-center"
                                             style="font-family:'Barlow Condensed', sans-serif; font-weight:700; color:var(--text);">
                                             <?= $no++ ?>
                                         </td>
-                                        <td>
+                                        <td class="col-left">
                                             <div class="fas-name"><?= htmlspecialchars($row['Nama_Fasilitas']) ?></div>
                                         </td>
-                                        <td>
-                                            <div
-                                                style="font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:15px; color:var(--text);">
-                                                <span style="color: var(--green);"><?= intval($row['Stok_Tersedia']) ?></span> /
-                                                <span><?= intval($row['Stok_Total']) ?></span>
+                                        <td class="col-left">
+                                            <div class="fas-detail-col">
+                                                <?= !empty($row['Detail_Fasilitas']) ? htmlspecialchars($row['Detail_Fasilitas']) : '-' ?>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td class="col-center">
+                                            <div class="stok-badge">
+                                                <span class="stok-sisa"><?= intval($row['Stok_Tersedia']) ?></span>
+                                                <span class="stok-pemisah">/</span>
+                                                <span class="stok-total"><?= intval($row['Stok_Total']) ?></span>
+                                            </div>
+                                        </td>
+                                        <td class="col-center">
                                             <span class="status-pill <?= $row['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
                                                 <span class="sp-dot"></span>
                                                 <?= $row['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
                                             </span>
                                         </td>
-                                        <td>
+                                        <td class="col-center">
                                             <div class="actions">
                                                 <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')"
                                                     class="btn-action btn-view" title="Lihat Detail"><i
@@ -1402,7 +1452,7 @@ $sidebar_photo = $profile_photo;
                                 <?php endwhile; endif; ?>
                             <?php if (!$has_data): ?>
                                 <tr>
-                                    <td colspan="5">
+                                    <td colspan="6">
                                         <div class="empty-state">
                                             <i class="fa-solid fa-list-check"></i>
                                             <div>Belum ada data fasilitas</div>

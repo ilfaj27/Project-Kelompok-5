@@ -187,6 +187,9 @@ GO
 -- ============================================================
 -- 7. SP: Read Fasilitas List (terpaginasi dengan filter)
 -- ============================================================
+USE Hoopball;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.sp_ReadFasilitasListWithCount
     @Filter_Lapangan VARCHAR(10) = 'all',   -- 'all' atau ID_Lapangan
     @Filter_Status   VARCHAR(10) = 'all',   -- 'all', '0', '1'
@@ -198,18 +201,31 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Hasil 1: Total Count
+    -- 1. Definisikan variabel lokal untuk menampung ID angka secara aman
+    DECLARE @Status_Int INT = NULL;
+    IF @Filter_Status <> 'all' AND ISNUMERIC(@Filter_Status) = 1
+    BEGIN
+        SET @Status_Int = CAST(@Filter_Status AS INT);
+    END
+
+    DECLARE @Lapangan_Int INT = NULL;
+    IF @Filter_Lapangan <> 'all' AND ISNUMERIC(@Filter_Lapangan) = 1
+    BEGIN
+        SET @Lapangan_Int = CAST(@Filter_Lapangan AS INT);
+    END
+
+    -- Hasil 1: Total Count (Jumlah data terfilter)
     SELECT COUNT(*) AS TotalCount
     FROM Fasilitas_Lapangan f
     WHERE f.Is_Deleted = 0
-      AND (@Filter_Status = 'all' OR f.Status = CAST(@Filter_Status AS INT))
-      AND (@Filter_Lapangan = 'all' 
+      AND (@Status_Int IS NULL OR f.Status = @Status_Int)
+      AND (@Lapangan_Int IS NULL 
            OR EXISTS (SELECT 1 FROM Detail_Lapangan_Fasilitas d 
                       WHERE d.ID_Fasilitas = f.ID_Fasilitas 
-                        AND d.ID_Lapangan = CAST(@Filter_Lapangan AS INT)))
+                        AND d.ID_Lapangan = @Lapangan_Int))
       AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%');
 
-    -- Hasil 2: Data List
+    -- Hasil 2: Data List (Data terpaginasi)
     SELECT 
         f.ID_Fasilitas,
         f.Nama_Fasilitas,
@@ -223,25 +239,17 @@ BEGIN
         f.Modified_Date
     FROM Fasilitas_Lapangan f
     WHERE f.Is_Deleted = 0
-      AND (@Filter_Status = 'all' OR f.Status = CAST(@Filter_Status AS INT))
-      AND (@Filter_Lapangan = 'all' 
+      AND (@Status_Int IS NULL OR f.Status = @Status_Int)
+      AND (@Lapangan_Int IS NULL 
            OR EXISTS (SELECT 1 FROM Detail_Lapangan_Fasilitas d 
                       WHERE d.ID_Fasilitas = f.ID_Fasilitas 
-                        AND d.ID_Lapangan = CAST(@Filter_Lapangan AS INT)))
+                        AND d.ID_Lapangan = @Lapangan_Int))
       AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%')
     ORDER BY 
-        CASE @Sort_Order
-            WHEN 'nama_asc'  THEN f.Nama_Fasilitas
-        END ASC,
-        CASE @Sort_Order
-            WHEN 'nama_desc' THEN f.Nama_Fasilitas
-        END DESC,
-        CASE @Sort_Order
-            WHEN 'stok_desc' THEN f.Stok_Total
-        END DESC,
-        CASE @Sort_Order
-            WHEN 'stok_asc'  THEN f.Stok_Total
-        END ASC
+        CASE @Sort_Order WHEN 'nama_asc'  THEN f.Nama_Fasilitas END ASC,
+        CASE @Sort_Order WHEN 'nama_desc' THEN f.Nama_Fasilitas END DESC,
+        CASE @Sort_Order WHEN 'stok_desc' THEN f.Stok_Total END DESC,
+        CASE @Sort_Order WHEN 'stok_asc'  THEN f.Stok_Total END ASC
     OFFSET @Offset ROWS
     FETCH NEXT @Limit ROWS ONLY;
 END;

@@ -49,7 +49,7 @@ if (isset($_POST['login'])) {
         $params = array($user_input);
         $stmt = @sqlsrv_query($conn, $sql_karyawan, $params);
 
-        if ($stmt === false) {
+        if ($stmt === false || !sqlsrv_has_rows($stmt)) {
             // SP tidak ada, gunakan raw SQL sebagai fallback
             $sql_karyawan = "SELECT ID_Karyawan, Nama_Karyawan, Username, Email, Kata_Sandi, Jabatan, Photo_Profile, Status 
                              FROM Karyawan 
@@ -63,7 +63,7 @@ if (isset($_POST['login'])) {
         }
 
         if ($row) {
-            if ($pass_input == $row['Kata_Sandi']) {
+            if (password_verify($pass_input, $row['Kata_Sandi'])) {
                 $_SESSION['login'] = true;
                 $_SESSION['id_akun'] = $row['ID_Karyawan'];
                 $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
@@ -100,14 +100,19 @@ if (isset($_POST['login'])) {
             }
         } else {
             // --- DIUBAH MENGGUNAKAN SP: Cek ke tabel Customer dengan sp_CustomerLogin ---
-            // sp_CustomerLogin menerima username/email DAN password, sudah cek Is_Deleted=0 dan Status=1
-            $sql_customer = "EXEC dbo.sp_CustomerLogin ?, ?";
-            $params2 = array($user_input, $pass_input);
+            // Panggil SP hanya dengan 1 parameter (Username/Email)
+            $sql_customer = "EXEC dbo.sp_CustomerLogin ?";
+            $params2 = array($user_input);
             $stmt2 = sqlsrv_query($conn, $sql_customer, $params2);
-            $row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
 
-            if ($row2) {
-                // Login berhasil — sp_CustomerLogin sudah validasi password, status aktif, dan tidak dihapus
+            $row2 = false;
+            if ($stmt2) {
+                $row2 = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
+            }
+
+            // Lakukan verifikasi hash password menggunakan password_verify() di PHP
+            if ($row2 && password_verify($pass_input, $row2['Kata_Sandi'])) {
+
                 $_SESSION['logged_in'] = true;
                 $_SESSION['id_customer'] = $row2['ID_Customer'];
                 $_SESSION['role'] = 'customer';
@@ -128,7 +133,8 @@ if (isset($_POST['login'])) {
                 header("Location: ../index.php");
                 exit();
             } else {
-                $error_msg = "Akun tidak ditemukan";
+                // Pesan error disamakan demi keamanan (mencegah enumerasi username)
+                $error_msg = "Nama Pengguna atau Kata Sandi salah.";
             }
         } // Penutup else cek customer
     } // Penutup else validasi input kosong
@@ -148,8 +154,6 @@ if (isset($_POST['login'])) {
     <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-
-
         /* ═══════════════════════════════════════════
            AUTH CARD ENTRANCE ANIMATIONS
            ═══════════════════════════════════════════ */
@@ -221,7 +225,7 @@ if (isset($_POST['login'])) {
         .auth-info h2 {
             animation: bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
         }
-    
+
         @media (max-width: 992px) {
             .auth-info .intro-p {
                 margin: 0 auto 40px auto;
@@ -237,13 +241,12 @@ if (isset($_POST['login'])) {
             }
 
         }
-        
     </style>
 </head>
 
 <body>
 
-   <?php include 'floating_balls.php'; ?>
+    <?php include 'floating_balls.php'; ?>
 
     <a href="../index.php" class="btn-close-auth" title="Kembali ke Beranda">
         <i class="fa-solid fa-xmark"></i>
@@ -330,7 +333,7 @@ if (isset($_POST['login'])) {
 
     <?php include 'features_bar.php'; ?>
 
-   <?php include '../includes/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 
     <?php if ($error_msg): ?>
         <script>

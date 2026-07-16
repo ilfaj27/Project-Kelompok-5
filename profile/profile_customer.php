@@ -247,11 +247,15 @@ if (isset($_POST['update_password'])) {
     $new_pass = trim($_POST['new_password'] ?? '');
     $confirm_pass = trim($_POST['confirm_password'] ?? '');
 
-    // --- MENGGUNAKAN SP: Validasi password lama dengan sp_ValidateCustomerPassword ---
-    $res_validate = sqlsrv_query($conn, "EXEC dbo.sp_ValidateCustomerPassword ?, ?", array($ID_Customer, $old_pass));
-    $validation = sqlsrv_fetch_array($res_validate, SQLSRV_FETCH_ASSOC);
-    $is_valid = $validation['IsValid'] ?? 0;
-    sqlsrv_free_stmt($res_validate);
+    // Ambil hash password lama dari database
+    $sql_pwd = "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?";
+    $res_pwd = sqlsrv_query($conn, $sql_pwd, array($ID_Customer));
+    $row_pwd = sqlsrv_fetch_array($res_pwd, SQLSRV_FETCH_ASSOC);
+    $db_hashed_pass = $row_pwd['Kata_Sandi'] ?? '';
+    sqlsrv_free_stmt($res_pwd);
+
+    // Validasi kecocokan menggunakan Argon2id di PHP
+    $is_valid = password_verify($old_pass, $db_hashed_pass);
 
     if (!$is_valid) {
         $swal_status = 'error';
@@ -267,12 +271,18 @@ if (isset($_POST['update_password'])) {
         $_SESSION['pass_error_field'] = 'confirm_password';
     } else {
         $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
+
+        // Enkripsi kata sandi baru menggunakan Argon2id sebelum disimpan
+        $hashed_new_pass = password_hash($new_pass, PASSWORD_ARGON2ID);
+
         // --- MENGGUNAKAN SP: Update password dengan sp_UpdateCustomerPassword ---
         $stmt = sqlsrv_query(
             $conn,
             "EXEC dbo.sp_UpdateCustomerPassword ?, ?, ?",
-            array($ID_Customer, $new_pass, $modified_by)
+            array($ID_Customer, $hashed_new_pass, $modified_by) // <--- Mengirim hash password baru
         );
+
+
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {
             }
@@ -296,11 +306,15 @@ if (isset($_POST['update_password'])) {
 if (isset($_POST['delete_account'])) {
     $confirm_password = trim($_POST['confirm_delete_password'] ?? '');
 
-    // --- MENGGUNAKAN SP: Validasi password dengan sp_ValidateCustomerPassword ---
-    $res_validate = sqlsrv_query($conn, "EXEC dbo.sp_ValidateCustomerPassword ?, ?", array($ID_Customer, $confirm_password));
-    $validation = sqlsrv_fetch_array($res_validate, SQLSRV_FETCH_ASSOC);
-    $is_valid = $validation['IsValid'] ?? 0;
-    sqlsrv_free_stmt($res_validate);
+    // Ambil hash password lama dari database untuk konfirmasi hapus
+    $sql_pwd = "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?";
+    $res_pwd = sqlsrv_query($conn, $sql_pwd, array($ID_Customer));
+    $row_pwd = sqlsrv_fetch_array($res_pwd, SQLSRV_FETCH_ASSOC);
+    $db_hashed_pass = $row_pwd['Kata_Sandi'] ?? '';
+    sqlsrv_free_stmt($res_pwd);
+
+    // Validasi kecocokan menggunakan Argon2id di PHP
+    $is_valid = password_verify($confirm_password, $db_hashed_pass);
 
     if (empty($confirm_password)) {
         $swal_status = 'error';
@@ -2704,7 +2718,7 @@ function format_date_display($date)
                 </form>
             </div>
 
-            <!-- FORM KATA SANDI (TAMPIL KONDISIONAL VIA TAB) -->
+            <!-- FORM KATA SANDI (TAB GANTI PASSWORD) -->
             <div class="form-card" id="password-form-card" class="reveal-right"
                 style="display: none; align-self: start;">
                 <div class="form-card-title">Keamanan & Ubah Password</div>
@@ -2713,29 +2727,45 @@ function format_date_display($date)
                     <div>
                         <div class="form-group">
                             <label class="form-label">Kata Sandi Lama <span class="required">*</span></label>
-                            <input type="password" name="old_password" id="old_password"
-                                class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>"
-                                placeholder="Sandi saat ini">
+                            <!-- Tambahkan wrapper ini -->
+                            <div class="password-wrapper" style="position: relative;">
+                                <input type="password" name="old_password" id="old_password"
+                                    class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>"
+                                    placeholder="Sandi saat ini" style="padding-right: 40px;">
+                                <i class="fa-regular fa-eye toggle-password" data-target="old_password"
+                                    style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
+                            </div>
                             <div class="error-msg" id="oldPassError">Kata Sandi lama wajib diisi.</div>
                         </div>
+
                         <div class="form-row-2">
                             <div class="form-group">
                                 <label class="form-label">Kata Sandi Baru <span class="required">*</span></label>
-                                <input type="password" name="new_password" id="new_password"
-                                    class="form-input <?= ($pass_error_field === 'new_password') ? 'error' : '' ?>"
-                                    placeholder="Minimal 8 karakter">
+                                <!-- Tambahkan wrapper ini -->
+                                <div class="password-wrapper" style="position: relative;">
+                                    <input type="password" name="new_password" id="new_password"
+                                        class="form-input <?= ($pass_error_field === 'new_password') ? 'error' : '' ?>"
+                                        placeholder="Minimal 8 karakter" style="padding-right: 40px;">
+                                    <i class="fa-regular fa-eye toggle-password" data-target="new_password"
+                                        style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
+                                </div>
                                 <div class="error-msg" id="newPassError">Kata Sandi baru minimal 8 karakter.</div>
                             </div>
+
                             <div class="form-group">
                                 <label class="form-label">Konfirmasi Sandi Baru <span class="required">*</span></label>
-                                <input type="password" name="confirm_password" id="confirm_password"
-                                    class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>"
-                                    placeholder="Ulangi sandi baru">
+                                <!-- Tambahkan wrapper ini -->
+                                <div class="password-wrapper" style="position: relative;">
+                                    <input type="password" name="confirm_password" id="confirm_password"
+                                        class="form-input <?= ($pass_error_field === 'confirm_password') ? 'error' : '' ?>"
+                                        placeholder="Ulangi sandi baru" style="padding-right: 40px;">
+                                    <i class="fa-regular fa-eye toggle-password" data-target="confirm_password"
+                                        style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
+                                </div>
                                 <div class="error-msg" id="confirmPassError">Konfirmasi tidak cocok.</div>
                             </div>
-
                         </div>
-                    </div> <!-- <-- TAG PENUTUP pembungkus input yang sebelumnya hilang -->
+                    </div>
                     <div class="form-buttons" style="margin-top: auto;">
                         <button type="submit" name="update_password" class="btn-submit">Perbarui Password</button>
                     </div>
@@ -2745,38 +2775,40 @@ function format_date_display($date)
             <!-- TAB HAPUS AKUN -->
             <div class="form-card" id="delete-form-card" class="reveal-right" style="display: none; align-self: start;">
                 <div class="form-card-title" style="color: var(--red);">Hapus Akun Permanen</div>
-                <form method="POST" id="formDeleteAccount"
+                <form method="POST" id="formDeleteAccount" novalidate
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
-
-                    <!-- TAMBAHKAN BARIS INI -->
-                    <input type="hidden" name="delete_account" value="1">
-
-                    <div>
-                        <div
-                            style="background-color: #FFEBEA; border: 1px solid rgba(255, 59, 48, 0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="color: var(--red); font-size: 14px; font-weight: 800; margin-bottom: 6px;"><i
-                                    class="fa-solid fa-triangle-exclamation"></i> Peringatan Penting</h4>
-                            <p style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px;">
-                                Menghapus akun akan mengakibatkan hal-hal berikut:
-                            </p>
-                            <ul style="font-size: 12px; color: #555; margin-left: 20px; line-height: 1.6;">
-                                <li>Anda tidak akan dapat login kembali menggunakan akun ini.</li>
-                                <li>Semua riwayat transaksi dan data keanggotaan aktif Anda akan ditangguhkan.</li>
-                                <li>Semua jadwal booking aktif/mendatang akan otomatis dibatalkan.</li>
-                            </ul>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Masukkan Kata Sandi Anda <span class="required">*</span></label>
+                <input type="hidden" name="delete_account" value="1">
+                <div>
+                    <div
+                        style="background-color: #FFEBEA; border: 1px solid rgba(255, 59, 48, 0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="color: var(--red); font-size: 14px; font-weight: 800; margin-bottom: 6px;"><i
+                                class="fa-solid fa-triangle-exclamation"></i> Peringatan Penting</h4>
+                        <p style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px;">
+                            Menghapus akun akan mengakibatkan hal-hal berikut:
+                        </p>
+                        <ul style="font-size: 12px; color: #555; margin-left: 20px; line-height: 1.6;">
+                            <li>Anda tidak akan dapat login kembali menggunakan akun ini.</li>
+                            <li>Semua riwayat transaksi dan data keanggotaan aktif Anda akan ditangguhkan.</li>
+                            <li>Semua jadwal booking aktif/mendatang akan otomatis dibatalkan.</li>
+                        </ul>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Masukkan Kata Sandi Anda <span class="required">*</span></label>
+                        <!-- Tambahkan wrapper ini -->
+                        <div class="password-wrapper" style="position: relative;">
                             <input type="password" name="confirm_delete_password" id="confirm_delete_password"
-                                class="form-input" placeholder="Ketik kata sandi saat ini untuk konfirmasi" required>
-                            <div class="error-msg" id="deletePassError">Wajib memasukkan kata sandi konfirmasi.</div>
+                                class="form-input" placeholder="Ketik kata sandi saat ini untuk konfirmasi"
+                                style="padding-right: 40px;">
+                            <i class="fa-regular fa-eye toggle-password" data-target="confirm_delete_password"
+                                style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
                         </div>
+                        <div class="error-msg" id="deletePassError">Wajib memasukkan kata sandi konfirmasi.</div>
                     </div>
-                    <div class="form-buttons" style="margin-top: auto;">
-                        <!-- Hapus atribut name="delete_account" pada button agar tidak membingungkan -->
-                        <button type="submit" class="btn-submit" style="background: var(--red);">Konfirmasi Hapus
-                            Akun</button>
-                    </div>
+                </div>
+                <div class="form-buttons" style="margin-top: auto;">
+                    <button type="submit" class="btn-submit" style="background: var(--red);">Konfirmasi Hapus
+                        Akun</button>
+                </div>
                 </form>
             </div>
 
@@ -3346,13 +3378,7 @@ function format_date_display($date)
                 if (!validateNewPass()) valid = false;
                 if (!validateConfirm()) valid = false;
                 if (!valid) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validasi Gagal',
-                        text: 'Mohon periksa kembali input Kata Sandi Anda.',
-                        confirmButtonColor: '#FF5200'
-                    });
+                    e.preventDefault(); // Menghentikan submit secara senyap agar pengguna fokus pada teks merah
                 }
             });
         }
@@ -3438,6 +3464,33 @@ function format_date_display($date)
                 revealObserver.observe(el);
             });
 
+        });
+
+        // Fitur Tampil / Sembunyikan Password
+        document.addEventListener('DOMContentLoaded', function () {
+            const togglePasswordIcons = document.querySelectorAll('.toggle-password');
+
+            togglePasswordIcons.forEach(icon => {
+                icon.addEventListener('click', function () {
+                    // Ambil id input target dari atribut data-target
+                    const targetId = this.getAttribute('data-target');
+                    const passwordInput = document.getElementById(targetId);
+
+                    if (passwordInput) {
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            // Ganti icon mata biasa ke mata dicoret
+                            this.classList.remove('fa-eye');
+                            this.classList.add('fa-eye-slash');
+                        } else {
+                            passwordInput.type = 'password';
+                            // Kembalikan ke icon mata biasa
+                            this.classList.remove('fa-eye-slash');
+                            this.classList.add('fa-eye');
+                        }
+                    }
+                });
+            });
         });
 
     </script>

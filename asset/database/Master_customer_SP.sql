@@ -304,8 +304,7 @@ GO
 -- 10. SP: Customer Login Authentication
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CustomerLogin
-    @UsernameOrEmail VARCHAR(50),
-    @Kata_Sandi      VARCHAR(20)
+    @UsernameOrEmail VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -321,12 +320,12 @@ BEGIN
         Tanggal_Lahir,
         Tempat_Lahir,
         Photo_Profile,
+        Kata_Sandi,
         Status
     FROM Customer
     WHERE Is_Deleted = 0 
         AND Status = 1
         AND (Username = @UsernameOrEmail OR Email = @UsernameOrEmail)
-        AND Kata_Sandi = @Kata_Sandi;
 END;
 GO
 
