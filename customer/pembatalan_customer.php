@@ -1,30 +1,20 @@
 <?php
-// ============================================================================
-// BUFFER OUTPUT & SESSION SETUP
-// ============================================================================
 ob_start();
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 include '../includes/auth_helper.php';
-include '../includes/config.php'; // Berisi koneksi $conn menggunakan sqlsrv
+include '../includes/config.php';
 
-// ============================================================================
-// CEK AKSES
-// ============================================================================
 cek_akses('customer');
 
-// ============================================================================
-// AMBIL DATA CUSTOMER
-// ============================================================================
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 $nama_customer = 'Pelanggan';
 $photo_profile = '';
 
 if (!empty($id_customer)) {
-    $cek_deleted = sqlsrv_query($conn, 
-        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?", 
+    $cek_deleted = sqlsrv_query($conn,
+        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?",
         array($id_customer)
     );
     if ($cek_deleted) {
@@ -44,13 +34,12 @@ if (!empty($id_customer)) {
     }
 }
 
-// Cek status member aktif untuk badge navigasi
 $member_data = null;
-$member_check = sqlsrv_query($conn, 
-    "SELECT TOP 1 L.*, T.Nama_Tipe FROM Langganan L 
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe 
-     WHERE L.ID_Customer = ? AND L.Status = 1 
-     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai", 
+$member_check = sqlsrv_query($conn,
+    "SELECT TOP 1 L.*, T.Nama_Tipe FROM Langganan L
+     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
+     WHERE L.ID_Customer = ? AND L.Status = 1
+     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai",
     array($id_customer)
 );
 if ($member_check) {
@@ -80,11 +69,6 @@ if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER
         exit();
     }
 
-    // ========================================================================
-    // PANGGIL STORED PROCEDURE sp_TransaksiPembatalan
-    // SP menangani: validasi, hitung denda 50%, insert pembatalan,
-    // update status booking->3, update status jadwal->1 (atomic transaction)
-    // ========================================================================
     $sp_params = array(
         $id_booking,
         intval($id_customer),
@@ -92,15 +76,15 @@ if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER
         $nama_customer
     );
 
-    $stmt_sp = sqlsrv_query($conn, 
-        "EXEC sp_TransaksiPembatalan ?, ?, ?, ?", 
+    $stmt_sp = sqlsrv_query($conn,
+        "EXEC sp_TransaksiPembatalan ?, ?, ?, ?",
         $sp_params
     );
 
     if ($stmt_sp === false) {
         $errors = sqlsrv_errors();
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'message' => 'Gagal mengeksekusi stored procedure: ' . ($errors[0]['message'] ?? 'Unknown error')
         ]);
         exit();
@@ -133,7 +117,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'submit_pembatalan' && $_SERVER
 }
 
 // ============================================================================
-// AMBIL SEMUA DATA BOOKING CUSTOMER (AKTIF & RIWAYAT) DENGAN PEMBATALAN_BOOKING
+// AMBIL SEMUA DATA BOOKING CUSTOMER (AKTIF & RIWAYAT)
 // ============================================================================
 $bookings_aktif = [];
 $bookings_riwayat = [];
@@ -168,7 +152,6 @@ if ($stmtBookings) {
     }
 }
 
-/* ─── HELPER: RESOLVE PHOTO PATH ─── */
 function resolvePhotoPath($photo_path) {
     if (empty($photo_path)) return '';
     if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
@@ -183,7 +166,6 @@ function resolvePhotoPath($photo_path) {
     return '../' . ltrim($photo_path, '/');
 }
 
-// Resolve profile photo path
 $resolvedPhotoProfile = resolvePhotoPath($photo_profile);
 ?>
 <!DOCTYPE html>
@@ -196,7 +178,6 @@ $resolvedPhotoProfile = resolvePhotoPath($photo_profile);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <style>
 :root{
     --orange:#FF5400;
@@ -323,9 +304,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
 /* ============ MODAL ============ */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
 .modal-overlay.active{display:flex;animation:fadeIn 0.2s ease-out}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal-card{background:var(--card-bg);border-radius:var(--radius-lg);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:slideUp 0.3s ease-out}
-@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 .modal-header{padding:24px;border-bottom:1.5px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
 .modal-title{font-size:16px;font-weight:700;color:var(--dark);display:flex;align-items:center;gap:8px}
 .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--border-light);color:var(--text-muted);cursor:pointer;font-size:14px;transition:var(--transition);display:flex;align-items:center;justify-content:center}
@@ -409,7 +388,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
     <!-- TAB 1: PEMESANAN AKTIF -->
     <div id="aktif" class="tab-content active">
         <?php if (!empty($bookings_aktif)): ?>
-            <?php foreach ($bookings_aktif as $b): 
+            <?php foreach ($bookings_aktif as $b):
                 $play_time = new DateTime($b['Tanggal_Formatted'] . ' ' . $b['Jam_Mulai_Formatted']);
                 $now = new DateTime();
                 $diff = $play_time->getTimestamp() - $now->getTimestamp();
@@ -417,7 +396,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
             ?>
                 <div class="booking-card">
                     <div class="card-img-wrapper">
-                        <?php 
+                        <?php
                         $rawPhoto = $b['Photo_Lapangan'] ?? '';
                         $resolvedPhoto = resolvePhotoPath($rawPhoto);
                         $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
@@ -453,7 +432,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
                         </div>
 
                         <?php if ($can_cancel): ?>
-                            <button class="btn-card-action btn-cancel-allowed" 
+                            <button class="btn-card-action btn-cancel-allowed"
                                     onclick="openCancellationModal(<?= $b['ID_Booking'] ?>, '<?= htmlspecialchars($b['Nama_Lapangan']) ?>', '<?= date('d M Y', strtotime($b['Tanggal_Formatted'])) ?>', '<?= $b['Jam_Mulai_Formatted'] ?>', <?= $b['Total_Bayar'] ?>, '<?= htmlspecialchars($b['Metode_Pembayaran']) ?>')">
                                 <i class="fa-solid fa-rectangle-xmark"></i> Ajukan Pembatalan
                             </button>
@@ -479,7 +458,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
             <?php foreach ($bookings_riwayat as $b): ?>
                 <div class="booking-card">
                     <div class="card-img-wrapper">
-                        <?php 
+                        <?php
                         $rawPhoto = $b['Photo_Lapangan'] ?? '';
                         $resolvedPhoto = resolvePhotoPath($rawPhoto);
                         $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
@@ -589,7 +568,6 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
     </div>
 </div>
 
-<!-- FOOTER -->
 <?php include '../includes/footer.php'; ?>
 
 <script>

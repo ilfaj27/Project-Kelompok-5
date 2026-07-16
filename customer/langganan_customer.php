@@ -49,7 +49,7 @@ if (!empty($id_customer)) {
 // CEK STATUS MEMBER AKTIF (menggunakan SP_GetLanggananByCustomer)
 // ============================================================================
 $member_aktif = null;
-$member_pending = null;  // <-- TAMBAH: variabel untuk member menunggu konfirmasi
+$member_pending = null;
 $member_check = sqlsrv_query($conn,
     "EXEC SP_GetLanggananByCustomer @ID_Customer = ?, @StatusFilter = NULL",
     array($id_customer)
@@ -57,10 +57,10 @@ $member_check = sqlsrv_query($conn,
 if ($member_check) {
     while ($row = sqlsrv_fetch_array($member_check, SQLSRV_FETCH_ASSOC)) {
         if ($row['Status'] == 1) {
-            $member_aktif = $row;      // Member aktif (status 1)
+            $member_aktif = $row;
             break;
         }
-        if ($row['Status'] == 0 && !$member_pending) {  // <-- PERBAIKI: hanya simpan yang menunggu (status 0)
+        if ($row['Status'] == 0 && !$member_pending) {
             $member_pending = $row;
         }
     }
@@ -112,7 +112,6 @@ if (isset($_POST['beli_langganan'])) {
     if (empty($id_tipe) || empty($metode_pembayaran)) {
         $pembelian_error = 'Pilih tipe member dan metode pembayaran!';
     } else {
-        // --- Validasi & unggah bukti pembayaran (wajib sebelum konfirmasi) ---
         $bukti_pembayaran_db = '';
         if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK) {
             $pembelian_error = 'Bukti pembayaran wajib diunggah sebelum konfirmasi.';
@@ -143,7 +142,6 @@ if (isset($_POST['beli_langganan'])) {
         }
 
         if (empty($pembelian_error)) {
-            // Gunakan SP_CreateLangganan untuk pendaftaran
             $stmt_sp = sqlsrv_query($conn,
                 "EXEC SP_CreateLangganan @ID_Customer = ?, @ID_Tipe = ?, @Metode_Pembayaran = ?, @Created_By = ?",
                 array($id_customer, $id_tipe, $metode_pembayaran, $nama_customer)
@@ -152,7 +150,6 @@ if (isset($_POST['beli_langganan'])) {
             if ($stmt_sp) {
                 $result = sqlsrv_fetch_array($stmt_sp, SQLSRV_FETCH_ASSOC);
                 if ($result && $result['Status'] === 'SUCCESS') {
-                    // Update bukti pembayaran jika berhasil
                     if (!empty($bukti_pembayaran_db) && !empty($result['ID_Langganan'])) {
                         sqlsrv_query($conn,
                             "UPDATE Langganan SET Bukti_Pembayaran = ? WHERE ID_Langganan = ?",
@@ -160,7 +157,6 @@ if (isset($_POST['beli_langganan'])) {
                         );
                     }
 
-                    // Ambil nama tipe untuk notifikasi
                     $stmt_tipe_name = sqlsrv_query($conn,
                         "SELECT Nama_Tipe FROM Tipe_Member WHERE ID_Tipe = ?",
                         array($id_tipe)
@@ -204,13 +200,12 @@ function formatTanggal($tanggal) {
 }
 
 $status_labels = [
-    0 => ['label' => 'Menunggu Konfirmasi', 'class' => 'sp-pending', 'icon' => 'fa-clock'],
-    1 => ['label' => 'Aktif', 'class' => 'sp-active', 'icon' => 'fa-check-circle'],
-    2 => ['label' => 'Berakhir', 'class' => 'sp-inactive', 'icon' => 'fa-flag-checkered'],
-    3 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban']
+    0 => ['label' => 'Menunggu Konfirmasi', 'class' => 'sp-pending', 'icon' => 'fa-clock', 'color' => '#D97706', 'bg' => '#FEF3C7'],
+    1 => ['label' => 'Aktif', 'class' => 'sp-active', 'icon' => 'fa-check-circle', 'color' => '#059669', 'bg' => '#D1FAE5'],
+    2 => ['label' => 'Berakhir', 'class' => 'sp-inactive', 'icon' => 'fa-flag-checkered', 'color' => '#6B7280', 'bg' => '#F3F4F6'],
+    3 => ['label' => 'Ditolak', 'class' => 'sp-inactive', 'icon' => 'fa-ban', 'color' => '#DC2626', 'bg' => '#FEE2E2']
 ];
 
-/* -- HELPER: RESOLVE PHOTO PATH -- */
 function resolvePhotoPath($photo_path) {
     if (empty($photo_path)) return '';
     if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) {
@@ -225,10 +220,8 @@ function resolvePhotoPath($photo_path) {
     return '../' . ltrim($photo_path, '/');
 }
 
-// Resolve profile photo path
 $resolvedPhotoProfile = resolvePhotoPath($photo_profile);
 
-// Generate initials fallback
 $initials = '';
 if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
     $parts = explode(' ', $nama_customer);
@@ -237,6 +230,57 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         $initials .= strtoupper(substr($parts[1], 0, 1));
     }
 }
+
+// Status config untuk riwayat
+$status_config = [
+    0 => [
+        'icon' => 'fa-clock',
+        'icon_bg' => '#FEF3C7',
+        'icon_color' => '#D97706',
+        'badge_bg' => '#FEF3C7',
+        'badge_color' => '#D97706',
+        'badge_text' => 'Menunggu',
+        'timeline_color' => '#D97706',
+        'progress' => 25
+    ],
+    1 => [
+        'icon' => 'fa-crown',
+        'icon_bg' => '#D1FAE5',
+        'icon_color' => '#059669',
+        'badge_bg' => '#D1FAE5',
+        'badge_color' => '#059669',
+        'badge_text' => 'Aktif',
+        'timeline_color' => '#059669',
+        'progress' => 100
+    ],
+    2 => [
+        'icon' => 'fa-flag-checkered',
+        'icon_bg' => '#F3F4F6',
+        'icon_color' => '#6B7280',
+        'badge_bg' => '#F3F4F6',
+        'badge_color' => '#6B7280',
+        'badge_text' => 'Berakhir',
+        'timeline_color' => '#6B7280',
+        'progress' => 100
+    ],
+    3 => [
+        'icon' => 'fa-xmark',
+        'icon_bg' => '#FEE2E2',
+        'icon_color' => '#DC2626',
+        'badge_bg' => '#FEE2E2',
+        'badge_color' => '#DC2626',
+        'badge_text' => 'Ditolak',
+        'timeline_color' => '#DC2626',
+        'progress' => 0
+    ]
+];
+
+// Tipe member config untuk icon dan warna
+$tipe_config = [
+    'Silver' => ['icon' => 'fa-medal', 'gradient' => 'linear-gradient(135deg, #E8E8E8 0%, #C0C0C0 100%)', 'text_color' => '#4B5563'],
+    'Gold' => ['icon' => 'fa-trophy', 'gradient' => 'linear-gradient(135deg, #FDE68A 0%, #F59E0B 100%)', 'text_color' => '#92400E'],
+    'Platinum' => ['icon' => 'fa-gem', 'gradient' => 'linear-gradient(135deg, #E0E7FF 0%, #6366F1 100%)', 'text_color' => '#3730A3']
+];
 ?>
 <!DOCTYPE html>
 <html lang="id" style="scroll-behavior: smooth;">
@@ -289,7 +333,7 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         html,body{-ms-overflow-style:none;scrollbar-width:none}
         ::selection{background:rgba(255,82,0,0.3);color:#1C1C1E}
 
-        /* ═══ ANIMATIONS ═══ */
+        /* ANIMATIONS */
         @keyframes fadeInUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeInDown{from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -300,67 +344,20 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         @keyframes slideInModal{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
         @keyframes fadeInModal{from{opacity:0}to{opacity:1}}
         @keyframes countUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes drawLine{from{width:0}to{width:60px}}
+        @keyframes slideInLeft{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes cardEnter{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes iconBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+        @keyframes borderGlow{0%,100%{border-color:rgba(255,82,0,0.3)}50%{border-color:rgba(255,82,0,0.8)}}
+        @keyframes heroGradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+        @keyframes ballFloat1{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(10px,-20px) rotate(5deg)}50%{transform:translate(-5px,10px) rotate(-3deg)}75%{transform:translate(15px,5px) rotate(2deg)}}
+        @keyframes ballFloat2{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(-15px,10px) rotate(-5deg)}50%{transform:translate(10px,-15px) rotate(3deg)}75%{transform:translate(-10px,-5px) rotate(-2deg)}}
+        @keyframes ballFloat3{0%,100%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(20px,5px) rotate(3deg)}50%{transform:translate(-15px,-20px) rotate(-5deg)}75%{transform:translate(5px,15px) rotate(2deg)}}
+        @keyframes glowPulse{0%,100%{box-shadow:0 0 20px rgba(255,82,0,0.3)}50%{box-shadow:0 0 40px rgba(255,82,0,0.6)}}
+        @keyframes progressFill{from{width:0%}to{width:var(--progress-width)}}
+        @keyframes timelineDotPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,82,0,0.4)}50%{box-shadow:0 0 0 8px rgba(255,82,0,0)}}
+        @keyframes loaderBounce{from{transform:translateY(0)}to{transform:translateY(-20px)}}
 
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes glowPulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(255,82,0,0.3); }
-            50% { box-shadow: 0 0 40px rgba(255,82,0,0.6); }
-        }
-        @keyframes floatBall {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            33% { transform: translateY(-15px) rotate(5deg); }
-            66% { transform: translateY(10px) rotate(-3deg); }
-        }
-        @keyframes ballFloat1 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(10px,-20px) rotate(5deg)} 50%{transform:translate(-5px,10px) rotate(-3deg)} 75%{transform:translate(15px,5px) rotate(2deg)} }
-        @keyframes ballFloat2 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(-15px,10px) rotate(-5deg)} 50%{transform:translate(10px,-15px) rotate(3deg)} 75%{transform:translate(-10px,-5px) rotate(-2deg)} }
-        @keyframes ballFloat3 { 0%,100%{transform:translate(0,0) rotate(0deg)} 25%{transform:translate(20px,5px) rotate(3deg)} 50%{transform:translate(-15px,-20px) rotate(-5deg)} 75%{transform:translate(5px,15px) rotate(2deg)} }
-        @keyframes heroGradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes cardEnter {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes iconBounce {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-        }
-        @keyframes borderGlow {
-            0%, 100% { border-color: rgba(255,82,0,0.3); }
-            50% { border-color: rgba(255,82,0,0.8); }
-        }
-        @keyframes numberCount {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideInLeft {
-            from { opacity: 0; transform: translateX(-30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes slideInRight {
-            from { opacity: 0; transform: translateX(30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes rotateIn {
-            from { opacity: 0; transform: rotate(-10deg) scale(0.9); }
-            to { opacity: 1; transform: rotate(0deg) scale(1); }
-        }
-        @keyframes arrowBounce {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(4px); }
-        }
-        @keyframes searchPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
-            50% { box-shadow: 0 0 0 4px rgba(255, 90, 31, 0.15); }
-        }
-        /* ═══ REVEAL ═══ */
         .reveal{opacity:0;transform:translateY(40px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
         .reveal.active{opacity:1;transform:translateY(0)}
         .reveal-stagger .stagger-item{opacity:0;transform:translateY(30px);transition:all 0.6s cubic-bezier(0.16,1,0.3,1)}
@@ -369,584 +366,423 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         .reveal-stagger.active .stagger-item:nth-child(2){transition-delay:.1s}
         .reveal-stagger.active .stagger-item:nth-child(3){transition-delay:.2s}
 
-        /* ═══ SCROLL PROGRESS ═══ */
         .scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--primary),#FF8C42);z-index:9999;transform-origin:left;transform:scaleX(0);transition:transform 0.1s ease-out}
+        .profile-avatar-initials{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--orange-hover));color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
-        /* ═══ PROFILE AVATAR INITIALS ═══ */
-        .profile-avatar-initials {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), var(--orange-hover));
-            color: #fff;
-            font-size: 10px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
+        /* HERO */
+        .hero{background:linear-gradient(135deg,#0B0B0C 0%,#1a1a2e 50%,#0d0d1a 100%);background-size:200% 200%;animation:heroGradient 15s ease infinite;padding:60px 80px;display:flex;align-items:center;justify-content:space-between;gap:40px;position:relative;overflow:hidden;min-height:400px}
+        .hero::after{content:'';position:absolute;bottom:-50px;left:-50px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,82,0,0.08) 0%,transparent 70%);pointer-events:none;animation:ballFloat3 15s ease-in-out infinite}
+        .hero::before{content:'';position:absolute;right:-100px;top:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(255,82,0,.15) 0%,transparent 70%)}
+        .hero-left{max-width:600px;position:relative;z-index:1;animation:fadeInUp 0.8s ease-out forwards}
+        .hero-left .hero-badge{animation:slideInLeft 0.6s ease-out 0.2s both}
+        .hero-left .hero-title{animation:fadeInUp 0.8s ease-out 0.4s both}
+        .hero-left .hero-desc{animation:fadeInUp 0.8s ease-out 0.6s both}
+        .hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--primary);color:var(--white);padding:8px 16px;border-radius:50px;font-size:13px;font-weight:700;margin-bottom:20px;transition:all 0.3s ease;cursor:default}
+        .hero-badge:hover{transform:scale(1.05);box-shadow:0 4px 15px rgba(255,82,0,0.4)}
+        .hero-badge i{animation:iconBounce 2s ease-in-out infinite}
+        .hero-title{font-size:42px;font-weight:800;color:var(--white);line-height:1.2;margin-bottom:16px;text-shadow:0 2px 10px rgba(0,0,0,0.3)}
+        .hero-title span{color:var(--primary);display:inline-block;transition:transform 0.3s ease}
+        .hero-left:hover .hero-title span{transform:scale(1.02)}
+        .hero-desc{color:#A0A0A5;font-size:16px;line-height:1.6;margin-bottom:24px;transition:color 0.3s ease}
+        .hero-left:hover .hero-desc{color:#C0C0C5}
 
-        /* ---- HERO SECTION ---- */
-        .hero {
-            background: linear-gradient(135deg, #0B0B0C 0%, #1a1a2e 50%, #0d0d1a 100%); background-size: 200% 200%; animation: heroGradient 15s ease infinite;
-            padding: 60px 80px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 40px;
-            position: relative;
-            overflow: hidden;
-            min-height: 400px;
-        }
-        .hero::after {
+        .floating-ball{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,82,0,0.4),rgba(255,82,0,0.1));filter:blur(1px);pointer-events:none;z-index:0}
+        .ball-1{width:80px;height:80px;top:10%;right:15%;animation:ballFloat1 8s ease-in-out infinite;background:radial-gradient(circle at 30% 30%,rgba(255,82,0,0.35),rgba(255,82,0,0.05))}
+        .ball-2{width:50px;height:50px;top:60%;right:25%;animation:ballFloat2 10s ease-in-out infinite;background:radial-gradient(circle at 30% 30%,rgba(255,140,66,0.3),rgba(255,140,66,0.05))}
+        .ball-3{width:120px;height:120px;bottom:10%;right:5%;animation:ballFloat3 12s ease-in-out infinite;background:radial-gradient(circle at 30% 30%,rgba(255,82,0,0.2),rgba(255,82,0,0.02))}
+        .ball-4{width:40px;height:40px;top:30%;right:40%;animation:ballFloat1 7s ease-in-out infinite reverse;background:radial-gradient(circle at 30% 30%,rgba(255,200,100,0.3),rgba(255,200,100,0.05))}
+        .ball-5{width:60px;height:60px;bottom:30%;right:30%;animation:ballFloat2 9s ease-in-out infinite reverse;background:radial-gradient(circle at 30% 30%,rgba(255,82,0,0.25),rgba(255,82,0,0.03))}
+        .hero-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(255,82,0,0.08) 0%,transparent 70%);pointer-events:none;z-index:0;animation:glowPulse 4s ease-in-out infinite}
+
+        /* MEMBER STATUS CARD */
+        .member-status-card{background:var(--white);border-radius:16px;padding:28px;border:1px solid #E5E5EA;position:relative;z-index:1;min-width:340px;animation:fadeInUp 0.8s ease-out 0.2s forwards,cardEnter 0.6s ease-out 0.2s both;opacity:0;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+        .member-status-card:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 20px 40px rgba(0,0,0,0.15);border-color:rgba(255,82,0,0.3)}
+        .member-status-icon{animation:scaleIn 0.5s ease-out 0.4s both}
+        .member-status-text h3{animation:fadeInUp 0.5s ease-out 0.5s both}
+        .member-status-text p{animation:fadeInUp 0.5s ease-out 0.6s both}
+        .member-detail-row{animation:fadeInUp 0.4s ease-out both;opacity:0}
+        .member-detail-row:nth-child(2){animation-delay:0.7s}
+        .member-detail-row:nth-child(3){animation-delay:0.8s}
+        .member-detail-row:nth-child(4){animation-delay:0.9s}
+        .member-detail-row:nth-child(5){animation-delay:1.0s}
+        .member-detail-row:nth-child(6){animation-delay:1.1s}
+        .member-status-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #F2F2F7}
+        .member-status-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+        .member-status-card:hover .member-status-icon{transform:scale(1.1) rotate(5deg)}
+        .member-status-icon.active{background:var(--green-lt);color:var(--green);animation:pulse 2s ease-in-out infinite}
+        .member-status-icon.inactive{background:var(--red-lt);color:var(--red)}
+        .member-status-icon.pending{background:var(--yellow-lt);color:#D97706;animation:float 3s ease-in-out infinite}
+        .member-status-text h3{font-size:18px;font-weight:800;color:#1C1C1E}
+        .member-status-text p{font-size:13px;color:#8E8E93;margin-top:2px}
+        .member-detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F2F2F7;transition:all 0.3s ease}
+        .member-detail-row:hover{background:rgba(255,82,0,0.02);margin:0 -10px;padding:10px;border-radius:8px}
+        .member-detail-row:last-child{border-bottom:none}
+        .member-detail-label{font-size:13px;color:#8E8E93;font-weight:500}
+        .member-detail-value{font-size:14px;font-weight:700;color:#1C1C1E}
+        .member-detail-value.green{color:var(--green)}
+        .member-detail-value.primary{color:var(--primary)}
+        .member-detail-value.yellow{color:#D97706}
+
+        /* MAIN CONTAINER */
+        .main-container{padding:60px 80px;max-width:1440px;margin:0 auto;position:relative}
+        .main-container::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:80%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,82,0,0.1),transparent)}
+
+        /* SECTION HEADER */
+        .section-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px;animation:fadeInUp 0.6s ease-out both}
+        .section-title{font-size:24px;font-weight:800;color:#111;transition:color 0.3s ease}
+        .section-title i{display:inline-block;transition:transform 0.3s ease}
+        .section-header:hover .section-title i{transform:scale(1.2) rotate(10deg)}
+        .section-subtitle{font-size:14px;color:#636366;margin-top:4px}
+
+        /* PRICING CARDS */
+        .pricing-grid{display:flex;gap:24px;padding:8px 4px;scroll-behavior:smooth;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+        .pricing-grid::-webkit-scrollbar{display:none}
+        .pricing-scroll-wrapper{position:relative;overflow:hidden;margin-bottom:60px}
+        .pricing-scroll-wrapper::before,.pricing-scroll-wrapper::after{content:'';position:absolute;top:0;bottom:0;width:40px;pointer-events:none;z-index:2;transition:opacity 0.3s ease}
+        .pricing-scroll-wrapper::before{left:0;background:linear-gradient(90deg,var(--light-bg),transparent)}
+        .pricing-scroll-wrapper::after{right:0;background:linear-gradient(-90deg,var(--light-bg),transparent)}
+        .pricing-card{background:var(--white);border:2px solid #E5E5EA;border-radius:16px;padding:32px;position:relative;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);animation:cardEnter 0.6s ease-out both;opacity:0}
+        .pricing-card:nth-child(1){animation-delay:0.1s}
+        .pricing-card:nth-child(2){animation-delay:0.2s}
+        .pricing-card:nth-child(3){animation-delay:0.3s}
+        .pricing-card:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 20px 40px rgba(0,0,0,0.12);border-color:rgba(255,82,0,0.4)}
+        .pricing-card:hover .pricing-icon{animation:iconBounce 0.6s ease}
+        .pricing-card:hover .pricing-name{color:var(--primary);transition:color 0.3s ease}
+        .pricing-card.recommended{border-color:var(--primary);box-shadow:0 4px 20px rgba(255,82,0,.1);animation:cardEnter 0.6s ease-out 0.2s both,borderGlow 3s ease-in-out infinite;position:relative;overflow:visible;padding-top:42px}
+        .pricing-card.recommended::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(255,82,0,0.03) 0%,transparent 70%);pointer-events:none;animation:shimmer 4s linear infinite;background-size:200% 100%}
+        .pricing-card.recommended:hover{box-shadow:0 20px 40px rgba(255,82,0,0.2);border-color:var(--primary)}
+        .popular-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--primary);color:var(--white);padding:6px 16px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:1px;animation:shimmer 2s linear infinite;background-size:200% 100%;background-image:linear-gradient(90deg,var(--primary),#FF8C42,var(--primary));z-index:10;box-shadow:0 4px 12px rgba(255,82,0,0.3);white-space:nowrap}
+        .pricing-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:20px;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+        .pricing-icon:hover{transform:scale(1.1) rotate(5deg)}
+        .pricing-icon.silver{background:var(--blue-lt);color:var(--blue)}
+        .pricing-icon.gold{background:var(--orange-lt);color:var(--orange)}
+        .pricing-icon.platinum{background:var(--purple-lt);color:var(--purple)}
+        .pricing-name{font-size:22px;font-weight:800;color:#1C1C1E;margin-bottom:4px;transition:color 0.3s ease}
+        .pricing-desc{font-size:13px;color:#8E8E93;margin-bottom:20px;transition:color 0.3s ease}
+        .pricing-card:hover .pricing-desc{color:#636366}
+        .pricing-price{font-size:36px;font-weight:800;color:var(--primary);margin-bottom:4px;transition:all 0.3s ease}
+        .pricing-card:hover .pricing-price{transform:scale(1.05);text-shadow:0 2px 10px rgba(255,82,0,0.2)}
+        .pricing-price span{font-size:14px;color:#8E8E93;font-weight:500}
+        .pricing-potongan{display:inline-flex;align-items:center;gap:6px;background:var(--green-lt);color:var(--green);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:24px;transition:all 0.3s ease}
+        .pricing-card:hover .pricing-potongan{transform:scale(1.05);box-shadow:0 2px 8px rgba(52,199,89,0.2)}
+        .pricing-features{list-style:none;margin-bottom:24px}
+        .pricing-features li{display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;color:#1C1C1E;border-bottom:1px solid #F2F2F7;transition:all 0.3s ease;animation:fadeInUp 0.4s ease-out both;opacity:0}
+        .pricing-features li:nth-child(1){animation-delay:0.3s}
+        .pricing-features li:nth-child(2){animation-delay:0.4s}
+        .pricing-features li:nth-child(3){animation-delay:0.5s}
+        .pricing-features li:nth-child(4){animation-delay:0.6s}
+        .pricing-features li:nth-child(5){animation-delay:0.7s}
+        .pricing-features li:last-child{border-bottom:none}
+        .pricing-features li i{color:var(--green);font-size:14px;transition:transform 0.3s ease}
+        .pricing-card:hover .pricing-features li i{transform:scale(1.2)}
+        .btn-pilih{width:100%;background:var(--primary);color:var(--white);border:none;padding:14px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
+        .btn-pilih::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,0.2);border-radius:50%;transform:translate(-50%,-50%);transition:width 0.6s,height 0.6s}
+        .btn-pilih:hover::before{width:300px;height:300px}
+        .btn-pilih:hover{background:var(--primary-hover);transform:translateY(-2px);box-shadow:0 8px 20px rgba(255,82,0,0.3)}
+        .btn-pilih:active{transform:translateY(0) scale(0.98)}
+        .btn-pilih:disabled{background:#C7C7CC;cursor:not-allowed;transform:none;box-shadow:none}
+        .btn-pilih:disabled::before{display:none}
+
+        /* ================================================================
+           RIWAYAT LANGGANAN - TAMPILAN BARU & MODERN
+           ================================================================ */
+
+        .riwayat-section { margin-top: 40px; padding-bottom: 40px; }
+
+        /* Timeline Container */
+        .timeline-container { position: relative; padding-left: 0; }
+        .timeline-container::before {
             content: '';
             position: absolute;
-            bottom: -50px;
-            left: -50px;
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%);
-            pointer-events: none;
-            animation: ballFloat3 15s ease-in-out infinite;
-        }
-        .hero::before {
-            content: '';
-            position: absolute;
-            right: -100px;
-            top: -100px;
-            width: 400px;
-            height: 400px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,82,0,.15) 0%, transparent 70%);
-        }
-        .hero-left {
-            max-width: 600px;
-            position: relative;
-            z-index: 1;
-            animation: fadeInUp 0.8s ease-out forwards;
-        }
-        .hero-left .hero-badge {
-            animation: slideInLeft 0.6s ease-out 0.2s both;
-        }
-        .hero-left .hero-title {
-            animation: fadeInUp 0.8s ease-out 0.4s both;
-        }
-        .hero-left .hero-desc {
-            animation: fadeInUp 0.8s ease-out 0.6s both;
-        }
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--primary);
-            color: var(--white);
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-            cursor: default;
-        }
-        .hero-badge:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 15px rgba(255,82,0,0.4);
-        }
-        .hero-badge i {
-            animation: iconBounce 2s ease-in-out infinite;
-        }
-        .hero-title {
-            font-size: 42px;
-            font-weight: 800;
-            color: var(--white);
-            line-height: 1.2;
-            margin-bottom: 16px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        .hero-title span {
-            color: var(--primary);
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-        .hero-left:hover .hero-title span {
-            transform: scale(1.02);
-        }
-        .hero-desc {
-            color: #A0A0A5;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-            transition: color 0.3s ease;
-        }
-        .hero-left:hover .hero-desc {
-            color: #C0C0C5;
-        }
-
-        /* ---- FLOATING BALLS ---- */
-        .floating-ball {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.4), rgba(255,82,0,0.1));
-            filter: blur(1px);
-            pointer-events: none;
-            z-index: 0;
-        }
-        .ball-1 {
-            width: 80px; height: 80px;
-            top: 10%; right: 15%;
-            animation: ballFloat1 8s ease-in-out infinite;
-            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.35), rgba(255,82,0,0.05));
-        }
-        .ball-2 {
-            width: 50px; height: 50px;
-            top: 60%; right: 25%;
-            animation: ballFloat2 10s ease-in-out infinite;
-            background: radial-gradient(circle at 30% 30%, rgba(255,140,66,0.3), rgba(255,140,66,0.05));
-        }
-        .ball-3 {
-            width: 120px; height: 120px;
-            bottom: 10%; right: 5%;
-            animation: ballFloat3 12s ease-in-out infinite;
-            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.2), rgba(255,82,0,0.02));
-        }
-        .ball-4 {
-            width: 40px; height: 40px;
-            top: 30%; right: 40%;
-            animation: ballFloat1 7s ease-in-out infinite reverse;
-            background: radial-gradient(circle at 30% 30%, rgba(255,200,100,0.3), rgba(255,200,100,0.05));
-        }
-        .ball-5 {
-            width: 60px; height: 60px;
-            bottom: 30%; right: 30%;
-            animation: ballFloat2 9s ease-in-out infinite reverse;
-            background: radial-gradient(circle at 30% 30%, rgba(255,82,0,0.25), rgba(255,82,0,0.03));
-        }
-        .hero-glow {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(255,82,0,0.08) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-            animation: glowPulse 4s ease-in-out infinite;
-        }
-
-        /* ---- MEMBER STATUS CARD ---- */
-        .member-status-card {
-            background: var(--white);
-            border-radius: 16px;
-            padding: 28px;
-            border: 1px solid #E5E5EA;
-            position: relative;
-            z-index: 1;
-            min-width: 340px;
-            animation: fadeInUp 0.8s ease-out 0.2s forwards, cardEnter 0.6s ease-out 0.2s both;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .member-status-card:hover {
-            transform: translateY(-6px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-            border-color: rgba(255,82,0,0.3);
-        }
-        .member-status-icon {
-            animation: scaleIn 0.5s ease-out 0.4s both;
-        }
-        .member-status-text h3 {
-            animation: fadeInUp 0.5s ease-out 0.5s both;
-        }
-        .member-status-text p {
-            animation: fadeInUp 0.5s ease-out 0.6s both;
-        }
-        .member-detail-row {
-            animation: fadeInUp 0.4s ease-out both;
-            opacity: 0;
-        }
-        .member-detail-row:nth-child(2) { animation-delay: 0.7s; }
-        .member-detail-row:nth-child(3) { animation-delay: 0.8s; }
-        .member-detail-row:nth-child(4) { animation-delay: 0.9s; }
-        .member-detail-row:nth-child(5) { animation-delay: 1.0s; }
-        .member-detail-row:nth-child(6) { animation-delay: 1.1s; }
-        .member-status-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #F2F2F7;
-        }
-        .member-status-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .member-status-card:hover .member-status-icon {
-            transform: scale(1.1) rotate(5deg);
-        }
-        .member-status-icon.active {
-            background: var(--green-lt);
-            color: var(--green);
-            animation: pulse 2s ease-in-out infinite;
-        }
-        .member-status-icon.inactive {
-            background: var(--red-lt);
-            color: var(--red);
-        }
-        .member-status-icon.pending {
-            background: var(--yellow-lt);
-            color: #D97706;
-            animation: float 3s ease-in-out infinite;
-        }
-        .member-status-text h3 {
-            font-size: 18px;
-            font-weight: 800;
-            color: #1C1C1E;
-        }
-        .member-status-text p {
-            font-size: 13px;
-            color: #8E8E93;
-            margin-top: 2px;
-        }
-        .member-detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #F2F2F7;
-            transition: all 0.3s ease;
-        }
-        .member-detail-row:hover {
-            background: rgba(255,82,0,0.02);
-            margin: 0 -10px;
-            padding: 10px;
-            border-radius: 8px;
-        }
-        .member-detail-row:last-child {
-            border-bottom: none;
-        }
-        .member-detail-row:last-child:hover {
-            border-radius: 8px;
-        }
-        .member-detail-label {
-            font-size: 13px;
-            color: #8E8E93;
-            font-weight: 500;
-        }
-        .member-detail-value {
-            font-size: 14px;
-            font-weight: 700;
-            color: #1C1C1E;
-        }
-        .member-detail-value.green { color: var(--green); }
-        .member-detail-value.primary { color: var(--primary); }
-        .member-detail-value.yellow { color: #D97706; }
-
-        /* ---- MAIN CONTAINER ---- */
-        .main-container {
-            padding: 60px 80px;
-            max-width: 1440px;
-            margin: 0 auto;
-            position: relative;
-        }
-        .main-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,82,0,0.1), transparent);
-        }
-
-        /* ---- SECTION HEADER ---- */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 28px;
-            animation: fadeInUp 0.6s ease-out both;
-        }
-        .section-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: #111;
-            transition: color 0.3s ease;
-        }
-        .section-title i {
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-        .section-header:hover .section-title i {
-            transform: scale(1.2) rotate(10deg);
-        }
-        .section-subtitle {
-            font-size: 14px;
-            color: #636366;
-            margin-top: 4px;
-        }
-
-        /* ---- TIPE MEMBER CARDS ---- */
-        .pricing-grid {
-            display: flex;
-            gap: 24px;
-            padding: 8px 4px;
-            scroll-behavior: smooth;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .pricing-grid::-webkit-scrollbar { display: none; }
-        .pricing-scroll-wrapper {
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 60px;
-        }
-        .pricing-scroll-wrapper::before,
-        .pricing-scroll-wrapper::after {
-            content: '';
-            position: absolute;
+            left: 28px;
             top: 0;
             bottom: 0;
-            width: 40px;
-            pointer-events: none;
+            width: 2px;
+            background: linear-gradient(180deg, var(--border) 0%, var(--border) 100%);
+            z-index: 0;
+        }
+
+        /* Timeline Item */
+        .timeline-item {
+            position: relative;
+            padding-left: 72px;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.6s ease-out both;
+        }
+        .timeline-item:nth-child(1) { animation-delay: 0.1s; }
+        .timeline-item:nth-child(2) { animation-delay: 0.2s; }
+        .timeline-item:nth-child(3) { animation-delay: 0.3s; }
+        .timeline-item:nth-child(4) { animation-delay: 0.4s; }
+        .timeline-item:nth-child(5) { animation-delay: 0.5s; }
+
+        /* Timeline Dot */
+        .timeline-dot {
+            position: absolute;
+            left: 14px;
+            top: 20px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
             z-index: 2;
-            transition: opacity 0.3s ease;
+            border: 3px solid var(--white);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .pricing-scroll-wrapper::before {
-            left: 0;
-            background: linear-gradient(90deg, var(--light-bg), transparent);
+        .timeline-item:hover .timeline-dot {
+            transform: scale(1.15);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
-        .pricing-scroll-wrapper::after {
-            right: 0;
-            background: linear-gradient(-90deg, var(--light-bg), transparent);
-        }
-        .pricing-card {
+        .timeline-dot.active { animation: timelineDotPulse 2s ease-in-out infinite; }
+
+        /* Timeline Card */
+        .timeline-card {
             background: var(--white);
-            border: 2px solid #E5E5EA;
-            border-radius: 16px;
-            padding: 32px;
-            position: relative;
+            border: 1.5px solid #E5E5EA;
+            border-radius: 20px;
+            padding: 24px;
             transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            animation: cardEnter 0.6s ease-out both;
-            opacity: 0;
-        }
-        .pricing-card:nth-child(1) { animation-delay: 0.1s; }
-        .pricing-card:nth-child(2) { animation-delay: 0.2s; }
-        .pricing-card:nth-child(3) { animation-delay: 0.3s; }
-        .pricing-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-            border-color: rgba(255,82,0,0.4);
-        }
-        .pricing-card:hover .pricing-icon {
-            animation: iconBounce 0.6s ease;
-        }
-        .pricing-card:hover .pricing-name {
-            color: var(--primary);
-            transition: color 0.3s ease;
-        }
-        .pricing-card.recommended {
-            border-color: var(--primary);
-            box-shadow: 0 4px 20px rgba(255,82,0,.1);
-            animation: cardEnter 0.6s ease-out 0.2s both, borderGlow 3s ease-in-out infinite;
             position: relative;
-            overflow: visible;
-            padding-top: 42px;
+            overflow: hidden;
         }
-        .pricing-card.recommended::after {
+        .timeline-card::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,82,0,0.03) 0%, transparent 70%);
-            pointer-events: none;
-            animation: shimmer 4s linear infinite;
-            background-size: 200% 100%;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--card-accent, var(--primary));
+            border-radius: 20px 20px 0 0;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        .pricing-card.recommended:hover {
-            box-shadow: 0 20px 40px rgba(255,82,0,0.2);
-            border-color: var(--primary);
+        .timeline-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.1);
+            border-color: rgba(255,82,0,0.2);
         }
-        .popular-badge {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: var(--white);
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            animation: shimmer 2s linear infinite;
-            background-size: 200% 100%;
-            background-image: linear-gradient(90deg, var(--primary), #FF8C42, var(--primary));
-            z-index: 10;
-            box-shadow: 0 4px 12px rgba(255,82,0,0.3);
-            white-space: nowrap;
+        .timeline-card:hover::before { opacity: 1; }
+
+        /* Card Header */
+        .timeline-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            gap: 16px;
         }
-        .pricing-icon {
-            width: 56px;
-            height: 56px;
+        .timeline-card-title-area {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex: 1;
+        }
+        .timeline-type-icon {
+            width: 52px;
+            height: 52px;
             border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: 22px;
+            flex-shrink: 0;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .pricing-icon:hover {
-            transform: scale(1.1) rotate(5deg);
-        }
-        .pricing-icon.silver { background: var(--blue-lt); color: var(--blue); }
-        .pricing-icon.gold { background: var(--orange-lt); color: var(--orange); }
-        .pricing-icon.platinum { background: var(--purple-lt); color: var(--purple); }
-
-        .pricing-name {
-            font-size: 22px;
+        .timeline-card:hover .timeline-type-icon { transform: scale(1.1) rotate(5deg); }
+        .timeline-type-info h4 {
+            font-size: 17px;
             font-weight: 800;
             color: #1C1C1E;
-            margin-bottom: 4px;
-            transition: color 0.3s ease;
+            margin-bottom: 2px;
+            line-height: 1.3;
         }
-        .pricing-desc {
-            font-size: 13px;
-            color: #8E8E93;
-            margin-bottom: 20px;
-            transition: color 0.3s ease;
-        }
-        .pricing-card:hover .pricing-desc {
-            color: #636366;
-        }
-        .pricing-price {
-            font-size: 36px;
-            font-weight: 800;
-            color: var(--primary);
-            margin-bottom: 4px;
-            transition: all 0.3s ease;
-        }
-        .pricing-card:hover .pricing-price {
-            transform: scale(1.05);
-            text-shadow: 0 2px 10px rgba(255,82,0,0.2);
-        }
-        .pricing-price span {
-            font-size: 14px;
+        .timeline-type-info .timeline-type-sub {
+            font-size: 12px;
             color: #8E8E93;
             font-weight: 500;
         }
-        .pricing-potongan {
+
+        /* Status Badge */
+        .timeline-status-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: var(--green-lt);
-            color: var(--green);
-            padding: 6px 12px;
-            border-radius: 20px;
+            padding: 7px 14px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        .timeline-card:hover .timeline-status-badge { transform: scale(1.05); }
+
+        /* Progress Bar */
+        .timeline-progress-wrap { margin-bottom: 20px; }
+        .timeline-progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .timeline-progress-label span:first-child {
+            font-size: 12px;
+            font-weight: 600;
+            color: #636366;
+        }
+        .timeline-progress-label span:last-child {
             font-size: 12px;
             font-weight: 700;
-            margin-bottom: 24px;
-            transition: all 0.3s ease;
         }
-        .pricing-card:hover .pricing-potongan {
-            transform: scale(1.05);
-            box-shadow: 0 2px 8px rgba(52,199,89,0.2);
-        }
-        .pricing-features {
-            list-style: none;
-            margin-bottom: 24px;
-        }
-        .pricing-features li {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            font-size: 14px;
-            color: #1C1C1E;
-            border-bottom: 1px solid #F2F2F7;
-            transition: all 0.3s ease;
-            animation: fadeInUp 0.4s ease-out both;
-            opacity: 0;
-        }
-        .pricing-features li:nth-child(1) { animation-delay: 0.3s; }
-        .pricing-features li:nth-child(2) { animation-delay: 0.4s; }
-        .pricing-features li:nth-child(3) { animation-delay: 0.5s; }
-        .pricing-features li:nth-child(4) { animation-delay: 0.6s; }
-        .pricing-features li:nth-child(5) { animation-delay: 0.7s; }
-        .pricing-features li:last-child {
-            border-bottom: none;
-        }
-        .pricing-features li i {
-            color: var(--green);
-            font-size: 14px;
-            transition: transform 0.3s ease;
-        }
-        .pricing-card:hover .pricing-features li i {
-            transform: scale(1.2);
-        }
-        .btn-pilih {
+        .timeline-progress-bar {
             width: 100%;
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+            height: 8px;
+            background: #F2F2F7;
+            border-radius: 50px;
+            overflow: hidden;
+            position: relative;
+        }
+        .timeline-progress-fill {
+            height: 100%;
+            border-radius: 50px;
+            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
             position: relative;
             overflow: hidden;
         }
-        .btn-pilih::before {
+        .timeline-progress-fill::after {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
         }
-        .btn-pilih:hover::before {
-            width: 300px;
-            height: 300px;
+
+        /* Card Details Grid */
+        .timeline-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
         }
-        .btn-pilih:hover {
+        .timeline-detail-item {
+            background: #FAFAFA;
+            border: 1px solid #F2F2F7;
+            border-radius: 12px;
+            padding: 14px 16px;
+            transition: all 0.3s ease;
+        }
+        .timeline-detail-item:hover {
+            background: #FFF;
+            border-color: rgba(255,82,0,0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        }
+        .timeline-detail-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .timeline-detail-label {
+            font-size: 11px;
+            color: #8E8E93;
+            font-weight: 500;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .timeline-detail-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1C1C1E;
+            line-height: 1.3;
+        }
+
+        /* Empty State */
+        .riwayat-empty {
+            background: var(--white);
+            border: 2px dashed #E5E5EA;
+            border-radius: 24px;
+            padding: 60px 40px;
+            text-align: center;
+            animation: fadeInUp 0.6s ease-out both;
+            transition: all 0.3s ease;
+        }
+        .riwayat-empty:hover {
+            border-color: rgba(255,82,0,0.3);
+            background: linear-gradient(135deg, #FFF 0%, #FFF8F5 100%);
+        }
+        .riwayat-empty-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #FFF5F0 0%, #FFE8E0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            color: var(--primary);
+            animation: float 4s ease-in-out infinite;
+        }
+        .riwayat-empty h3 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1C1C1E;
+            margin-bottom: 6px;
+        }
+        .riwayat-empty p {
+            font-size: 14px;
+            color: #8E8E93;
+            line-height: 1.5;
+        }
+        .riwayat-empty-cta {
+            margin-top: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: #FFF;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .riwayat-empty-cta:hover {
             background: var(--primary-hover);
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(255,82,0,0.3);
         }
-        .btn-pilih:active {
-            transform: translateY(0) scale(0.98);
+
+        /* Responsive Timeline */
+        @media(max-width: 768px) {
+            .timeline-container::before { left: 20px; }
+            .timeline-item { padding-left: 56px; }
+            .timeline-dot {
+                left: 8px;
+                width: 24px;
+                height: 24px;
+                font-size: 10px;
+            }
+            .timeline-card-header { flex-direction: column; gap: 12px; }
+            .timeline-details-grid { grid-template-columns: repeat(2, 1fr); }
+            .timeline-card { padding: 18px; }
         }
-        .btn-pilih:disabled {
-            background: #C7C7CC;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        .btn-pilih:disabled::before {
-            display: none;
+        @media(max-width: 480px) {
+            .timeline-details-grid { grid-template-columns: 1fr; }
         }
 
         /* ---- RESPONSIVE ---- */
@@ -964,16 +800,12 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
             .hero-title { font-size: 28px; }
         }
 
-        /* ═══ PAYMENT MODAL (MATCHING BOOKING) ═══ */
+        /* PAYMENT MODAL */
         .booking-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px;animation:fadeInModal .25s ease-out forwards}
         .booking-modal-overlay.active{display:flex}
-        .booking-modal-overlay.active .summary-card {
-            animation: slideInModal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .summary-card{background:#fff;border-radius:20px;padding:30px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards;-ms-overflow-style:none;scrollbar-width:none;transition: transform 0.3s ease}
-        .summary-card:hover {
-            transform: translateY(-2px);
-        }
+        .booking-modal-overlay.active .summary-card{animation:slideInModal 0.4s cubic-bezier(0.16,1,0.3,1) forwards}
+        .summary-card{background:#fff;border-radius:20px;padding:30px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 40px rgba(0,0,0,.15);animation:slideInModal .3s cubic-bezier(.16,1,.3,1) forwards;-ms-overflow-style:none;scrollbar-width:none;transition:transform 0.3s ease}
+        .summary-card:hover{transform:translateY(-2px)}
         .summary-card::-webkit-scrollbar{display:none}
         .booking-modal-close{position:absolute;top:20px;right:20px;background:var(--border-lt);border:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);transition:var(--transition-smooth);z-index:10}
         .booking-modal-close:hover{background:var(--red-lt);color:var(--red);transform:rotate(90deg)}
@@ -990,178 +822,39 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         .payment-section{border-top:1px solid var(--border-lt);padding:20px 0 10px}
         .payment-header{font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px}
         .payment-header i{color:var(--muted)}
-        /* ═══ PAYMENT OPTIONS (sama dengan booking_customer.php) ═══ */
-        .payment-options {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 16px;
-        }
-        .payment-option {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            background: var(--white);
-            user-select: none;
-        }
-        .payment-option:hover {
-            border-color: var(--orange);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255,90,31,.1);
-        }
-        .payment-option.selected {
-            border-color: var(--orange);
-            background: var(--orange-lt);
-            animation: scaleIn 0.3s ease-out;
-        }
-        .payment-radio {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid var(--muted);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: var(--transition-smooth);
-        }
-        .payment-option.selected .payment-radio {
-            border-color: var(--orange);
-        }
-        .payment-radio::after {
-            content: '';
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--orange);
-            display: none;
-        }
-        .payment-option.selected .payment-radio::after {
-            display: block;
-            animation: scaleIn 0.2s ease-out;
-        }
-        .payment-info {
-            flex: 1;
-        }
-        .payment-name {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .payment-desc {
-            font-size: 11px;
-            color: var(--muted);
-            margin-top: 2px;
-        }
-        .payment-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: var(--orange-lt);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--orange);
-            font-size: 16px;
-            flex-shrink: 0;
-        }
+        .payment-options{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+        .payment-option{display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:var(--transition-smooth);background:var(--white);user-select:none}
+        .payment-option:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 4px 12px rgba(255,90,31,.1)}
+        .payment-option.selected{border-color:var(--orange);background:var(--orange-lt);animation:scaleIn 0.3s ease-out}
+        .payment-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition-smooth)}
+        .payment-option.selected .payment-radio{border-color:var(--orange)}
+        .payment-radio::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--orange);display:none}
+        .payment-option.selected .payment-radio::after{display:block;animation:scaleIn 0.2s ease-out}
+        .payment-info{flex:1}
+        .payment-name{font-size:13px;font-weight:700;color:var(--text-primary)}
+        .payment-desc{font-size:11px;color:var(--muted);margin-top:2px}
+        .payment-icon{width:40px;height:40px;border-radius:10px;background:var(--orange-lt);display:flex;align-items:center;justify-content:center;color:var(--orange);font-size:16px;flex-shrink:0}
         .btn-booking{width:100%;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:var(--transition-smooth);position:relative;overflow:hidden}
         .btn-booking::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .6s,height .6s}
         .btn-booking:hover::before{width:400px;height:400px}
         .btn-booking:hover:not(:disabled){background:var(--orange-hover);transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,90,31,.4)}
         .btn-booking:disabled{background:var(--muted);cursor:not-allowed}
-        .btn-booking i {
-            transition: transform 0.3s ease;
-        }
-        .btn-booking:hover i {
-            transform: translateX(3px);
-        }
+        .btn-booking i{transition:transform 0.3s ease}
+        .btn-booking:hover i{transform:translateX(3px)}
         .booking-disclaimer{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);margin-top:10px;font-weight:500}
         .booking-disclaimer i{color:var(--green);animation:pulse 2s ease-in-out infinite}
 
-        /* ═══ PAYMENT INSTRUCTION MODAL ═══ */
-        .instruction-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 16px;
-            font-weight: 800;
-            letter-spacing: .5px;
-            color: var(--muted);
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            text-align: center;
-        }
-        .switch-tabs-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 16px;
-            background: var(--border-lt);
-            padding: 4px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-        }
-        .switch-tab-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            background: transparent;
-            color: var(--text-secondary);
-        }
-        .switch-tab-btn.active {
-            background: #fff;
-            color: var(--orange);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
-        }
-        .countdown-box {
-            background: var(--orange-lt);
-            border: 1px solid rgba(255, 90, 31, .15);
-            border-radius: 10px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .countdown-box i {
-            color: var(--orange);
-            animation: pulse 2s infinite;
-        }
-        .countdown-text {
-            color: var(--orange-hover);
-            font-weight: 700;
-            font-size: 12px;
-        }
-        .total-display-box {
-            background: var(--bg);
-            padding: 14px 18px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-            text-align: center;
-        }
-        .total-display-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .total-display-amount {
-            font-size: 24px;
-            color: var(--orange);
-            font-weight: 900;
-            margin-top: 4px;
-        }
+        /* PAYMENT INSTRUCTION MODAL */
+        .instruction-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.5px;color:var(--muted);margin-bottom:20px;text-transform:uppercase;text-align:center}
+        .switch-tabs-row{display:flex;gap:6px;margin-bottom:16px;background:var(--border-lt);padding:4px;border-radius:10px;border:1px solid var(--border)}
+        .switch-tab-btn{flex:1;padding:10px;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition-smooth);background:transparent;color:var(--text-secondary)}
+        .switch-tab-btn.active{background:#fff;color:var(--orange);box-shadow:0 2px 6px rgba(0,0,0,.05)}
+        .countdown-box{background:var(--orange-lt);border:1px solid rgba(255,90,31,.15);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:20px}
+        .countdown-box i{color:var(--orange);animation:pulse 2s infinite}
+        .countdown-text{color:var(--orange-hover);font-weight:700;font-size:12px}
+        .total-display-box{background:var(--bg);padding:14px 18px;border-radius:12px;margin-bottom:20px;border:1px solid var(--border);text-align:center}
+        .total-display-label{font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase}
+        .total-display-amount{font-size:24px;color:var(--orange);font-weight:900;margin-top:4px}
         .instr-va-box{text-align:left}
         .instr-qris-box{display:none;align-items:center;flex-direction:column}
         .instr-qris-box.active{display:flex}
@@ -1195,94 +888,24 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         .btn-done-pay::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .6s,height .6s}
         .btn-done-pay:hover::before{width:400px;height:400px}
         .btn-done-pay:hover{background:var(--orange-hover);transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,90,31,.4)}
-        .btn-done-pay i {
-            transition: transform 0.3s ease;
-        }
-        .btn-done-pay:hover i {
-            transform: scale(1.2);
-        }
+        .btn-done-pay i{transition:transform 0.3s ease}
+        .btn-done-pay:hover i{transform:scale(1.2)}
 
-        /* ═══ PAGE LOADER ═══ */
-        .page-loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #0B0B0C;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            z-index: 99999;
-            transition: opacity 0.5s ease, visibility 0.5s ease;
-        }
-        .page-loader.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-        .loader-ball {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--primary);
-            animation: loaderBounce 0.6s ease-in-out infinite alternate;
-        }
-        .loader-ball:nth-child(2) { animation-delay: 0.2s; }
-        .loader-ball:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes loaderBounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-20px); }
-        }
+        /* PAGE LOADER */
+        .page-loader{position:fixed;top:0;left:0;width:100%;height:100%;background:#0B0B0C;display:flex;align-items:center;justify-content:center;gap:8px;z-index:99999;transition:opacity 0.5s ease,visibility 0.5s ease}
+        .page-loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
+        .loader-ball{width:12px;height:12px;border-radius:50%;background:var(--primary);animation:loaderBounce 0.6s ease-in-out infinite alternate}
+        .loader-ball:nth-child(2){animation-delay:0.2s}
+        .loader-ball:nth-child(3){animation-delay:0.4s}
 
-        /* ═══ UPLOAD BUKTI PEMBAYARAN (sama dengan booking_customer.php) ═══ */
-        .bukti-upload-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 22px;
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            cursor: pointer;
-            text-align: center;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 600;
-            transition: var(--transition-smooth);
-            margin-top: 12px;
-        }
-        .bukti-upload-box:hover {
-            border-color: var(--orange);
-            background: var(--orange-lt);
-            color: var(--orange);
-        }
-        .bukti-upload-box i {
-            font-size: 22px;
-            color: var(--orange);
-        }
-        .bukti-upload-box.filled {
-            border-style: solid;
-            border-color: var(--green);
-            color: var(--green);
-            background: var(--green-lt);
-        }
-        .bukti-upload-box.filled i {
-            color: var(--green);
-        }
-        .bukti-preview-wrap {
-            display: none;
-            margin-top: 10px;
-            text-align: center;
-        }
-        .bukti-preview-wrap img {
-            max-width: 100%;
-            max-height: 180px;
-            border-radius: 12px;
-            border: 1.5px solid var(--border);
-        }
+        /* UPLOAD BUKTI PEMBAYARAN */
+        .bukti-upload-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;text-align:center;color:var(--muted);font-size:12px;font-weight:600;transition:var(--transition-smooth);margin-top:12px}
+        .bukti-upload-box:hover{border-color:var(--orange);background:var(--orange-lt);color:var(--orange)}
+        .bukti-upload-box i{font-size:22px;color:var(--orange)}
+        .bukti-upload-box.filled{border-style:solid;border-color:var(--green);color:var(--green);background:var(--green-lt)}
+        .bukti-upload-box.filled i{color:var(--green)}
+        .bukti-preview-wrap{display:none;margin-top:10px;text-align:center}
+        .bukti-preview-wrap img{max-width:100%;max-height:180px;border-radius:12px;border:1.5px solid var(--border)}
 </style>
 </head>
 <body>
@@ -1296,9 +919,9 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
 <div class="scroll-progress" id="scrollProgress"></div>
 
 <?php $path_prefix = '../'; include '../includes/navbar.php'; ?>
+
 <!-- HERO SECTION -->
 <section class="hero">
-    <!-- Floating Balls Animation -->
     <div class="floating-ball ball-1"></div>
     <div class="floating-ball ball-2"></div>
     <div class="floating-ball ball-3"></div>
@@ -1453,7 +1076,6 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
                 $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
                 $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
 
-                // Tentukan apakah tombol harus disabled
                 $is_blocked = ($has_member || $member_pending);
 
                 foreach ($tipe_member_list as $tipe):
@@ -1505,8 +1127,10 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         </div>
     </section>
 
-    <!-- RIWAYAT LANGGANAN -->
-    <section style="margin-top: 40px;">
+    <!-- ================================================================
+         RIWAYAT LANGGANAN - TAMPILAN BARU & MODERN (TIMELINE)
+         ================================================================ -->
+    <section class="riwayat-section">
         <div class="section-header reveal">
             <div>
                 <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary)"></i> Riwayat Langganan</h2>
@@ -1515,45 +1139,110 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
         </div>
 
         <?php if (count($riwayat_langganan) > 0): ?>
-        <div class="reveal-stagger" style="display: flex; flex-direction: column; gap: 12px;">
-            <?php foreach ($riwayat_langganan as $idx => $r): 
-                $r_status = $status_labels[$r['Status']] ?? $status_labels[0];
+        <div class="timeline-container">
+            <?php foreach ($riwayat_langganan as $idx => $r):
+                $cfg = $status_config[$r['Status']] ?? $status_config[0];
+                $tipe_cfg = $tipe_config[$r['Nama_Tipe']] ?? ['icon' => 'fa-star', 'gradient' => 'linear-gradient(135deg, #F3F4F6 0%, #D1D5DB 100%)', 'text_color' => '#374151'];
                 $r_tgl_mulai = formatTanggal($r['Tanggal_Mulai']);
                 $r_tgl_selesai = formatTanggal($r['Tanggal_Selesai']);
                 $r_sisa_hari = isset($r['Sisa_Hari']) ? $r['Sisa_Hari'] : 0;
+
+                // Hitung progress berdasarkan sisa hari untuk status aktif
+                $progress = $cfg['progress'];
+                if ($r['Status'] == 1 && $r_sisa_hari > 0) {
+                    $progress = max(10, min(100, round((30 - $r_sisa_hari) / 30 * 100)));
+                }
             ?>
-            <div class="stagger-item" style="background: var(--white); border: 1px solid #E5E5EA; border-radius: 14px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; transition: all 0.3s ease; animation: fadeInUp 0.5s ease-out <?php echo $idx * 0.1; ?>s both;">
-                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: <?php echo $r['Status'] == 1 ? 'var(--green-lt)' : ($r['Status'] == 0 ? 'var(--yellow-lt)' : 'var(--red-lt)'); ?>; color: <?php echo $r['Status'] == 1 ? 'var(--green)' : ($r['Status'] == 0 ? '#D97706' : 'var(--red)'); ?>; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
-                        <i class="fa-solid <?php echo $r_status['icon']; ?>"></i>
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 15px; font-weight: 700; color: #1C1C1E; margin-bottom: 2px;"><?php echo htmlspecialchars($r['Nama_Tipe']); ?></div>
-                        <div style="font-size: 12px; color: #8E8E93; display: flex; align-items: center; gap: 8px;">
-                            <span><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i><?php echo $r_tgl_mulai; ?> - <?php echo $r_tgl_selesai; ?></span>
-                            <?php if ($r['Status'] == 1 && $r_sisa_hari > 0): ?>
-                            <span style="color: var(--green); font-weight: 600;">(<?php echo $r_sisa_hari; ?> hari lagi)</span>
-                            <?php endif; ?>
+            <div class="timeline-item">
+                <!-- Timeline Dot -->
+                <div class="timeline-dot <?php echo $r['Status'] == 1 ? 'active' : ''; ?>"
+                     style="background: <?php echo $cfg['icon_bg']; ?>; color: <?php echo $cfg['icon_color']; ?>;">
+                    <i class="fa-solid <?php echo $cfg['icon']; ?>"></i>
+                </div>
+
+                <!-- Timeline Card -->
+                <div class="timeline-card" style="--card-accent: <?php echo $cfg['timeline_color']; ?>">
+                    <!-- Card Header -->
+                    <div class="timeline-card-header">
+                        <div class="timeline-card-title-area">
+                            <div class="timeline-type-icon" style="background: <?php echo $tipe_cfg['gradient']; ?>; color: <?php echo $tipe_cfg['text_color']; ?>;">
+                                <i class="fa-solid <?php echo $tipe_cfg['icon']; ?>"></i>
+                            </div>
+                            <div class="timeline-type-info">
+                                <h4>Member <?php echo htmlspecialchars($r['Nama_Tipe']); ?></h4>
+                                <div class="timeline-type-sub">
+                                    <i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>
+                                    <?php echo $r_tgl_mulai; ?> &ndash; <?php echo $r_tgl_selesai; ?>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timeline-status-badge" style="background: <?php echo $cfg['badge_bg']; ?>; color: <?php echo $cfg['badge_color']; ?>;">
+                            <i class="fa-solid <?php echo $cfg['icon']; ?>"></i>
+                            <?php echo $cfg['badge_text']; ?>
                         </div>
                     </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="text-align: right;">
-                        <div style="font-size: 14px; font-weight: 800; color: var(--primary);"><?php echo rupiahFormat($r['Total_Bayar']); ?></div>
-                        <div style="font-size: 11px; color: #8E8E93;"><?php echo $r['Metode_Pembayaran']; ?></div>
+
+                    <!-- Progress Bar (hanya untuk aktif) -->
+                    <?php if ($r['Status'] == 1): ?>
+                    <div class="timeline-progress-wrap">
+                        <div class="timeline-progress-label">
+                            <span>Progress Langganan</span>
+                            <span style="color: <?php echo $cfg['timeline_color']; ?>"><?php echo $r_sisa_hari; ?> hari tersisa</span>
+                        </div>
+                        <div class="timeline-progress-bar">
+                            <div class="timeline-progress-fill" style="width: <?php echo $progress; ?>%; background: linear-gradient(90deg, <?php echo $cfg['timeline_color']; ?>, <?php echo $cfg['timeline_color']; ?>cc);"></div>
+                        </div>
                     </div>
-                    <span class="status-pill <?php echo $r_status['class']; ?>" style="font-size: 11px; padding: 6px 14px;">
-                        <i class="fa-solid <?php echo $r_status['icon']; ?>"></i> <?php echo $r_status['label']; ?>
-                    </span>
+                    <?php endif; ?>
+
+                    <!-- Details Grid -->
+                    <div class="timeline-details-grid">
+                        <div class="timeline-detail-item">
+                            <div class="timeline-detail-icon" style="background: <?php echo $cfg['icon_bg']; ?>; color: <?php echo $cfg['icon_color']; ?>;">
+                                <i class="fa-solid fa-money-bill-wave"></i>
+                            </div>
+                            <div class="timeline-detail-label">Total Bayar</div>
+                            <div class="timeline-detail-value"><?php echo rupiahFormat($r['Total_Bayar']); ?></div>
+                        </div>
+                        <div class="timeline-detail-item">
+                            <div class="timeline-detail-icon" style="background: var(--blue-lt); color: var(--blue);">
+                                <i class="fa-solid fa-credit-card"></i>
+                            </div>
+                            <div class="timeline-detail-label">Metode</div>
+                            <div class="timeline-detail-value"><?php echo htmlspecialchars($r['Metode_Pembayaran']); ?></div>
+                        </div>
+                        <div class="timeline-detail-item">
+                            <div class="timeline-detail-icon" style="background: var(--green-lt); color: var(--green);">
+                                <i class="fa-solid fa-tag"></i>
+                            </div>
+                            <div class="timeline-detail-label">Potongan</div>
+                            <div class="timeline-detail-value"><?php echo rupiahFormat($r['Potongan_Harga']); ?>/booking</div>
+                        </div>
+                        <?php if ($r['Status'] == 1 && $r_sisa_hari > 0): ?>
+                        <div class="timeline-detail-item">
+                            <div class="timeline-detail-icon" style="background: var(--orange-lt); color: var(--orange);">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                            </div>
+                            <div class="timeline-detail-label">Sisa Hari</div>
+                            <div class="timeline-detail-value" style="color: <?php echo $cfg['timeline_color']; ?>"><?php echo $r_sisa_hari; ?> hari</div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php endforeach; ?>
         </div>
         <?php else: ?>
-        <div style="background: var(--white); border: 1px solid #E5E5EA; border-radius: 14px; padding: 40px; text-align: center; animation: fadeInUp 0.5s ease-out;">
-            <i class="fa-solid fa-inbox" style="font-size: 40px; color: #C7C7CC; margin-bottom: 12px; display: block;"></i>
-            <div style="font-size: 14px; font-weight: 700; color: #8E8E93;">Belum ada riwayat langganan</div>
-            <div style="font-size: 12px; color: #C7C7CC; margin-top: 4px;">Daftar langganan Anda akan muncul di sini</div>
+        <!-- Empty State -->
+        <div class="riwayat-empty">
+            <div class="riwayat-empty-icon">
+                <i class="fa-solid fa-inbox"></i>
+            </div>
+            <h3>Belum Ada Riwayat Langganan</h3>
+            <p>Daftar langganan Anda akan muncul di sini setelah Anda berlangganan member.</p>
+            <a href="#pricingGrid" class="riwayat-empty-cta" onclick="document.getElementById('pricingGrid').scrollIntoView({behavior:'smooth'});">
+                <i class="fa-solid fa-crown"></i> Lihat Paket Member
+            </a>
         </div>
         <?php endif; ?>
     </section>
@@ -1563,7 +1252,7 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
 <!-- FOOTER -->
 <?php include '../includes/footer.php'; ?>
 
-<!-- ═══ MODAL 1: CHECKOUT ═══ -->
+<!-- MODAL 1: CHECKOUT -->
 <div class="booking-modal-overlay" id="checkoutModal">
     <div class="summary-card">
         <button class="booking-modal-close" onclick="tutupCheckoutModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -1615,7 +1304,7 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
     </div>
 </div>
 
-<!-- ═══ MODAL 2: INSTRUKSI PEMBAYARAN ═══ -->
+<!-- MODAL 2: INSTRUKSI PEMBAYARAN -->
 <div class="booking-modal-overlay" id="paymentInstructionModal">
     <div class="summary-card" style="max-width:460px;text-align:center">
         <button class="booking-modal-close" onclick="tutupInstructionModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -1721,7 +1410,7 @@ if (!empty($nama_customer) && $nama_customer !== 'Pelanggan') {
 </div>
 
 <script>
-/* ─── BUKTI PEMBAYARAN HANDLER (sama dengan booking_customer.php) ─── */
+/* BUKTI PEMBAYARAN HANDLER */
 let buktiFile = null;
 
 function handleBuktiFileChange(input) {
@@ -1787,7 +1476,7 @@ function resetBuktiUpload() {
     if (previewWrap) previewWrap.style.display = 'none';
 }
 
-/* ─── ENHANCED ANIMATIONS ─── */
+/* ENHANCED ANIMATIONS */
 document.querySelectorAll('.pricing-card').forEach(card => {
     card.addEventListener('mousemove', (e) => {
         const rect = card.getBoundingClientRect();
@@ -1867,7 +1556,7 @@ window.addEventListener('DOMContentLoaded', () => {
     updateScrollArrows();
 });
 
-/* ─── HORIZONTAL SCROLL FUNCTIONS ─── */
+/* HORIZONTAL SCROLL */
 function scrollPricing(direction) {
     const grid = document.getElementById('pricingGrid');
     if (!grid) return;
@@ -1899,7 +1588,7 @@ if (pricingGrid) {
     window.addEventListener('resize', updateScrollArrows);
 }
 
-/* ─── SEARCH FILTER FUNCTION ─── */
+/* SEARCH FILTER */
 function filterTipeMember(query) {
     const cards = document.querySelectorAll('.pricing-card');
     const grid = document.getElementById('pricingGrid');
@@ -1951,7 +1640,7 @@ function filterTipeMember(query) {
     }
 }
 
-/* ─── KEYBOARD NAVIGATION ─── */
+/* KEYBOARD NAVIGATION */
 document.addEventListener('keydown', (e) => {
     const grid = document.getElementById('pricingGrid');
     if (!grid) return;
@@ -1964,20 +1653,20 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-/* ─── SCROLL PROGRESS ─── */
+/* SCROLL PROGRESS */
 window.addEventListener('scroll', () => {
     const st = document.documentElement.scrollTop || document.body.scrollTop;
     const sh = document.documentElement.scrollHeight - document.documentElement.clientHeight;
     document.getElementById('scrollProgress').style.transform = `scaleX(${st / sh})`;
 });
 
-/* ─── INTERSECTION OBSERVER (REVEAL ANIMATION) ─── */
+/* INTERSECTION OBSERVER (REVEAL) */
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
 }, { threshold: .1, rootMargin: '0px 0px -50px 0px' });
 document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
 
-/* ─── STATE ─── */
+/* STATE */
 let selectedIdTipe = null;
 let selectedNamaTipe = '';
 let selectedHarga = 0;
@@ -1988,7 +1677,7 @@ function formatRupiah(n) {
     return 'Rp ' + Math.max(0, n).toLocaleString('id-ID');
 }
 
-/* ─── MODAL 1: CHECKOUT ─── */
+/* MODAL 1: CHECKOUT */
 function bukaModal(idTipe, namaTipe, harga) {
     selectedIdTipe = idTipe;
     selectedNamaTipe = namaTipe;
@@ -2014,7 +1703,7 @@ function selectPayment(el) {
     document.getElementById('btnLanjutBayar').disabled = false;
 }
 
-/* ─── MODAL 2: INSTRUKSI PEMBAYARAN ─── */
+/* MODAL 2: INSTRUKSI PEMBAYARAN */
 function lanjutKePembayaran() {
     tutupCheckoutModal();
     document.getElementById('paymentTotalAmount').textContent = formatRupiah(selectedHarga);
@@ -2087,7 +1776,7 @@ function copyVA() {
     });
 }
 
-/* ─── FORM VALIDATION ─── */
+/* FORM VALIDATION */
 document.getElementById('formPembayaran').addEventListener('submit', function(e) {
     const fileInput = document.getElementById('buktiPembayaranInput');
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
@@ -2103,7 +1792,7 @@ document.getElementById('formPembayaran').addEventListener('submit', function(e)
     }
 });
 
-/* ─── CLOSE MODAL ON OUTSIDE CLICK ─── */
+/* CLOSE MODAL ON OUTSIDE CLICK */
 window.addEventListener('click', function(e) {
     const cModal = document.getElementById('checkoutModal');
     const pModal = document.getElementById('paymentInstructionModal');
@@ -2111,7 +1800,7 @@ window.addEventListener('click', function(e) {
     if (e.target === pModal) tutupInstructionModal();
 });
 
-/* ─── URL PARAMETER NOTIFICATION ─── */
+/* URL PARAMETER NOTIFICATION */
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
 const msg = urlParams.get('msg');
@@ -2128,7 +1817,7 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-/* ─── KONFIRMASI LOGOUT ─── */
+/* KONFIRMASI LOGOUT */
 (function () {
     const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
     let swalLoading = null;
