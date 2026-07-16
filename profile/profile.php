@@ -78,47 +78,59 @@ if (isset($_POST['change_password'])) {
     $new = $_POST['new_password'];
     $confirm = $_POST['confirm_password'];
 
-    // Mendapatkan nama file saat ini untuk redirect dinamis
-    $current_file = basename($_SERVER['PHP_SELF']);
+    // Mengatur header respons agar berupa JSON
+    header('Content-Type: application/json');
 
     // 1. Validasi kecocokan password lama
     if (!password_verify($old, trim($user_data['Kata_Sandi']))) {
-        $_SESSION['swal_status'] = 'error';
-        $_SESSION['swal_title'] = 'Gagal!';
-        $_SESSION['swal_msg'] = 'Kata sandi lama salah!';
-        $_SESSION['pass_error_field'] = 'old_password';
-
-        header("Location: " . $current_file);
+        echo json_encode([
+            'status' => 'error',
+            'title' => 'Gagal!',
+            'message' => 'Kata sandi lama salah!',
+            'error_field' => 'old_password'
+        ]);
         exit();
     }
     // 2. Validasi apakah sandi baru sama dengan sandi lama
     elseif (password_verify($new, $user_data['Kata_Sandi'])) {
-        $_SESSION['swal_status'] = 'error';
-        $_SESSION['swal_title'] = 'Gagal!';
-        $_SESSION['swal_msg'] = 'Kata sandi baru tidak boleh sama dengan kata sandi lama!';
-        $_SESSION['pass_error_field'] = 'new_password';
-
-        header("Location: " . $current_file);
+        echo json_encode([
+            'status' => 'error',
+            'title' => 'Gagal!',
+            'message' => 'Kata sandi baru tidak boleh sama dengan kata sandi lama!',
+            'error_field' => 'new_password'
+        ]);
         exit();
     }
+
+    // TAMBAHKAN VALIDASI BARU INI: Validasi apakah sandi baru mengandung spasi
+    elseif (strpos($new, ' ') !== false) {
+        echo json_encode([
+            'status' => 'error',
+            'title' => 'Gagal!',
+            'message' => 'Kata sandi baru tidak boleh mengandung spasi!',
+            'error_field' => 'new_password'
+        ]);
+        exit();
+    }
+
     // 3. Validasi panjang karakter sandi baru
     elseif (strlen($new) < 8) {
-        $_SESSION['swal_status'] = 'error';
-        $_SESSION['swal_title'] = 'Gagal!';
-        $_SESSION['swal_msg'] = 'Kata sandi baru minimal 8 karakter!';
-        $_SESSION['pass_error_field'] = 'new_password';
-
-        header("Location: " . $current_file);
+        echo json_encode([
+            'status' => 'error',
+            'title' => 'Gagal!',
+            'message' => 'Kata sandi baru minimal 8 karakter!',
+            'error_field' => 'new_password'
+        ]);
         exit();
     }
     // 4. Validasi kecocokan konfirmasi sandi
     elseif ($new !== $confirm) {
-        $_SESSION['swal_status'] = 'error';
-        $_SESSION['swal_title'] = 'Gagal!';
-        $_SESSION['swal_msg'] = 'Konfirmasi tidak cocok.';
-        $_SESSION['pass_error_field'] = 'confirm_password';
-
-        header("Location: " . $current_file);
+        echo json_encode([
+            'status' => 'error',
+            'title' => 'Gagal!',
+            'message' => 'Konfirmasi tidak cocok.',
+            'error_field' => 'confirm_password'
+        ]);
         exit();
     } else {
         // Proses update password menggunakan Argon2id
@@ -127,73 +139,84 @@ if (isset($_POST['change_password'])) {
         $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($hashed_new, $nama, $user_data['ID_Karyawan']));
 
         if ($upd) {
-            $_SESSION['swal_status'] = 'success';
-            $_SESSION['swal_title'] = 'Berhasil!';
-            $_SESSION['swal_msg'] = 'Kata sandi berhasil diubah!';
-            header("Location: " . $current_file);
+            echo json_encode([
+                'status' => 'success',
+                'title' => 'Berhasil!',
+                'message' => 'Kata sandi berhasil diubah!'
+            ]);
             exit();
         } else {
-            $_SESSION['swal_status'] = 'error';
-            $_SESSION['swal_title'] = 'Gagal!';
-            $_SESSION['swal_msg'] = 'Gagal mengubah kata sandi di database!';
-            header("Location: " . $current_file);
+            echo json_encode([
+                'status' => 'error',
+                'title' => 'Gagal!',
+                'message' => 'Gagal mengubah kata sandi di database!'
+            ]);
             exit();
         }
     }
 }
 
-// Photo upload - PERBAIKAN: simpan ke folder yang konsisten
+// Photo upload - Menggunakan path relatif yang konsisten
 $photo_msg = '';
 if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
+    header('Content-Type: application/json');
     $file = $_FILES['profile_photo'];
     if ($file['error'] === 0) {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         if (in_array($ext, $allowed)) {
-            $filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
-            if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
-            if (move_uploaded_file($file['tmp_name'], $filename)) {
-                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
+            $upload_dir = 'uploads/profiles/'; // DIUBAH: Tanpa ../ karena sejajar
+            $id_karyawan_clean = trim($user_data['ID_Karyawan']);
+            $db_filename = 'uploads/profiles/' . $id_karyawan_clean . '_' . time() . '.' . $ext;
+            $target_file = $upload_dir . basename($db_filename);
+
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            if (move_uploaded_file($file['tmp_name'], $target_file)) {
+                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($db_filename, $nama, $user_data['ID_Karyawan']));
                 if ($upd) {
-                    $_SESSION['Photo_Profile'] = $filename;
-                    $photo_msg = 'success';
-                    // Refresh data
-                    $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
-                    $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-                    // Update session dengan path lengkap
-                    $_SESSION['Photo_Profile'] = $filename;
-                    $_SESSION['nama'] = $user_data['Nama_Karyawan'];
+                    $_SESSION['Photo_Profile'] = $db_filename;
+                    echo json_encode([
+                        'status' => 'success',
+                        'message' => 'Foto profil berhasil diperbarui!',
+                        'new_photo_path' => $db_filename // DIUBAH: Tanpa ../
+                    ]);
+                    exit();
                 } else {
-                    $photo_msg = 'Gagal menyimpan ke database!';
+                    echo json_encode(['status' => 'error', 'message' => 'Gagal menyimpan ke database!']);
+                    exit();
                 }
             } else {
-                $photo_msg = 'Gagal memindahkan file!';
+                echo json_encode(['status' => 'error', 'message' => 'Gagal memindahkan file!']);
+                exit();
             }
         } else {
-            $photo_msg = 'Format file tidak didukung! (jpg, jpeg, png, gif)';
+            echo json_encode(['status' => 'error', 'message' => 'Format file tidak didukung! (jpg, jpeg, png, gif)']);
+            exit();
         }
     } else {
-        $photo_msg = 'Error upload: ' . $file['error'];
+        echo json_encode(['status' => 'error', 'message' => 'Error upload: ' . $file['error']]);
+        exit();
     }
 }
 
-// ── PHOTO PATH FIX ──
-$profile_photo = $user_data['Photo_Profile'] ?? '';
+// ── SESUDAH (BENAR) ──
+$profile_photo_db = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
 
-if (!empty($profile_photo)) {
-    if (strpos($profile_photo, '../') === 0) {
-        $photo_path = $profile_photo;
-    } elseif (strpos($profile_photo, 'uploads/') === 0) {
-        $photo_path = '../' . $profile_photo;
-    } else {
-        $photo_path = '../uploads/profiles/' . $profile_photo;
-    }
-    if (!file_exists($photo_path)) {
-        $photo_path = '';
-    }
+if (!empty($profile_photo_db)) {
+    // Bersihkan sisa-sisa karakter "../" lama di database jika ada
+    $clean_db_path = ltrim(str_replace('../', '', $profile_photo_db), '/');
+    $photo_path = $clean_db_path; // Langsung gunakan path tanpa ../
 }
 
+// Gunakan __DIR__ karena folder uploads berada di dalam folder yang sama dengan file script ini
+$absolute_check_path = __DIR__ . '/' . $photo_path;
+$is_photo_exist = !empty($photo_path) && file_exists($absolute_check_path);
+
+// Kirim path relatif yang valid ke sidebar dan session
 $sidebar_photo = $photo_path;
 $_SESSION['Photo_Profile'] = $photo_path;
 
@@ -260,110 +283,185 @@ if ($last_pwd_change_raw) {
             color: var(--text);
         }
 
-.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .main {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
-/* ============================================
-   TOPBAR STYLES - WAJIB ADA agar topbar.php render dengan benar
-   ============================================ */
-.topbar { 
-    background: var(--card-bg); 
-    height: var(--topbar-h); 
-    padding: 0 40px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    border-bottom: 1px solid var(--border); 
-    position: sticky; 
-    top: 0; 
-    z-index: 100; 
-    box-shadow: 0 1px 0 rgba(0,0,0,.04);
-}
-.topbar-left { display: flex; flex-direction: column; }
-.topbar-title { 
-    font-family: 'Barlow Condensed', sans-serif; 
-    font-size: 26px; 
-    font-weight: 900; 
-    color: var(--text); 
-    letter-spacing: -.5px; 
-    line-height: 1; 
-}
-.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.topbar-right { display: flex; align-items: center; gap: 16px; }
-.dropdown-wrap { position: relative; }
-.topbar-user { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    background: var(--bg); 
-    border: 1px solid var(--border); 
-    padding: 6px 14px 6px 8px; 
-    border-radius: 12px; 
-    cursor: pointer; 
-    transition: .2s; 
-}
-.topbar-user:hover { border-color: var(--orange); }
-.t-avatar { 
-    width: 32px; 
-    height: 32px; 
-    background: var(--orange); 
-    border-radius: 50%; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    color: #fff; 
-    font-size: 13px; 
-    overflow: hidden; 
-}
-.t-avatar img { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
-    border-radius: 50%; 
-}
-.t-name { 
-    font-size: 13px; 
-    font-weight: 800; 
-    color: var(--text); 
-    line-height: 1.1; 
-    text-transform: uppercase; 
-}
-.t-role { 
-    font-size: 10px; 
-    color: var(--orange); 
-    font-weight: 700; 
-    text-transform: uppercase; 
-}
-.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
-.dropdown-menu { 
-    display: none; 
-    position: absolute; 
-    right: 0; 
-    top: calc(100% + 8px); 
-    background: #fff; 
-    min-width: 200px; 
-    border-radius: 12px; 
-    border: 1px solid var(--border); 
-    box-shadow: 0 15px 40px rgba(0,0,0,.12); 
-    overflow: hidden; 
-    padding: 8px 0; 
-    z-index: 999; 
-}
-.dropdown-wrap:hover .dropdown-menu { display: block; }
-.dropdown-wrap.active .dropdown-menu { display: block; }
-.dd-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    padding: 11px 16px; 
-    color: #444; 
-    text-decoration: none; 
-    font-size: 13px; 
-    font-weight: 700; 
-    transition: .15s; 
-}
-.dd-item:hover { background: #FFF7ED; color: var(--orange); }
-.dd-item i { font-size: 14px; width: 18px; text-align: center; }
-.dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
+        .topbar {
+            background: var(--card-bg);
+            height: var(--topbar-h);
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar-title {
+            font-family: 'Barlow Condensed';
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--text);
+        }
+
+        .topbar-breadcrumb {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            transition: .2s;
+        }
+
+        .topbar-btn:hover {
+            border-color: var(--orange);
+            color: var(--orange);
+            background: var(--orange-lt);
+        }
+
+        .dropdown-wrap {
+            position: relative;
+        }
+
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 6px 14px 6px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .topbar-user:hover {
+            border-color: var(--orange);
+        }
+
+        .t-avatar {
+            width: 32px;
+            height: 32px;
+            background: var(--orange);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 13px;
+            overflow: hidden;
+        }
+
+        .t-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .t-name {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+
+        .t-role {
+            font-size: 10px;
+            color: var(--orange);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .t-chevron {
+            color: var(--muted);
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: #fff;
+            min-width: 200px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, .12);
+            overflow: hidden;
+            padding: 8px 0;
+            z-index: 999;
+        }
+
+        .dropdown-wrap:hover .dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-wrap.active .dropdown-menu {
+            display: block;
+        }
+
+        .dd-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 16px;
+            color: #444;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            transition: .15s;
+        }
+
+        .dd-item:hover {
+            background: #FFF7ED;
+            color: var(--orange);
+        }
+
+        .dd-item i {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .dd-divider {
+            border: none;
+            border-top: 1px solid #F3F4F6;
+            margin: 4px 0;
+        }
 
         #clock-display {
             display: flex;
@@ -415,19 +513,30 @@ if ($last_pwd_change_raw) {
             letter-spacing: 0.5px;
         }
 
-/* ============================================
-   CONTENT STYLES
-   ============================================ */
-.content { padding: 32px 40px; flex: 1; }
-.page-header { margin-bottom: 28px; }
-.page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
-.page-title { 
-    font-family: 'Barlow Condensed', sans-serif; 
-    font-size: 30px; 
-    font-weight: 900; 
-    color: var(--text); 
-    text-transform: uppercase; 
-}
+        .content {
+            padding: 32px 40px;
+            flex: 1;
+        }
+
+        .page-header {
+            margin-bottom: 28px;
+        }
+
+        .page-title-tag {
+            width: 36px;
+            height: 4px;
+            background: var(--orange);
+            border-radius: 2px;
+            margin-bottom: 8px;
+        }
+
+        .page-title {
+            font-family: 'Barlow Condensed';
+            font-size: 30px;
+            font-weight: 900;
+            color: var(--text);
+            text-transform: uppercase;
+        }
 
         .profile-grid {
             display: grid;
@@ -787,30 +896,88 @@ if ($last_pwd_change_raw) {
             color: #1F2937 !important;
         }
 
-/* ============================================
+        /* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
    ============================================ */
-.swal2-popup {
-    animation: none !important;
-    transition: none !important;
-}
-.swal2-icon {
-    animation: none !important;
-}
-.swal2-icon.swal2-success .swal2-success-ring,
-.swal2-icon.swal2-success [class^="swal2-success-line"],
-.swal2-icon.swal2-error [class^="swal2-x-mark-line"],
-.swal2-icon.swal2-warning {
-    animation: none !important;
-}
+        .swal2-popup {
+            animation: none !important;
+            transition: none !important;
+        }
 
-/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
-html.swal2-shown,
-body.swal2-shown,
-body.swal2-height-auto {
-    padding-right: 0 !important;
-}
-</style>
+        .swal2-icon {
+            animation: none !important;
+        }
+
+        .swal2-icon.swal2-success .swal2-success-ring,
+        .swal2-icon.swal2-success [class^="swal2-success-line"],
+        .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+        .swal2-icon.swal2-warning {
+            animation: none !important;
+        }
+
+        /* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+        html.swal2-shown,
+        body.swal2-shown,
+        body.swal2-height-auto {
+            padding-right: 0 !important;
+        }
+
+        /* Menampilkan pesan error */
+        .error-message.show {
+            display: block;
+        }
+
+        /* Form Ganti Password Override (Font Plus Jakarta Sans) */
+        .password-card {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+
+        .password-card .password-title {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 18px !important;
+            font-weight: 800 !important;
+            letter-spacing: normal !important;
+        }
+
+        .password-card .form-label {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            text-transform: none !important;
+            /* Menonaktifkan huruf kapital paksa */
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            letter-spacing: normal !important;
+            color: #1C1C1E !important;
+        }
+
+        .password-card .form-input {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 13px !important;
+        }
+
+        /* Memastikan Teks Pesan Kesalahan Berwarna Merah dan Menggunakan Font yang Benar */
+        .password-card .error-message {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            margin-top: 6px;
+            color: #ff3b30 !important;
+            /* Memaksa teks menjadi merah */
+            display: none;
+            /* Menyembunyikan secara default */
+        }
+
+        /* Memastikan teks merah muncul hanya saat class .show ditambahkan */
+        .password-card .error-message.show {
+            display: block !important;
+        }
+
+        /* Memastikan Garis Tepi Input Berwarna Merah Saat Terjadi Kesalahan */
+        .form-input.error-border {
+            border-color: #ff3b30 !important;
+            outline-color: #ff3b30 !important;
+            background-color: #FFF5F5 !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -837,36 +1004,46 @@ body.swal2-height-auto {
                 <div class="page-title">Informasi Profil</div>
             </div>
 
-        <div class="profile-grid">
-            <!-- 1. KIRI ATAS: FOTO PROFIL -->
-            <div class="profile-card">
-                <div class="profile-photo-wrap">
-                    <?php if ($photo_path && file_exists($photo_path)): ?>
-                        <img src="<?= $photo_path ?>" alt="Profile">
-                    <?php else: ?>
-                        <span style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
+            <div class="profile-grid">
+                <!-- 1. KIRI ATAS: FOTO PROFIL -->
+                <div class="profile-card">
+                    <div class="profile-photo-wrap">
+                        <?php if ($photo_path && $is_photo_exist): ?>
+                            <img src="<?= $photo_path ?>" alt="Profile">
+                        <?php else: ?>
+                            <span
+                                style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?>
+                    </div>
+                    <div class="profile-role">
+                        <?= strtoupper(htmlspecialchars($map_jabatan[$user_data['Jabatan'] ?? 1] ?? 'Karyawan')) ?>
+                    </div>
+                    <div class="profile-id" style="font-size:10px; color: var(--muted); opacity: 0.7;">NIK:
+                        <?= htmlspecialchars($user_data['NIK'] ?? '-') ?>
+                    </div>
+                    <div
+                        class="profile-status <?= (($user_data['Status'] ?? 0) == 1) ? 'status-active' : 'status-inactive' ?>">
+                        <i
+                            class="fa-solid <?= (($user_data['Status'] ?? 0) == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
+                        <?= (($user_data['Status'] ?? 0) == 1) ? 'AKTIF' : 'NONAKTIF' ?>
+                    </div>
+                    <form method="POST" enctype="multipart/form-data" class="photo-upload" id="photoUploadForm">
+                        <input type="file" name="profile_photo" id="profile_photo" accept="image/*">
+                        <input type="hidden" name="upload_photo" value="1">
+                        <label for="profile_photo" class="btn-upload">
+                            <i class="fa-solid fa-camera"></i> Ganti Foto
+                        </label>
+                    </form>
+                    <?php if ($photo_msg === 'success'): ?>
+                        <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto
+                            berhasil diperbarui!</div>
+                    <?php elseif ($photo_msg): ?>
+                        <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i>
+                            <?= htmlspecialchars($photo_msg) ?></div>
                     <?php endif; ?>
                 </div>
-                <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
-                <div class="profile-role"><?= strtoupper(htmlspecialchars($map_jabatan[$user_data['Jabatan']] ?? 'Karyawan')) ?></div>
-                <div class="profile-id">NIK: <?= htmlspecialchars($user_data['NIK'] ?? '-') ?></div>
-                <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
-                    <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
-                    <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
-                </div>
-                <form method="POST" enctype="multipart/form-data" class="photo-upload">
-                    <input type="file" name="profile_photo" id="profile_photo" accept="image/*" onchange="this.form.submit()">
-                    <input type="hidden" name="upload_photo" value="1">
-                    <label for="profile_photo" class="btn-upload">
-                        <i class="fa-solid fa-camera"></i> Ganti Foto
-                    </label>
-                </form>
-                <?php if ($photo_msg === 'success'): ?>
-                    <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto berhasil diperbarui!</div>
-                <?php elseif ($photo_msg): ?>
-                    <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($photo_msg) ?></div>
-                <?php endif; ?>
-            </div>
 
                 <!-- 2. KANAN ATAS: DATA PRIBADI -->
                 <div class="info-card">
@@ -882,7 +1059,8 @@ body.swal2-height-auto {
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fa-solid fa-venus-mars"></i> Jenis Kelamin</div>
-                            <div class="info-value"><?= $map_jk[$user_data['Jenis_Kelamin'] ?? ''] ?? 'Tidak diketahui' ?>
+                            <div class="info-value">
+                                <?= $map_jk[$user_data['Jenis_Kelamin'] ?? ''] ?? 'Tidak diketahui' ?>
                             </div>
                         </div>
                         <div class="info-item">
@@ -1045,7 +1223,6 @@ body.swal2-height-auto {
                 scrollbarPadding: false
             });
         <?php elseif ($swal_status === 'error'): ?>
-            /* Pemicu Pop-Up ketika validasi kata sandi lama salah di database */
             Swal.fire({
                 icon: 'error',
                 title: 'Gagal!',
@@ -1054,7 +1231,7 @@ body.swal2-height-auto {
             });
         <?php endif; ?>
 
-        // 1. Fungsi Dinamis Toggle Tampilkan/Sembunyikan Password
+        // Fungsi Dinamis Toggle Tampilkan/Sembunyikan Password
         function toggleProfilePassword(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
@@ -1081,7 +1258,7 @@ body.swal2-height-auto {
             const newPassError = document.getElementById('newPassError');
             const confirmPassError = document.getElementById('confirmPassError');
 
-            // 2. Fungsi Validasi Real-time
+            // 1. Fungsi Validasi Real-time (Di-restorasi)
             function validateOldPass() {
                 if (!oldPass) return true;
                 if (oldPass.value.trim() === '') {
@@ -1106,6 +1283,11 @@ body.swal2-height-auto {
                 } else if (newPass.value.length < 8) {
                     newPass.classList.add('error-border');
                     newPassError.textContent = 'Kata Sandi baru minimal 8 karakter.';
+                    newPassError.classList.add('show');
+                    return false;
+                } else if (/\s/.test(newPass.value)) { // DIUBAH: Mendeteksi spasi kosong
+                    newPass.classList.add('error-border');
+                    newPassError.textContent = 'Kata Sandi baru tidak boleh mengandung spasi.';
                     newPassError.classList.add('show');
                     return false;
                 } else {
@@ -1134,7 +1316,7 @@ body.swal2-height-auto {
                 }
             }
 
-            // Pasang Event Listener Input
+            // Pasang Event Listener Input untuk Validasi Real-time
             if (oldPass) {
                 oldPass.addEventListener('input', validateOldPass);
                 oldPass.addEventListener('blur', validateOldPass);
@@ -1148,18 +1330,142 @@ body.swal2-height-auto {
                 confirmPass.addEventListener('blur', validateConfirm);
             }
 
-            // 3. Validasi saat Form dikirim (Submit)
+            // 2. Kirim Ganti Password via AJAX (Tanpa Refresh)
             if (formPassword) {
                 formPassword.addEventListener('submit', function (e) {
-                    let isPassFormValid = true;
+                    e.preventDefault(); // Menghentikan reload halaman bawaan form
 
+                    let isPassFormValid = true;
                     if (!validateOldPass()) isPassFormValid = false;
                     if (!validateNewPass()) isPassFormValid = false;
                     if (!validateConfirm()) isPassFormValid = false;
 
-                    if (!isPassFormValid) {
-                        e.preventDefault();
+                    if (isPassFormValid) {
+                        const formData = new FormData(formPassword);
+                        formData.append('change_password', '1');
+
+                        fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: data.title,
+                                        text: data.message,
+                                        timer: 2000,
+                                        showConfirmButton: false,
+                                        iconColor: '#10B981'
+                                    });
+                                    formPassword.reset();
+
+                                    // Bersihkan sisa border error
+                                    document.querySelectorAll('.form-input').forEach(input => input.classList.remove('error-border'));
+                                    document.querySelectorAll('.error-message').forEach(err => err.classList.remove('show'));
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: data.title,
+                                        text: data.message,
+                                        confirmButtonColor: '#FF4500'
+                                    });
+
+                                    // Tandai field error berdasarkan respon JSON
+                                    if (data.error_field) {
+                                        const errorInput = document.getElementById(data.error_field);
+                                        if (errorInput) {
+                                            errorInput.classList.add('error-border');
+                                            let targetErrorId = '';
+                                            if (data.error_field === 'old_password') targetErrorId = 'oldPassError';
+                                            else if (data.error_field === 'new_password') targetErrorId = 'newPassError';
+                                            else if (data.error_field === 'confirm_password') targetErrorId = 'confirmPassError';
+
+                                            const targetErrorEl = document.getElementById(targetErrorId);
+                                            if (targetErrorEl) {
+                                                targetErrorEl.textContent = data.message;
+                                                targetErrorEl.classList.add('show');
+                                            }
+                                        }
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error!',
+                                    text: 'Terjadi kegagalan memproses data.',
+                                    confirmButtonColor: '#FF4500'
+                                });
+                            });
                     }
+                });
+            }
+
+            // 3. Kirim Upload Foto via AJAX (Tanpa Refresh)
+            const photoInput = document.getElementById('profile_photo');
+            const photoForm = document.getElementById('photoUploadForm');
+
+            if (photoInput && photoForm) {
+                photoInput.addEventListener('change', function () {
+                    const formData = new FormData(photoForm);
+
+                    fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil!',
+                                    text: data.message,
+                                    timer: 2000,
+                                    showConfirmButton: false,
+                                    iconColor: '#10B981'
+                                });
+
+                                // UPDATE DINAMIS: Cek dan perbarui pembungkus foto profil
+                                const photoWrap = document.querySelector('.profile-photo-wrap');
+                                if (photoWrap) {
+                                    const cacheBusterPath = data.new_photo_path + '?t=' + new Date().getTime();
+                                    const existingImg = photoWrap.querySelector('img');
+
+                                    if (existingImg) {
+                                        // Jika tag img sudah ada, tinggal ganti src
+                                        existingImg.src = cacheBusterPath;
+                                    } else {
+                                        // Jika sebelumnya inisial huruf (span), ganti paksa dengan tag img baru
+                                        photoWrap.innerHTML = `<img src="${cacheBusterPath}" alt="Profile">`;
+                                    }
+                                }
+
+                                // Update juga foto avatar kecil di topbar jika ada
+                                const topbarImg = document.querySelector('.t-avatar img');
+                                if (topbarImg) {
+                                    topbarImg.src = data.new_photo_path + '?t=' + new Date().getTime();
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal!',
+                                    text: data.message,
+                                    confirmButtonColor: '#FF4500'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: 'Gagal mengunggah foto.',
+                                confirmButtonColor: '#FF4500'
+                            });
+                        });
                 });
             }
         });

@@ -135,7 +135,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_CreateCustomer
     @No_Telepon      VARCHAR(15),
     @Email           VARCHAR(50),
     @Username        VARCHAR(20),
-    @Kata_Sandi      VARCHAR(20)
+    @Kata_Sandi      VARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -192,7 +192,7 @@ GO
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateCustomerPassword
     @ID_Customer     INT,
-    @Kata_Sandi_Baru VARCHAR(20),
+    @Kata_Sandi_Baru VARCHAR(255),
     @Modified_By     VARCHAR(50) = 'SYSTEM'
 AS
 BEGIN
@@ -588,7 +588,7 @@ GO
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ValidateCustomerPassword
     @ID_Customer     INT,
-    @Kata_Sandi      VARCHAR(20)
+    @Kata_Sandi VARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
