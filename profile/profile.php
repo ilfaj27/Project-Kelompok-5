@@ -142,7 +142,7 @@ if (isset($_POST['change_password'])) {
     }
 }
 
-// Photo upload
+// Photo upload - PERBAIKAN: simpan ke folder yang konsisten
 $photo_msg = '';
 if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
     $file = $_FILES['profile_photo'];
@@ -150,40 +150,42 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         if (in_array($ext, $allowed)) {
-            // Mengarahkan folder upload ke root (../uploads/profiles/) agar seragam dengan halaman lain
-            $upload_dir = '../uploads/profiles/';
-            $db_filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
-            $target_file = $upload_dir . basename($db_filename);
-
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true); // Membuat folder di root jika belum ada
-            }
-
-            if (move_uploaded_file($file['tmp_name'], $target_file)) {
-                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($db_filename, $nama, $user_data['ID_Karyawan']));
+            $filename = 'uploads/profiles/' . $user_data['ID_Karyawan'] . '_' . time() . '.' . $ext;
+            if (!is_dir('uploads/profiles')) mkdir('uploads/profiles', 0777, true);
+            if (move_uploaded_file($file['tmp_name'], $filename)) {
+                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($filename, $nama, $user_data['ID_Karyawan']));
                 if ($upd) {
-                    $_SESSION['Photo_Profile'] = $db_filename;
+                    $_SESSION['Photo_Profile'] = $filename;
                     $photo_msg = 'success';
+                    // Refresh data
                     $stmt = sqlsrv_query($conn, "SELECT * FROM Karyawan WHERE ID_Karyawan = ?", array($user_data['ID_Karyawan']));
                     $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                    // Update session dengan path lengkap
+                    $_SESSION['Photo_Profile'] = $filename;
+                    $_SESSION['nama'] = $user_data['Nama_Karyawan'];
+                } else {
+                    $photo_msg = 'Gagal menyimpan ke database!';
                 }
+            } else {
+                $photo_msg = 'Gagal memindahkan file!';
             }
         } else {
-            $photo_msg = 'Format file tidak didukung!';
+            $photo_msg = 'Format file tidak didukung! (jpg, jpeg, png, gif)';
         }
+    } else {
+        $photo_msg = 'Error upload: ' . $file['error'];
     }
 }
 
-// ── SESUDAH (BENAR) ──
+// ── PHOTO PATH FIX ──
 $profile_photo = $user_data['Photo_Profile'] ?? '';
 $photo_path = '';
 
-// FIX: Sesuaikan path foto untuk folder profile/ (naik 1 level ke root)
 if (!empty($profile_photo)) {
     if (strpos($profile_photo, '../') === 0) {
         $photo_path = $profile_photo;
     } elseif (strpos($profile_photo, 'uploads/') === 0) {
-        $photo_path = '../' . $profile_photo;  // Naik 1 level: profile/ -> root
+        $photo_path = '../' . $profile_photo;
     } else {
         $photo_path = '../uploads/profiles/' . $profile_photo;
     }
@@ -192,7 +194,6 @@ if (!empty($profile_photo)) {
     }
 }
 
-// FIX: Sidebar photo juga pakai path yang sudah disesuaikan
 $sidebar_photo = $photo_path;
 $_SESSION['Photo_Profile'] = $photo_path;
 
@@ -259,185 +260,110 @@ if ($last_pwd_change_raw) {
             color: var(--text);
         }
 
-        .main {
-            margin-left: var(--sidebar-w);
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
+.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 
-        .topbar {
-            background: var(--card-bg);
-            height: var(--topbar-h);
-            padding: 0 40px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .topbar-left {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .topbar-title {
-            font-family: 'Barlow Condensed';
-            font-size: 26px;
-            font-weight: 900;
-            color: var(--text);
-        }
-
-        .topbar-breadcrumb {
-            font-size: 12px;
-            color: var(--muted);
-            font-weight: 600;
-            margin-top: 2px;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .topbar-btn {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-            transition: .2s;
-        }
-
-        .topbar-btn:hover {
-            border-color: var(--orange);
-            color: var(--orange);
-            background: var(--orange-lt);
-        }
-
-        .dropdown-wrap {
-            position: relative;
-        }
-
-        .topbar-user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            padding: 6px 14px 6px 8px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: .2s;
-        }
-
-        .topbar-user:hover {
-            border-color: var(--orange);
-        }
-
-        .t-avatar {
-            width: 32px;
-            height: 32px;
-            background: var(--orange);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 13px;
-            overflow: hidden;
-        }
-
-        .t-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .t-name {
-            font-size: 13px;
-            font-weight: 800;
-            color: var(--text);
-            line-height: 1.1;
-            text-transform: uppercase;
-        }
-
-        .t-role {
-            font-size: 10px;
-            color: var(--orange);
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .t-chevron {
-            color: var(--muted);
-            font-size: 10px;
-            margin-left: 4px;
-        }
-
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: calc(100% + 8px);
-            background: #fff;
-            min-width: 200px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, .12);
-            overflow: hidden;
-            padding: 8px 0;
-            z-index: 999;
-        }
-
-        .dropdown-wrap:hover .dropdown-menu {
-            display: block;
-        }
-
-        .dropdown-wrap.active .dropdown-menu {
-            display: block;
-        }
-
-        .dd-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 11px 16px;
-            color: #444;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 700;
-            transition: .15s;
-        }
-
-        .dd-item:hover {
-            background: #FFF7ED;
-            color: var(--orange);
-        }
-
-        .dd-item i {
-            font-size: 14px;
-            width: 18px;
-            text-align: center;
-        }
-
-        .dd-divider {
-            border: none;
-            border-top: 1px solid #F3F4F6;
-            margin: 4px 0;
-        }
+/* ============================================
+   TOPBAR STYLES - WAJIB ADA agar topbar.php render dengan benar
+   ============================================ */
+.topbar { 
+    background: var(--card-bg); 
+    height: var(--topbar-h); 
+    padding: 0 40px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    border-bottom: 1px solid var(--border); 
+    position: sticky; 
+    top: 0; 
+    z-index: 100; 
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+.topbar-left { display: flex; flex-direction: column; }
+.topbar-title { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 26px; 
+    font-weight: 900; 
+    color: var(--text); 
+    letter-spacing: -.5px; 
+    line-height: 1; 
+}
+.topbar-breadcrumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.dropdown-wrap { position: relative; }
+.topbar-user { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    background: var(--bg); 
+    border: 1px solid var(--border); 
+    padding: 6px 14px 6px 8px; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    transition: .2s; 
+}
+.topbar-user:hover { border-color: var(--orange); }
+.t-avatar { 
+    width: 32px; 
+    height: 32px; 
+    background: var(--orange); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: #fff; 
+    font-size: 13px; 
+    overflow: hidden; 
+}
+.t-avatar img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    border-radius: 50%; 
+}
+.t-name { 
+    font-size: 13px; 
+    font-weight: 800; 
+    color: var(--text); 
+    line-height: 1.1; 
+    text-transform: uppercase; 
+}
+.t-role { 
+    font-size: 10px; 
+    color: var(--orange); 
+    font-weight: 700; 
+    text-transform: uppercase; 
+}
+.t-chevron { color: var(--muted); font-size: 10px; margin-left: 4px; }
+.dropdown-menu { 
+    display: none; 
+    position: absolute; 
+    right: 0; 
+    top: calc(100% + 8px); 
+    background: #fff; 
+    min-width: 200px; 
+    border-radius: 12px; 
+    border: 1px solid var(--border); 
+    box-shadow: 0 15px 40px rgba(0,0,0,.12); 
+    overflow: hidden; 
+    padding: 8px 0; 
+    z-index: 999; 
+}
+.dropdown-wrap:hover .dropdown-menu { display: block; }
+.dropdown-wrap.active .dropdown-menu { display: block; }
+.dd-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    padding: 11px 16px; 
+    color: #444; 
+    text-decoration: none; 
+    font-size: 13px; 
+    font-weight: 700; 
+    transition: .15s; 
+}
+.dd-item:hover { background: #FFF7ED; color: var(--orange); }
+.dd-item i { font-size: 14px; width: 18px; text-align: center; }
+.dd-divider { border: none; border-top: 1px solid #F3F4F6; margin: 4px 0; }
 
         #clock-display {
             display: flex;
@@ -489,30 +415,19 @@ if ($last_pwd_change_raw) {
             letter-spacing: 0.5px;
         }
 
-        .content {
-            padding: 32px 40px;
-            flex: 1;
-        }
-
-        .page-header {
-            margin-bottom: 28px;
-        }
-
-        .page-title-tag {
-            width: 36px;
-            height: 4px;
-            background: var(--orange);
-            border-radius: 2px;
-            margin-bottom: 8px;
-        }
-
-        .page-title {
-            font-family: 'Barlow Condensed';
-            font-size: 30px;
-            font-weight: 900;
-            color: var(--text);
-            text-transform: uppercase;
-        }
+/* ============================================
+   CONTENT STYLES
+   ============================================ */
+.content { padding: 32px 40px; flex: 1; }
+.page-header { margin-bottom: 28px; }
+.page-title-tag { width: 36px; height: 4px; background: var(--orange); border-radius: 2px; margin-bottom: 8px; }
+.page-title { 
+    font-family: 'Barlow Condensed', sans-serif; 
+    font-size: 30px; 
+    font-weight: 900; 
+    color: var(--text); 
+    text-transform: uppercase; 
+}
 
         .profile-grid {
             display: grid;
@@ -872,88 +787,30 @@ if ($last_pwd_change_raw) {
             color: #1F2937 !important;
         }
 
-        /* ============================================
+/* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
    ============================================ */
-        .swal2-popup {
-            animation: none !important;
-            transition: none !important;
-        }
+.swal2-popup {
+    animation: none !important;
+    transition: none !important;
+}
+.swal2-icon {
+    animation: none !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring,
+.swal2-icon.swal2-success [class^="swal2-success-line"],
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+.swal2-icon.swal2-warning {
+    animation: none !important;
+}
 
-        .swal2-icon {
-            animation: none !important;
-        }
-
-        .swal2-icon.swal2-success .swal2-success-ring,
-        .swal2-icon.swal2-success [class^="swal2-success-line"],
-        .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
-        .swal2-icon.swal2-warning {
-            animation: none !important;
-        }
-
-        /* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
-        html.swal2-shown,
-        body.swal2-shown,
-        body.swal2-height-auto {
-            padding-right: 0 !important;
-        }
-
-        /* Menampilkan pesan error */
-        .error-message.show {
-            display: block;
-        }
-
-        /* Form Ganti Password Override (Font Plus Jakarta Sans) */
-        .password-card {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-        }
-
-        .password-card .password-title {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-size: 18px !important;
-            font-weight: 800 !important;
-            letter-spacing: normal !important;
-        }
-
-        .password-card .form-label {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            text-transform: none !important;
-            /* Menonaktifkan huruf kapital paksa */
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            letter-spacing: normal !important;
-            color: #1C1C1E !important;
-        }
-
-        .password-card .form-input {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-size: 13px !important;
-        }
-
-        /* Memastikan Teks Pesan Kesalahan Berwarna Merah dan Menggunakan Font yang Benar */
-        .password-card .error-message {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-size: 11px !important;
-            font-weight: 600 !important;
-            margin-top: 6px;
-            color: #ff3b30 !important;
-            /* Memaksa teks menjadi merah */
-            display: none;
-            /* Menyembunyikan secara default */
-        }
-
-        /* Memastikan teks merah muncul hanya saat class .show ditambahkan */
-        .password-card .error-message.show {
-            display: block !important;
-        }
-
-        /* Memastikan Garis Tepi Input Berwarna Merah Saat Terjadi Kesalahan */
-        .form-input.error-border {
-            border-color: #ff3b30 !important;
-            outline-color: #ff3b30 !important;
-            background-color: #FFF5F5 !important;
-        }
-    </style>
+/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+html.swal2-shown,
+body.swal2-shown,
+body.swal2-height-auto {
+    padding-right: 0 !important;
+}
+</style>
 </head>
 
 <body>
@@ -980,47 +837,36 @@ if ($last_pwd_change_raw) {
                 <div class="page-title">Informasi Profil</div>
             </div>
 
-            <div class="profile-grid">
-                <!-- 1. KIRI ATAS: FOTO PROFIL -->
-                <div class="profile-card">
-                    <div class="profile-photo-wrap">
-                        <?php if ($photo_path && file_exists($photo_path)): ?>
-                            <img src="<?= $photo_path ?>" alt="Profile">
-                        <?php else: ?>
-                            <span
-                                style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
-                        <?php endif; ?>
-                    </div>
-                    <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?>
-                    </div>
-                    <div class="profile-role">
-                        <?= strtoupper(htmlspecialchars($map_jabatan[$user_data['Jabatan'] ?? 1] ?? 'Karyawan')) ?>
-                    </div>
-                    <div class="profile-id" style="font-size:10px; color: var(--muted); opacity: 0.7;">NIK:
-                        <?= htmlspecialchars($user_data['NIK'] ?? '-') ?>
-                    </div>
-                    <div
-                        class="profile-status <?= (($user_data['Status'] ?? 0) == 1) ? 'status-active' : 'status-inactive' ?>">
-                        <i
-                            class="fa-solid <?= (($user_data['Status'] ?? 0) == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
-                        <?= (($user_data['Status'] ?? 0) == 1) ? 'AKTIF' : 'NONAKTIF' ?>
-                    </div>
-                    <form method="POST" enctype="multipart/form-data" class="photo-upload">
-                        <input type="file" name="profile_photo" id="profile_photo" accept="image/*"
-                            onchange="this.form.submit()">
-                        <input type="hidden" name="upload_photo" value="1">
-                        <label for="profile_photo" class="btn-upload">
-                            <i class="fa-solid fa-camera"></i> Ganti Foto
-                        </label>
-                    </form>
-                    <?php if ($photo_msg === 'success'): ?>
-                        <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto
-                            berhasil diperbarui!</div>
-                    <?php elseif ($photo_msg): ?>
-                        <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i>
-                            <?= htmlspecialchars($photo_msg) ?></div>
+        <div class="profile-grid">
+            <!-- 1. KIRI ATAS: FOTO PROFIL -->
+            <div class="profile-card">
+                <div class="profile-photo-wrap">
+                    <?php if ($photo_path && file_exists($photo_path)): ?>
+                        <img src="<?= $photo_path ?>" alt="Profile">
+                    <?php else: ?>
+                        <span style="font-size:48px; font-weight:900; color:var(--orange);"><?= strtoupper(substr($user_data['Nama_Karyawan'] ?? $nama, 0, 1)) ?></span>
                     <?php endif; ?>
                 </div>
+                <div class="profile-name"><?= strtoupper(htmlspecialchars($user_data['Nama_Karyawan'] ?? $nama)) ?></div>
+                <div class="profile-role"><?= strtoupper(htmlspecialchars($map_jabatan[$user_data['Jabatan']] ?? 'Karyawan')) ?></div>
+                <div class="profile-id">NIK: <?= htmlspecialchars($user_data['NIK'] ?? '-') ?></div>
+                <div class="profile-status <?= ($user_data['Status'] == 1) ? 'status-active' : 'status-inactive' ?>">
+                    <i class="fa-solid <?= ($user_data['Status'] == 1) ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
+                    <?= ($user_data['Status'] == 1) ? 'AKTIF' : 'NONAKTIF' ?>
+                </div>
+                <form method="POST" enctype="multipart/form-data" class="photo-upload">
+                    <input type="file" name="profile_photo" id="profile_photo" accept="image/*" onchange="this.form.submit()">
+                    <input type="hidden" name="upload_photo" value="1">
+                    <label for="profile_photo" class="btn-upload">
+                        <i class="fa-solid fa-camera"></i> Ganti Foto
+                    </label>
+                </form>
+                <?php if ($photo_msg === 'success'): ?>
+                    <div class="msg-success" style="margin-top:12px;"><i class="fa-solid fa-check-circle"></i> Foto berhasil diperbarui!</div>
+                <?php elseif ($photo_msg): ?>
+                    <div class="msg-error" style="margin-top:12px;"><i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($photo_msg) ?></div>
+                <?php endif; ?>
+            </div>
 
                 <!-- 2. KANAN ATAS: DATA PRIBADI -->
                 <div class="info-card">

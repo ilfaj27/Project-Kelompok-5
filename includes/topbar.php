@@ -1,26 +1,19 @@
 <?php
 // ============================================================
-// TOPBAR UNIFIED - UNTUK PEMILIK & KARYAWAN (1 FILE)
-// ============================================================
-// Include dengan: include '../includes/topbar.php';
-//
-// PASTIKAN variabel ini sudah tersedia sebelum include:
-//   - $nama   (dari session)
-//   - $role   (dari session: 'pemilik' atau 'karyawan')
-//   - $profile_photo  (opsional)
-//
-// Variabel opsional:
-//   - $topbar_title      = 'Judul Halaman';
-//   - $topbar_breadcrumb = 'Master / Karyawan';
+// TOPBAR UNIFIED - HoopBall Management System
 // ============================================================
 
-$topbar_title = $topbar_title ?? 'HoopBall';
-$topbar_breadcrumb = $topbar_breadcrumb ?? '';
+// --- Fallback variabel dari session jika belum di-set ---
+$role           = $role           ?? $_SESSION['role']           ?? '';
+$nama           = $nama           ?? $_SESSION['nama']           ?? '';
+$id_karyawan    = $id_karyawan    ?? $_SESSION['id_karyawan']  ?? $_SESSION['id_akun'] ?? '';
+
+$topbar_title       = $topbar_title       ?? 'HoopBall';
+$topbar_breadcrumb  = $topbar_breadcrumb  ?? '';
 
 // Deteksi role otomatis
-$is_pemilik = (isset($role) && strtolower($role) === 'pemilik');
+$is_pemilik = (strtolower($role) === 'pemilik');
 
-// Set variabel berdasarkan role
 if ($is_pemilik) {
     $display_role = 'MANAJER';
     $profile_link = '../profile/profile_pemilik.php';
@@ -28,16 +21,123 @@ if ($is_pemilik) {
         $topbar_title = 'Dashboard Manajer';
     }
 } else {
-    $display_role = strtoupper(htmlspecialchars($role ?? 'KARYAWAN'));
+    // Map jabatan INT ke string role
+    $jabatan = $_SESSION['jabatan'] ?? '';
+    if ($jabatan == 2) {
+        $display_role = 'MANAJER';
+    } elseif ($jabatan == 1) {
+        $display_role = 'KARYAWAN';
+    } else {
+        $display_role = strtoupper(htmlspecialchars($role ?: 'KARYAWAN'));
+    }
     $profile_link = '../profile/profile.php';
 }
 
-// Profile photo
-$topbar_photo = '';
-if (!empty($profile_photo) && file_exists($profile_photo)) {
-    $topbar_photo = $profile_photo;
-} elseif (!empty($_SESSION['Photo_Profile']) && file_exists($_SESSION['Photo_Profile'])) {
-    $topbar_photo = $_SESSION['Photo_Profile'];
+// ============================================================
+// AMBIL FOTO PROFIL LANGSUNG DARI DATABASE + CONVERT BASE64
+// ============================================================
+$topbar_photo_base64 = '';
+$topbar_initials = '';
+
+// Ambil ID karyawan dari session (fallback ke variabel lokal)
+$topbar_id_karyawan = $id_karyawan;
+$topbar_nama = $_SESSION['nama'] ?? $nama ?? 'USER';
+
+// Inisial untuk fallback
+$topbar_initials = strtoupper(substr($topbar_nama, 0, 1));
+
+// FIX: sebelumnya "is_resource($conn)" bisa false untuk koneksi sqlsrv
+// tergantung versi PHP/driver, sehingga blok ini (dan foto profil) dilewati.
+// Cukup cek $conn ada dan truthy.
+if (!empty($topbar_id_karyawan) && isset($conn) && $conn) {
+    $query_photo = "SELECT Photo_Profile, Nama_Karyawan FROM Karyawan WHERE ID_Karyawan = ?";
+    $stmt_photo = @sqlsrv_query($conn, $query_photo, array($topbar_id_karyawan));
+
+    if ($stmt_photo && sqlsrv_has_rows($stmt_photo)) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        $photo_path = $row_photo['Photo_Profile'] ?? '';
+        $topbar_nama = $row_photo['Nama_Karyawan'] ?? $topbar_nama;
+        $topbar_initials = strtoupper(substr($topbar_nama, 0, 1));
+
+        if (!empty($photo_path)) {
+            // === CARI FILE DI SEMUA KEMUNGKINAN PATH ===
+            $paths_to_try = [];
+
+            // 1. Path asli dari database
+            $paths_to_try[] = $photo_path;
+
+            // 2. Naik 1 level (dari master/, transaksi/, profile/)
+            $paths_to_try[] = '../' . $photo_path;
+
+            // 3. Naik 2 level (dari master/lapangan/ dsb)
+            $paths_to_try[] = '../../' . $photo_path;
+
+            // 4. Dari folder script saat ini
+            $script_dir = dirname($_SERVER['SCRIPT_FILENAME'] ?? '');
+            $paths_to_try[] = $script_dir . '/' . $photo_path;
+            $paths_to_try[] = dirname($script_dir) . '/' . $photo_path;
+            $paths_to_try[] = dirname(dirname($script_dir)) . '/' . $photo_path;
+
+            // 5. Dari DOCUMENT_ROOT
+            $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
+            if (!empty($doc_root)) {
+                $paths_to_try[] = $doc_root . '/' . $photo_path;
+                $paths_to_try[] = $doc_root . '/Project-Kelompok-5/' . $photo_path;
+                $paths_to_try[] = $doc_root . '/Project-Kelompok-5/uploads/profiles/' . basename($photo_path);
+                $paths_to_try[] = $doc_root . '/uploads/profiles/' . basename($photo_path);
+            }
+
+            // 6. Dari folder profile/ (karena foto diupload dari profile.php atau profile_pemilik.php)
+            $paths_to_try[] = dirname($script_dir) . '/profile/' . $photo_path;
+            $paths_to_try[] = dirname(dirname($script_dir)) . '/profile/' . $photo_path;
+            $paths_to_try[] = $doc_root . '/Project-Kelompok-5/profile/' . $photo_path;
+            $paths_to_try[] = $doc_root . '/Project-Kelompok-5/profile/uploads/profiles/' . basename($photo_path);
+
+            // 7. Cari file dengan nama yang sama di seluruh project (fallback terakhir)
+            if (!empty($doc_root)) {
+                $project_dirs = [
+                    $doc_root . '/Project-Kelompok-5/',
+                    $doc_root . '/',
+                ];
+                $basename = basename($photo_path);
+                if (!empty($basename)) {
+                    foreach ($project_dirs as $pdir) {
+                        if (is_dir($pdir)) {
+                            try {
+                                $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($pdir));
+                                foreach ($rii as $file) {
+                                    if ($file->isFile() && $file->getFilename() === $basename) {
+                                        $paths_to_try[] = $file->getPathname();
+                                        break 2;
+                                    }
+                                }
+                            } catch (Exception $e) {
+                                // Skip jika tidak bisa scan direktori
+                            }
+                        }
+                    }
+                }
+            }
+
+            $found_path = '';
+            foreach ($paths_to_try as $p) {
+                if (!empty($p) && file_exists($p) && is_file($p)) {
+                    $found_path = $p;
+                    break;
+                }
+            }
+
+            if (!empty($found_path)) {
+                $mime = mime_content_type($found_path) ?: 'image/jpeg';
+                $data = @file_get_contents($found_path);
+                if ($data !== false) {
+                    $topbar_photo_base64 = 'data:' . $mime . ';base64,' . base64_encode($data);
+                    // Update session
+                    $_SESSION['Photo_Profile'] = $photo_path;
+                }
+            }
+        }
+    }
 }
 ?>
 
@@ -61,14 +161,14 @@ if (!empty($profile_photo) && file_exists($profile_photo)) {
         <div class="dropdown-wrap" id="userDropdown">
             <div class="topbar-user">
                 <div class="t-avatar">
-                    <?php if (!empty($topbar_photo)): ?>
-                        <img src="<?= $topbar_photo ?>" alt="Profile">
+                    <?php if (!empty($topbar_photo_base64)): ?>
+                        <img src="<?= $topbar_photo_base64 ?>" alt="Profile">
                     <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
+                        <span style="font-size:13px; font-weight:800;"><?= $topbar_initials ?></span>
                     <?php endif; ?>
                 </div>
                 <div>
-                    <div class="t-name"><?= strtoupper(htmlspecialchars($nama ?? 'USER')) ?></div>
+                    <div class="t-name"><?= strtoupper(htmlspecialchars($topbar_nama)) ?></div>
                     <div class="t-role"><?= $display_role ?></div>
                 </div>
                 <i class="fa-solid fa-chevron-down t-chevron"></i>

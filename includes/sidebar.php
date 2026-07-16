@@ -3,24 +3,116 @@
  * =================================================================
  * SIDEBAR UNIFIED - HoopBall Management System
  * =================================================================
- * File    : includes/sidebar.php
- * Usage   : include 'includes/sidebar.php';  (set $current_page & $sidebar_folder first)
- * Role    : karyawan (admin) | pemilik (manager)
- * =================================================================
  */
 
-// --- Fallback variables (jika belum di-set di halaman utama) ---
+// --- Fallback variables ---
 $nama           = $nama           ?? 'Pengguna';
 $role           = $role           ?? '';
-$sidebar_photo  = $sidebar_photo  ?? '';
 $sidebar_folder = $sidebar_folder ?? '';
 $current_page   = $current_page   ?? '';
+
+// ============================================================
+// AMBIL FOTO PROFIL LANGSUNG DARI DATABASE + CONVERT BASE64
+// ============================================================
+$sidebar_photo_base64 = '';
+$sidebar_initials = '';
+
+// Ambil ID karyawan dari session
+$sidebar_id_karyawan = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
+$sidebar_nama = $_SESSION['nama'] ?? $nama ?? 'Pengguna';
+
+// Inisial untuk fallback
+$sidebar_initials = strtoupper(substr($sidebar_nama, 0, 1));
+
+if (!empty($sidebar_id_karyawan) && isset($conn)) {
+    $query_photo = "SELECT Photo_Profile, Nama_Karyawan FROM Karyawan WHERE ID_Karyawan = ?";
+    $stmt_photo = sqlsrv_query($conn, $query_photo, array($sidebar_id_karyawan));
+    if ($stmt_photo && sqlsrv_has_rows($stmt_photo)) {
+        $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
+        $photo_path = $row_photo['Photo_Profile'] ?? '';
+        $sidebar_nama = $row_photo['Nama_Karyawan'] ?? $sidebar_nama;
+        $sidebar_initials = strtoupper(substr($sidebar_nama, 0, 1));
+
+        if (!empty($photo_path)) {
+            // === CARI FILE DI SEMUA KEMUNGKINAN PATH ===
+            $paths_to_try = [];
+
+            // 1. Path asli dari database
+            $paths_to_try[] = $photo_path;
+
+            // 2. Naik 1 level (dari master/, transaksi/, profile/)
+            $paths_to_try[] = '../' . $photo_path;
+
+            // 3. Naik 2 level (dari master/lapangan/ dsb)
+            $paths_to_try[] = '../../' . $photo_path;
+
+            // 4. Dari folder script saat ini
+            $script_dir = dirname($_SERVER['SCRIPT_FILENAME'] ?? '');
+            $paths_to_try[] = $script_dir . '/' . $photo_path;
+            $paths_to_try[] = dirname($script_dir) . '/' . $photo_path;
+            $paths_to_try[] = dirname(dirname($script_dir)) . '/' . $photo_path;
+
+            // 5. Dari DOCUMENT_ROOT
+            $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
+            if (!empty($doc_root)) {
+                $paths_to_try[] = $doc_root . '/' . $photo_path;
+                $paths_to_try[] = $doc_root . '/Project-Kelompok-5/' . $photo_path;
+                $paths_to_try[] = $doc_root . '/Project-Kelompok-5/uploads/profiles/' . basename($photo_path);
+                $paths_to_try[] = $doc_root . '/uploads/profiles/' . basename($photo_path);
+            }
+
+            // 6. Dari folder profile/ (karena foto diupload dari profile.php atau profile_pemilik.php)
+            $paths_to_try[] = dirname($script_dir) . '/profile/' . $photo_path;
+            $paths_to_try[] = dirname(dirname($script_dir)) . '/profile/' . $photo_path;
+            $paths_to_try[] = $doc_root . '/Project-Kelompok-5/profile/' . $photo_path;
+            $paths_to_try[] = $doc_root . '/Project-Kelompok-5/profile/uploads/profiles/' . basename($photo_path);
+
+            // 7. Cari file dengan nama yang sama di seluruh project (fallback terakhir)
+            if (!empty($doc_root)) {
+                $project_dirs = [
+                    $doc_root . '/Project-Kelompok-5/',
+                    $doc_root . '/',
+                ];
+                $basename = basename($photo_path);
+                if (!empty($basename)) {
+                    foreach ($project_dirs as $pdir) {
+                        if (is_dir($pdir)) {
+                            $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($pdir));
+                            foreach ($rii as $file) {
+                                if ($file->isFile() && $file->getFilename() === $basename) {
+                                    $paths_to_try[] = $file->getPathname();
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            $found_path = '';
+            foreach ($paths_to_try as $p) {
+                if (!empty($p) && file_exists($p) && is_file($p)) {
+                    $found_path = $p;
+                    break;
+                }
+            }
+
+            if (!empty($found_path)) {
+                $mime = mime_content_type($found_path) ?: 'image/jpeg';
+                $data = file_get_contents($found_path);
+                if ($data !== false) {
+                    $sidebar_photo_base64 = 'data:' . $mime . ';base64,' . base64_encode($data);
+                    // Update session
+                    $_SESSION['Photo_Profile'] = $photo_path;
+                }
+            }
+        }
+    }
+}
 
 // --- URL helpers ---
 $hb_home_url      = ($sidebar_folder === 'dashboard') ? 'view_admin.php' : '../dashboard/view_admin.php';
 $hb_profile_url   = ($sidebar_folder === 'profile')   ? 'profile.php'    : '../profile/profile.php';
-
-// --- Untuk pemilik: URL spesifik ---
 $pemilik_home_url    = ($sidebar_folder === 'dashboard') ? 'view_pemilik.php' : '../dashboard/view_pemilik.php';
 $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php' : '../profile/profile_pemilik.php';
 ?>
@@ -28,7 +120,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 <!-- ======================= SIDEBAR ======================= -->
 <aside class="sidebar">
 
-    <!-- ======================= LOGO / BRAND ======================= -->
     <a href="<?= $hb_home_url ?>" class="sb-brand">
         <div class="sb-logo">
             <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -50,12 +141,8 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
             </div>
         </div>
     </a>
-    <!-- ===================== /LOGO / BRAND ======================== -->
 
 <?php if ($role === 'pemilik' || $role === 'manajer'): ?>
-    <!-- ════════════════════════════════════════════════════════════
-         SIDEBAR MENU  —  PEMILIK / MANAJER
-         ════════════════════════════════════════════════════════════ -->
 
     <div class="sb-section-label">Manajemen</div>
     <nav>
@@ -70,7 +157,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
         </a>
     </nav>
 
-    <!-- ===== LAPORAN (MINI GROUP) ===== -->
     <div class="sb-section-label">Laporan</div>
     <div class="sb-mini-group">
         <a href="<?= ($sidebar_folder === 'laporan') ? 'laporan_omzet.php' : '../laporan/laporan_omzet.php' ?>"
@@ -104,11 +190,7 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     </nav>
 
 <?php else: ?>
-    <!-- ════════════════════════════════════════════════════════════
-         SIDEBAR MENU  —  KARYAWAN (ADMIN)
-         ════════════════════════════════════════════════════════════ -->
 
-    <!-- ===== MENU UTAMA ===== -->
     <div class="sb-section-label">Menu Utama</div>
     <nav>
         <a href="<?= $hb_home_url ?>" class="sb-link <?= ($current_page === 'dashboard') ? 'active' : '' ?>">
@@ -117,7 +199,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
         </a>
     </nav>
 
-    <!-- ===== MASTER DATA (DROPDOWN) ===== -->
     <div class="sb-section-label">Master Data</div>
     <div class="sb-dropdown" id="dropdown-master">
         <button type="button" class="sb-dropdown-toggle <?= in_array($current_page, ['tipe_member','fasilitas','alat','promo','customer','lapangan','jadwal']) ? 'expanded' : '' ?>"
@@ -167,7 +248,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
         </div>
     </div>
 
-    <!-- ===== TRANSAKSI (DROPDOWN) ===== -->
     <div class="sb-section-label">Transaksi</div>
     <div class="sb-dropdown" id="dropdown-transaksi">
         <button type="button" class="sb-dropdown-toggle <?= in_array($current_page, ['booking','langganan','pembelian_alat','pembatalan']) ? 'expanded' : '' ?>"
@@ -202,7 +282,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
         </div>
     </div>
 
-    <!-- ===== AKUN ===== -->
     <div class="sb-section-label">Akun</div>
     <nav>
         <a href="<?= $hb_profile_url ?>" class="sb-link <?= ($current_page === 'profile') ? 'active' : '' ?>">
@@ -213,20 +292,17 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 
 <?php endif; ?>
 
-    <!-- ════════════════════════════════════════════════════════════
-         BOTTOM USER CARD  —  SAMA UNTUK SEMUA ROLE
-         ════════════════════════════════════════════════════════════ -->
     <div class="sb-bottom">
         <div class="sb-user">
             <div class="sb-avatar">
-                <?php if (!empty($sidebar_photo)): ?>
-                    <img src="<?= $sidebar_photo ?>" alt="Profile">
+                <?php if (!empty($sidebar_photo_base64)): ?>
+                    <img src="<?= $sidebar_photo_base64 ?>" alt="Profile">
                 <?php else: ?>
-                    <i class="fa-solid fa-user"></i>
+                    <span style="font-size:14px; font-weight:800;"><?= $sidebar_initials ?></span>
                 <?php endif; ?>
             </div>
             <div>
-                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($nama)) ?></div>
+                <div class="sb-user-name"><?= strtoupper(htmlspecialchars($sidebar_nama)) ?></div>
                 <div class="sb-user-role"><?= strtoupper(htmlspecialchars($role)) ?></div>
             </div>
             <a href="../login/logout.php" class="sb-logout" title="Keluar">
@@ -240,9 +316,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     define('HB_SIDEBAR_ASSETS', true); ?>
 
 <style>
-/* ═══════════════════════════════════════════════════════════════
-   ROOT VARIABLES
-   ═══════════════════════════════════════════════════════════════ */
 :root {
     --orange: #FF4500; --orange-lt: rgba(255,69,0,.10); --orange-dk: #E03E00;
     --green: #10B981; --green-lt: rgba(16,185,129,.10);
@@ -255,9 +328,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     --text: #111827; --text-md: #374151; --muted: #6B7280; --bg: #F3F4F6; --bg-dark: #1F2937;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR  —  BASE LAYOUT & ANIMATIONS
-   ═══════════════════════════════════════════════════════════════ */
 .sidebar {
     width: var(--sidebar-w);
     background: var(--sidebar);
@@ -287,9 +357,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   LOGO / BRAND
-   ═══════════════════════════════════════════════════════════════ */
 .sb-brand {
     display: flex;
     align-items: center;
@@ -368,9 +435,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION LABEL
-   ═══════════════════════════════════════════════════════════════ */
 .sb-section-label {
     font-size: 10px; font-weight: 800; text-transform: uppercase;
     color: #374151; letter-spacing: .8px;
@@ -386,9 +450,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 }
 .sb-section-label:hover::after { width: 40px; }
 
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR LINK  —  NORMAL SIZE
-   ═══════════════════════════════════════════════════════════════ */
 .sb-link {
     display: flex; align-items: center; gap: 12px;
     color: #6B7280; text-decoration: none;
@@ -422,7 +483,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     transform: scale(1.15) rotate(5deg);
 }
 
-/* ── Active state ── */
 .sb-link.active { color: #fff; background: var(--orange-lt); }
 .sb-link.active::before {
     width: 100%;
@@ -433,8 +493,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(255,69,0,.3);
 }
-
-/* Active indicator pill (kanan) */
 .sb-link.active::after {
     content: ''; position: absolute; right: -18px; top: 50%;
     transform: translateY(-50%);
@@ -443,9 +501,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DROPDOWN  —  MASTER DATA & TRANSAKSI
-   ═══════════════════════════════════════════════════════════════ */
 .sb-dropdown {
     margin-bottom: 4px;
     animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
@@ -520,12 +575,10 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 }
 .sb-dropdown-toggle:hover .sb-dropdown-arrow { color: #9CA3AF; }
 
-/* Expanded state */
 .sb-dropdown-toggle.expanded .sb-dropdown-arrow {
     transform: rotate(180deg);
 }
 
-/* Active child indicator on toggle */
 .sb-dropdown-toggle.has-active {
     color: #E5E7EB;
 }
@@ -535,7 +588,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     box-shadow: 0 4px 12px rgba(255,69,0,.3);
 }
 
-/* Dropdown menu */
 .sb-dropdown-menu {
     max-height: 0;
     overflow: hidden;
@@ -552,7 +604,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     padding-bottom: 4px;
 }
 
-/* Mini link inside dropdown */
 .sb-dropdown-menu .sb-link.sb-link-mini {
     padding: 7px 10px;
     font-size: 12px;
@@ -572,16 +623,12 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     transform: scale(1.1);
 }
 
-/* Active state for mini inside dropdown */
 .sb-dropdown-menu .sb-link.sb-link-mini.active::after {
     right: -14px;
     width: 2px;
     height: 16px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MINI GROUP  —  COMPACT ITEMS WITH LEFT BORDER (LAPORAN - tetap)
-   ═══════════════════════════════════════════════════════════════ */
 .sb-mini-group {
     position: relative;
     margin-left: 8px;
@@ -590,7 +637,6 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     margin-bottom: 4px;
 }
 
-/* Mini link — smaller than normal */
 .sb-link.sb-link-mini {
     padding: 7px 10px;
     font-size: 12px;
@@ -610,16 +656,12 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
     transform: scale(1.1);
 }
 
-/* Active state for mini */
 .sb-link.sb-link-mini.active::after {
     right: -14px;
     width: 2px;
     height: 16px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   BOTTOM USER CARD
-   ═══════════════════════════════════════════════════════════════ */
 .sb-bottom {
     margin-top: auto; padding-top: 20px;
     animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.5s forwards;
@@ -689,23 +731,17 @@ $pemilik_profile_url = ($sidebar_folder === 'profile')   ? 'profile_pemilik.php'
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* ═══════════════════════════════════════════════════════════════
-   STAGGERED ANIMATION DELAYS
-   ═══════════════════════════════════════════════════════════════ */
 .sb-section-label:nth-of-type(1) { animation-delay: 0.15s; }
 .sb-section-label:nth-of-type(2) { animation-delay: 0.35s; }
 .sb-section-label:nth-of-type(3) { animation-delay: 0.55s; }
 .sb-section-label:nth-of-type(4) { animation-delay: 0.75s; }
 
-/* Normal nav links */
 nav:nth-of-type(1) .sb-link:nth-child(1) { animation-delay: 0.20s; }
 nav:nth-of-type(1) .sb-link:nth-child(2) { animation-delay: 0.25s; }
 
-/* Dropdown toggles */
 .sb-dropdown:nth-of-type(1) { animation-delay: 0.40s; }
 .sb-dropdown:nth-of-type(2) { animation-delay: 0.60s; }
 
-/* Dropdown menu items - staggered */
 #dropdown-master .sb-dropdown-menu .sb-link:nth-child(1) { animation-delay: 0.44s; }
 #dropdown-master .sb-dropdown-menu .sb-link:nth-child(2) { animation-delay: 0.48s; }
 #dropdown-master .sb-dropdown-menu .sb-link:nth-child(3) { animation-delay: 0.52s; }
@@ -719,21 +755,14 @@ nav:nth-of-type(1) .sb-link:nth-child(2) { animation-delay: 0.25s; }
 #dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(3) { animation-delay: 0.72s; }
 #dropdown-transaksi .sb-dropdown-menu .sb-link:nth-child(4) { animation-delay: 0.76s; }
 
-/* Akun nav */
 nav:nth-of-type(2) .sb-link:nth-child(1) { animation-delay: 0.80s; }
 
-/* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE
-   ═══════════════════════════════════════════════════════════════ */
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
 }
 </style>
 
 <script>
-/* ============================================================
-   DROPDOWN TOGGLE
-   ============================================================ */
 function toggleDropdown(id) {
     const dropdown = document.getElementById(id);
     if (!dropdown) return;
@@ -748,9 +777,6 @@ function toggleDropdown(id) {
     }
 }
 
-/* ============================================================
-   KONFIRMASI LOGOUT  (SweetAlert2)
-   ============================================================ */
 (function () {
     const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
     let swalLoading = null;

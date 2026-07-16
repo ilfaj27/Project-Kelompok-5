@@ -228,6 +228,55 @@ if ($query_sizes) {
     }
 }
 
+
+// ============================================================================
+// AMBIL RIWAYAT TRANSAKSI PEMBELIAN ALAT CUSTOMER
+// ============================================================================
+$riwayat_beli = [];
+$query_riwayat = sqlsrv_query($conn,
+    "SELECT b.ID_Beli, b.Tanggal_Beli, b.Metode_Pembayaran, b.Total_Bayar, b.Bukti_Pembayaran, b.Status,
+            k.Nama_Karyawan
+     FROM Beli_Alat b
+     LEFT JOIN Karyawan k ON b.ID_Karyawan = k.ID_Karyawan
+     WHERE b.ID_Customer = ?
+     ORDER BY b.Tanggal_Beli DESC",
+    array($id_customer)
+);
+if ($query_riwayat) {
+    while ($row = sqlsrv_fetch_array($query_riwayat, SQLSRV_FETCH_ASSOC)) {
+        // Format tanggal
+        if (isset($row['Tanggal_Beli']) && $row['Tanggal_Beli'] instanceof DateTime) {
+            $row['Tanggal_Beli'] = $row['Tanggal_Beli']->format('Y-m-d H:i:s');
+        }
+        // Ambil detail item per transaksi
+        $detail_items = [];
+        $q_detail = sqlsrv_query($conn,
+            "SELECT d.Jumlah, d.SubTotal, d.Ukuran, a.Nama_Alat, a.Photo_Alat
+             FROM Detail_Beli_Alat d
+             INNER JOIN Alat a ON d.ID_Alat = a.ID_Alat
+             WHERE d.ID_Beli = ?",
+            array($row['ID_Beli'])
+        );
+        if ($q_detail) {
+            while ($d = sqlsrv_fetch_array($q_detail, SQLSRV_FETCH_ASSOC)) {
+                $detail_items[] = $d;
+            }
+        }
+        $row['detail_items'] = $detail_items;
+        $riwayat_beli[] = $row;
+    }
+}
+
+function getStatusLabel($status) {
+    switch ($status) {
+        case 0: return ['Menunggu Konfirmasi', 'var(--yellow)', 'var(--yellow-lt)', 'fa-clock'];
+        case 1: return ['Dikonfirmasi', 'var(--green)', 'var(--green-lt)', 'fa-check-circle'];
+        case 2: return ['Selesai', 'var(--blue)', 'var(--blue-lt)', 'fa-flag-checkered'];
+        case 3: return ['Dibatalkan', 'var(--red)', 'var(--red-lt)', 'fa-times-circle'];
+        default: return ['Tidak Diketahui', 'var(--muted)', '#F1F5F9', 'fa-question-circle'];
+    }
+}
+
 function resolvePhotoPath($photo_path) {
     if (empty($photo_path)) return '';
     if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0) return $photo_path;
@@ -579,7 +628,93 @@ function resolvePhotoPath($photo_path) {
     .btn-done-pay i { transition: transform 0.3s ease; }
     .btn-done-pay:hover i { transform: scale(1.2); }
 
-    </style>
+    
+    /* ═══ NAVIGATION TABS ═══ */
+    .page-nav-tabs { display: flex; gap: 0; margin-bottom: 32px; background: var(--white); border-radius: 14px; padding: 6px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.04); animation: fadeInUp 0.6s ease-out both; }
+    .page-nav-tab { flex: 1; padding: 14px 20px; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition-smooth); background: transparent; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; overflow: hidden; }
+    .page-nav-tab::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,90,31,0.1); border-radius: 50%; transform: translate(-50%,-50%); transition: width 0.5s, height 0.5s; }
+    .page-nav-tab:hover::before { width: 200px; height: 200px; }
+    .page-nav-tab:hover { color: var(--orange); }
+    .page-nav-tab.active { background: var(--orange); color: var(--white); box-shadow: 0 4px 16px rgba(255,90,31,0.3); }
+    .page-nav-tab.active:hover { color: var(--white); }
+    .page-nav-tab i { font-size: 15px; transition: transform 0.3s ease; }
+    .page-nav-tab:hover i { transform: scale(1.15); }
+    .page-nav-tab .tab-badge { position: absolute; top: 6px; right: 10px; background: var(--red); color: var(--white); font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 10px; min-width: 16px; text-align: center; }
+    .page-nav-tab.active .tab-badge { background: var(--white); color: var(--orange); }
+
+    /* ═══ RIWAYAT SECTION ═══ */
+    .riwayat-section { display: none; animation: fadeInUp 0.5s ease-out; }
+    .riwayat-section.active { display: block; }
+
+    /* ═══ RIWAYAT CARD ═══ */
+    .riwayat-list { display: flex; flex-direction: column; gap: 16px; }
+    .riwayat-card { background: var(--white); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; transform: translateY(30px) scale(0.97); }
+    .riwayat-card.visible { opacity: 1; transform: translateY(0) scale(1); }
+    .riwayat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); border-color: var(--orange); }
+    .riwayat-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; background: linear-gradient(135deg, #fafafa 0%, #f8f9fa 100%); border-bottom: 1px solid var(--border-lt); }
+    .riwayat-card-header-left { display: flex; align-items: center; gap: 14px; }
+    .riwayat-id-badge { background: var(--orange-lt); color: var(--orange); padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: 800; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
+    .riwayat-date { font-size: 13px; color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+    .riwayat-date i { color: var(--orange); font-size: 12px; }
+    .riwayat-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.3s ease; }
+    .riwayat-status-badge i { font-size: 11px; }
+    .riwayat-status-badge:hover { transform: scale(1.05); }
+
+    .riwayat-card-body { padding: 20px 24px; }
+    .riwayat-items-list { display: flex; flex-direction: column; gap: 12px; }
+    .riwayat-item-row { display: flex; align-items: center; gap: 14px; padding: 12px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border-lt); transition: all 0.3s ease; }
+    .riwayat-item-row:hover { background: var(--orange-lt); border-color: rgba(255,90,31,0.2); transform: translateX(4px); }
+    .riwayat-item-img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
+    .riwayat-item-img-placeholder { width: 56px; height: 56px; border-radius: 10px; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border); }
+    .riwayat-item-img-placeholder i { font-size: 20px; color: var(--primary); opacity: 0.5; }
+    .riwayat-item-info { flex: 1; min-width: 0; }
+    .riwayat-item-name { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .riwayat-item-meta { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .riwayat-item-meta .size-tag { background: var(--orange-lt); color: var(--orange); padding: 1px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; margin-left: 4px; }
+    .riwayat-item-subtotal { font-size: 14px; font-weight: 800; color: var(--text-primary); white-space: nowrap; }
+
+    .riwayat-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: linear-gradient(135deg, #fafafa 0%, #f8f9fa 100%); border-top: 1px solid var(--border-lt); }
+    .riwayat-metode { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+    .riwayat-metode i { color: var(--orange); }
+    .riwayat-total-section { text-align: right; }
+    .riwayat-total-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .riwayat-total-value { font-size: 20px; font-weight: 900; color: var(--orange); margin-top: 2px; }
+
+    /* ═══ EMPTY RIWAYAT STATE ═══ */
+    .riwayat-empty { text-align: center; padding: 80px 20px; animation: fadeInUp 0.6s ease-out; }
+    .riwayat-empty-icon { width: 100px; height: 100px; background: var(--orange-lt); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; animation: float 4s ease-in-out infinite; }
+    .riwayat-empty-icon i { font-size: 40px; color: var(--orange); }
+    .riwayat-empty-title { font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; }
+    .riwayat-empty-desc { font-size: 14px; color: var(--muted); max-width: 360px; margin: 0 auto 24px; line-height: 1.6; }
+    .riwayat-empty-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: var(--white); padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 700; text-decoration: none; transition: var(--transition-smooth); border: none; cursor: pointer; }
+    .riwayat-empty-btn:hover { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,90,31,0.3); }
+
+    /* ═══ BUKTI PEMBAYARAN THUMBNAIL ═══ */
+    .bukti-thumbnail { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; }
+    .bukti-thumbnail:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .bukti-placeholder { width: 48px; height: 48px; border-radius: 8px; background: var(--border-lt); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
+
+    /* ═══ BUKTI PEMBAYARAN MODAL ═══ */
+    .bukti-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 20px; animation: fadeInModal 0.3s ease-out; }
+    .bukti-modal-overlay.active { display: flex; }
+    .bukti-modal-content { background: #fff; border-radius: 20px; padding: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow: hidden; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideInModal 0.4s cubic-bezier(0.16,1,0.3,1); }
+    .bukti-modal-close { position: absolute; top: 16px; right: 16px; background: var(--border-lt); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); z-index: 10; }
+    .bukti-modal-close:hover { background: var(--red-lt); color: var(--red); transform: rotate(90deg); }
+    .bukti-modal-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; text-align: center; }
+    .bukti-modal-img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; }
+
+    /* ═══ RESPONSIVE RIWAYAT ═══ */
+    @media (max-width: 768px) {
+        .riwayat-card-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px 16px; }
+        .riwayat-card-body { padding: 14px 16px; }
+        .riwayat-card-footer { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px 16px; }
+        .riwayat-total-section { text-align: left; width: 100%; }
+        .riwayat-item-row { gap: 10px; }
+        .riwayat-item-img, .riwayat-item-img-placeholder { width: 44px; height: 44px; }
+        .page-nav-tab { font-size: 12px; padding: 10px 12px; }
+        .page-nav-tab i { display: none; }
+    }
+</style>
 </head>
 <body>
 
@@ -641,7 +776,21 @@ function resolvePhotoPath($photo_path) {
 
 <!-- MAIN CONTENT -->
 <main class="main-container">
-    <section>
+
+        <!-- Navigation Tabs -->
+        <div class="page-nav-tabs reveal">
+            <button class="page-nav-tab active" id="tabBeli" onclick="switchTab('beli')">
+                <i class="fa-solid fa-basket-shopping"></i> Beli Alat
+            </button>
+            <button class="page-nav-tab" id="tabRiwayat" onclick="switchTab('riwayat')">
+                <i class="fa-solid fa-receipt"></i> Riwayat Pembelian
+                <?php if (!empty($riwayat_beli)): ?>
+                <span class="tab-badge"><?php echo count($riwayat_beli); ?></span>
+                <?php endif; ?>
+            </button>
+        </div>
+
+    <section id="beliSection" style="display:block;">
         <div class="section-header reveal">
             <div>
                 <h2 class="section-title"><i class="fa-solid fa-basketball" style="color:var(--primary)"></i> Daftar Alat</h2>
@@ -736,9 +885,121 @@ function resolvePhotoPath($photo_path) {
             <?php endif; ?>
         </div>
     </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         RIWAYAT TRANSAKSI PEMBELIAN ALAT
+         ════════════════════════════════════════════════════════════ -->
+    <section class="riwayat-section" id="riwayatSection">
+        <div class="section-header reveal">
+            <div>
+                <h2 class="section-title"><i class="fa-solid fa-receipt" style="color:var(--primary)"></i> Riwayat Pembelian Alat</h2>
+                <p class="section-subtitle">Lihat status dan detail transaksi pembelian alat Anda.</p>
+            </div>
+        </div>
+
+        <?php if (empty($riwayat_beli)): ?>
+        <div class="riwayat-empty reveal">
+            <div class="riwayat-empty-icon">
+                <i class="fa-solid fa-basket-shopping"></i>
+            </div>
+            <div class="riwayat-empty-title">Belum Ada Pembelian</div>
+            <p class="riwayat-empty-desc">Anda belum melakukan pembelian alat. Yuk, jelajahi koleksi perlengkapan basket kami dan mulai berbelanja!</p>
+            <button class="riwayat-empty-btn" onclick="switchTab('beli')">
+                <i class="fa-solid fa-basketball"></i> Beli Alat Sekarang
+            </button>
+        </div>
+        <?php else: ?>
+        <div class="riwayat-list reveal-stagger" id="riwayatList">
+            <?php foreach ($riwayat_beli as $index => $trx):
+                $status_info = getStatusLabel($trx['Status'] ?? 0);
+                $status_text = $status_info[0];
+                $status_color = $status_info[1];
+                $status_bg = $status_info[2];
+                $status_icon = $status_info[3];
+                $total_items = array_sum(array_column($trx['detail_items'], 'Jumlah'));
+            ?>
+            <div class="riwayat-card stagger-item" data-index="<?php echo $index; ?>">
+                <div class="riwayat-card-header">
+                    <div class="riwayat-card-header-left">
+                        <div class="riwayat-id-badge">#TRX-<?php echo str_pad($trx['ID_Beli'], 4, '0', STR_PAD_LEFT); ?></div>
+                        <div class="riwayat-date">
+                            <i class="fa-regular fa-calendar"></i>
+                            <?php echo date('d M Y, H:i', strtotime($trx['Tanggal_Beli'])); ?>
+                        </div>
+                    </div>
+                    <div class="riwayat-status-badge" style="background:<?php echo $status_bg; ?>; color:<?php echo $status_color; ?>;">
+                        <i class="fa-solid <?php echo $status_icon; ?>"></i>
+                        <?php echo $status_text; ?>
+                    </div>
+                </div>
+                <div class="riwayat-card-body">
+                    <div class="riwayat-items-list">
+                        <?php foreach ($trx['detail_items'] as $item):
+                            $item_photo = resolvePhotoPath($item['Photo_Alat'] ?? '');
+                        ?>
+                        <div class="riwayat-item-row">
+                            <?php if (!empty($item_photo) && @file_exists($item_photo)): ?>
+                                <img src="<?php echo htmlspecialchars($item_photo); ?>" alt="<?php echo htmlspecialchars($item['Nama_Alat']); ?>" class="riwayat-item-img">
+                            <?php else: ?>
+                                <div class="riwayat-item-img-placeholder">
+                                    <i class="fa-solid fa-toolbox"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div class="riwayat-item-info">
+                                <div class="riwayat-item-name"><?php echo htmlspecialchars($item['Nama_Alat']); ?></div>
+                                <div class="riwayat-item-meta">
+                                    <?php echo intval($item['Jumlah']); ?>x @ Rp <?php echo number_format($item['SubTotal'] / max(1, intval($item['Jumlah'])), 0, ',', '.'); ?>
+                                    <?php if (!empty($item['Ukuran']) && $item['Ukuran'] !== 'All Size'): ?>
+                                        <span class="size-tag"><?php echo htmlspecialchars($item['Ukuran']); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="riwayat-item-subtotal">Rp <?php echo number_format($item['SubTotal'], 0, ',', '.'); ?></div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="riwayat-card-footer">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="riwayat-metode">
+                            <i class="fa-solid fa-wallet"></i>
+                            <?php echo htmlspecialchars($trx['Metode_Pembayaran'] ?? 'Transfer Bank'); ?>
+                        </div>
+                        <?php if (!empty($trx['Bukti_Pembayaran'])):
+                            $bukti_path = resolvePhotoPath($trx['Bukti_Pembayaran']);
+                            if (!empty($bukti_path) && @file_exists($bukti_path)):
+                        ?>
+                        <img src="<?php echo htmlspecialchars($bukti_path); ?>" alt="Bukti Pembayaran" class="bukti-thumbnail" onclick="openBuktiModal('<?php echo htmlspecialchars($bukti_path); ?>')" title="Klik untuk memperbesar">
+                        <?php else: ?>
+                        <div class="bukti-placeholder" title="Bukti tidak ditemukan"><i class="fa-solid fa-image"></i></div>
+                        <?php endif; else: ?>
+                        <div class="bukti-placeholder" title="Belum ada bukti"><i class="fa-solid fa-image"></i></div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="riwayat-total-section">
+                        <div class="riwayat-total-label">Total Pembayaran (<?php echo $total_items; ?> item)</div>
+                        <div class="riwayat-total-value">Rp <?php echo number_format($trx['Total_Bayar'], 0, ',', '.'); ?></div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </section>
+
 </main>
 
 <!-- FOOTER -->
+
+<!-- BUKTI PEMBAYARAN MODAL -->
+<div class="bukti-modal-overlay" id="buktiModal">
+    <div class="bukti-modal-content">
+        <button class="bukti-modal-close" onclick="closeBuktiModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="bukti-modal-title"><i class="fa-solid fa-receipt" style="color:var(--orange);margin-right:8px;"></i>Bukti Pembayaran</div>
+        <img src="" alt="Bukti Pembayaran" class="bukti-modal-img" id="buktiModalImg">
+    </div>
+</div>
+
 <?php include '../includes/footer.php'; ?>
 
 <!-- MODAL 1: RINGKASAN CHECKOUT -->
@@ -1380,6 +1641,66 @@ window.addEventListener('DOMContentLoaded', () => {
             });
     });
 })();
+
+
+// ============================================================================
+// TAB NAVIGATION
+// ============================================================================
+function switchTab(tab) {
+    const beliSection = document.getElementById('beliSection');
+    const riwayatSection = document.getElementById('riwayatSection');
+    const tabBeli = document.getElementById('tabBeli');
+    const tabRiwayat = document.getElementById('tabRiwayat');
+
+    if (tab === 'beli') {
+        beliSection.style.display = 'block';
+        riwayatSection.style.display = 'none';
+        riwayatSection.classList.remove('active');
+        tabBeli.classList.add('active');
+        tabRiwayat.classList.remove('active');
+        // Re-trigger card animations
+        document.querySelectorAll('.alat-card').forEach(card => {
+            card.classList.remove('visible');
+            setTimeout(() => card.classList.add('visible'), 50);
+        });
+    } else {
+        beliSection.style.display = 'none';
+        riwayatSection.style.display = 'block';
+        riwayatSection.classList.add('active');
+        tabBeli.classList.remove('active');
+        tabRiwayat.classList.add('active');
+        // Animate riwayat cards
+        document.querySelectorAll('.riwayat-card').forEach((card, i) => {
+            card.classList.remove('visible');
+            setTimeout(() => card.classList.add('visible'), i * 100);
+        });
+    }
+    // Scroll to top of main container
+    document.querySelector('.main-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================================================
+// BUKTI PEMBAYARAN MODAL
+// ============================================================================
+function openBuktiModal(src) {
+    const overlay = document.getElementById('buktiModal');
+    const img = document.getElementById('buktiModalImg');
+    img.src = src;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeBuktiModal() {
+    document.getElementById('buktiModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// Close bukti modal on outside click
+window.addEventListener('click', function(e) {
+    const buktiModal = document.getElementById('buktiModal');
+    if (e.target === buktiModal) closeBuktiModal();
+});
+
 </script>
 
 </body>
