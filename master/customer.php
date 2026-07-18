@@ -536,21 +536,18 @@ $sidebar_photo = $profile_photo;
         /* Nama Customer - Rata Kiri */
         .data-table th:nth-child(2) {
             width: 280px;
-            text-align: left;
-            padding-left: 24px;
+            text-align: center;
         }
         .data-table td:nth-child(2) {
             width: 280px;
-            text-align: left;
-            padding-left: 24px;
+            text-align: center;
         }
 
         /* Email - Rata Kiri */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
             width: 120px;
-            text-align: left;
-            padding-left: 24px;
+            text-align: center;
         }
 
         .data-table th:nth-child(4),
@@ -1541,8 +1538,8 @@ $sidebar_photo = $profile_photo;
                         <thead>
                             <tr>
                                 <th style="width: 80px;" class="col-center">No</th>
-                                <th class="col-left">Nama</th>
-                                <th class="col-left">Email</th>
+                                <th class="col-center">Nama</th>
+                                <th class="col-center">Email</th>
                                 <th style="width: 150px;" class="col-center">Jenis Kelamin</th>
                                 <th style="width: 120px;" class="col-center">Umur</th>
                                 <th style="width: 120px;" class="col-center">Status</th>
