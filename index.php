@@ -19,35 +19,32 @@ $promo_list = [];
 if (file_exists('includes/config.php')) {
     include 'includes/config.php';
     if (isset($conn)) {
-        // --- Total Lapangan Aktif ---
-        $sql_lap = "SELECT COUNT(*) as total FROM Lapangan WHERE Status = 1 AND Is_Deleted = 0";
+        // --- Total Lapangan Aktif menggunakan Scalar UDF ---
+        $sql_lap = "SELECT dbo.fn_GetTotalLapanganAktif() as total";
         $q_lap = sqlsrv_query($conn, $sql_lap);
         if ($q_lap) {
             $d_lap = sqlsrv_fetch_array($q_lap, SQLSRV_FETCH_ASSOC);
             $total_lapangan = $d_lap['total'] ?? 0;
         }
 
-        // --- Total Member Aktif (dari Langganan yang status Aktif) ---
-        $sql_member = "SELECT COUNT(DISTINCT ID_Customer) as total FROM Langganan WHERE Status = 1";
+        // --- Total Member Aktif menggunakan Scalar UDF ---
+        $sql_member = "SELECT dbo.fn_GetTotalMemberAktif() as total";
         $q_member = sqlsrv_query($conn, $sql_member);
         if ($q_member) {
             $d_member = sqlsrv_fetch_array($q_member, SQLSRV_FETCH_ASSOC);
             $total_member = $d_member['total'] ?? 0;
         }
 
-        // --- Total Booking Berhasil/Selesai ---
-        $sql_booking = "SELECT COUNT(*) as total FROM Booking WHERE Status IN (1, 2)";
+        // --- Total Booking Berhasil/Selesai menggunakan Scalar UDF ---
+        $sql_booking = "SELECT dbo.fn_GetTotalBookingBerhasil() as total";
         $q_booking = sqlsrv_query($conn, $sql_booking);
         if ($q_booking) {
             $d_booking = sqlsrv_fetch_array($q_booking, SQLSRV_FETCH_ASSOC);
             $total_booking = $d_booking['total'] ?? 0;
         }
 
-        // --- Daftar Lapangan Aktif (MAKSIMAL 3) ---
-        $sql_lapangan = "SELECT TOP 3 ID_Lapangan, Nama_Lapangan, Harga_Sewa, Photo_Lapangan 
-                         FROM Lapangan 
-                         WHERE Status = 1 AND Is_Deleted = 0 
-                         ORDER BY ID_Lapangan";
+        // --- Daftar Lapangan Aktif menggunakan Table-Valued UDF (MAKSIMAL 3) ---
+        $sql_lapangan = "SELECT * FROM dbo.fn_GetTopLapanganAktif(3)";
         $q_lapangan = sqlsrv_query($conn, $sql_lapangan);
         if ($q_lapangan) {
             while ($row = sqlsrv_fetch_array($q_lapangan, SQLSRV_FETCH_ASSOC)) {
@@ -55,11 +52,8 @@ if (file_exists('includes/config.php')) {
             }
         }
 
-        // --- Daftar Tipe Member Aktif (MAKSIMAL 2) ---
-        $sql_tipe = "SELECT TOP 2 ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga 
-                     FROM Tipe_Member 
-                     WHERE Status = 1 AND Is_Deleted = 0 
-                     ORDER BY Harga_Member ASC";
+        // --- Daftar Tipe Member Aktif menggunakan Table-Valued UDF (MAKSIMAL 2) ---
+        $sql_tipe = "SELECT * FROM dbo.fn_GetTopTipeMemberAktif(2)";
         $q_tipe = sqlsrv_query($conn, $sql_tipe);
         if ($q_tipe) {
             while ($row = sqlsrv_fetch_array($q_tipe, SQLSRV_FETCH_ASSOC)) {
@@ -67,11 +61,8 @@ if (file_exists('includes/config.php')) {
             }
         }
 
-        // --- Daftar Promo Aktif (MAKSIMAL 1) ---
-        $sql_promo = "SELECT TOP 1 ID_Promo, Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai 
-                      FROM Promo 
-                      WHERE Status = 1 AND Is_Deleted = 0 
-                      ORDER BY Diskon DESC";
+        // --- Daftar Promo Aktif menggunakan Table-Valued UDF (MAKSIMAL 1) ---
+        $sql_promo = "SELECT * FROM dbo.fn_GetTopPromoAktif(1)";
         $q_promo = sqlsrv_query($conn, $sql_promo);
         if ($q_promo) {
             while ($row = sqlsrv_fetch_array($q_promo, SQLSRV_FETCH_ASSOC)) {
@@ -91,12 +82,15 @@ if (file_exists('includes/config.php')) {
     }
 }
 
-function rupiah($n) {
+function rupiah($n)
+{
     return 'Rp ' . number_format($n, 0, ',', '.');
 }
 
-function getPhotoUrl($photo_path) {
-    if (empty($photo_path)) return '';
+function getPhotoUrl($photo_path)
+{
+    if (empty($photo_path))
+        return '';
     $path = str_replace('../', '', $photo_path);
     $path = ltrim($path, '/');
     return $path;
@@ -109,9 +103,13 @@ function getPhotoUrl($photo_path) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HoopBall - Sewa Lapangan Basket Jadi Lebih Mudah</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="asset/css/navbar_footer.css">
+    <link rel="stylesheet" href="asset/css/responsive.css?v=1.1">
     <style>
         html {
             scroll-behavior: smooth;
@@ -119,15 +117,45 @@ function getPhotoUrl($photo_path) {
             -ms-overflow-style: none;
             background-color: #FFFFFF !important;
         }
-        html::-webkit-scrollbar { display: none; }
-        section[id], footer[id] { scroll-margin-top: 90px; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Barlow', sans-serif; }
-        body { background-color: #FFFFFF !important; color: var(--text-dark); overflow-x: hidden; line-height: 1.5; }
-        a { text-decoration: none; transition: all 0.3s ease; }
+
+        html::-webkit-scrollbar {
+            display: none;
+        }
+
+        section[id],
+        footer[id] {
+            scroll-margin-top: 90px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Barlow', sans-serif;
+        }
+
+        body {
+            background-color: #FFFFFF !important;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        a {
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
 
         @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .reveal {
@@ -135,23 +163,45 @@ function getPhotoUrl($photo_path) {
             transform: translateY(40px);
             transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .reveal-left {
             opacity: 0;
             transform: translateX(-36px);
             transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
         }
-        .reveal-left.visible { opacity: 1; transform: translateX(0); }
+
+        .reveal-left.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
         .reveal-right {
             opacity: 0;
             transform: translateX(36px);
             transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
         }
-        .reveal-right.visible { opacity: 1; transform: translateX(0); }
 
-        .delay-1 { transition-delay: 0.08s !important; }
-        .delay-2 { transition-delay: 0.16s !important; }
-        .delay-3 { transition-delay: 0.24s !important; }
+        .reveal-right.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .delay-1 {
+            transition-delay: 0.08s !important;
+        }
+
+        .delay-2 {
+            transition-delay: 0.16s !important;
+        }
+
+        .delay-3 {
+            transition-delay: 0.24s !important;
+        }
 
         .hero-section {
             display: grid;
@@ -162,6 +212,7 @@ function getPhotoUrl($photo_path) {
             position: relative;
             overflow: hidden;
         }
+
         .hero-content {
             padding-right: 20px;
             z-index: 10;
@@ -171,10 +222,19 @@ function getPhotoUrl($photo_path) {
             height: 100%;
             animation: heroText 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.55s both;
         }
+
         @keyframes heroText {
-            from { opacity: 0; transform: translateX(-30px); }
-            to { opacity: 1; transform: translateX(0); }
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
+
         .hero-content h1 {
             font-size: 52px;
             font-weight: 800;
@@ -184,7 +244,11 @@ function getPhotoUrl($photo_path) {
             letter-spacing: -1px;
             font-family: 'Barlow Condensed', sans-serif;
         }
-        .hero-content h1 span { color: var(--orange); }
+
+        .hero-content h1 span {
+            color: var(--orange);
+        }
+
         .hero-content p {
             font-size: 15px;
             color: var(--text-muted);
@@ -192,7 +256,12 @@ function getPhotoUrl($photo_path) {
             margin-bottom: 40px;
             max-width: 485px;
         }
-        .hero-cta { display: flex; gap: 16px; }
+
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+        }
+
         .btn-hero-primary {
             background: var(--orange);
             color: #fff;
@@ -207,13 +276,21 @@ function getPhotoUrl($photo_path) {
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .btn-hero-primary i { transition: transform 0.3s ease; }
+
+        .btn-hero-primary i {
+            transition: transform 0.3s ease;
+        }
+
         .btn-hero-primary:hover {
             background: var(--orange-dark);
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(255, 69, 0, 0.35);
         }
-        .btn-hero-primary:hover i { transform: rotate(-10deg) scale(1.1); }
+
+        .btn-hero-primary:hover i {
+            transform: rotate(-10deg) scale(1.1);
+        }
+
         .btn-hero-secondary {
             background: #F1F5F9;
             color: #334155;
@@ -228,7 +305,12 @@ function getPhotoUrl($photo_path) {
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .btn-hero-secondary i { color: #475569; transition: transform 0.4s ease, color 0.3s ease; }
+
+        .btn-hero-secondary i {
+            color: #475569;
+            transition: transform 0.4s ease, color 0.3s ease;
+        }
+
         .btn-hero-secondary:hover {
             background: #E2E8F0;
             border-color: #94A3B8;
@@ -236,7 +318,11 @@ function getPhotoUrl($photo_path) {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
         }
-        .btn-hero-secondary:hover i { transform: rotate(30deg); color: var(--orange); }
+
+        .btn-hero-secondary:hover i {
+            transform: rotate(30deg);
+            color: var(--orange);
+        }
 
         .hero-visual {
             position: relative;
@@ -244,10 +330,19 @@ function getPhotoUrl($photo_path) {
             overflow: hidden;
             animation: heroVid 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
         }
+
         @keyframes heroVid {
-            from { opacity: 0; transform: translateX(40px) scale(1.04); }
-            to { opacity: 1; transform: translateX(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateX(40px) scale(1.04);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
         }
+
         .hero-visual video {
             position: absolute;
             top: 0;
@@ -258,7 +353,11 @@ function getPhotoUrl($photo_path) {
             pointer-events: none;
             transition: transform 8s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .hero-section:hover .hero-visual video { transform: scale(1.04); }
+
+        .hero-section:hover .hero-visual video {
+            transform: scale(1.04);
+        }
+
         .fade-overlay {
             position: absolute;
             top: 0;
@@ -268,6 +367,7 @@ function getPhotoUrl($photo_path) {
             background: linear-gradient(to right, #fff 0%, transparent 100%);
             z-index: 2;
         }
+
         .bottom-fade-overlay {
             position: absolute;
             bottom: 0;
@@ -296,24 +396,72 @@ function getPhotoUrl($photo_path) {
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             animation: statsCard 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.85s both;
         }
+
         @keyframes statsCard {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         .hero-stats-card:hover {
             transform: translateY(-8px);
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
             border-color: rgba(255, 69, 0, 0.1);
         }
-        .hero-stats-card:hover .stat-box:nth-child(1) .stat-icon i { transform: translateY(-4px) scale(1.15); }
-        .hero-stats-card:hover .stat-box:nth-child(3) .stat-icon i { transform: scale(1.2) rotate(15deg); }
-        .hero-stats-card:hover .stat-box:nth-child(5) .stat-icon i { transform: rotate(180deg) scale(1.15); }
-        .stat-box { text-align: center; min-width: 65px; }
-        .stat-icon { font-size: 18px; color: var(--orange); margin-bottom: 4px; }
-        .stat-icon i { display: inline-block; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .stat-num { font-size: 20px; font-weight: 800; color: #111; line-height: 1.1; }
-        .stat-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
-        .stat-divider { width: 1px; height: 28px; background: var(--border-color); }
+
+        .hero-stats-card:hover .stat-box:nth-child(1) .stat-icon i {
+            transform: translateY(-4px) scale(1.15);
+        }
+
+        .hero-stats-card:hover .stat-box:nth-child(3) .stat-icon i {
+            transform: scale(1.2) rotate(15deg);
+        }
+
+        .hero-stats-card:hover .stat-box:nth-child(5) .stat-icon i {
+            transform: rotate(180deg) scale(1.15);
+        }
+
+        .stat-box {
+            text-align: center;
+            min-width: 65px;
+        }
+
+        .stat-icon {
+            font-size: 18px;
+            color: var(--orange);
+            margin-bottom: 4px;
+        }
+
+        .stat-icon i {
+            display: inline-block;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .stat-num {
+            font-size: 20px;
+            font-weight: 800;
+            color: #111;
+            line-height: 1.1;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-top: 1px;
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border-color);
+        }
 
         .features-section {
             padding: 80px 8%;
@@ -321,6 +469,7 @@ function getPhotoUrl($photo_path) {
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 24px;
         }
+
         .feature-card {
             background: #fff;
             border: 1px solid var(--border-color);
@@ -328,11 +477,13 @@ function getPhotoUrl($photo_path) {
             padding: 30px 24px;
             transition: all 0.35s ease;
         }
+
         .feature-card:hover {
             transform: translateY(-6px);
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
             border-color: rgba(255, 69, 0, 0.2);
         }
+
         .feature-icon {
             width: 48px;
             height: 48px;
@@ -344,13 +495,39 @@ function getPhotoUrl($photo_path) {
             margin-bottom: 20px;
             transition: all 0.3s ease;
         }
-        .feature-card:hover .feature-icon { background: var(--orange); }
-        .feature-icon i { font-size: 20px; color: var(--orange); transition: color 0.3s ease; }
-        .feature-card:hover .feature-icon i { color: #fff; }
-        .feature-card h4 { font-size: 16px; font-weight: 700; color: var(--dark); margin-bottom: 10px; }
-        .feature-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
 
-        .section-header { text-align: center; margin-bottom: 50px; }
+        .feature-card:hover .feature-icon {
+            background: var(--orange);
+        }
+
+        .feature-icon i {
+            font-size: 20px;
+            color: var(--orange);
+            transition: color 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon i {
+            color: #fff;
+        }
+
+        .feature-card h4 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
         .section-header h2 {
             font-size: 32px;
             font-weight: 800;
@@ -359,6 +536,7 @@ function getPhotoUrl($photo_path) {
             position: relative;
             display: inline-block;
         }
+
         .section-header h2::after {
             content: '';
             position: absolute;
@@ -371,12 +549,17 @@ function getPhotoUrl($photo_path) {
             border-radius: 2px;
         }
 
-        .court-section { padding: 80px 8%; background: #fff; }
+        .court-section {
+            padding: 80px 8%;
+            background: #fff;
+        }
+
         .court-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 30px;
         }
+
         .court-card {
             background: #fff;
             border: 1px solid var(--border-color);
@@ -384,10 +567,12 @@ function getPhotoUrl($photo_path) {
             overflow: hidden;
             transition: all 0.35s ease;
         }
+
         .court-card:hover {
             transform: translateY(-6px);
             box-shadow: 0 14px 35px rgba(0, 0, 0, 0.07);
         }
+
         .court-img-container {
             width: 100%;
             height: 220px;
@@ -395,13 +580,18 @@ function getPhotoUrl($photo_path) {
             position: relative;
             background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
         }
+
         .court-img-container img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             transition: transform 0.5s ease;
         }
-        .court-card:hover .court-img-container img { transform: scale(1.05); }
+
+        .court-card:hover .court-img-container img {
+            transform: scale(1.05);
+        }
+
         .court-img-placeholder {
             width: 100%;
             height: 100%;
@@ -409,9 +599,24 @@ function getPhotoUrl($photo_path) {
             align-items: center;
             justify-content: center;
         }
-        .court-img-placeholder i { font-size: 48px; color: var(--orange); opacity: 0.4; }
-        .court-info { padding: 24px; }
-        .court-info h3 { font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 8px; }
+
+        .court-img-placeholder i {
+            font-size: 48px;
+            color: var(--orange);
+            opacity: 0.4;
+        }
+
+        .court-info {
+            padding: 24px;
+        }
+
+        .court-info h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
         .court-info p {
             font-size: 13px;
             color: var(--text-muted);
@@ -422,6 +627,7 @@ function getPhotoUrl($photo_path) {
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+
         .court-footer {
             display: flex;
             justify-content: space-between;
@@ -429,8 +635,18 @@ function getPhotoUrl($photo_path) {
             padding-top: 16px;
             border-top: 1px solid var(--border-color);
         }
-        .court-price { font-size: 14px; color: var(--text-muted); }
-        .court-price span { font-size: 18px; font-weight: 800; color: var(--orange); }
+
+        .court-price {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .court-price span {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--orange);
+        }
+
         .btn-detail {
             border: 1px solid var(--orange);
             color: var(--orange);
@@ -441,15 +657,25 @@ function getPhotoUrl($photo_path) {
             background: transparent;
             transition: all 0.3s ease;
         }
-        .btn-detail:hover { background: var(--orange); color: #fff; }
 
-        .process-section { padding: 80px 8%; background: var(--bg-light); overflow: hidden; }
+        .btn-detail:hover {
+            background: var(--orange);
+            color: #fff;
+        }
+
+        .process-section {
+            padding: 80px 8%;
+            background: var(--bg-light);
+            overflow: hidden;
+        }
+
         .process-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 24px;
             position: relative;
         }
+
         .process-grid::before {
             content: '';
             position: absolute;
@@ -462,6 +688,7 @@ function getPhotoUrl($photo_path) {
             background-repeat: repeat-x;
             z-index: 1;
         }
+
         .process-card {
             background: #fff;
             border: 1px solid var(--border-color);
@@ -473,11 +700,13 @@ function getPhotoUrl($photo_path) {
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         .process-card:hover {
             transform: translateY(-10px) scale(1.02);
             border-color: var(--orange);
             box-shadow: 0 20px 35px rgba(255, 69, 0, 0.08);
         }
+
         .process-step {
             width: 36px;
             height: 36px;
@@ -494,10 +723,12 @@ function getPhotoUrl($photo_path) {
             z-index: 3;
             transition: all 0.3s ease;
         }
+
         .process-card:hover .process-step {
             transform: scale(1.15);
             box-shadow: 0 0 12px rgba(255, 69, 0, 0.4);
         }
+
         .process-card i {
             font-size: 36px;
             color: #94A3B8;
@@ -505,10 +736,29 @@ function getPhotoUrl($photo_path) {
             display: inline-block;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .process-card:hover i { color: var(--orange); transform: scale(1.12) rotate(5deg); }
-        .process-card h4 { font-size: 16px; font-weight: 700; color: var(--dark); margin-bottom: 10px; transition: color 0.3s ease; }
-        .process-card:hover h4 { color: var(--orange); }
-        .process-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+        .process-card:hover i {
+            color: var(--orange);
+            transform: scale(1.12) rotate(5deg);
+        }
+
+        .process-card h4 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .process-card:hover h4 {
+            color: var(--orange);
+        }
+
+        .process-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
 
         .membership-section {
             padding: 100px 8%;
@@ -517,6 +767,7 @@ function getPhotoUrl($photo_path) {
             gap: 60px;
             align-items: center;
         }
+
         .member-intro h2 {
             font-size: 36px;
             font-weight: 800;
@@ -524,8 +775,20 @@ function getPhotoUrl($photo_path) {
             margin-bottom: 16px;
             font-family: 'Barlow Condensed', sans-serif;
         }
-        .member-intro p { color: var(--text-muted); font-size: 15px; margin-bottom: 40px; line-height: 1.6; }
-        .member-benefit-list { display: flex; flex-direction: column; gap: 16px; }
+
+        .member-intro p {
+            color: var(--text-muted);
+            font-size: 15px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .member-benefit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
         .benefit-item {
             display: flex;
             gap: 16px;
@@ -535,7 +798,12 @@ function getPhotoUrl($photo_path) {
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .benefit-item:hover { transform: translateX(8px); background: var(--bg-light); }
+
+        .benefit-item:hover {
+            transform: translateX(8px);
+            background: var(--bg-light);
+        }
+
         .benefit-icon {
             width: 48px;
             height: 48px;
@@ -547,14 +815,45 @@ function getPhotoUrl($photo_path) {
             flex-shrink: 0;
             transition: all 0.3s ease;
         }
-        .benefit-item:hover .benefit-icon { background: var(--orange); }
-        .benefit-icon i { color: var(--orange); font-size: 18px; transition: all 0.3s ease; }
-        .benefit-item:hover .benefit-icon i { color: #fff; transform: scale(1.1); }
-        .benefit-text h4 { font-size: 15px; font-weight: 700; color: var(--dark); margin-bottom: 4px; transition: color 0.3s ease; }
-        .benefit-item:hover .benefit-text h4 { color: var(--orange); }
-        .benefit-text p { font-size: 13px; color: var(--text-muted); }
 
-        .pricing-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .benefit-item:hover .benefit-icon {
+            background: var(--orange);
+        }
+
+        .benefit-icon i {
+            color: var(--orange);
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .benefit-item:hover .benefit-icon i {
+            color: #fff;
+            transform: scale(1.1);
+        }
+
+        .benefit-text h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        .benefit-item:hover .benefit-text h4 {
+            color: var(--orange);
+        }
+
+        .benefit-text p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .pricing-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
         .pricing-card {
             background: #fff;
             border: 1px solid var(--border-color);
@@ -566,15 +865,18 @@ function getPhotoUrl($photo_path) {
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         .pricing-card:hover {
             transform: translateY(-8px);
             border-color: var(--orange);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
         }
+
         .pricing-card.premium:hover {
             transform: translateY(-12px);
             box-shadow: 0 24px 48px rgba(255, 69, 0, 0.12);
         }
+
         .popular-badge {
             position: absolute;
             top: -15px;
@@ -591,16 +893,53 @@ function getPhotoUrl($photo_path) {
             z-index: 3;
             transition: all 0.3s ease;
         }
+
         .pricing-card.premium:hover .popular-badge {
             transform: translateX(-50%) scale(1.05);
             background: var(--orange-dark);
         }
-        .price-name { font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 10px; }
-        .price-amount { font-size: 28px; font-weight: 800; color: var(--orange); margin-bottom: 30px; }
-        .price-amount span { font-size: 14px; color: var(--text-muted); font-weight: 500; }
-        .price-features { list-style: none; display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
-        .price-features li { font-size: 13px; color: var(--text-dark); display: flex; align-items: center; gap: 10px; }
-        .price-features li i { color: #22C55E; font-size: 14px; }
+
+        .price-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .price-amount {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--orange);
+            margin-bottom: 30px;
+        }
+
+        .price-amount span {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .price-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .price-features li {
+            font-size: 13px;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .price-features li i {
+            color: #22C55E;
+            font-size: 14px;
+        }
+
         .btn-price {
             width: 100%;
             padding: 14px;
@@ -612,10 +951,28 @@ function getPhotoUrl($photo_path) {
             transition: all 0.3s ease;
             display: inline-block;
         }
-        .btn-price.outline { border: 1px solid var(--orange); color: var(--orange); background: transparent; }
-        .btn-price.outline:hover { background: var(--orange); color: #fff; }
-        .btn-price.filled { background: var(--orange); color: #fff; border: none; }
-        .btn-price.filled:hover { background: var(--orange-dark); transform: scale(1.02); }
+
+        .btn-price.outline {
+            border: 1px solid var(--orange);
+            color: var(--orange);
+            background: transparent;
+        }
+
+        .btn-price.outline:hover {
+            background: var(--orange);
+            color: #fff;
+        }
+
+        .btn-price.filled {
+            background: var(--orange);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-price.filled:hover {
+            background: var(--orange-dark);
+            transform: scale(1.02);
+        }
 
         .promo-testimonial-section {
             padding: 80px 8%;
@@ -624,6 +981,7 @@ function getPhotoUrl($photo_path) {
             grid-template-columns: 1fr 2.2fr;
             gap: 30px;
         }
+
         .promo-card {
             background: linear-gradient(135deg, #FF5400 0%, #FF3D00 60%, #E63900 100%);
             border-radius: 24px;
@@ -639,10 +997,12 @@ function getPhotoUrl($photo_path) {
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             cursor: pointer;
         }
+
         .promo-card:hover {
             transform: translateY(-8px);
             box-shadow: 0 20px 45px rgba(255, 69, 0, 0.28);
         }
+
         .promo-badge {
             font-size: 13px;
             font-weight: 750;
@@ -650,7 +1010,13 @@ function getPhotoUrl($photo_path) {
             letter-spacing: 1.5px;
             margin-bottom: auto;
         }
-        .promo-content-block { margin-top: auto; position: relative; z-index: 2; }
+
+        .promo-content-block {
+            margin-top: auto;
+            position: relative;
+            z-index: 2;
+        }
+
         .promo-content-block h3 {
             font-size: 42px;
             font-weight: 900;
@@ -659,12 +1025,14 @@ function getPhotoUrl($photo_path) {
             margin-bottom: 4px;
             font-family: 'Barlow Condensed', sans-serif;
         }
+
         .promo-content-block p {
             font-size: 15px;
             font-weight: 600;
             opacity: 0.95;
             margin-bottom: 24px;
         }
+
         .btn-promo-yellow {
             background: #FFC107;
             color: #1E293B;
@@ -677,8 +1045,19 @@ function getPhotoUrl($photo_path) {
             box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
             transition: all 0.3s ease;
         }
-        .promo-card:hover .btn-promo-yellow { background: #FFB300; transform: scale(1.04); }
-        .promo-terms { font-size: 10px; color: rgba(255, 255, 255, 0.7); margin-top: 14px; font-weight: 500; }
+
+        .promo-card:hover .btn-promo-yellow {
+            background: #FFB300;
+            transform: scale(1.04);
+        }
+
+        .promo-terms {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 14px;
+            font-weight: 500;
+        }
+
         .promo-player-img {
             position: absolute;
             bottom: 35px;
@@ -689,7 +1068,10 @@ function getPhotoUrl($photo_path) {
             z-index: 1;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .promo-card:hover .promo-player-img { transform: scale(1.04) translate(3px, -3px); }
+
+        .promo-card:hover .promo-player-img {
+            transform: scale(1.04) translate(3px, -3px);
+        }
 
         .location-map-card {
             position: relative;
@@ -702,11 +1084,13 @@ function getPhotoUrl($photo_path) {
             min-height: 380px;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         .location-map-card:hover {
             transform: translateY(-6px);
             border-color: var(--orange);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
         }
+
         .location-map-card iframe {
             width: 100%;
             height: 100%;
@@ -714,7 +1098,11 @@ function getPhotoUrl($photo_path) {
             filter: grayscale(100%) contrast(1.1) brightness(0.95);
             transition: filter 0.6s ease;
         }
-        .location-map-card:hover iframe { filter: grayscale(0%); }
+
+        .location-map-card:hover iframe {
+            filter: grayscale(0%);
+        }
+
         .map-overlay-card {
             position: absolute;
             top: 16px;
@@ -729,11 +1117,13 @@ function getPhotoUrl($photo_path) {
             z-index: 10;
             transition: all 0.4s ease;
         }
+
         .location-map-card:hover .map-overlay-card {
             transform: translateY(-2px);
             box-shadow: 0 12px 25px rgba(255, 69, 0, 0.1);
             border-color: rgba(255, 69, 0, 0.2);
         }
+
         .map-badge {
             display: inline-flex;
             align-items: center;
@@ -747,8 +1137,21 @@ function getPhotoUrl($photo_path) {
             letter-spacing: 0.5px;
             margin-bottom: 8px;
         }
-        .map-overlay-card h4 { font-size: 13px; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
-        .map-overlay-card p { font-size: 10px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px; }
+
+        .map-overlay-card h4 {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .map-overlay-card p {
+            font-size: 10px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
         .map-link {
             display: inline-flex;
             align-items: center;
@@ -760,9 +1163,17 @@ function getPhotoUrl($photo_path) {
             border-radius: 6px;
             transition: all 0.3s ease;
         }
-        .map-link:hover { background: var(--orange-dark); transform: translateY(-1px); }
 
-        .store-cta-section { padding: 60px 8%; background: #fff; }
+        .map-link:hover {
+            background: var(--orange-dark);
+            transform: translateY(-1px);
+        }
+
+        .store-cta-section {
+            padding: 60px 8%;
+            background: #fff;
+        }
+
         .store-banner {
             background: #1E2530;
             border-radius: 24px;
@@ -775,8 +1186,17 @@ function getPhotoUrl($photo_path) {
             overflow: hidden;
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .store-banner:hover { transform: scale(1.005); }
-        .store-content { max-width: 50%; position: relative; z-index: 2; }
+
+        .store-banner:hover {
+            transform: scale(1.005);
+        }
+
+        .store-content {
+            max-width: 50%;
+            position: relative;
+            z-index: 2;
+        }
+
         .store-content h2 {
             font-size: 34px;
             font-weight: 800;
@@ -784,8 +1204,19 @@ function getPhotoUrl($photo_path) {
             margin-bottom: 16px;
             font-family: 'Barlow Condensed', sans-serif;
         }
-        .store-content h2 span { color: var(--orange); }
-        .store-content p { font-size: 14px; color: #94A3B8; line-height: 1.6; margin-bottom: 32px; max-width: 480px; }
+
+        .store-content h2 span {
+            color: var(--orange);
+        }
+
+        .store-content p {
+            font-size: 14px;
+            color: #94A3B8;
+            line-height: 1.6;
+            margin-bottom: 32px;
+            max-width: 480px;
+        }
+
         .btn-store-cta {
             background: var(--orange);
             color: #fff;
@@ -799,11 +1230,13 @@ function getPhotoUrl($photo_path) {
             box-shadow: 0 4px 14px rgba(255, 84, 0, 0.2);
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         .btn-store-cta:hover {
             background: var(--orange-dark);
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(255, 84, 0, 0.4);
         }
+
         .store-visual {
             position: absolute;
             right: 0;
@@ -812,7 +1245,14 @@ function getPhotoUrl($photo_path) {
             height: calc(100% - 50px);
             z-index: 1;
         }
-        .store-gear-img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+
+        .store-gear-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
         .store-features-shelf {
             position: absolute;
             bottom: 0;
@@ -827,6 +1267,7 @@ function getPhotoUrl($photo_path) {
             padding: 0 30px;
             z-index: 3;
         }
+
         .store-features-shelf::before {
             content: '';
             position: absolute;
@@ -838,23 +1279,65 @@ function getPhotoUrl($photo_path) {
             border-bottom-right-radius: 28px;
             box-shadow: 14px 14px 0 0 #F8FAFC;
         }
-        .shelf-item { display: flex; align-items: center; gap: 8px; color: #1E293B; }
-        .shelf-item i { color: #475569; font-size: 15px; }
-        .shelf-item span { font-size: 11px; font-weight: 750; letter-spacing: -0.2px; }
 
-        .empty-court, .empty-member, .empty-promo {
+        .shelf-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1E293B;
+        }
+
+        .shelf-item i {
+            color: #475569;
+            font-size: 15px;
+        }
+
+        .shelf-item span {
+            font-size: 11px;
+            font-weight: 750;
+            letter-spacing: -0.2px;
+        }
+
+        .empty-court,
+        .empty-member,
+        .empty-promo {
             text-align: center;
             padding: 60px 20px;
             color: var(--text-muted);
             grid-column: 1 / -1;
         }
-        .empty-court i, .empty-member i, .empty-promo i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; display: block; }
-        .empty-court div, .empty-member div, .empty-promo div { font-size: 14px; font-weight: 700; }
+
+        .empty-court i,
+        .empty-member i,
+        .empty-promo i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+            display: block;
+        }
+
+        .empty-court div,
+        .empty-member div,
+        .empty-promo div {
+            font-size: 14px;
+            font-weight: 700;
+        }
 
         @media (max-width:992px) {
-            .hero-section { height: auto; grid-template-columns: 1fr; }
-            .hero-visual { height: 400px; }
-            .fade-overlay { width: 100%; background: linear-gradient(to bottom, #fff 0%, transparent 30%); }
+            .hero-section {
+                height: auto;
+                grid-template-columns: 1fr;
+            }
+
+            .hero-visual {
+                height: 400px;
+            }
+
+            .fade-overlay {
+                width: 100%;
+                background: linear-gradient(to bottom, #fff 0%, transparent 30%);
+            }
+
             .hero-stats-card {
                 left: 50%;
                 transform: translateX(-50%);
@@ -862,20 +1345,63 @@ function getPhotoUrl($photo_path) {
                 width: 90%;
                 justify-content: space-around;
             }
-            .process-grid { grid-template-columns: repeat(2, 1fr); }
-            .membership-section { grid-template-columns: 1fr; }
-            .pricing-container { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
-            .promo-testimonial-section { grid-template-columns: 1fr; }
-            .store-banner { flex-direction: column; padding: 40px 30px; }
-            .store-content { max-width: 100%; margin-bottom: 40px; }
-            .store-visual { position: relative; width: 100%; height: 250px; }
-            .store-features-shelf { display: none; }
+
+            .process-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .membership-section {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-container {
+                grid-template-columns: 1fr;
+                max-width: 500px;
+                margin: 0 auto;
+            }
+
+            .promo-testimonial-section {
+                grid-template-columns: 1fr;
+            }
+
+            .store-banner {
+                flex-direction: column;
+                padding: 40px 30px;
+            }
+
+            .store-content {
+                max-width: 100%;
+                margin-bottom: 40px;
+            }
+
+            .store-visual {
+                position: relative;
+                width: 100%;
+                height: 250px;
+            }
+
+            .store-features-shelf {
+                display: none;
+            }
         }
+
         @media (max-width:576px) {
-            .process-grid { grid-template-columns: 1fr; }
-            .process-grid::before { display: none; }
-            .hero-content h1 { font-size: 36px; }
+            .process-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .process-grid::before {
+                display: none;
+            }
+
+            .hero-content h1 {
+                font-size: 36px;
+            }
         }
+
+        
+
+        
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -966,13 +1492,12 @@ function getPhotoUrl($photo_path) {
                 <?php foreach ($lapangan_list as $index => $lap): ?>
                     <div class="court-card reveal delay-<?= ($index % 3) + 1 ?>">
                         <div class="court-img-container">
-                            <?php 
+                            <?php
                             $photo_url = getPhotoUrl($lap['Photo_Lapangan'] ?? '');
-                            if (!empty($photo_url)): 
-                            ?>
-                                <img src="<?= htmlspecialchars($photo_url) ?>" 
-                                     alt="<?= htmlspecialchars($lap['Nama_Lapangan']) ?>"
-                                     onerror="this.style.display='none'; this.parentElement.querySelector('.court-img-placeholder').style.display='flex';">
+                            if (!empty($photo_url)):
+                                ?>
+                                <img src="<?= htmlspecialchars($photo_url) ?>" alt="<?= htmlspecialchars($lap['Nama_Lapangan']) ?>"
+                                    onerror="this.style.display='none'; this.parentElement.querySelector('.court-img-placeholder').style.display='flex';">
                                 <div class="court-img-placeholder" style="display:none; position:absolute; top:0; left:0;">
                                     <i class="fa-solid fa-layer-group"></i>
                                 </div>
@@ -988,7 +1513,8 @@ function getPhotoUrl($photo_path) {
                             <div class="court-footer">
                                 <div class="court-price"><span><?= rupiah($lap['Harga_Sewa']) ?></span> / jam</div>
                                 <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
-                                    <a href="customer/booking_customer.php?id=<?= intval($lap['ID_Lapangan']) ?>" class="btn-detail">Lihat</a>
+                                    <a href="customer/booking_customer.php?id=<?= intval($lap['ID_Lapangan']) ?>"
+                                        class="btn-detail">Lihat</a>
                                 <?php else: ?>
                                     <a href="login/login.php?id=<?= intval($lap['ID_Lapangan']) ?>" class="btn-detail">Lihat</a>
                                 <?php endif; ?>
@@ -1076,13 +1602,16 @@ function getPhotoUrl($photo_path) {
                         <div class="price-name"><?= htmlspecialchars($tipe['Nama_Tipe']) ?></div>
                         <div class="price-amount"><?= rupiah($tipe['Harga_Member']) ?> <span>/30 hari</span></div>
                         <ul class="price-features">
-                            <li><i class="fa-solid fa-circle-check"></i> Potongan <?= rupiah($tipe['Potongan_Harga']) ?> per booking</li>
+                            <li><i class="fa-solid fa-circle-check"></i> Potongan <?= rupiah($tipe['Potongan_Harga']) ?> per
+                                booking</li>
                             <li><i class="fa-solid fa-circle-check"></i> Masa aktif 30 hari</li>
                         </ul>
                         <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
-                            <a href="customer/langganan_customer.php?plan=<?= urlencode(strtolower($tipe['Nama_Tipe'])) ?>" class="btn-price outline">Daftar Anggota</a>
+                            <a href="customer/langganan_customer.php?plan=<?= urlencode(strtolower($tipe['Nama_Tipe'])) ?>"
+                                class="btn-price outline">Daftar Anggota</a>
                         <?php else: ?>
-                            <a href="login/login.php?plan=<?= urlencode(strtolower($tipe['Nama_Tipe'])) ?>" class="btn-price outline">Daftar Anggota</a>
+                            <a href="login/login.php?plan=<?= urlencode(strtolower($tipe['Nama_Tipe'])) ?>"
+                                class="btn-price outline">Daftar Anggota</a>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
@@ -1097,14 +1626,16 @@ function getPhotoUrl($photo_path) {
 
     <section class="promo-testimonial-section">
         <?php if (!empty($promo_list)): ?>
-            <?php $promo = $promo_list[0]; $diskon = intval($promo['Diskon']); ?>
+            <?php $promo = $promo_list[0];
+            $diskon = intval($promo['Diskon']); ?>
             <div class="promo-card reveal-left">
                 <div class="promo-badge">Promo Aktif</div>
                 <div class="promo-content-block">
                     <h3>Diskon <?= $diskon ?>%</h3>
                     <p><?= htmlspecialchars($promo['Nama_Promo']) ?></p>
                     <div class="btn-promo-yellow">
-                        <?= date('d M Y', strtotime($promo['Tanggal_Mulai'])) ?> - <?= date('d M Y', strtotime($promo['Tanggal_Selesai'])) ?>
+                        <?= date('d M Y', strtotime($promo['Tanggal_Mulai'])) ?> -
+                        <?= date('d M Y', strtotime($promo['Tanggal_Selesai'])) ?>
                     </div>
                     <div class="promo-terms">*Syarat & ketentuan berlaku</div>
                 </div>
@@ -1126,7 +1657,8 @@ function getPhotoUrl($photo_path) {
                 <span class="map-badge"><i class="fa-solid fa-location-dot"></i> Lokasi Utama</span>
                 <h4>Politeknik Astra</h4>
                 <p>Delta Silicon II, Cibatu, Cikarang Selatan, Bekasi, Jawa Barat 17530</p>
-                <a href="https://maps.app.goo.gl/FpzS6FdUWPp6kGvQ9" target="_blank" class="map-link">Petunjuk Arah <i class="fa-solid fa-arrow-turn-up"></i></a>
+                <a href="https://maps.app.goo.gl/FpzS6FdUWPp6kGvQ9" target="_blank" class="map-link">Petunjuk Arah <i
+                        class="fa-solid fa-arrow-turn-up"></i></a>
             </div>
         </div>
     </section>
@@ -1151,7 +1683,8 @@ function getPhotoUrl($photo_path) {
                 <img src="asset/image/alat basket.png" class="store-gear-img" alt="Basketball Gear">
             </div>
             <div class="store-features-shelf">
-                <div class="shelf-item"><i class="fa-regular fa-circle-check"></i><span>Produk Original & Berkualitas</span></div>
+                <div class="shelf-item"><i class="fa-regular fa-circle-check"></i><span>Produk Original &
+                        Berkualitas</span></div>
                 <div class="shelf-item"><i class="fa-solid fa-tags"></i><span>Harga Terbaik</span></div>
                 <div class="shelf-item"><i class="fa-solid fa-bolt"></i><span>Pelayanan Cepat</span></div>
                 <div class="shelf-item"><i class="fa-solid fa-circle-check"></i><span>Aman & Terpercaya</span></div>
@@ -1232,77 +1765,78 @@ function getPhotoUrl($photo_path) {
             // Jalankan sekali saat load untuk set initial state
             updateActiveNav();
         });
-    
 
-    /* ============================================================
-   KONFIRMASI SEBELUM KELUAR (LOGOUT)
-   Berlaku untuk semua link yang mengarah ke logout.php,
-   di sidebar maupun di dropdown topbar, pada SEMUA halaman.
-   ============================================================ */
-(function () {
-    const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-    let swalLoading = null;
 
-    // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
-    // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
-    function ensureSwal() {
-        if (typeof Swal !== 'undefined') return Promise.resolve();
-        if (swalLoading) return swalLoading;
+        /* ============================================================
+       KONFIRMASI SEBELUM KELUAR (LOGOUT)
+       Berlaku untuk semua link yang mengarah ke logout.php,
+       di sidebar maupun di dropdown topbar, pada SEMUA halaman.
+       ============================================================ */
+        (function () {
+            const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+            let swalLoading = null;
 
-        swalLoading = new Promise(function (resolve, reject) {
-            const s = document.createElement('script');
-            s.src = SWAL_CDN;
-            s.onload = resolve;
-            s.onerror = reject;
-            document.head.appendChild(s);
-        });
-        return swalLoading;
-    }
+            // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
+            // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
+            function ensureSwal() {
+                if (typeof Swal !== 'undefined') return Promise.resolve();
+                if (swalLoading) return swalLoading;
 
-    function showLogoutDialog(url) {
-        Swal.fire({
-            title: 'Keluar dari HoopBall?',
-            html: 'Apakah Anda yakin ingin keluar?<br>' +
-                  '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#EF4444',
-            cancelButtonColor: '#6B7280',
-            reverseButtons: true,
-            focusCancel: true,
-            allowOutsideClick: false
-        }).then(function (result) {
-            if (!result.isConfirmed) return;
+                swalLoading = new Promise(function (resolve, reject) {
+                    const s = document.createElement('script');
+                    s.src = SWAL_CDN;
+                    s.onload = resolve;
+                    s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+                return swalLoading;
+            }
 
-            Swal.fire({
-                title: 'Sedang keluar...',
-                text: 'Mohon tunggu sebentar.',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: function () { Swal.showLoading(); }
+            function showLogoutDialog(url) {
+                Swal.fire({
+                    title: 'Keluar dari HoopBall?',
+                    html: 'Apakah Anda yakin ingin keluar?<br>' +
+                        '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#EF4444',
+                    cancelButtonColor: '#6B7280',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    allowOutsideClick: false
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    Swal.fire({
+                        title: 'Sedang keluar...',
+                        text: 'Mohon tunggu sebentar.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: function () { Swal.showLoading(); }
+                    });
+
+                    setTimeout(function () { window.location.href = url; }, 500);
+                });
+            }
+
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href*="logout.php"]');
+                if (!link) return;
+
+                e.preventDefault();
+                const url = link.getAttribute('href');
+
+                ensureSwal()
+                    .then(function () { showLogoutDialog(url); })
+                    .catch(function () {
+                        // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
+                        if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
+                    });
             });
-
-            setTimeout(function () { window.location.href = url; }, 500);
-        });
-    }
-
-    document.addEventListener('click', function (e) {
-        const link = e.target.closest('a[href*="logout.php"]');
-        if (!link) return;
-
-        e.preventDefault();
-        const url = link.getAttribute('href');
-
-        ensureSwal()
-            .then(function () { showLogoutDialog(url); })
-            .catch(function () {
-                // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
-                if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
-            });
-    });
-})();
-</script>
+        })();
+    </script>
 </body>
+
 </html>

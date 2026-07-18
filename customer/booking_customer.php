@@ -377,6 +377,7 @@ for ($i = 0; $i < 7; $i++) {
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../asset/css/navbar_footer.css?v=1.1">
+    <link rel="stylesheet" href="../asset/css/responsive_booking.css?v=2.0">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Variabel warna disamakan dengan tema oranye pada landing page (index.php).

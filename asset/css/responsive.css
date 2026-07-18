@@ -1,0 +1,124 @@
+/* ==========================================================================
+   RESPONSIVE / MEDIA QUERIES (VERSI FINAL - BERSIH)
+   ========================================================================== */
+
+/* 1. LAPTOP KECIL / TABLET LANDSCAPE */
+@media screen and (max-width: 1024px) {
+    .navbar { padding: 0 40px; }
+    .col-tautan { padding-left: 0; }
+    .court-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .time-grid, .time-slot-grid { grid-template-columns: repeat(4, 1fr); }
+    .hero, .hero-banner { padding: 0 40px; }
+    .hero h1 { font-size: 60px; }
+    .section-container { padding: 40px; }
+}
+
+/* 2. TABLET PORTRAIT & MOBILE (Maksimal 992px) */
+@media screen and (max-width: 991px) {
+
+    .hero-stats-card {
+        position: absolute !important;
+        bottom: 20px !important;
+        
+        /* TARIK KE TENGAH SECARA OTOMATIS */
+        left: 50% !important;
+        right: auto !important; /* Lepas tarikan ke arah kanan */
+        transform: translateX(-50%) !important; 
+        
+        width: 90% !important; /* Pastikan lebarnya punya sisa 10% agar tidak nempel ujung HP */
+        max-width: 380px !important;
+        
+        display: flex !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+        z-index: 10 !important; /* Memastikan dia tidak tertimpa gambar */
+    }
+    
+    /* Navbar Atur Turun 2 Baris */
+    .navbar {
+        padding: 12px 20px;
+        height: auto !important;
+        display: flex !important;
+        flex-wrap: wrap; 
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+    }
+
+    /* Buka gembok posisi Desktop bawaan */
+    .navbar > * { position: relative !important; transform: none !important; left: auto !important; margin:0; }
+    
+    /* Kiri Kanan: Logo dan Profil */
+    .logo { order: 1; }
+    .nav-btns, .profile-dropdown-container { order: 2; display: flex !important; }
+
+    /* INI KUNCI-NYA: Posisi Dropdown Cukup Geser ke Pojok Kanan! (Desain kembali ikut tema Anda) */
+    .profile-dropdown-menu {
+        right: 0 !important;
+        left: auto !important;
+        top: calc(100% + 12px) !important;
+    }
+    
+    /* Tombol Tampil saat di klik */
+    .profile-dropdown-menu.show { display: block !important; }
+
+    /* Menu Horizontal Beranda (Geser) */
+    .nav-menu {
+        order: 3;
+        display: flex !important;
+        flex-direction: row;
+        width: 100% !important;
+        overflow-x: auto; /* Aktifkan geser/swipe di HP */
+        white-space: nowrap;
+        gap: 8px;
+        padding: 12px 0 8px !important;
+        margin-top: 12px !important;
+        border-top: 1px solid var(--border-color, #E5E5EA);
+        justify-content: flex-start !important;
+        scrollbar-width: none;
+    }
+    .nav-menu::-webkit-scrollbar { display: none !important; }
+    .nav-menu a { flex-shrink: 0 !important; display: inline-block !important; }
+
+    /* CSS Layout Konten Web HP Anda (Mempertahankan aslinya) */
+    .col-tautan { padding-left: 0; }
+    .footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+    .hero, .hero-section { 
+        height: auto !important; 
+        /* 
+          Jarak dipisah: padding-top kita tambah jadi 90px atau 100px 
+          agar teks lolos dari tumpukan navbar menu di HP 
+        */
+        padding-top: 100px !important; 
+        padding-bottom: 40px !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+    .hero-banner { height: 400px; } 
+    .hero-text h1 { font-size: 38px; }
+    .court-grid, .promo-grid, .features-grid { grid-template-columns: 1fr; gap: 15px; }
+    .stats-bar { flex-wrap: wrap; gap: 30px; padding: 40px 20px; }
+    .stat-item { width: 45%; }
+    .features-section { padding: 60px 20px; }
+    .member-banner, .cta-orange, .cta-banner { flex-direction: column; text-align: center; gap: 25px; padding: 40px 20px; }
+}
+
+/* 3. SMARTPHONE STANDAR (Maksimal 576px) */
+@media screen and (max-width: 576px) {
+    .navbar { padding: 12px 15px; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .time-grid, .time-slot-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    
+    /* Buat Elemen numpuk memanjang di layar kecil */
+    .hero-text div, .hero-banner div, .hero { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    .btn-login, .btn-join, .btn-orange { width: 100%; text-align: center; justify-content: center; }
+    .hero h1 { font-size: 32px; } .hero-text h1 { font-size: 28px; }
+    .stat-item, .stat-group, .stat-pill { width: 100%; }
+    
+    /* Sedikit menyesuaikan ukuran Tombol di HP paling kecil */
+    .btn-profile-trigger { padding: 6px 12px; gap: 6px; }
+    .profile-trigger-name { font-size: 13px; }
+    .table-container { overflow-x: auto; } table { min-width: 500px; }
+}
+

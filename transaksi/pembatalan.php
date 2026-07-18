@@ -131,28 +131,6 @@ if ($is_ajax) {
         exit();
     }
 
-    // Action: Edit Data Pembatalan (AJAX)
-    if ($action === 'update_pembatalan') {
-        $id_pembatalan = intval($_POST['id_pembatalan'] ?? 0);
-        $alasan = htmlspecialchars($_POST['alasan'] ?? '');
-        $biaya_batal = floatval($_POST['biaya_batal'] ?? 0);
-        $nominal_refund = floatval($_POST['nominal_refund'] ?? 0);
-        $metode_refund = htmlspecialchars($_POST['metode_refund'] ?? '');
-
-        $stmt = sqlsrv_query(
-            $conn,
-            "UPDATE Pembatalan_Booking SET Alasan = ?, Biaya_Batal = ?, Nominal_Refund = ?, Metode_Refund = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Pembatalan = ? AND Status = 0",
-            array($alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama, $id_pembatalan)
-        );
-
-        if ($stmt) {
-            echo json_encode(['success' => true, 'msg' => 'Data pembatalan & refund berhasil diperbarui!']);
-        } else {
-            echo json_encode(['success' => false, 'msg' => 'Gagal memperbarui data pembatalan di database.']);
-        }
-        exit();
-    }
-
     // Action: Ambil Data Grid, Pagination & Statistik (Dynamic AJAX Refresh)
     if ($action === 'get_table_data') {
         $filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : 'all';
@@ -275,7 +253,8 @@ if ($is_ajax) {
                         <div style="font-size:12px; font-weight:700; color:var(--red);">Denda: <?= rupiahFormat($p['Biaya_Batal']) ?>
                         </div>
                         <div style="font-size:11px; color:var(--green); font-weight:600;">Refund:
-                            <?= rupiahFormat($p['Nominal_Refund']) ?></div>
+                            <?= rupiahFormat($p['Nominal_Refund']) ?>
+                        </div>
                         <div style="font-size:10px; color:var(--muted);"><?= htmlspecialchars($p['Metode_Refund']) ?></div>
                     </td>
                     <td style="text-align: center;">
@@ -294,10 +273,6 @@ if ($is_ajax) {
                                     onclick="confirmRefund(<?= $p['ID_Pembatalan'] ?>, '<?= htmlspecialchars($p['Metode_Refund'], ENT_QUOTES) ?>', <?= $p['Nominal_Refund'] ?>)"
                                     title="Konfirmasi Refund">
                                     <i class="fa-solid fa-check"></i>
-                                </button>
-                                <button type="button" class="btn-icon edit" onclick="editPembatalan(<?= $p['ID_Pembatalan'] ?>)"
-                                    title="Edit Data">
-                                    <i class="fa-solid fa-pen"></i>
                                 </button>
                             <?php endif; ?>
                         </div>
@@ -318,7 +293,8 @@ if ($is_ajax) {
         ob_start();
         if ($total_pages > 1): ?>
             <div class="pagination-info">Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
-                <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data</div>
+                <strong><?= min($page * $limit, $total_data) ?></strong> dari <strong><?= $total_data ?></strong> data
+            </div>
             <div class="pagination-nav">
                 <button onclick="changePage(1)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama"><i
                         class="fa-solid fa-angles-left"></i></button>
@@ -335,7 +311,8 @@ if ($is_ajax) {
             </div>
         <?php else: ?>
             <div class="pagination-info">Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari
-                <strong><?= $total_data ?></strong> data</div>
+                <strong><?= $total_data ?></strong> data
+            </div>
         <?php endif;
         $pagination_html = ob_get_clean();
 
@@ -1194,55 +1171,6 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
         </div>
     </div>
 
-    <!-- MODAL EDIT PEMBATALAN -->
-    <div class="modal-overlay" id="modalEdit">
-        <div class="modal" style="max-width: 500px;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-pen-to-square"></i> Edit Data Pembatalan</div>
-                <button class="modal-close" onclick="closeModal('modalEdit')"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <form id="formEdit" onsubmit="handleEditFormSubmit(event)">
-                <div class="modal-body">
-                    <input type="hidden" name="id_pembatalan" id="editId">
-                    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label
-                            style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Metode
-                            Refund</label>
-                        <input type="text" name="metode_refund" id="editMetode" class="filter-input" required
-                            style="width:100%;">
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label
-                            style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Denda
-                            Pembatalan (Biaya Batal)</label>
-                        <input type="number" name="biaya_batal" id="editBiaya" class="filter-input" required
-                            style="width:100%;" step="0.01">
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                        <label
-                            style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Nominal
-                            Refund (Kembali ke Customer)</label>
-                        <input type="number" name="nominal_refund" id="editRefund" class="filter-input" required
-                            style="width:100%;" step="0.01">
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:6px;">
-                        <label
-                            style="font-size:11px; font-weight:800; color:var(--text); text-transform:uppercase; letter-spacing:.8px;">Alasan
-                            Pembatalan</label>
-                        <textarea name="alasan" id="editAlasan" class="filter-input" required
-                            style="width:100%; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeModal('modalEdit')"><i
-                            class="fa-solid fa-xmark"></i> Batal</button>
-                    <button type="submit" class="btn-orange" style="padding:10px 20px; font-size:13px;"><i
-                            class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- GLOBAL JS: clock, dropdown, dsb -->
     <script src="../asset/js/global.js"></script>
 
@@ -1415,6 +1343,14 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                     const jamMulai = getJamString(data.Jam_Mulai);
                     const jamSelesai = getJamString(data.Jam_Selesai);
 
+                    // --- HITUNG PERSENTASE REFUND & DENDA SECARA DINAMIS ---
+                    const totalAwal = parseFloat(data.Total_Booking_Awal) || 0;
+                    const nominalRefund = parseFloat(data.Nominal_Refund) || 0;
+                    const biayaBatal = parseFloat(data.Biaya_Batal) || 0;
+
+                    const persenRefund = totalAwal > 0 ? Math.round((nominalRefund / totalAwal) * 100) : 0;
+                    const persenDenda = totalAwal > 0 ? Math.round((biayaBatal / totalAwal) * 100) : 0;
+
                     const html = `
                 <div class="detail-grid">
                     <div class="detail-item detail-full">
@@ -1427,8 +1363,8 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                     <div class="detail-item"><div class="detail-label">Tanggal Pengajuan Batal</div><div class="detail-value">${tglBatal}</div></div>
                     <div class="detail-item detail-full"><div class="detail-label">Alasan Pembatalan</div><div class="detail-value" style="font-weight:500;font-style:italic;line-height:1.4;">"${data.Alasan}"</div></div>
                     <div class="detail-item"><div class="detail-label">Pembayaran Awal</div><div class="detail-value">${formatRupiah(data.Total_Booking_Awal)} (${data.Metode_Bayar_Awal})</div></div>
-                    <div class="detail-item"><div class="detail-label">Denda Pembatalan (50%)</div><div class="detail-value price">${formatRupiah(data.Biaya_Batal)}</div></div>
-                    <div class="detail-item detail-full" style="background:#ECFDF5;border:1px solid #A7F3D0;"><div class="detail-label" style="color:#047857;">Dana Refund Dikembalikan (50%)</div><div class="detail-value refund">${formatRupiah(data.Nominal_Refund)} (${data.Metode_Refund})</div></div>
+                    <div class="detail-item"><div class="detail-label">Denda Pembatalan (${persenDenda}%)</div><div class="detail-value price">${formatRupiah(data.Biaya_Batal)}</div></div>
+                    <div class="detail-item detail-full" style="background:#ECFDF5;border:1px solid #A7F3D0;"><div class="detail-label" style="color:#047857;">Dana Refund Dikembalikan (${persenRefund}%)</div><div class="detail-value refund">${formatRupiah(data.Nominal_Refund)} (${data.Metode_Refund})</div></div>
                     <div class="detail-item detail-full"><div class="detail-label">Dikonfirmasi Oleh</div><div class="detail-value">${data.Nama_Karyawan_Proses || 'Belum Dikonfirmasi'}</div></div>
                 </div>
             `;
@@ -1483,62 +1419,6 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                 const res = await response.json();
                 if (res.success) {
                     showSuccess('Refund Terkirim!', res.msg);
-                    loadTableData();
-                } else {
-                    showError('Gagal!', res.msg);
-                }
-            } catch (error) {
-                showError('Gagal!', 'Terjadi kesalahan sistem.');
-            }
-        }
-
-        // ============ EDIT DATA TRANSAKSI PEMBATALAN (AJAX) ============
-        async function editPembatalan(id) {
-            Swal.fire({
-                title: 'Memuat...',
-                text: 'Mengambil data pembatalan...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            try {
-                const response = await fetch(`pembatalan.php?action=get_detail&id=${id}`);
-                const res = await response.json();
-                if (res.success) {
-                    Swal.close();
-                    const d = res.data;
-                    document.getElementById('editId').value = d.ID_Pembatalan;
-                    document.getElementById('editMetode').value = d.Metode_Refund;
-                    document.getElementById('editBiaya').value = parseFloat(d.Biaya_Batal);
-                    document.getElementById('editRefund').value = parseFloat(d.Nominal_Refund);
-                    document.getElementById('editAlasan').value = d.Alasan;
-                    openModal('modalEdit');
-                } else {
-                    showError('Gagal!', res.msg);
-                }
-            } catch (error) {
-                showError('Gagal!', 'Gagal memuat data edit.');
-            }
-        }
-
-        async function handleEditFormSubmit(event) {
-            event.preventDefault();
-            const form = document.getElementById('formEdit');
-            const formData = new FormData(form);
-            formData.append('action', 'update_pembatalan');
-
-            Swal.fire({
-                title: 'Memproses...',
-                text: 'Menyimpan perubahan data...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
-            try {
-                const response = await fetch('pembatalan.php', { method: 'POST', body: formData });
-                const res = await response.json();
-                if (res.success) {
-                    closeModal('modalEdit');
-                    showSuccess('Berhasil!', res.msg);
                     loadTableData();
                 } else {
                     showError('Gagal!', res.msg);
