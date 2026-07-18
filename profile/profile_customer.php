@@ -2478,6 +2478,32 @@ function format_date_display($date)
                 transition-duration: 0.01ms !important;
             }
         }
+
+         /* ============================================
+   MATIKAN SEMUA ANIMASI SWEETALERT2 
+   ============================================ */
+        .swal2-popup {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        .swal2-icon {
+            animation: none !important;
+        }
+
+        .swal2-icon.swal2-success .swal2-success-ring,
+        .swal2-icon.swal2-success [class^="swal2-success-line"],
+        .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+        .swal2-icon.swal2-warning {
+            animation: none !important;
+        }
+
+        /* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+        html.swal2-shown,
+        body.swal2-shown,
+        body.swal2-height-auto {
+            padding-right: 0 !important;
+   }
     </style>
 
 </head>
@@ -3490,6 +3516,10 @@ function format_date_display($date)
                     }
                 });
             });
+        });
+
+        window.Swal = Swal.mixin({
+            scrollbarPadding: false
         });
 
     </script>
