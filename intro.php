@@ -777,7 +777,7 @@
 
         <!-- Brand Text -->
         <div class="brand-container">
-            <div class="brand-tagline">Premium Basketball Experience</div>
+            <div class="brand-tagline">Pengalaman Bola Basket Premium</div>
             <h1 class="brand-title">HOOP<span>BALL</span></h1>
             <p class="brand-subtitle">WEBSITE HOOPBALL</p>
         </div>
