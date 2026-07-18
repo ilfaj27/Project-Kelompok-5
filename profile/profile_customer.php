@@ -59,6 +59,12 @@ session_start();
 include '../includes/auth_helper.php';
 cek_akses('customer');
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 // Membaca status sekali pakai dari session
 $swal_status = $_SESSION['swal_status'] ?? '';
 $swal_title = $_SESSION['swal_title'] ?? '';
@@ -3524,6 +3530,7 @@ function format_date_display($date)
         });
 
     </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

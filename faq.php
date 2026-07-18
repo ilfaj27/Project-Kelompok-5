@@ -5,6 +5,15 @@ if (!isset($_SESSION['intro_done'])) {
     header("Location: intro.php");
     exit();
 }
+
+// ========================================================
+// PANGGIL AUTO LOGOUT - HANYA UNTUK USER YANG SUDAH LOGIN
+// ========================================================
+if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+    // Karena index.php di luar dan file di dalam folder 'login'
+    require_once 'login/auto_logout.php';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -279,7 +288,7 @@ if (!isset($_SESSION['intro_done'])) {
             scrollbarPadding: false
         });
     </script>
-
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

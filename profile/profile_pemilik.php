@@ -28,6 +28,17 @@ if (!isset($_SESSION['role'])) {
     exit();
 }
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE (DENGAN PENGAMAN AJAX) ⚠️
+// ========================================================
+// Cek apakah request berupa AJAX POST ganti password atau upload foto
+$is_profile_ajax = ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['change_password']) || isset($_POST['upload_photo'])));
+
+if (!$is_profile_ajax) {
+    require_once '../login/auto_logout.php';
+}
+// ========================================================
+
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? '';
 $id_karyawan = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
@@ -1465,6 +1476,7 @@ if ($last_pwd_change_raw) {
             }
         });
     </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

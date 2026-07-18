@@ -9,6 +9,12 @@ include '../includes/config.php';
 // ============================================================================
 cek_akses('karyawan');
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 $nama = $_SESSION['nama'] ?? 'Karyawan';
 $role = $_SESSION['role'] ?? 'karyawan';
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
@@ -844,5 +850,6 @@ if (status && msg) {
     window.history.replaceState({}, document.title, window.location.pathname);
 }
 </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>

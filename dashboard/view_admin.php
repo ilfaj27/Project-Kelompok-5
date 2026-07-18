@@ -8,6 +8,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
     exit();
 }
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 $nama = $_SESSION['nama'];
 $role = $_SESSION['role'];
 $jabatan = $_SESSION['jabatan'] ?? 'Karyawan';
@@ -1612,5 +1618,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 </script>
+<!-- Panggil sensor di paling bawah sebelum body ditutup -->
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>

@@ -50,6 +50,12 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 
 cek_akses('customer');
 
+// ========================================================
+// PANGGIL SENSOR AUTO LOGOUT (Karena ini folder dalam, pakai ../)
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 // =========================================================================
 // Data Profil Customer
 // =========================================================================
@@ -2729,6 +2735,7 @@ for ($i = 0; $i < 7; $i++) {
             scrollbarPadding: false
         });
     </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

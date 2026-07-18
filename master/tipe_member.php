@@ -7,6 +7,19 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
+
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE (DENGAN PENGAMAN AJAX) ⚠️
+// ========================================================
+// Kita cek apa nilai action-nya. Jika nilainya 'auto_logout', maka ini BUKAN AJAX tabel biasa.
+$action_value = $_GET['action'] ?? $_POST['action'] ?? '';
+$is_real_ajax = ($action_value !== '' && $action_value !== 'auto_logout');
+
+if (!$is_real_ajax) {
+    require_once '../login/auto_logout.php';
+}
+// ========================================================
+
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'] ?? 'USER';
 $current_page = 'tipe_member';
@@ -76,7 +89,7 @@ function rupiah($n)
 }
 
 // ── PROSES AJAX REQUESTS ──
-$is_ajax = isset($_GET['action']) || isset($_POST['action']);
+$is_ajax = $is_real_ajax;
 if ($is_ajax) {
     header('Content-Type: application/json');
     $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -2986,6 +2999,8 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             }
         });
     </script>
+    <!-- Panggil sensor di paling bawah sebelum body ditutup -->
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

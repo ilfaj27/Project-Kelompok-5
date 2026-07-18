@@ -16,6 +16,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
     exit();
 }
 
+// ============================================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT (Karena ada di dalam folder customer, pakai ../)
+// ============================================================================
+require_once '../login/auto_logout.php';
+// ============================================================================
+
 $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION['id_akun'] ?? '';
 
 // ============================================================================
@@ -1905,6 +1911,6 @@ if (status && msg) {
             scrollbarPadding: false
         });
 </script>
-
+        <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>

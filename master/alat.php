@@ -9,6 +9,13 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
+
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 $role = $_SESSION['role'];
 $nama = substr($_SESSION['nama'] ?? 'USER', 0, 50);
 
@@ -1582,5 +1589,6 @@ function resetFilter() {
     window.location.href = 'alat.php';
 }
 </script>
+<?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>

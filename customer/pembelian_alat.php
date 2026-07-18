@@ -19,6 +19,13 @@ $id_customer = $_SESSION['id_customer'] ?? $_SESSION['ID_Customer'] ?? $_SESSION
 $nama_customer = 'Pelanggan'; // default, di-override dari DB di bawah
 
 // ============================================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ============================================================================
+// Gunakan awalan '../' karena file ini sedang dipanggil dari dalam folder customer
+require_once '../login/auto_logout.php';
+// ============================================================================
+
+// ============================================================================
 // AMBIL DATA CUSTOMER
 // ============================================================================
 $customer_data = null;
@@ -1732,6 +1739,6 @@ window.addEventListener('click', function(e) {
             scrollbarPadding: false
         });
 </script>
-
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>

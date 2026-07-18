@@ -9,6 +9,17 @@ include '../includes/config.php';
 // ============================================================================
 cek_akses('karyawan');
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE (DENGAN PENGAMAN AJAX) ⚠️
+// ========================================================
+$action_value = $_GET['action'] ?? $_POST['action'] ?? '';
+$is_real_ajax = ($action_value !== '' && $action_value !== 'auto_logout');
+
+if (!$is_real_ajax) {
+    require_once '../login/auto_logout.php';
+}
+// ========================================================
+
 $nama = $_SESSION['nama'] ?? 'Karyawan';
 $role = $_SESSION['role'] ?? 'karyawan';
 $id_karyawan = $_SESSION['id_karyawan'] ?? '';
@@ -108,7 +119,7 @@ function resolveBuktiPath($path)
 }
 
 // ── PROSES AJAX REQUESTS ──
-$is_ajax = isset($_GET['action']) || isset($_POST['action']);
+$is_ajax = $is_real_ajax;
 if ($is_ajax) {
     header('Content-Type: application/json');
     $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -1612,6 +1623,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
             loadTableData();
         });
     </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

@@ -7,6 +7,18 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
+
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE (DENGAN PENGAMAN AJAX) ⚠️
+// ========================================================
+$action_value = $_GET['action'] ?? $_POST['action'] ?? '';
+$is_real_ajax = ($action_value !== '' && $action_value !== 'auto_logout') || isset($_GET['ajax_check_nik']);
+
+if (!$is_real_ajax) {
+    require_once '../login/auto_logout.php';
+}
+// ========================================================
+
 $nama = $_SESSION['nama'] ?? '';
 $role = $_SESSION['role'] ?? '';
 
@@ -111,7 +123,7 @@ function getInitials($name)
 }
 
 // ── PROSES AJAX REQUESTS ──
-$is_ajax = isset($_GET['action']) || isset($_POST['action']) || isset($_GET['ajax_check_nik']);
+$is_ajax = $is_real_ajax;
 if ($is_ajax) {
     header('Content-Type: application/json');
     $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -3721,6 +3733,7 @@ $current_page = 'karyawan';
             loadTableData();
         });
     </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

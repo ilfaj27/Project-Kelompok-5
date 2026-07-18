@@ -8,6 +8,12 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
     exit();
 }
 
+// ========================================================
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ========================================================
+require_once '../login/auto_logout.php';
+// ========================================================
+
 $role = $_SESSION['role'];
 $nama = $_SESSION['nama'];
 
@@ -920,5 +926,6 @@ window.Swal = Swal.mixin({
     scrollbarPadding: false
 });
 </script>
+    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
 </html>
