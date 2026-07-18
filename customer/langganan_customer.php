@@ -906,6 +906,32 @@ $tipe_config = [
         .bukti-upload-box.filled i{color:var(--green)}
         .bukti-preview-wrap{display:none;margin-top:10px;text-align:center}
         .bukti-preview-wrap img{max-width:100%;max-height:180px;border-radius:12px;border:1.5px solid var(--border)}
+
+         /* ============================================
+   MATIKAN SEMUA ANIMASI SWEETALERT2 
+   ============================================ */
+        .swal2-popup {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        .swal2-icon {
+            animation: none !important;
+        }
+
+        .swal2-icon.swal2-success .swal2-success-ring,
+        .swal2-icon.swal2-success [class^="swal2-success-line"],
+        .swal2-icon.swal2-error [class^="swal2-x-mark-line"],
+        .swal2-icon.swal2-warning {
+            animation: none !important;
+        }
+
+        /* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
+        html.swal2-shown,
+        body.swal2-shown,
+        body.swal2-height-auto {
+            padding-right: 0 !important;
+   }
 </style>
 </head>
 <body>
@@ -1874,6 +1900,9 @@ if (status && msg) {
             });
     });
 })();
+            window.Swal = Swal.mixin({
+            scrollbarPadding: false
+        });
 </script>
 
 </body>
