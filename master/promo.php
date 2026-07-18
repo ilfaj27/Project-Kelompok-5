@@ -145,18 +145,6 @@ if ($is_ajax) {
         }
 
         // CEK NAMA DUPLIKAT menggunakan UDF
-        $sql_check_name = "SELECT dbo.udf_CekNamaPromoDuplikat(?, ?) AS IsDuplicate";
-        $q_check_name = safe_sqlsrv_query($conn, $sql_check_name, array($nama_promo, $id), false);
-        $is_duplicate = 0;
-        if ($q_check_name) {
-            $row_dup = safe_sqlsrv_fetch_array($q_check_name, SQLSRV_FETCH_ASSOC);
-            $is_duplicate = $row_dup['IsDuplicate'] ?? 0;
-        }
-
-        if ($is_duplicate == 1) {
-            echo json_encode(['success' => false, 'msg' => 'Nama promo sudah tersedia!']); exit();
-        }
-
         if (isset($_POST['edit_mode']) && $id > 0) {
             // UPDATE menggunakan Stored Procedure
             $stmt = safe_sqlsrv_query(
@@ -171,7 +159,12 @@ if ($is_ajax) {
             } else {
                 $errors = sqlsrv_errors();
                 $err_msg = "Gagal memperbarui data promo";
-                if ($errors) { $err_msg = $errors[0]['message']; }
+                if ($errors) { 
+                    $err_msg = $errors[0]['message']; 
+                    // Membersihkan info driver [Microsoft][ODBC...] di awal pesan
+                    $err_msg = preg_replace('/^(\[[^\]]+\])+/', '', $err_msg);
+                    $err_msg = trim($err_msg);
+                }
                 echo json_encode(['success' => false, 'msg' => $err_msg]);
             }
         } else {
@@ -188,7 +181,12 @@ if ($is_ajax) {
             } else {
                 $errors = sqlsrv_errors();
                 $err_msg = "Gagal menambahkan promo";
-                if ($errors) { $err_msg = $errors[0]['message']; }
+                if ($errors) { 
+                    $err_msg = $errors[0]['message']; 
+                    // Membersihkan info driver [Microsoft][ODBC...] di awal pesan
+                    $err_msg = preg_replace('/^(\[[^\]]+\])+/', '', $err_msg);
+                    $err_msg = trim($err_msg);
+                }
                 echo json_encode(['success' => false, 'msg' => $err_msg]);
             }
         }

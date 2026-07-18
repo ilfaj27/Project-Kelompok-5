@@ -418,7 +418,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg-light);color:var(--text
                 $play_time = new DateTime($b['Tanggal_Formatted'] . ' ' . $b['Jam_Mulai_Formatted']);
                 $now = new DateTime();
                 $diff = $play_time->getTimestamp() - $now->getTimestamp();
-                $can_cancel = ($diff >= 86400);
+                $can_cancel = ($diff >= 86400 && $b['StatusBooking'] == 1);
             ?>
                 <div class="booking-card">
                     <div class="card-img-wrapper">

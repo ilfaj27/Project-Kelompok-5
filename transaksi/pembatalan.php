@@ -220,8 +220,8 @@ if ($is_ajax) {
                     $stats['menunggu']++;
                 } elseif ($row['Status'] == 1) {
                     $stats['selesai']++;
-                    $stats['total_refund'] += (float) $row['Nominal_Refund'];
                 }
+                $stats['total_refund'] += (float) $row['Nominal_Refund'];
                 $stats['total_denda'] += (float) $row['Biaya_Batal'];
             }
         }
@@ -250,8 +250,10 @@ if ($is_ajax) {
                     </td>
                     <td style="text-align: right;"><?= formatTanggal($p['Tanggal_Batal']) ?></td>
                     <td style="text-align: right;">
-                        <div style="font-size:12px; font-weight:700; color:var(--red);">Denda: <?= rupiahFormat($p['Biaya_Batal']) ?>
-                        </div>
+                        <?php if ((float) $p['Biaya_Batal'] > 0): ?>
+                            <div style="font-size:12px; font-weight:700; color:var(--red);">Denda: <?= rupiahFormat($p['Biaya_Batal']) ?>
+                            </div>
+                        <?php endif; ?>
                         <div style="font-size:11px; color:var(--green); font-weight:600;">Refund:
                             <?= rupiahFormat($p['Nominal_Refund']) ?>
                         </div>
@@ -336,8 +338,8 @@ if ($q_stats) {
             $stats['menunggu']++;
         } elseif ($row['Status'] == 1) {
             $stats['selesai']++;
-            $stats['total_refund'] += (float) $row['Nominal_Refund'];
         }
+        $stats['total_refund'] += (float) $row['Nominal_Refund'];
         $stats['total_denda'] += (float) $row['Biaya_Batal'];
     }
 }
@@ -1279,6 +1281,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
             });
         }
 
+        // PERBAIKAN: Fungsi showError didefinisikan secara lokal untuk mencegah penumpukan loading
         function showError(title, message) {
             Swal.close();
             Swal.fire({

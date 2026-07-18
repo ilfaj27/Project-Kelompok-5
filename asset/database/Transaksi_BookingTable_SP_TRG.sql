@@ -96,26 +96,38 @@ GO
 
 -- [CREATE/UPDATE] Memproses pembatalan booking dan pencatatan refund secara transaksional
 CREATE PROCEDURE sp_Booking_CancelByKaryawan
-    @ID_Booking INT,
+   @ID_Booking INT,
     @ID_Karyawan INT,
     @Alasan VARCHAR(255),
-    @Biaya_Batal DECIMAL(18,2),
-    @Nominal_Refund DECIMAL(18,2),
+    @Biaya_Batal DECIMAL(18,2),     -- Tetap dipertahankan sebagai parameter agar PHP tidak error
+    @Nominal_Refund DECIMAL(18,2),   -- Tetap dipertahankan sebagai parameter agar PHP tidak error
     @Metode_Refund VARCHAR(20),
     @Modified_By VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
+    
+    DECLARE @Total_Bayar DECIMAL(18,2);
+
+    -- 1. Ambil nilai total pembayaran asli dari tabel Booking
+    SELECT @Total_Bayar = Total_Bayar 
+    FROM Booking 
+    WHERE ID_Booking = @ID_Booking;
+
+    -- 2. PAKSA HITUNG ULANG DI DATABASE (Mengabaikan input mentah dari PHP)
+    SET @Biaya_Batal = @Total_Bayar * 0.50;
+    SET @Nominal_Refund = @Total_Bayar * 0.50;
+
     BEGIN TRANSACTION;
     BEGIN TRY
-        -- 1. Update status Booking menjadi Dibatalkan (3)
+        -- 3. Update status Booking menjadi Dibatalkan (3)
         UPDATE Booking 
         SET Status = 3, 
             Modified_By = @Modified_By, 
             Modified_Date = GETDATE() 
         WHERE ID_Booking = @ID_Booking;
 
-        -- 2. Catat transaksi baru ke tabel Pembatalan_Booking
+        -- 4. Catat transaksi ke tabel Pembatalan_Booking dengan nilai denda yang sudah dikunci 50%
         INSERT INTO Pembatalan_Booking (
             ID_Booking, ID_Karyawan, Tanggal_Batal, Alasan, 
             Biaya_Batal, Nominal_Refund, Metode_Refund, Status, 
@@ -127,14 +139,12 @@ BEGIN
             @Modified_By, GETDATE()
         );
 
-        -- CATATAN: Logika pembebasan status Jadwal terkait otomatis diringankan
-        -- oleh trigger database trg_Booking_AfterInsertUpdate yang telah dibuat sebelumnya.
-
         COMMIT TRANSACTION;
+        SELECT 'SUCCESS' AS Status, 'Pembatalan berhasil diproses dengan denda 50%.' AS Message;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        THROW;
+        SELECT 'ERROR' AS Status, ERROR_MESSAGE() AS Message;
     END CATCH
 END;
 GO

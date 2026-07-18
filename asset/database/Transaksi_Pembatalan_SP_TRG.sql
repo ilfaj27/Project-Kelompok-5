@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- HOOPBALL - STORED PROCEDURE & TRIGGERS
 -- Transaksi Pembatalan Booking + Log History
@@ -83,19 +82,36 @@ BEGIN
     END
 
     -- ========================================================================
-    -- VALIDASI 3: Cek batas waktu pembatalan (minimal 24 jam sebelum jadwal)
+    -- VALIDASI BARU: Menolak jika status masih "Menunggu Konfirmasi" (0)
+    -- ========================================================================
+    IF @StatusBooking = 0
+    BEGIN
+        SELECT 
+            0 AS Success,
+            'Pemesanan yang masih menunggu konfirmasi pembayaran tidak dapat dibatalkan.' AS Message,
+            NULL AS ID_Pembatalan;
+        RETURN;
+    END
+
+    -- ========================================================================
+    -- VALIDASI 3 & HITUNG BIAYA SECARA DINAMIS (Hanya Denda 50%)
     -- ========================================================================
     SET @PlayDateTime = CAST(@Tanggal_Jadwal AS DATETIME) + CAST(@Jam_Mulai AS DATETIME);
     SET @DiffSeconds = DATEDIFF(SECOND, @Now, @PlayDateTime);
 
-    IF @DiffSeconds < 86400
+    -- Batas waktu pembatalan minimal adalah 12 Jam sebelum bermain (kurang dari itu ditolak)
+    IF @DiffSeconds < 43200 
     BEGIN
         SELECT 
             0 AS Success,
-            'Pembatalan ditolak. Batas waktu pembatalan paling lambat adalah 24 jam sebelum jadwal bermain.' AS Message,
+            'Pembatalan ditolak. Batas waktu pembatalan paling lambat adalah 12 jam sebelum jadwal bermain.' AS Message,
             NULL AS ID_Pembatalan;
         RETURN;
     END
+
+    -- Di atas 12 Jam sebelum bermain, semua dikenakan denda FLAT 50%
+    SET @Biaya_Batal = @Total_Bayar * 0.50;
+    SET @Nominal_Refund = @Total_Bayar * 0.50;
 
     -- ========================================================================
     -- VALIDASI 4: Cek apakah sudah ada pembatalan untuk booking ini
@@ -108,12 +124,6 @@ BEGIN
             NULL AS ID_Pembatalan;
         RETURN;
     END
-
-    -- ========================================================================
-    -- HITUNG BIAYA
-    -- ========================================================================
-    SET @Biaya_Batal = @Total_Bayar * 0.50;
-    SET @Nominal_Refund = @Total_Bayar * 0.50;
 
     -- ========================================================================
     -- BEGIN TRANSACTION
@@ -151,7 +161,7 @@ BEGIN
 
         SELECT 
             1 AS Success,
-            'Pembatalan booking berhasil diproses. Dana refund 50% akan segera diproses oleh operator.' AS Message,
+            'Pembatalan booking berhasil diproses. Dana refund (50%) akan segera diproses oleh operator.' AS Message,
             @ID_Pembatalan AS ID_Pembatalan,
             @Biaya_Batal AS Biaya_Batal,
             @Nominal_Refund AS Nominal_Refund;

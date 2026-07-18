@@ -41,9 +41,10 @@ RETURN (
         AND b.Tanggal_Booking BETWEEN lg.Tanggal_Mulai AND lg.Tanggal_Selesai)
     LEFT JOIN Tipe_Member tm ON lg.ID_Tipe = tm.ID_Tipe
     LEFT JOIN Pembatalan_Booking pb ON b.ID_Booking = pb.ID_Booking
-    WHERE b.Created_By IS NOT NULL -- Memastikan data valid
+    WHERE b.Created_By IS NOT NULL
       AND (@ID_Lapangan IS NULL OR l.ID_Lapangan = @ID_Lapangan)
-      AND (@Status IS NULL OR b.Status = @Status)
+      -- SINKRONISASI: Jika filter status bernilai ALL (NULL), maka abaikan status 0 (Menunggu Konfirmasi)
+      AND ((@Status IS NULL AND b.Status <> 0) OR b.Status = @Status)
       AND (
           @FilterType = 'all'
           OR (@FilterType = 'today' AND CAST(b.Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE))
@@ -54,6 +55,7 @@ RETURN (
       )
 );
 GO
+
 
 -- 2. UDF untuk mengambil data Statistik Dashboard Laporan
 CREATE FUNCTION dbo.fn_GetBookingStats (
@@ -72,7 +74,9 @@ RETURN (
         SUM(CASE WHEN b.Status = 2 THEN 1 ELSE 0 END) as selesai,
         SUM(CASE WHEN b.Status = 3 THEN 1 ELSE 0 END) as batal,
         SUM(CASE WHEN b.Status = 0 THEN 1 ELSE 0 END) as menunggu,
-        SUM(CASE WHEN b.Status IN (1,2) THEN b.Total_Bayar ELSE 0 END) as omzet,
+        -- Menggunakan Gross Omzet (Status 1, 2, 3) agar rumus ($omzet_bersih = $omzet_kotor - $refund) di PHP bernilai akurat
+        SUM(CASE WHEN b.Status IN (1, 2, 3) THEN b.Total_Bayar ELSE 0 END) as omzet,
+        -- Total dana yang dikembalikan ke customer
         SUM(CASE WHEN b.Status = 3 THEN ISNULL(pb.Nominal_Refund, 0) ELSE 0 END) as refund
     FROM Booking b
     LEFT JOIN Pembatalan_Booking pb ON b.ID_Booking = pb.ID_Booking
@@ -80,7 +84,8 @@ RETURN (
     LEFT JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
     WHERE b.Created_By IS NOT NULL
       AND (@ID_Lapangan IS NULL OR l.ID_Lapangan = @ID_Lapangan)
-      AND (@Status IS NULL OR b.Status = @Status)
+      -- SINKRONISASI: Jika filter status bernilai ALL (NULL), maka abaikan status 0 (Menunggu Konfirmasi)
+      AND ((@Status IS NULL AND b.Status <> 0) OR b.Status = @Status)
       AND (
           @FilterType = 'all'
           OR (@FilterType = 'today' AND CAST(b.Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE))
@@ -115,7 +120,8 @@ RETURN (
     LEFT JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
     WHERE b.Created_By IS NOT NULL
       AND (@ID_Lapangan IS NULL OR l.ID_Lapangan = @ID_Lapangan)
-      AND (@Status IS NULL OR b.Status = @Status)
+      -- SINKRONISASI: Jika filter status bernilai ALL (NULL), maka abaikan status 0 (Menunggu Konfirmasi)
+      AND ((@Status IS NULL AND b.Status <> 0) OR b.Status = @Status)
       AND (
           @FilterType = 'all'
           OR (@FilterType = 'today' AND CAST(b.Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE))
@@ -125,17 +131,6 @@ RETURN (
           OR (@FilterType = 'custom' AND b.Tanggal_Booking BETWEEN @StartDate AND @EndDate)
       )
     GROUP BY MONTH(b.Tanggal_Booking), YEAR(b.Tanggal_Booking)
-);
-GO
-
--- 5. UDF untuk memuat daftar lapangan aktif pada filter dropdown
-CREATE FUNCTION dbo.fn_GetActiveLapangan ()
-RETURNS TABLE
-AS
-RETURN (
-    SELECT ID_Lapangan, Nama_Lapangan 
-    FROM Lapangan 
-    WHERE Is_Deleted = 0
 );
 GO
 

@@ -70,7 +70,7 @@ IF OBJECT_ID('dbo.sp_Promo_Insert', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Insert;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_Insert
+ALTER PROCEDURE dbo.sp_Promo_Insert
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),
     @Tanggal_Mulai   DATE,
@@ -79,45 +79,56 @@ CREATE PROCEDURE dbo.sp_Promo_Insert
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON; -- Memastikan rollback otomatis jika terjadi error koneksi/eksekusi
 
+    -- ==========================================
+    -- 1. VALIDASI DATA (Sebelum Memulai Transaksi)
+    -- ==========================================
+
+    -- Validasi: Diskon
+    IF @Diskon <= 0
+    BEGIN
+        RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
+        RETURN;
+    END
+
+    IF @Diskon > 100
+    BEGIN
+        RAISERROR('Diskon maksimal 100%!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Tanggal Mulai
+    IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
+    BEGIN
+        RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Tanggal Selesai
+    IF @Tanggal_Selesai < @Tanggal_Mulai
+    BEGIN
+        RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Cek duplikat nama (Menggunakan EXISTS langsung, jauh lebih cepat dari UDF)
+    IF EXISTS (
+        SELECT 1 FROM Promo 
+        WHERE Nama_Promo = @Nama_Promo 
+          AND Is_Deleted = 0
+    )
+    BEGIN
+        RAISERROR('Nama promo sudah tersedia!', 16, 1);
+        RETURN;
+    END
+
+    -- ==========================================
+    -- 2. PROSES INPUT DATA (Mulai Transaksi)
+    -- ==========================================
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Validasi: Diskon harus > 0 dan <= 100
-        IF @Diskon <= 0
-        BEGIN
-            RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
-            RETURN;
-        END
-
-        IF @Diskon > 100
-        BEGIN
-            RAISERROR('Diskon maksimal 100%%!', 16, 1);
-            RETURN;
-        END
-
-        -- Validasi: Tanggal Mulai tidak boleh kurang dari hari ini
-        IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
-        BEGIN
-            RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
-            RETURN;
-        END
-
-        -- Validasi: Tanggal Selesai harus >= Tanggal Mulai
-        IF @Tanggal_Selesai < @Tanggal_Mulai
-        BEGIN
-            RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
-            RETURN;
-        END
-
-        -- Cek duplikat nama
-        IF dbo.udf_CekNamaPromoDuplikat(@Nama_Promo, NULL) = 1
-        BEGIN
-            RAISERROR('Nama promo sudah tersedia!', 16, 1);
-            RETURN;
-        END
-
-        -- Insert data
         INSERT INTO Promo
         (Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date)
         VALUES
@@ -148,8 +159,8 @@ IF OBJECT_ID('dbo.sp_Promo_Update', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Update;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_Update
-    @ID_Promo        INT,
+ALTER PROCEDURE dbo.sp_Promo_Update
+   @ID_Promo        INT,
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),
     @Tanggal_Mulai   DATE,
@@ -158,52 +169,64 @@ CREATE PROCEDURE dbo.sp_Promo_Update
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
+    -- ==========================================
+    -- 1. VALIDASI DATA (Sebelum Memulai Transaksi)
+    -- ==========================================
+
+    -- Validasi: Keberadaan Data
+    IF NOT EXISTS (SELECT 1 FROM Promo WHERE ID_Promo = @ID_Promo AND Is_Deleted = 0)
+    BEGIN
+        RAISERROR('Data promo tidak ditemukan!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Diskon
+    IF @Diskon <= 0
+    BEGIN
+        RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
+        RETURN;
+    END
+
+    IF @Diskon > 100
+    BEGIN
+        RAISERROR('Diskon maksimal 100%!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Tanggal Mulai
+    IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
+    BEGIN
+        RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Tanggal Selesai
+    IF @Tanggal_Selesai < @Tanggal_Mulai
+    BEGIN
+        RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
+        RETURN;
+    END
+
+    -- Validasi: Cek duplikat nama dengan mengecualikan ID yang sedang diedit
+    IF EXISTS (
+        SELECT 1 FROM Promo 
+        WHERE Nama_Promo = @Nama_Promo 
+          AND Is_Deleted = 0
+          AND ID_Promo <> @ID_Promo
+    )
+    BEGIN
+        RAISERROR('Nama promo sudah tersedia!', 16, 1);
+        RETURN;
+    END
+
+    -- ==========================================
+    -- 2. PROSES UPDATE DATA (Mulai Transaksi)
+    -- ==========================================
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Validasi: Promo harus ada
-        IF NOT EXISTS (SELECT 1 FROM Promo WHERE ID_Promo = @ID_Promo AND Is_Deleted = 0)
-        BEGIN
-            RAISERROR('Data promo tidak ditemukan!', 16, 1);
-            RETURN;
-        END
-
-        -- Validasi: Diskon harus > 0 dan <= 100
-        IF @Diskon <= 0
-        BEGIN
-            RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
-            RETURN;
-        END
-
-        IF @Diskon > 100
-        BEGIN
-            RAISERROR('Diskon maksimal 100%%!', 16, 1);
-            RETURN;
-        END
-
-        -- Validasi: Tanggal Mulai tidak boleh kurang dari hari ini
-        IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
-        BEGIN
-            RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
-            RETURN;
-        END
-
-        -- Validasi: Tanggal Selesai harus >= Tanggal Mulai
-        IF @Tanggal_Selesai < @Tanggal_Mulai
-        BEGIN
-            RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
-            RETURN;
-        END
-
-        -- Cek duplikat nama (exclude ID yang sedang diedit)
-        IF dbo.udf_CekNamaPromoDuplikat(@Nama_Promo, @ID_Promo) = 1
-        BEGIN
-            RAISERROR('Nama promo sudah tersedia!', 16, 1);
-            RETURN;
-        END
-
-        -- Update data
         UPDATE Promo
         SET Nama_Promo = @Nama_Promo,
             Diskon = @Diskon,
