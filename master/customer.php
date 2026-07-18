@@ -186,7 +186,7 @@ if ($is_ajax) {
                         <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
                     </div>
                 </td>
-                <td class="col-left cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
+                <td class="col-center cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
                 <td class="col-center">
                     <span class="jk-badge <?= $jk_class ?>">
                         <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($row['Jenis_Kelamin']) ?>
