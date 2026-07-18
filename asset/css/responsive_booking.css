@@ -1,0 +1,152 @@
+/* ==========================================================================
+   FILE: responsive_booking.css
+   (Khusus untuk menangani responsif & bug geser halaman Booking Customer)
+   ========================================================================== */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   1. UNTUK RESOLUSI TABLET & MOBILE (Maksimal 991px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 991px) {
+    
+    /* KUNCI UTAMA: Melarang keras layar bergeser/oblak ke kanan */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        position: relative;
+    }
+
+    /* Memaksa kontainer booking pas dengan lebar HP */
+    .booking-container {
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        padding: 16px 15px 100px !important;
+        overflow-x: hidden !important;
+        margin: 0 auto !important;
+    }
+
+    /* Menormalkan slider tanggal agar tidak merusak lebar layar */
+    .date-scroll {
+        margin-left: 0 !important; 
+        padding-right: 15px !important;
+        display: flex !important;
+        gap: 8px !important;
+        overflow-x: auto !important;
+    }
+
+    /* --- PERBAIKAN NAVBAR DI HALAMAN BOOKING --- */
+    .navbar {
+        padding: 12px 15px !important;
+        height: auto !important;
+        display: flex !important;
+        flex-wrap: wrap !important; 
+        justify-content: space-between !important;
+        align-items: center !important;
+        position: relative !important;
+    }
+    .navbar > * { position: relative !important; transform: none !important; left: auto !important; margin: 0 !important; }
+    .logo { order: 1 !important; }
+    .nav-btns, .profile-dropdown-container { order: 2 !important; display: flex !important; }
+    .profile-dropdown-menu {
+        right: 0 !important;
+        left: auto !important;
+        top: calc(100% + 12px) !important;
+    }
+    .profile-dropdown-menu.show { display: block !important; }
+
+    /* Menu Geser Beranda/Booking/Pembatalan */
+    .nav-menu {
+        order: 3 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        gap: 8px !important;
+        padding: 12px 0 8px !important;
+        margin-top: 12px !important;
+        border-top: 1px solid #E5E5EA !important;
+        justify-content: flex-start !important;
+        scrollbar-width: none !important;
+    }
+    .nav-menu::-webkit-scrollbar { display: none !important; }
+    .nav-menu a { flex-shrink: 0 !important; display: inline-block !important; }
+
+    /* --- PERBAIKAN FOOTER DI HALAMAN BOOKING (Gambar Kedua Anda) --- */
+    footer {
+        padding: 40px 20px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .footer-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 30px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .col-tautan {
+        padding-left: 0 !important;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   2. UNTUK RESOLUSI SMARTPHONE (Maksimal 768px / 576px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 768px) {
+    /* Menyusun kartu Lapangan (Gambar di atas, teks di bawah) */
+    .court-card-top {
+        flex-direction: column !important;
+    }
+    .court-img-wrap {
+        width: 100% !important;
+        height: 180px !important;
+    }
+    /* Memaksa Grid pilihan jam menjadi 2 kolom agar pas di HP */
+    .court-slots-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        padding: 15px !important;
+    }
+}
+
+@media screen and (max-width: 576px) {
+    .footer-grid {
+        grid-template-columns: 1fr !important; /* Susun footer menegak di HP kecil */
+        gap: 30px !important;
+    }
+}
+
+/* ==========================================================================
+   FIX UNTUK PANEL KERANJANG (CART PANEL) YANG TERPOTONG DI HP
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    .cart-panel {
+        width: 100% !important;
+        max-width: 100vw !important;
+        /* Sembunyikan total ke kanan layar berdasarkan persen */
+        right: -100vw !important; 
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* KUNCI UTAMA: Saat aktif, paksa nempel di kiri DAN kanan layar agar tidak terpotong */
+    .cart-panel.active {
+        right: 0 !important;
+        left: 0 !important; 
+    }
+
+    /* Sesuaikan jarak padding di HP agar lebih pas */
+    .cart-panel-header,
+    .cart-panel-body,
+    .cart-panel-footer {
+        padding: 15px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Mencegah item di dalam keranjang menabrak pinggir */
+    .cart-item {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+}
