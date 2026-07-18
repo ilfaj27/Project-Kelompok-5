@@ -95,7 +95,7 @@ GO
 
 
 -- [CREATE/UPDATE] Memproses pembatalan booking dan pencatatan refund secara transaksional
-CREATE PROCEDURE sp_Booking_CancelByKaryawan
+CREATE OR ALTER PROCEDURE sp_Booking_CancelByKaryawan
    @ID_Booking INT,
     @ID_Karyawan INT,
     @Alasan VARCHAR(255),

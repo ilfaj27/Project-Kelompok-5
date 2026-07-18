@@ -82,18 +82,6 @@ BEGIN
     END
 
     -- ========================================================================
-    -- VALIDASI BARU: Menolak jika status masih "Menunggu Konfirmasi" (0)
-    -- ========================================================================
-    IF @StatusBooking = 0
-    BEGIN
-        SELECT 
-            0 AS Success,
-            'Pemesanan yang masih menunggu konfirmasi pembayaran tidak dapat dibatalkan.' AS Message,
-            NULL AS ID_Pembatalan;
-        RETURN;
-    END
-
-    -- ========================================================================
     -- VALIDASI 3 & HITUNG BIAYA SECARA DINAMIS (Hanya Denda 50%)
     -- ========================================================================
     SET @PlayDateTime = CAST(@Tanggal_Jadwal AS DATETIME) + CAST(@Jam_Mulai AS DATETIME);
