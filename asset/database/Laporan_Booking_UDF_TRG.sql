@@ -2,7 +2,7 @@ USE Hoopball;
 GO
 
 -- 1. UDF untuk mengambil Detail Transaksi Booking Lapangan
-CREATE FUNCTION dbo.fn_GetBookingReport (
+CREATE OR ALTER FUNCTION dbo.fn_GetBookingReport (
     @FilterType VARCHAR(10),
     @StartDate DATE,
     @EndDate DATE,
@@ -58,7 +58,7 @@ GO
 
 
 -- 2. UDF untuk mengambil data Statistik Dashboard Laporan
-CREATE FUNCTION dbo.fn_GetBookingStats (
+CREATE OR ALTER FUNCTION dbo.fn_GetBookingStats (
     @FilterType VARCHAR(10),
     @StartDate DATE,
     @EndDate DATE,
@@ -98,7 +98,7 @@ RETURN (
 GO
 
 -- 4. UDF untuk mengambil Data Grafik/Trend Booking per Bulan
-CREATE FUNCTION dbo.fn_GetBookingChartData (
+CREATE OR ALTER FUNCTION dbo.fn_GetBookingChartData (
     @FilterType VARCHAR(10),
     @StartDate DATE,
     @EndDate DATE,
