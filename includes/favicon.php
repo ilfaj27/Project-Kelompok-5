@@ -11,9 +11,9 @@ $prefix = isset($path_prefix) ? $path_prefix : '';
 <meta name="theme-color" content="#FF4500">
 <meta name="msapplication-TileColor" content="#FF4500">
 
-<link rel="icon" type="image/png" sizes="32x32" href="<?= $prefix ?>asset/image/Favicon/image.png">
-<link rel="icon" type="image/png" sizes="16x16" href="<?= $prefix ?>asset/image/Favicon/image.png">
-<link rel="apple-touch-icon" sizes="180x180" href="<?= $prefix ?>asset/image/Favicon/image.png">
+<link rel="icon" type="image/png" sizes="32x32" href="<?= $prefix ?>asset/image/Favicon/p.png">
+<link rel="icon" type="image/png" sizes="16x16" href="<?= $prefix ?>asset/image/Favicon/p.png">
+<link rel="apple-touch-icon" sizes="180x180" href="<?= $prefix ?>asset/image/Favicon/p.png">
 <link rel="manifest" href="<?= $prefix ?>asset/image/Favicon/site.webmanifest">
-<link rel="shortcut icon" href="<?= $prefix ?>asset/image/Favicon/image.png" type="image/png">
-<link rel="mask-icon" href="<?= $prefix ?>asset/image/Favicon/image.png" color="#FF4500">
+<link rel="shortcut icon" href="<?= $prefix ?>asset/image/Favicon/p.png" type="image/png">
+<link rel="mask-icon" href="<?= $prefix ?>asset/image/Favicon/p.png" color="#FF4500">
