@@ -361,6 +361,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../asset/css/global.css">
+    <link rel="stylesheet" href="../asset/css/responsive_tipe_member.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .content {
@@ -1128,6 +1129,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                     <div class="card-title"><i class="fa-solid fa-table-list"></i> Daftar Pengajuan Pembatalan</div>
                 </div>
                 <div class="card-body">
+                    <div class="table-wrap"> 
                     <table class="data-table" id="tbl">
                         <thead>
                             <tr>
@@ -1145,6 +1147,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                             <!-- Dinamis diisi lewat AJAX Javascript -->
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 

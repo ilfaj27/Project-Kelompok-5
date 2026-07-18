@@ -438,7 +438,9 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../asset/css/responsive_tipe_member.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         /* CSS Tambahan khusus memaksa SweetAlert2 berada di atas modal bootstrap */
         .swal2-container {
@@ -2237,62 +2239,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             color: #1F2937 !important;
         }
 
-        /* RESPONSIVE */
-        @media(max-width: 1100px) {
-            .page-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-        }
-
-        @media(max-width: 768px) {
-            .sidebar {
-                width: 0;
-                overflow: hidden;
-                padding: 0;
-            }
-
-            .main {
-                margin-left: 0;
-            }
-
-            .content {
-                padding: 20px;
-            }
-
-            .topbar {
-                padding: 0 20px;
-            }
-
-            .stat-chips {
-                width: 100%;
-            }
-
-            .search-box {
-                width: 100%;
-            }
-
-            .action-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .btn-action {
-                padding: 6px 10px;
-                font-size: 11px;
-            }
-
-            .pagination-wrap {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .modal-box {
-                width: 90%;
-                margin: 20px;
-            }
-        }
-
+    
         body.swal2-shown,
         html.swal2-shown {
             padding-right: 0px !important;

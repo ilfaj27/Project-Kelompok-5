@@ -102,6 +102,7 @@ function getPhotoUrl($photo_path)
 <head>
     <?php include 'includes/favicon.php'; ?>
     <title>HoopBall - Sewa Lapangan Basket Jadi Lebih Mudah</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
@@ -1377,6 +1378,23 @@ function getPhotoUrl($photo_path)
                 position: relative;
                 width: 100%;
                 height: 250px;
+            }
+
+            .hero-section {
+                padding-top: 80px !important; /* Memberikan ruang atas agar teks turun aman */
+                height: auto !important;
+            }
+            .hero-content {
+                margin-top: 20px !important;  /* Dorong teks h1 & p ke bawah */
+                height: auto !important;      /* Reset tinggi desktop */
+            }
+            /* Merampingkan tombol masuk/daftar di HP agar sejajar dengan logo */
+            .nav-btns .btn-login, 
+            .nav-btns .btn-join {
+                padding: 8px 12px !important;
+                font-size: 11px !important;
+                width: auto !important;
+                white-space: nowrap !important;
             }
 
             .store-features-shelf {

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   RESPONSIVE / MEDIA QUERIES (VERSI FINAL - BERSIH)
+   RESPONSIVE / MEDIA QUERIES (VERSI FINAL - JAMINAN BEBAS TABRAKAN BANNER)
    ========================================================================== */
 
 /* 1. LAPTOP KECIL / TABLET LANDSCAPE */
@@ -13,7 +13,7 @@
     .section-container { padding: 40px; }
 }
 
-/* 2. TABLET PORTRAIT & MOBILE (Maksimal 992px) */
+/* 2. TABLET PORTRAIT & MOBILE (Maksimal 991px) */
 @media screen and (max-width: 991px) {
 
     .hero-stats-card {
@@ -37,7 +37,7 @@
     
     /* Navbar Atur Turun 2 Baris */
     .navbar {
-        padding: 12px 20px;
+        padding: 12px 15px;
         height: auto !important;
         display: flex !important;
         flex-wrap: wrap; 
@@ -84,17 +84,22 @@
     /* CSS Layout Konten Web HP Anda (Mempertahankan aslinya) */
     .col-tautan { padding-left: 0; }
     .footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+    
+    /* FIX PROTEKSI PENUH: Naikkan padding atas kontainer utama agar lolos dari menu 3 tingkat sebelum login */
     .hero, .hero-section { 
         height: auto !important; 
-        /* 
-          Jarak dipisah: padding-top kita tambah jadi 90px atau 100px 
-          agar teks lolos dari tumpukan navbar menu di HP 
-        */
-        padding-top: 100px !important; 
+        padding-top: 180px !important; /* Ditinggikan ke 180px agar jarak aman mutlak */
         padding-bottom: 40px !important;
         padding-left: 20px !important;
         padding-right: 20px !important;
     }
+    
+    /* Memaksa pendorong teks utama */
+    .hero-content, .hero-text {
+        margin-top: 40px !important; 
+        width: 100% !important;
+    }
+    
     .hero-banner { height: 400px; } 
     .hero-text h1 { font-size: 38px; }
     .court-grid, .promo-grid, .features-grid { grid-template-columns: 1fr; gap: 15px; }
@@ -102,6 +107,19 @@
     .stat-item { width: 45%; }
     .features-section { padding: 60px 20px; }
     .member-banner, .cta-orange, .cta-banner { flex-direction: column; text-align: center; gap: 25px; padding: 40px 20px; }
+
+    /* FIX TOMBOL NAVBAR GUEST: Sangat Ramping & Padat agar tidak pecah baris di HP */
+    .nav-btns .btn-login, 
+    .nav-btns .btn-join {
+        padding: 6px 10px !important;  /* Membuat tombol sangat ramping */
+        font-size: 11px !important;    /* Menyesuaikan ukuran huruf */
+        height: 32px !important;       /* Mengunci tinggi tombol agar sejajar logo */
+        width: auto !important;        
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
 }
 
 /* 3. SMARTPHONE STANDAR (Maksimal 576px) */
@@ -111,7 +129,13 @@
     .time-grid, .time-slot-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
     
     /* Buat Elemen numpuk memanjang di layar kecil */
-    .hero-text div, .hero-banner div, .hero { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    .hero-text div, .hero-banner div, .hero, .hero-section { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    
+    /* Menggeser teks hero lebih ke bawah khusus di HP layar kecil */
+    .hero-content, .hero-text {
+        margin-top: 50px !important;
+    }
+    
     .btn-login, .btn-join, .btn-orange { width: 100%; text-align: center; justify-content: center; }
     .hero h1 { font-size: 32px; } .hero-text h1 { font-size: 28px; }
     .stat-item, .stat-group, .stat-pill { width: 100%; }
@@ -120,5 +144,12 @@
     .btn-profile-trigger { padding: 6px 12px; gap: 6px; }
     .profile-trigger-name { font-size: 13px; }
     .table-container { overflow-x: auto; } table { min-width: 500px; }
-}
 
+    /* Memastikan tombol di header tetap menyamping, tidak memanjang ke bawah di HP mini */
+    .nav-btns .btn-login, 
+    .nav-btns .btn-join {
+        width: auto !important; 
+        padding: 5px 8px !important;
+        font-size: 10px !important;
+    }
+}

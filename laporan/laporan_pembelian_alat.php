@@ -336,6 +336,7 @@ function statusBeliLabel($status) {
 <title>Laporan Pembelian Alat | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../asset/css/responsive_tipe_member.css?v=<?= time() ?>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {

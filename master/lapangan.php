@@ -420,6 +420,7 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link class="swal2-container" rel="stylesheet" href="../asset/css/global.css">
+    <link rel="stylesheet" href="../asset/css/responsive_tipe_member.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* CSS Tambahan khusus memaksa SweetAlert2 berada di atas modal bootstrap */

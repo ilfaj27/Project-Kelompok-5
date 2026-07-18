@@ -1,0 +1,337 @@
+/* ==========================================================================
+   FILE: responsive_pembelian.css
+   (Khusus menangani responsif menu, keranjang, kartu produk & transaksi alat)
+   ========================================================================== */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   1. UNTUK RESOLUSI TABLET & HP (Maksimal 991px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 991px) {
+    
+    /* Mengunci layar agar tidak bergeser miring ke kanan */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        position: relative;
+    }
+
+    /* --- FIX GAP NAVBAR DENGAN HERO CONTENT --- */
+    body {
+        padding-top: 0 !important;
+    }
+    .navbar {
+        margin-bottom: 0 !important;
+    }
+
+    /* --- NAVIGASI ATAS (NAVBAR) DI HALAMAN PEMBELIAN --- */
+    .navbar {
+        padding: 12px 15px !important;
+        height: auto !important;
+        display: flex !important;
+        flex-wrap: wrap !important; 
+        justify-content: space-between !important;
+        align-items: center !important;
+        position: relative !important;
+    }
+    
+    .navbar > * { 
+        position: relative !important; 
+        transform: none !important; 
+        left: auto !important; 
+        margin: 0 !important; 
+    }
+    
+    .logo { order: 1 !important; }
+    .nav-btns, .profile-dropdown-container { order: 2 !important; display: flex !important; }
+    
+    /* Dropdown profil sejajar kanan */
+    .profile-dropdown-menu {
+        right: 0 !important;
+        left: auto !important;
+        top: calc(100% + 12px) !important;
+    }
+    .profile-dropdown-menu.show { display: block !important; }
+
+    /* Menu Geser Horizontal */
+    .nav-menu {
+        order: 3 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        gap: 8px !important;
+        padding: 12px 0 8px !important;
+        margin-top: 12px !important;
+        border-top: 1px solid var(--border-color, #E5E5EA) !important;
+        justify-content: flex-start !important;
+        scrollbar-width: none !important;
+    }
+    .nav-menu::-webkit-scrollbar { display: none !important; }
+    .nav-menu a { flex-shrink: 0 !important; display: inline-block !important; }
+
+    /* --- HERO SECTION & CART WIDGET --- */
+    .hero {
+        flex-direction: column !important;
+        padding: 40px 20px !important;
+        gap: 32px !important;
+        align-items: stretch !important;
+        margin-top: 0 !important;
+    }
+
+    .hero-left {
+        max-width: 100% !important;
+    }
+
+    .hero-title {
+        font-size: 32px !important;
+        line-height: 1.25 !important;
+    }
+
+    .hero-desc {
+        font-size: 15px !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Widget Keranjang Belanja Menyesuaikan Lebar Layar */
+    .cart-widget {
+        width: 100% !important;
+        min-width: unset !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* --- MAIN CONTAINER & SEARCH --- */
+    .main-container {
+        padding: 40px 20px !important;
+    }
+
+    /* Menata Ulang Judul Section & Search Bar */
+    .section-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+    }
+
+    .alat-search-wrap {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* --- PERBAIKAN FOOTER DI HP --- */
+    footer {
+        padding: 40px 20px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    .footer-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 30px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    .col-tautan {
+        padding-left: 0 !important;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   2. UNTUK RESOLUSI SMARTPHONE (Maksimal 768px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 768px) {
+
+    /* Penyesuaian Nav Tabs Halaman */
+    .page-nav-tabs {
+        margin-bottom: 24px !important;
+    }
+
+    .page-nav-tab {
+        padding: 12px 14px !important;
+        font-size: 13px !important;
+    }
+
+    .page-nav-tab i {
+        display: none !important; /* Menyembunyikan icon tab di mobile sesuai skrip JS bawaan */
+    }
+
+    /* Grid Kartu Produk */
+    .alat-grid {
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+        gap: 16px !important;
+        margin-bottom: 40px !important;
+    }
+
+    .alat-card-info {
+        padding: 16px !important;
+    }
+
+    .alat-card-name {
+        font-size: 14px !important;
+        min-height: 36px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .alat-card-price {
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Kontrol Aksi pada Kartu Produk */
+    .alat-card-actions {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    .qty-stepper {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+
+    .qty-btn {
+        flex: 1 !important;
+        height: 36px !important;
+    }
+
+    .qty-input {
+        flex: 1 !important;
+        height: 36px !important;
+        width: auto !important;
+    }
+
+    .btn-add-cart {
+        width: 100% !important;
+        padding: 10px !important;
+    }
+
+    /* Riwayat Transaksi List */
+    .riwayat-card {
+        border-radius: 12px !important;
+    }
+
+    .riwayat-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding: 14px 16px !important;
+    }
+
+    .riwayat-card-body {
+        padding: 14px 16px !important;
+    }
+
+    .riwayat-item-row {
+        gap: 10px !important;
+        padding: 8px !important;
+    }
+
+    .riwayat-item-img, .riwayat-item-img-placeholder {
+        width: 48px !important;
+        height: 48px !important;
+    }
+
+    .riwayat-item-name {
+        font-size: 13px !important;
+    }
+
+    /* Riwayat Card Footer */
+    .riwayat-card-footer {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 14px !important;
+        padding: 14px 16px !important;
+    }
+
+    .riwayat-total-section {
+        text-align: left !important;
+        width: 100% !important;
+    }
+
+    /* Pop-up Modal Ringkasan Checkout & Instuksi */
+    .summary-card {
+        padding: 20px !important;
+        max-width: 95vw !important;
+    }
+
+    .booking-modal-close {
+        top: 15px !important;
+        right: 15px !important;
+    }
+
+    .payment-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .price-row.total-row .total-amount {
+        font-size: 20px !important;
+    }
+
+    /* Form Upload Bukti Pembayaran */
+    .bukti-upload-box {
+        padding: 16px 12px !important;
+        min-height: 90px !important;
+    }
+
+    /* Tampilan Nomor VA & Tombol Salin */
+    .va-input-row {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .btn-copy-va {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   3. UNTUK RESOLUSI HP KECIL (Maksimal 480px / 576px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 576px) {
+
+    /* Mengubah Grid Produk Menjadi 1 Kolom Rapi */
+    .alat-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+
+    /* Footer Satu Kolom */
+    .footer-grid {
+        grid-template-columns: 1fr !important;
+        gap: 30px !important;
+    }
+
+    .hero-title {
+        font-size: 26px !important;
+    }
+
+    /* Tab Switch VA dan QRIS */
+    .switch-tabs-row {
+        flex-direction: column !important;
+        padding: 6px !important;
+    }
+
+    .switch-tab-btn {
+        width: 100% !important;
+    }
+
+    /* Foto QRIS agar Pas di Layar Kecil */
+    .qris-img-wrap {
+        width: 100% !important;
+        max-width: 180px !important;
+        margin: 0 auto 12px !important;
+    }
+
+    .qris-img {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Preview Bukti Pembayaran */
+    #buktiUploadPreview {
+        max-height: 130px !important;
+    }
+}

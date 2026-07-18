@@ -221,6 +221,7 @@ $sidebar_folder = 'dashboard';
 <title>Dashboard Karyawan | HoopBall</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../asset/css/responsive_tipe_member.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
@@ -1266,8 +1267,14 @@ html { scroll-behavior:smooth; }
 <main class="main">
 <header class="topbar">
     <div class="topbar-left">
-        <div class="topbar-title">Dashboard Karyawan</div>
-        <div class="topbar-breadcrumb">Dashboard / Ringkasan</div>
+        <!-- Tombol Burger Menu Mobile -->
+        <button id="mobileMenuBtn">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="topbar-text-group">
+            <div class="topbar-title">Dashboard Karyawan</div>
+            <div class="topbar-breadcrumb">Dashboard / Ringkasan</div>
+        </div>
     </div>
     <div class="topbar-right">
         <div id="clock-display">

@@ -757,9 +757,61 @@ nav:nth-of-type(1) .sb-link:nth-child(2) { animation-delay: 0.25s; }
 
 nav:nth-of-type(2) .sb-link:nth-child(1) { animation-delay: 0.80s; }
 
-@media(max-width: 768px) {
-    .sidebar { width: 0; overflow: hidden; padding: 0; }
+#mobileMenuBtn {
+    display: none !important; /* TERSEMBUNYI SEPENUHNYA DI DESKTOP */
 }
+
+@media screen and (max-width: 991px) {
+    /* Menampilkan tombol hanya pada resolusi mobile/tablet */
+    #mobileMenuBtn {
+        display: flex !important; 
+        align-items: center !important;
+        justify-content: center !important;
+        background: none !important;
+        border: none !important;
+        font-size: 20px !important;
+        color: #fff; /* Sesuaikan warna icon, ganti #fff dengan warna gelap jika topbar Anda putih */
+        color: var(--text, #111827) !important;
+        cursor: pointer !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 32px !important;
+        height: 32px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Meratakan tombol burger dan teks secara horizontal ke samping */
+    .topbar-left {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 14px !important;
+    }
+
+    /* Menjaga teks judul dan breadcrumb tetap mengarah ke bawah (column) */
+    .topbar-text-group {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+}
+
+@media(max-width: 768px) {
+    /* Mengubah sidebar menjadi menu geser (off-canvas) */
+    .sidebar {
+        width: 260px !important;
+        transform: translateX(-100%) !important; /* Sembunyikan ke kiri luar layar */
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        opacity: 1 !important;
+        animation: none !important; /* Matikan efek animasi fade-in agar tidak patah-patah */
+    }
+    
+    /* Muncul bergeser ke kanan saat kelas 'active' ditambahkan */
+    .sidebar.active {
+        transform: translateX(0) !important;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5) !important;
+    }
+
 </style>
 
 <script>
@@ -776,6 +828,26 @@ function toggleDropdown(id) {
         toggle.classList.add('expanded');
     }
 }
+
+// --- AUTO-TOGGLE SIDEBAR UNTUK MOBILE ---
+document.addEventListener('DOMContentLoaded', function () {
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (menuBtn && sidebar) {
+        menuBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            sidebar.classList.toggle('active');
+        });
+        
+        // Klik di luar area sidebar untuk menutup menu otomatis
+        document.addEventListener('click', function (e) {
+            if (!sidebar.contains(e.target) && e.target !== menuBtn) {
+                sidebar.classList.remove('active');
+            }
+        });
+    }
+});
 
 (function () {
     const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
@@ -863,6 +935,21 @@ function toggleDropdown(id) {
             });
     });
 })();
+
+// --- DELEGASI KLIK UNTUK DROPDOWN PROFIL TOPBAR (DESKTOP & HP) ---
+document.addEventListener('click', function (e) {
+    const userWrap = e.target.closest('.dropdown-wrap');
+    const allWraps = document.querySelectorAll('.dropdown-wrap');
+    
+    if (userWrap) {
+        // Jika profil di-klik, toggle kelas active (buka/tutup)
+        e.stopPropagation();
+        userWrap.classList.toggle('active');
+    } else {
+        // Jika klik di luar profil, tutup semua dropdown yang terbuka
+        allWraps.forEach(w => w.classList.remove('active'));
+    }
+});
 </script>
 
 <?php endif; ?>
