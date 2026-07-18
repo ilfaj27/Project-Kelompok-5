@@ -178,10 +178,12 @@ GO
 -- ============================================================
 -- 6. SP: GET ALL KARYAWAN (DENGAN FILTER, SORTING, PAGINATION)
 -- ============================================================
-CREATE PROCEDURE sp_Karyawan_GetAll
-    @Filter_Jabatan  INT = 0,      -- 0 = Semua, 1 = Karyawan, 2 = Manajer
-    @Filter_JK       INT = -1,     -- -1 = Semua, 0 = Perempuan, 1 = Laki-laki
-    @Filter_Status   INT = -1,     -- -1 = Semua, 0 = Nonaktif, 1 = Aktif
+CREATE OR ALTER PROCEDURE sp_Karyawan_GetAll
+    @Filter_Jabatan  INT = 0,
+    @Filter_JK       INT = -1,
+    @Filter_Status   INT = -1,
+    @Filter_Umur     VARCHAR(10) = 'all', -- Tambahan filter umur
+    @Search          VARCHAR(50) = '',    -- Tambahan pencarian keyword
     @Sort_By         VARCHAR(30) = 'Nama_Karyawan',
     @Sort_Order      VARCHAR(4)  = 'ASC',
     @Page            INT = 1,
@@ -192,38 +194,36 @@ BEGIN
 
     DECLARE @Offset INT = (@Page - 1) * @Limit;
 
-    -- Validasi sort_by untuk mencegah SQL injection
+    -- Validasi sort_by
     IF @Sort_By NOT IN ('Nama_Karyawan', 'Jabatan', 'Jenis_Kelamin', 'No_Telepon', 
-                        'Status', 'Created_Date', 'Modified_Date', 'NIK')
+                        'Status', 'Created_Date', 'Modified_Date', 'NIK', 'Umur')
         SET @Sort_By = 'Nama_Karyawan';
 
     IF @Sort_Order NOT IN ('ASC', 'DESC')
         SET @Sort_Order = 'ASC';
 
-    SELECT 
-        ID_Karyawan,
-        NIK,
-        Nama_Karyawan,
-        Tanggal_Lahir,
-        Tempat_Lahir,
-        Alamat,
-        Jenis_Kelamin,
-        Jabatan,
-        No_Telepon,
-        Email,
-        Username,
-        Kata_Sandi,
-        Status,
-        Photo_Profile,
-        Created_By,
-        Created_Date,
-        Modified_By,
-        Modified_Date
-    FROM Karyawan
-    WHERE Is_Deleted = 0
-      AND (@Filter_Jabatan = 0 OR Jabatan = @Filter_Jabatan)
+    -- CTE untuk menghitung Umur secara akurat terlebih dahulu
+    ;WITH CTE_Karyawan AS (
+        SELECT *,
+               DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
+               CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() 
+                    THEN 1 ELSE 0 END AS Umur
+        FROM Karyawan
+        WHERE Is_Deleted = 0
+    )
+    SELECT * FROM CTE_Karyawan
+    WHERE (@Filter_Jabatan = 0 OR Jabatan = @Filter_Jabatan)
       AND (@Filter_JK = -1 OR Jenis_Kelamin = @Filter_JK)
       AND (@Filter_Status = -1 OR Status = @Filter_Status)
+      -- Filter Pencarian
+      AND (@Search = '' OR Nama_Karyawan LIKE '%' + @Search + '%' OR NIK LIKE '%' + @Search + '%' OR Username LIKE '%' + @Search + '%')
+      -- Filter Kategori Usia
+      AND (
+          @Filter_Umur = 'all'
+          OR (@Filter_Umur = 'muda' AND Umur < 25)
+          OR (@Filter_Umur = 'produktif' AND Umur BETWEEN 25 AND 40)
+          OR (@Filter_Umur = 'senior' AND Umur > 40)
+      )
     ORDER BY 
         CASE WHEN @Sort_By = 'Nama_Karyawan' AND @Sort_Order = 'ASC' THEN Nama_Karyawan END ASC,
         CASE WHEN @Sort_By = 'Nama_Karyawan' AND @Sort_Order = 'DESC' THEN Nama_Karyawan END DESC,
@@ -231,14 +231,10 @@ BEGIN
         CASE WHEN @Sort_By = 'Jabatan' AND @Sort_Order = 'DESC' THEN Jabatan END DESC,
         CASE WHEN @Sort_By = 'Jenis_Kelamin' AND @Sort_Order = 'ASC' THEN Jenis_Kelamin END ASC,
         CASE WHEN @Sort_By = 'Jenis_Kelamin' AND @Sort_Order = 'DESC' THEN Jenis_Kelamin END DESC,
-        CASE WHEN @Sort_By = 'No_Telepon' AND @Sort_Order = 'ASC' THEN No_Telepon END ASC,
-        CASE WHEN @Sort_By = 'No_Telepon' AND @Sort_Order = 'DESC' THEN No_Telepon END DESC,
         CASE WHEN @Sort_By = 'Status' AND @Sort_Order = 'ASC' THEN Status END ASC,
         CASE WHEN @Sort_By = 'Status' AND @Sort_Order = 'DESC' THEN Status END DESC,
-        CASE WHEN @Sort_By = 'Created_Date' AND @Sort_Order = 'ASC' THEN Created_Date END ASC,
-        CASE WHEN @Sort_By = 'Created_Date' AND @Sort_Order = 'DESC' THEN Created_Date END DESC,
-        CASE WHEN @Sort_By = 'Modified_Date' AND @Sort_Order = 'ASC' THEN Modified_Date END ASC,
-        CASE WHEN @Sort_By = 'Modified_Date' AND @Sort_Order = 'DESC' THEN Modified_Date END DESC,
+        CASE WHEN @Sort_By = 'Umur' AND @Sort_Order = 'ASC' THEN Umur END ASC,
+        CASE WHEN @Sort_By = 'Umur' AND @Sort_Order = 'DESC' THEN Umur END DESC,
         CASE WHEN @Sort_By = 'NIK' AND @Sort_Order = 'ASC' THEN NIK END ASC,
         CASE WHEN @Sort_By = 'NIK' AND @Sort_Order = 'DESC' THEN NIK END DESC
     OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
@@ -248,20 +244,36 @@ GO
 -- ============================================================
 -- 7. SP: GET TOTAL KARYAWAN (DENGAN FILTER)
 -- ============================================================
-CREATE PROCEDURE sp_Karyawan_GetTotal
+ALTER PROCEDURE sp_Karyawan_GetTotal
     @Filter_Jabatan INT = 0,
     @Filter_JK      INT = -1,
-    @Filter_Status  INT = -1
+    @Filter_Status  INT = -1,
+    @Filter_Umur    VARCHAR(10) = 'all', -- Tambahan filter umur
+    @Search         VARCHAR(50) = ''     -- Tambahan pencarian keyword
 AS
 BEGIN
     SET NOCOUNT ON;
 
+    ;WITH CTE_Karyawan AS (
+        SELECT *,
+               DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
+               CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() 
+                    THEN 1 ELSE 0 END AS Umur
+        FROM Karyawan
+        WHERE Is_Deleted = 0
+    )
     SELECT COUNT(*) AS Total
-    FROM Karyawan
-    WHERE Is_Deleted = 0
-      AND (@Filter_Jabatan = 0 OR Jabatan = @Filter_Jabatan)
+    FROM CTE_Karyawan
+    WHERE (@Filter_Jabatan = 0 OR Jabatan = @Filter_Jabatan)
       AND (@Filter_JK = -1 OR Jenis_Kelamin = @Filter_JK)
-      AND (@Filter_Status = -1 OR Status = @Filter_Status);
+      AND (@Filter_Status = -1 OR Status = @Filter_Status)
+      AND (@Search = '' OR Nama_Karyawan LIKE '%' + @Search + '%' OR NIK LIKE '%' + @Search + '%' OR Username LIKE '%' + @Search + '%')
+      AND (
+          @Filter_Umur = 'all'
+          OR (@Filter_Umur = 'muda' AND Umur < 25)
+          OR (@Filter_Umur = 'produktif' AND Umur BETWEEN 25 AND 40)
+          OR (@Filter_Umur = 'senior' AND Umur > 40)
+      );
 END;
 GO
 
