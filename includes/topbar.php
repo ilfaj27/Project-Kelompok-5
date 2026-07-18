@@ -188,6 +188,9 @@ if (!empty($topbar_id_karyawan) && isset($conn) && $conn) {
 
 <script>
 (function() {
+    // ============================================
+    // 1. FITUR JAM DAN TANGGAL REAL-TIME
+    // ============================================
     function updateClock() {
         const now = new Date();
         const h = String(now.getHours()).padStart(2, '0');
@@ -204,15 +207,28 @@ if (!empty($topbar_id_karyawan) && isset($conn) && $conn) {
     setInterval(updateClock, 1000);
     updateClock();
 
+    // ============================================
+    // 2. FITUR TOGGLE DROPDOWN (ANTI-BENTROK)
+    // ============================================
     const userDropdown = document.getElementById('userDropdown');
     if (userDropdown) {
-        userDropdown.addEventListener('click', function (e) {
-            e.stopPropagation();
-            this.classList.toggle('active');
+        // Kita hanya picu klik pada bagian header profil (tombol pemicu)
+        const trigger = userDropdown.querySelector('.topbar-user');
+        
+        if (trigger) {
+            trigger.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation(); // Stop agar tidak langsung ditutup oleh document click listener
+                userDropdown.classList.toggle('active');
+            });
+        }
+
+        // Menutup dropdown hanya jika klik di luar area menu dropdown
+        document.addEventListener('click', function (e) {
+            if (!userDropdown.contains(e.target)) {
+                userDropdown.classList.remove('active');
+            }
         });
     }
-    document.addEventListener('click', function () {
-        if (userDropdown) userDropdown.classList.remove('active');
-    });
 })();
 </script>
