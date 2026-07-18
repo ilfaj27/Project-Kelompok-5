@@ -68,12 +68,31 @@ CREATE PROCEDURE sp_Booking_GetDetail
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT B.*, J.ID_Jadwal, J.ID_Lapangan 
+    
+    SELECT 
+           -- Ambil semua data bawaan dari table booking
+           B.*, 
+           -- Ambil data dari tabel Customer
+           C.Nama_Customer, C.Email, C.No_Telepon,
+           -- Ambil data dari tabel Lapangan
+           L.Nama_Lapangan, L.Harga_Sewa,
+           -- Ambil data dari tabel Jadwal (TANGGAL & JAM ADA DI SINI)
+           J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
+           -- Ambil data dari tabel Promo
+           P.Nama_Promo, P.Diskon,
+           -- Ambil nama admin/karyawan pencatat
+           K.Nama_Karyawan as Nama_Karyawan_Input
     FROM Booking B 
+    -- Melakukan relasi antar tabel (JOIN)
+    INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
+    LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
     WHERE B.ID_Booking = @ID_Booking;
 END;
 GO
+
 
 -- [CREATE/UPDATE] Memproses pembatalan booking dan pencatatan refund secara transaksional
 CREATE PROCEDURE sp_Booking_CancelByKaryawan

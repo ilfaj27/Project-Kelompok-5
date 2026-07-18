@@ -1060,7 +1060,7 @@ IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'SP_GetLanggananList')
     DROP PROCEDURE SP_GetLanggananList;
 GO
 
-CREATE PROCEDURE SP_GetLanggananList
+CREATE OR ALTER PROCEDURE SP_GetLanggananList
     @Filter_Status INT = NULL,
     @Filter_Customer VARCHAR(50) = NULL,
     @Filter_TanggalMulai DATE = NULL,
@@ -1073,7 +1073,7 @@ BEGIN
     
     DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
     
-    -- Build dynamic WHERE
+    -- Build dynamic WHERE (Count Query tetap sama)
     DECLARE @SQL NVARCHAR(MAX);
     DECLARE @ParamDef NVARCHAR(500);
     
@@ -1097,7 +1097,7 @@ BEGIN
     SET @ParamDef = N'@Filter_Status INT, @Filter_Customer VARCHAR(50), @Filter_TanggalMulai DATE, @Filter_TanggalSelesai DATE';
     EXEC sp_executesql @SQL, @ParamDef, @Filter_Status, @Filter_Customer, @Filter_TanggalMulai, @Filter_TanggalSelesai;
     
-    -- Data query
+    -- Data query (DI SINI KITA TAMBAHKAN TM.Harga_Member)
     SET @SQL = N'
     SELECT 
         L.ID_Langganan,
@@ -1106,6 +1106,7 @@ BEGIN
         C.Email,
         L.ID_Tipe,
         TM.Nama_Tipe,
+        TM.Harga_Member, -- <--- KITA TAMBAHKAN KOLOM INI AGAR HARGANYA MUNCUL
         L.Tanggal_Mulai,
         L.Tanggal_Selesai,
         L.Total_Bayar,
