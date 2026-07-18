@@ -1,5 +1,6 @@
 <?php
 session_start();
+$path_prefix = "../"; 
 
 // 1. Baca semua data session ke variabel lokal terlebih dahulu
 $swal_status = $_SESSION['swal_status'] ?? '';
@@ -237,7 +238,7 @@ if ($last_pwd_change_raw) {
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
+   <?php include '../includes/favicon.php'; ?>
     <title>Profil Saya | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"

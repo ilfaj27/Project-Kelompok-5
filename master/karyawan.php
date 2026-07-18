@@ -1,5 +1,6 @@
 <?php
 session_start();
+$path_prefix = "../";
 include '../includes/config.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
@@ -511,7 +512,7 @@ $current_page = 'karyawan';
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Karyawan | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"

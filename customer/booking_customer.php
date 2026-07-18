@@ -6,6 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
 date_default_timezone_set('Asia/Jakarta');
+$path_prefix = "../";
 
 include '../includes/auth_helper.php';
 include '../includes/config.php';
@@ -369,8 +370,7 @@ for ($i = 0; $i < 7; $i++) {
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <?php include '../includes/favicon.php'; ?>
     <title>Booking Lapangan | HoopBall Arena</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap"

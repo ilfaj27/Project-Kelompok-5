@@ -1,6 +1,8 @@
 <?php
 ob_start();
 session_start();
+$path_prefix = "../";
+
 include_once '../includes/config.php';
 include_once '../includes/helpers.php'; // Menggunakan include_once agar aman dari crash pemuatan ganda
 
@@ -411,7 +413,7 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
+   <?php include '../includes/favicon.php'; ?>
     <title>Kelola Lapangan | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"

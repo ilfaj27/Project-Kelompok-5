@@ -503,8 +503,7 @@ function format_date_display($date)
 <html lang="id">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <?php include '../includes/favicon.php'; ?>
     <title>Profil Saya | HoopBall</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
