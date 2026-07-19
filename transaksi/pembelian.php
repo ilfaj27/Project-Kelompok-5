@@ -58,28 +58,8 @@ $status_labels = [
 ];
 
 // ============================================================================
-// PROSES KONFIRMASI PEMBAYARAN
+// Fungsi Helper untuk memecah string ukuran (contoh: "S x2, M x1")
 // ============================================================================
-if (isset($_POST['konfirmasi_bayar'])) {
-    $id_beli = $_POST['id_beli'];
-    $stmt = sqlsrv_query($conn, 
-        "UPDATE Beli_Alat SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 0",
-        array($nama, $id_beli)
-    );
-    if ($stmt) {
-        header("Location: pembelian.php?status=success&msg=Pembayaran pembelian alat berhasil dikonfirmasi.");
-        exit();
-    } else {
-        header("Location: pembelian.php?status=error&msg=Gagal mengkonfirmasi pembayaran pembelian alat.");
-        exit();
-    }
-}
-
-// ============================================================================
-// PROSES TOLAK PEMBELIAN (Status -> 2 = Ditolak, stok dikembalikan)
-// ============================================================================
-
-// Helper: urai label ukuran ("S x2, M x1" / "All Size x3" / "Multi") jadi array [ukuran => qty]
 function parseUkuranLabel($label, $jumlah_total) {
     $label = trim((string)$label);
     if ($label === '' || strcasecmp($label, 'Multi') === 0) {
@@ -105,50 +85,121 @@ function parseUkuranLabel($label, $jumlah_total) {
     return $out;
 }
 
-if (isset($_POST['tolak_pembelian'])) {
+// ============================================================================
+// PROSES KONFIRMASI PEMBAYARAN (Status -> 1 = Berhasil) & POTONG STOK
+// ============================================================================
+if (isset($_POST['konfirmasi_bayar'])) {
     $id_beli = $_POST['id_beli'];
-    $alasan = trim($_POST['alasan_tolak'] ?? '');
 
     $q_beli = sqlsrv_query($conn, 
-        "SELECT BA.ID_Beli, BA.Status, DBA.ID_Alat, DBA.Jumlah, DBA.Ukuran 
+        "SELECT BA.ID_Beli, BA.Status, DBA.ID_Alat, DBA.Jumlah, DBA.Ukuran, A.Nama_Alat 
          FROM Beli_Alat BA 
          INNER JOIN Detail_Beli_Alat DBA ON BA.ID_Beli = DBA.ID_Beli 
+         INNER JOIN Alat A ON DBA.ID_Alat = A.ID_Alat
          WHERE BA.ID_Beli = ?",
         array($id_beli)
     );
+    
     $details = [];
     $beli_data = null;
     if ($q_beli) {
         while ($row = sqlsrv_fetch_array($q_beli, SQLSRV_FETCH_ASSOC)) {
             if (!$beli_data) $beli_data = $row;
-            $details[] = ['id_alat' => $row['ID_Alat'], 'jumlah' => (int)$row['Jumlah'], 'ukuran' => $row['Ukuran'] ?? ''];
+            $details[] = [
+                'id_alat' => $row['ID_Alat'], 
+                'nama_alat' => $row['Nama_Alat'],
+                'jumlah' => (int)$row['Jumlah'], 
+                'ukuran' => $row['Ukuran'] ?? ''
+            ];
         }
     }
 
     if ($beli_data && (int)$beli_data['Status'] === 0) {
+        sqlsrv_begin_transaction($conn);
+
+        try {
+            // CEK STOK SEBELUM VERIFIKASI (Mencegah Overselling)
+            foreach ($details as $d) {
+                // Cek stok utama
+                $cek_stok = sqlsrv_query($conn, "SELECT Stok FROM Alat WHERE ID_Alat = ?", array($d['id_alat']));
+                $row_stok = sqlsrv_fetch_array($cek_stok, SQLSRV_FETCH_ASSOC);
+                if ($row_stok['Stok'] < $d['jumlah']) {
+                    throw new Exception("Stok untuk " . $d['nama_alat'] . " tidak mencukupi. Sisa stok: " . $row_stok['Stok']);
+                }
+
+                // Cek stok ukuran (jika ada)
+                foreach (parseUkuranLabel($d['ukuran'], $d['jumlah']) as $uk => $qty) {
+                    if ($uk === 'All Size' || $qty <= 0) continue;
+                    $cek_size = sqlsrv_query($conn, "SELECT Stok FROM Alat_Size WHERE ID_Alat = ? AND Ukuran = ?", array($d['id_alat'], $uk));
+                    $row_size = sqlsrv_fetch_array($cek_size, SQLSRV_FETCH_ASSOC);
+                    if ($row_size && $row_size['Stok'] < $qty) {
+                        throw new Exception("Stok " . $d['nama_alat'] . " ukuran " . $uk . " tidak mencukupi.");
+                    }
+                }
+            }
+
+            // A. Update Status Beli_Alat jadi 1
+            $stmt_update = sqlsrv_query($conn, 
+                "UPDATE Beli_Alat SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 0",
+                array($nama, $id_beli)
+            );
+            if (!$stmt_update) throw new Exception("Gagal update status transaksi.");
+
+            // B. Potong Stok Alat & Stok Ukuran
+            foreach ($details as $d) {
+                $stmt_alat = sqlsrv_query($conn, 
+                    "UPDATE Alat SET Stok = Stok - ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?",
+                    array($d['jumlah'], $nama, $d['id_alat'])
+                );
+                if (!$stmt_alat) throw new Exception("Gagal memotong stok utama alat.");
+
+                foreach (parseUkuranLabel($d['ukuran'], $d['jumlah']) as $uk => $qty) {
+                    if ($qty <= 0) continue;
+                    $stmt_size = sqlsrv_query($conn,
+                        "UPDATE Alat_Size SET Stok = Stok - ? WHERE ID_Alat = ? AND Ukuran = ?",
+                        array($qty, $d['id_alat'], $uk)
+                    );
+                    if (!$stmt_size) throw new Exception("Gagal memotong stok ukuran.");
+                }
+            }
+
+            sqlsrv_commit($conn);
+            header("Location: pembelian.php?status=success&msg=Pembayaran dikonfirmasi & stok berhasil dipotong.");
+            exit();
+
+        } catch (Exception $e) {
+            sqlsrv_rollback($conn);
+            $err = $e->getMessage();
+            header("Location: pembelian.php?status=error&msg=Verifikasi Gagal: $err");
+            exit();
+        }
+
+    } else {
+        header("Location: pembelian.php?status=error&msg=Pesanan tidak ditemukan atau sudah diproses.");
+        exit();
+    }
+}
+
+// ============================================================================
+// PROSES TOLAK PEMBELIAN (Status -> 2 = Ditolak)
+// ============================================================================
+if (isset($_POST['tolak_pembelian'])) {
+    $id_beli = $_POST['id_beli'];
+    $alasan = trim($_POST['alasan_tolak'] ?? '');
+
+    $cek = sqlsrv_query($conn, "SELECT Status FROM Beli_Alat WHERE ID_Beli = ?", array($id_beli));
+    $data_beli = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
+
+    if ($data_beli && (int)$data_beli['Status'] === 0) {
         $stmt = sqlsrv_query($conn, 
             "UPDATE Beli_Alat SET Status = 2, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Beli = ? AND Status = 0",
             array($nama . ' (TOLAK: ' . $alasan . ')', $id_beli)
         );
-        $affected = ($stmt !== false) ? sqlsrv_rows_affected($stmt) : 0;
-
-        if ($affected > 0) {
-            foreach ($details as $d) {
-                sqlsrv_query($conn, 
-                    "UPDATE Alat SET Stok = Stok + ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Alat = ?",
-                    array($d['jumlah'], $nama, $d['id_alat'])
-                );
-                foreach (parseUkuranLabel($d['ukuran'], $d['jumlah']) as $uk => $qty) {
-                    if ($qty <= 0) continue;
-                    sqlsrv_query($conn,
-                        "UPDATE Alat_Size SET Stok = Stok + ? WHERE ID_Alat = ? AND Ukuran = ?",
-                        array($qty, $d['id_alat'], $uk)
-                    );
-                }
-            }
-            header("Location: pembelian.php?status=success&msg=Pembelian ditolak. Stok telah dikembalikan.");
+        
+        if ($stmt) {
+            header("Location: pembelian.php?status=success&msg=Pembelian berhasil ditolak.");
         } else {
-            header("Location: pembelian.php?status=error&msg=Pembelian sudah diproses sebelumnya.");
+            header("Location: pembelian.php?status=error&msg=Gagal menolak pesanan.");
         }
         exit();
     } else {
@@ -283,12 +334,11 @@ function buildPageUrl($page_num) {
 }
 
 // ============================================================================
-// VARIABEL SIDEBAR - HARUS SAMA DENGAN CHECK DI SIDEBAR.PHP
+// VARIABEL SIDEBAR
 // ============================================================================
 $current_page = 'pembelian_alat';
 $sidebar_folder = 'transaksi';
 
-// Topbar variables
 $topbar_title = 'Kelola Pembelian Alat';
 $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 ?>
@@ -303,13 +353,26 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 <link rel="stylesheet" href="../asset/css/responsive_tipe_member.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-/* ============================================================
-   Style SIDEBAR, TOPBAR & CLOCK dihapus dari file ini.
-   Topbar kini memakai ../includes/topbar.php + global.css
-   sehingga jam & tanggal identik dengan halaman lainnya.
-   ============================================================ */
+/* ============================================================================
+   CRITICAL FIX: Prevent entire page from scrolling horizontally
+   ============================================================================ */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
 
-.content { padding: 32px 40px; flex: 1 1 0%; width: 100%; max-width: 100%; box-sizing: border-box;  }
+/* ============================================================================
+   CRITICAL FIX: Flex containers need min-width: 0 to allow shrinking
+   ============================================================================ */
+main, .content {
+    min-width: 0;
+}
+
+.content { 
+    padding: 32px 40px; 
+    flex: 1; 
+    overflow-x: hidden;
+}
 
 /* ---- STAT CARDS ---- */
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
@@ -330,6 +393,12 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .stat-sublabel { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 4px; opacity: .8; }
 
+/* ---- INFO BOX ---- */
+.role-info-box { background: var(--blue-lt); border: 1px solid var(--blue); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+.role-info-box i { color: var(--blue); font-size: 20px; flex-shrink: 0; }
+.role-info-box .rib-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+.role-info-box .rib-text .rib-sub { color: var(--muted); }
+
 /* ---- FILTER BAR ---- */
 .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
 .filter-group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -338,39 +407,128 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: .2s; text-decoration: none; }
 .btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
 
-/* ---- TABLE ---- */
-.card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); max-width: 100%; overflow: hidden; }
+/* ============================================================================
+   TABLE CARD: Constrain to viewport, hide overflow
+   ============================================================================ */
+.card { 
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    overflow: hidden; 
+    width: 100%; 
+    max-width: 100%;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+}
+
 .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .card-title i { color: var(--orange); font-size: 14px; }
-.card-body { padding: 0; }
-.data-table { width: 100%; border-collapse: collapse; min-width: 1050px; }
-.data-table th { padding: 14px 16px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: #FAFAFA; }
-.data-table td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
-.data-table tbody tr { transition: background .15s; }
-.data-table tbody tr:hover { background: #FAFAFA; }
+
+/* ============================================================================
+   CARD BODY: Horizontal scroll ONLY for table — PROFESSIONAL SCROLLBAR
+   ============================================================================ */
+.card-body { 
+    padding: 0; 
+    overflow-x: auto; 
+    overflow-y: hidden;
+    width: 100%; 
+    /* Firefox scrollbar */
+    scrollbar-width: 10px;
+    scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+/* Webkit scrollbar — thick, visible, professional */
+.card-body::-webkit-scrollbar { 
+    height: 10px; 
+}
+.card-body::-webkit-scrollbar-track { 
+    background: #f8fafc; 
+    border-radius: 0 0 16px 16px; 
+    margin: 0 4px;
+}
+.card-body::-webkit-scrollbar-thumb { 
+    background: #94a3b8; 
+    border-radius: 10px; 
+    border: 2px solid #f8fafc;
+}
+.card-body::-webkit-scrollbar-thumb:hover { 
+    background: #64748b; 
+}
+
+/* ============================================================================
+   DATA TABLE: Professional styling with sticky header
+   ============================================================================ */
+.data-table { 
+    width: 100%; 
+    min-width: 1100px; 
+    border-collapse: separate; 
+    border-spacing: 0;
+}
+
+/* STICKY HEADER */
+.data-table thead th { 
+    position: sticky; 
+    top: 0; 
+    z-index: 20;
+    padding: 16px; 
+    font-size: 11px; 
+    font-weight: 800; 
+    color: #475569; 
+    text-transform: uppercase; 
+    letter-spacing: .6px; 
+    border-bottom: 2px solid var(--orange); 
+    text-align: left; 
+    background: #f8fafc; 
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.data-table td { 
+    padding: 16px; 
+    font-size: 13px; 
+    border-bottom: 1px solid #f1f5f9; 
+    vertical-align: middle; 
+    color: #334155;
+    transition: background .15s;
+}
+
+.data-table tbody tr { transition: all .2s ease; }
+.data-table tbody tr:hover { background: #fff7ed; }
+.data-table tbody tr:nth-child(even) { background: #fafafa; }
+.data-table tbody tr:nth-child(even):hover { background: #fff7ed; }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.cell-name { font-weight: 700; color: var(--text); }
-.cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+.cell-name { font-weight: 700; color: var(--text); white-space: nowrap; }
+.cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; white-space: nowrap; }
 .cell-price { font-weight: 800; color: var(--orange); white-space: nowrap; }
-.status-pill { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 5px; }
+
+.status-pill { 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-size: 11px; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+    letter-spacing: .3px; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 5px; 
+    white-space: nowrap; 
+}
 .sp-active { background: var(--green-lt); color: var(--green); }
+.sp-success { background: var(--blue-lt); color: var(--blue); }
 .sp-pending { background: var(--yellow-lt); color: #D97706; }
 .sp-inactive { background: var(--red-lt); color: var(--red); }
-.action-btns { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; justify-content: center; }
 
-/* ===== TOMBOL PROSES ===== */
-.btn-proses { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--orange), var(--orange-dk)); color: #fff; font-size: 12px; font-weight: 800; font-family: 'Barlow', sans-serif; cursor: pointer; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 3px 10px rgba(255,69,0,.25); white-space: nowrap; }
-.btn-proses:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,69,0,.35); }
-.btn-proses:active { transform: scale(0.96); }
+/* Detail Alat dalam tabel */
+.detail-alat-wrap { display: flex; flex-direction: column; gap: 6px; }
+.detail-alat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+.detail-alat-item i { color: var(--orange); font-size: 11px; margin-top: 4px; flex-shrink: 0; }
+.da-qty { font-weight: 800; color: var(--text); flex-shrink: 0; }
+.da-nama { color: var(--text-md); font-weight: 600; line-height: 1.4; }
+.da-ukuran { background: var(--bg); color: var(--muted); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); display: inline-block; margin-top: 2px; white-space: nowrap; }
 
-/* ===== BARIS DETAIL ALAT DI TABEL ===== */
-.detail-alat-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 3px 0; white-space: nowrap; }
-.detail-alat-row .da-nama { color: var(--text-md); font-weight: 600; }
-.detail-alat-row i { color: var(--orange); font-size: 10px; }
-.detail-alat-row .da-qty { color: var(--text); font-weight: 700; }
-.detail-alat-row .da-ukuran { background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 1px 8px; border-radius: 10px; }
-
+/* Action Buttons */
+.action-btns { display: flex; gap: 6px; justify-content: center; }
 .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: all .25s cubic-bezier(0.34,1.56,0.64,1); position: relative; overflow: hidden; }
 .btn-icon:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 .btn-icon:active { transform: scale(0.95); }
@@ -378,8 +536,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .btn-icon.view:hover { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
 .btn-icon.success { color: var(--green); border-color: rgba(16,185,129,.25); background: var(--green-lt); }
 .btn-icon.success:hover { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 4px 14px rgba(16,185,129,.35); }
-.btn-icon.danger { color: var(--red); border-color: rgba(239,68,68,.25); background: var(--red-lt); }
-.btn-icon.danger:hover { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 14px rgba(239,68,68,.35); }
 
 /* ---- PAGINATION ---- */
 .pagination-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top: none; border-radius: 0 0 16px 16px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -396,7 +552,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 /* ---- MODAL DETAIL ---- */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
-.modal { background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .3s ease-out; }
+.modal { background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .3s ease-out; scrollbar-width: none; -ms-overflow-style: none; }
+.modal::-webkit-scrollbar { display: none; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .modal-header { padding: 24px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .modal-title { font-size: 18px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
@@ -413,49 +570,28 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
 .detail-value.price { color: var(--orange); font-size: 16px; }
 .detail-full { grid-column: span 2; }
 .alat-detail-list { margin-top: 8px; }
-.alat-detail-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
-.alat-detail-item:last-child { border-bottom: none; }
+.alat-detail-item-modal { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-lt); }
+.alat-detail-item-modal:last-child { border-bottom: none; }
 .alat-detail-name { font-weight: 700; color: var(--text); }
 .alat-detail-qty { font-size: 12px; color: var(--muted); }
 .alat-detail-hpp { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .alat-detail-price { font-weight: 800; color: var(--orange); }
-.ukuran-badge { display: inline-block; background: var(--orange-lt); color: var(--orange); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
 .detail-item.detail-note-tolak { background: var(--red-lt); border: 1px solid rgba(239,68,68,.25); }
 .detail-note-tolak .detail-label { color: var(--red); }
 .detail-note-tolak .detail-value { color: var(--red-dk); font-size: 13px; font-weight: 600; line-height: 1.5; }
 .detail-id-badge { font-family: 'Barlow', sans-serif; letter-spacing: .5px; }
 
-/* ---- BUKTI PEMBAYARAN (di modal detail) ---- */
+/* ---- BUKTI PEMBAYARAN ---- */
 .bukti-bayar-link { display: block; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-lt); }
 .bukti-bayar-img { display: block; width: 100%; max-height: 260px; object-fit: contain; background: #FAFAFA; cursor: zoom-in; transition: opacity .2s; }
 .bukti-bayar-link:hover .bukti-bayar-img { opacity: .9; }
 .bukti-bayar-missing { margin-top: 8px; padding: 20px; text-align: center; background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: 12.5px; font-weight: 600; }
 .bukti-bayar-missing i { font-size: 20px; display: block; margin-bottom: 6px; opacity: .6; }
 
-/* ---- CLEANUP: utility classes (ganti inline style yang berulang) ---- */
-.role-info-box { background: var(--blue-lt); border: 1px solid var(--blue); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
-.role-info-box i { color: var(--blue); font-size: 20px; flex-shrink: 0; }
-.role-info-box .rib-text { font-size: 13px; color: var(--text); line-height: 1.5; }
-.role-info-box .rib-text .rib-sub { color: var(--muted); }
-.card-header-count { font-size: 12px; color: var(--muted); font-weight: 600; }
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.nowrap { white-space: nowrap; }
-.col-no { width: 50px; }
-.col-customer { width: 170px; }
-.col-tanggal { width: 110px; }
-.col-metode { width: 110px; }
-.col-total { width: 120px; }
-.col-status { width: 115px; }
-.col-aksi { width: 160px; }
-.empty-state-cell { text-align: center; padding: 50px; color: var(--muted); }
-.empty-state-cell i { font-size: 40px; margin-bottom: 16px; opacity: .5; display: block; }
-.empty-state-title { font-size: 14px; font-weight: 700; }
-.empty-state-sub { font-size: 12px; margin-top: 4px; }
-
+@media(max-width: 1200px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 @media(max-width: 768px) {
     .content { padding: 20px; }
-    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat-grid { grid-template-columns: repeat(1, 1fr); }
     .action-bar { flex-direction: column; align-items: stretch; }
     .filter-group { width: 100%; }
     .detail-grid { grid-template-columns: 1fr; }
@@ -530,16 +666,16 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
     <div class="card">
         <div class="card-header">
             <div class="card-title"><i class="fa-solid fa-list"></i> Daftar Pembelian Alat</div>
-            <span class="card-header-count"><?= $total_data ?> data ditemukan</span>
+            <span style="font-size: 12px; color: var(--muted); font-weight: 600;"><?= $total_data ?> data ditemukan</span>
         </div>
-        <div class="card-body" style="overflow-x: auto;">
+        <div class="card-body">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center;">No.</th>
-                        <th style="text-align: center;">Customer</th>
-                        <th style="text-align: right;">Tanggal Beli</th>
-                        <th style="text-align: center;">Detail Alat</th>
+                        <th style="width: 60px; text-align: center;">No.</th>
+                        <th style="text-align: left;">Customer</th>
+                        <th style="text-align: center;">Tanggal Beli</th>
+                        <th style="text-align: left;">Detail Alat</th>
                         <th style="text-align: center;">Metode Bayar</th>
                         <th style="text-align: right;">Total Bayar</th>
                         <th style="text-align: center;">Status</th>
@@ -552,36 +688,38 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                             $status = $status_labels[$p['Status']] ?? $status_labels[0];
                         ?>
                         <tr>
-                            <td class="text-center nowrap" style="font-weight: 700; color: var(--text);"><?= $no++ ?></td>
-                            <td style="text-align: center;">
+                            <td style="text-align: center; font-weight: 700; color: var(--text);"><?= $no++ ?></td>
+                            <td style="text-align: left;">
                                 <div class="cell-name"><?= htmlspecialchars($p['Nama_Customer']) ?></div>
                                 <div class="cell-detail"><?= htmlspecialchars($p['Email'] ?? '-') ?></div>
                             </td>
-                            <td class="nowrap" style="text-align: right;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
-                            <td style="text-align: center;">
-                                <?php foreach ($p['details'] as $detail):
-                                    $uk = trim($detail['Ukuran'] ?? '');
-                                ?>
-                                <div class="detail-alat-row">
-                                    <i class="fa-solid fa-basketball"></i>
-                                    <span class="da-nama"><?= htmlspecialchars($detail['Nama_Alat']) ?></span>
-                                    <span class="da-qty"><?= $detail['Jumlah'] ?>x</span>
-                                    <?php if ($uk !== '' && strcasecmp($uk, 'All Size') !== 0): ?>
-                                        <span class="da-ukuran"><?= htmlspecialchars($uk) ?></span>
-                                    <?php endif; ?>
+                            <td style="text-align: center; white-space: nowrap;"><?= formatTanggal($p['Tanggal_Beli']) ?></td>
+                            <td style="text-align: left;">
+                                <div class="detail-alat-wrap">
+                                    <?php foreach ($p['details'] as $detail):
+                                        $uk = trim($detail['Ukuran'] ?? '');
+                                    ?>
+                                    <div class="detail-alat-item">
+                                        <i class="fa-solid fa-basketball"></i>
+                                        <span class="da-qty"><?= $detail['Jumlah'] ?>x</span>
+                                        <div>
+                                            <span class="da-nama"><?= htmlspecialchars($detail['Nama_Alat']) ?></span>
+                                            <?php if ($uk !== '' && strcasecmp($uk, 'All Size') !== 0): ?>
+                                                <div class="da-ukuran"><?= htmlspecialchars($uk) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
-                                <?php endforeach; ?>
                             </td>
-                            <td class="text-center"><?= htmlspecialchars($p['Metode_Pembayaran']) ?></td>
-                            <td class="cell-price nowrap text-right"><?= rupiahFormat($p['Total_Bayar']) ?></td>
-                            <td class="text-center"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
-                            <td>
-                                <div class="action-btns" style="justify-content: center;">
+                            <td style="text-align: center; white-space: nowrap;"><?= htmlspecialchars($p['Metode_Pembayaran']) ?></td>
+                            <td class="cell-price" style="text-align: right;"><?= rupiahFormat($p['Total_Bayar']) ?></td>
+                            <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
+                            <td style="text-align: center;">
+                                <div class="action-btns">
                                     <button class="btn-icon view" onclick="showDetail(<?= $p['ID_Beli'] ?>)" title="Detail"><i class="fa-solid fa-eye"></i></button>
                                     <?php if ($p['Status'] == 0): ?>
-                                        <button class="btn-proses" onclick="prosesPembelian(<?= $p['ID_Beli'] ?>, '<?= htmlspecialchars($p['Nama_Customer'], ENT_QUOTES) ?>')">
-                                            <i class="fa-solid fa-clipboard-check"></i> Proses
-                                        </button>
+                                        <button class="btn-icon success" onclick="prosesPembelian(<?= $p['ID_Beli'] ?>, '<?= htmlspecialchars($p['Nama_Customer'], ENT_QUOTES) ?>')" title="Proses Transaksi"><i class="fa-solid fa-clipboard-check"></i></button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -589,10 +727,10 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="empty-state-cell">
-                                <i class="fa-solid fa-inbox"></i>
-                                <div class="empty-state-title">Belum ada data pembelian</div>
-                                <div class="empty-state-sub">Customer belum melakukan pembelian alat</div>
+                            <td colspan="8" style="text-align: center; padding: 50px; color: var(--muted);">
+                                <i class="fa-solid fa-inbox" style="font-size: 40px; margin-bottom: 16px; opacity: .5; display: block;"></i>
+                                <div style="font-size: 14px; font-weight: 700;">Belum ada data pembelian</div>
+                                <div style="font-size: 12px; margin-top: 4px;">Customer belum melakukan pembelian alat</div>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -663,7 +801,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Pembelian Alat';
     <input type="hidden" name="tolak_pembelian" value="1">
 </form>
 
-<!-- GLOBAL JS: clock, dropdown, dsb -->
+<!-- GLOBAL JS -->
 <script src="../asset/js/global.js"></script>
 
 <script>
@@ -704,7 +842,7 @@ function showDetail(id) {
         const hargaJual = parseFloat(d.Harga_Jual || 0);
         const untungPcs = hargaJual - hargaBeli;
         alatHtml += `
-            <div class="alat-detail-item">
+            <div class="alat-detail-item-modal">
                 <div>
                     <div class="alat-detail-name">${d.Nama_Alat}${ukuranBadge}</div>
                     <div class="alat-detail-qty">${d.Jumlah} x Rp ${hargaJual.toLocaleString('id-ID')}</div>
@@ -738,7 +876,6 @@ function showDetail(id) {
         } else if (raw.startsWith('asset/')) {
             src = '../' + raw;
         } else {
-            // Data lama / nama file lepas (sebelum fitur upload wajib aktif)
             src = '../asset/image/bukti_pembayaran/' + raw;
         }
         buktiHtml = `
@@ -781,13 +918,56 @@ function showDetail(id) {
 }
 
 // ============================================
-// PROSES PEMBELIAN — 1 TOMBOL, 2 PILIHAN
+// PROSES PEMBELIAN (DIUPDATE DENGAN BUKTI BAYAR)
 // ============================================
 function prosesPembelian(id, nama) {
+    // 1. Cari data pembelian berdasarkan ID
+    const pembelian = pembelianData.find(p => p.ID_Beli == id);
+    if (!pembelian) return;
+
+    // 2. Siapkan tag HTML untuk fotonya
+    let buktiHtml = '';
+    if (pembelian.Bukti_Pembayaran && pembelian.Bukti_Pembayaran.trim() !== '') {
+        let raw = pembelian.Bukti_Pembayaran.trim();
+        let src;
+        // Pengecekan path foto persis seperti di fungsi showDetail()
+        if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('../')) {
+            src = raw;
+        } else if (raw.startsWith('asset/')) {
+            src = '../' + raw;
+        } else {
+            src = '../asset/image/bukti_pembayaran/' + raw;
+        }
+        
+        buktiHtml = `
+            <div style="margin: 16px 0; border: 1px solid #E5E7EB; border-radius: 12px; padding: 12px; background: #F9FAFB;">
+                <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase;">
+                    <i class="fa-solid fa-receipt" style="color: var(--orange);"></i> Bukti Pembayaran
+                </div>
+                <a href="${src}" target="_blank" title="Klik untuk lihat ukuran penuh" style="display: block; text-decoration: none;">
+                    <img src="${src}" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 8px; cursor: zoom-in; background: #fff; border: 1px solid #F3F4F6;" 
+                    onerror="this.outerHTML='<div style=\\'padding:30px 10px; color:#9CA3AF; font-size:13px; font-weight:600;\\'><i class=\\'fa-solid fa-image-slash\\' style=\\'font-size:24px; margin-bottom:8px; display:block;\\'></i>Gambar tidak ditemukan/rusak</div>';">
+                </a>
+                <div style="font-size: 10px; color: #9CA3AF; margin-top: 6px;">*Klik gambar untuk memperbesar</div>
+            </div>
+        `;
+    } else {
+        buktiHtml = `
+            <div style="margin: 16px 0; border: 1.5px dashed #E5E7EB; border-radius: 12px; padding: 20px; background: #F9FAFB; color: #9CA3AF; font-size: 13px; font-weight: 600;">
+                <i class="fa-solid fa-image-slash" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
+                Customer belum/tidak melampirkan bukti
+            </div>
+        `;
+    }
+
+    // 3. Tampilkan SweetAlert
     Swal.fire({
         title: 'Proses Pembelian #' + String(id).padStart(4, '0'),
-        html: `Transaksi atas nama <strong>${nama}</strong>.<br><span style="color: #6B7280; font-size: 12.5px;">Verifikasi jika pembayaran sudah diterima, atau tolak pesanan ini.</span>`,
+        html: `Transaksi atas nama <strong style="color:var(--text);">${nama}</strong>.<br>
+               ${buktiHtml}
+               <span style="color: #6B7280; font-size: 12.5px;">Verifikasi jika pembayaran sudah sesuai, atau tolak pesanan ini.</span>`,
         icon: 'question',
+        width: '450px', // Agak dilebarin dikit biar fotonya proporsional
         showDenyButton: true,
         showCancelButton: true,
         confirmButtonText: '<i class="fa-solid fa-check"></i> Verifikasi',
@@ -829,7 +1009,7 @@ function prosesPembelian(id, nama) {
 }
 
 // ============================================
-// NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
+// NOTIFIKASI POPUP TENGAH
 // ============================================
 const urlParams = new URLSearchParams(window.location.search);
 const status = urlParams.get('status');
