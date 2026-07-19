@@ -156,6 +156,8 @@ GO
 -- --------------------------------------------------------
 CREATE OR ALTER PROCEDURE SP_Alat_SelectFiltered
     @StatusFilter    INT = NULL,
+    @KategoriFilter  VARCHAR(50) = NULL,
+    @Search          VARCHAR(100) = NULL,
     @SortBy          VARCHAR(20) = 'nama_asc',
     @PageNumber      INT = 1,
     @PageSize        INT = 12
@@ -167,8 +169,7 @@ BEGIN
     DECLARE @SortSQL NVARCHAR(100);
     DECLARE @SQL NVARCHAR(MAX);
 
-    -- @SortBy: nama_asc, stok_desc, harga_jual_asc, harga_jual_desc,
-    --          harga_beli_asc, harga_beli_desc
+    -- Tentukan Sorting
     SET @SortSQL = CASE @SortBy
         WHEN 'stok_desc'        THEN 'Stok DESC'
         WHEN 'harga_jual_desc'  THEN 'Harga_Jual DESC'
@@ -178,6 +179,7 @@ BEGIN
         ELSE 'Nama_Alat ASC'
     END;
 
+    -- Dynamic SQL supaya pencarian lebih fleksibel
     SET @SQL = N'
         SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Beli, Harga_Jual, Photo_Alat,
                Status, Is_Deleted, Created_By, Created_Date,
@@ -185,14 +187,15 @@ BEGIN
         FROM Alat
         WHERE Is_Deleted = 0
           AND (@StatusFilter IS NULL OR Status = @StatusFilter)
+          AND (@KategoriFilter IS NULL OR @KategoriFilter = '''' OR Kategori = @KategoriFilter)
+          AND (@Search IS NULL OR @Search = '''' OR Nama_Alat LIKE ''%'' + @Search + ''%'')
         ORDER BY ' + @SortSQL + '
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;';
 
     EXEC sp_executesql @SQL,
-        N'@StatusFilter INT, @Offset INT, @PageSize INT',
-        @StatusFilter, @Offset, @PageSize;
+        N'@StatusFilter INT, @KategoriFilter VARCHAR(50), @Search VARCHAR(100), @Offset INT, @PageSize INT',
+        @StatusFilter, @KategoriFilter, @Search, @Offset, @PageSize;
 END
-GO
 
 -- --------------------------------------------------------
 -- SP_Alat_CheckDuplicate : cek nama alat sudah dipakai atau belum
@@ -242,7 +245,9 @@ GO
 -- SP_Alat_Count : total data (utk paging), bisa difilter status
 -- --------------------------------------------------------
 CREATE OR ALTER PROCEDURE SP_Alat_Count
-    @StatusFilter INT = NULL
+    @StatusFilter   INT = NULL,
+    @KategoriFilter VARCHAR(50) = NULL,
+    @Search         VARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -250,7 +255,9 @@ BEGIN
     SELECT COUNT(*) AS TotalCount
     FROM Alat
     WHERE Is_Deleted = 0
-      AND (@StatusFilter IS NULL OR Status = @StatusFilter);
+      AND (@StatusFilter IS NULL OR Status = @StatusFilter)
+      AND (@KategoriFilter IS NULL OR @KategoriFilter = '' OR Kategori = @KategoriFilter)
+      AND (@Search IS NULL OR @Search = '' OR Nama_Alat LIKE '%' + @Search + '%');
 END
 GO
 
@@ -372,4 +379,68 @@ EXEC SP_Alat_Delete @ID_Alat = 21, @Deleted_By = 'SYSTEM';
 EXEC SP_Alat_CountByStatus;
 EXEC SP_Alat_Count @StatusFilter = 1;
 */
+GO
+
+USE Hoopball;
+GO
+
+-- 1. TIBAN SP_Alat_Count
+CREATE OR ALTER PROCEDURE SP_Alat_Count
+    @StatusFilter   INT = NULL,
+    @KategoriFilter VARCHAR(50) = NULL,
+    @Search         VARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT COUNT(*) AS TotalCount
+    FROM Alat
+    WHERE Is_Deleted = 0
+      AND (@StatusFilter IS NULL OR Status = @StatusFilter)
+      AND (@KategoriFilter IS NULL OR @KategoriFilter = '' OR Kategori = @KategoriFilter)
+      AND (@Search IS NULL OR @Search = '' OR Nama_Alat LIKE '%' + @Search + '%');
+END
+GO
+
+-- 2. TIBAN SP_Alat_SelectFiltered
+CREATE OR ALTER PROCEDURE SP_Alat_SelectFiltered
+    @StatusFilter    INT = NULL,
+    @KategoriFilter  VARCHAR(50) = NULL,
+    @Search          VARCHAR(100) = NULL,
+    @SortBy          VARCHAR(20) = 'nama_asc',
+    @PageNumber      INT = 1,
+    @PageSize        INT = 12
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+    DECLARE @SortSQL NVARCHAR(100);
+    DECLARE @SQL NVARCHAR(MAX);
+
+    SET @SortSQL = CASE @SortBy
+        WHEN 'stok_desc'        THEN 'Stok DESC'
+        WHEN 'harga_jual_desc'  THEN 'Harga_Jual DESC'
+        WHEN 'harga_jual_asc'   THEN 'Harga_Jual ASC'
+        WHEN 'harga_beli_desc'  THEN 'Harga_Beli DESC'
+        WHEN 'harga_beli_asc'   THEN 'Harga_Beli ASC'
+        ELSE 'Nama_Alat ASC'
+    END;
+
+    SET @SQL = N'
+        SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Beli, Harga_Jual, Photo_Alat,
+               Status, Is_Deleted, Created_By, Created_Date,
+               Modified_By, Modified_Date, Deleted_By, Deleted_Date
+        FROM Alat
+        WHERE Is_Deleted = 0
+          AND (@StatusFilter IS NULL OR Status = @StatusFilter)
+          AND (@KategoriFilter IS NULL OR @KategoriFilter = '''' OR Kategori = @KategoriFilter)
+          AND (@Search IS NULL OR @Search = '''' OR Nama_Alat LIKE ''%'' + @Search + ''%'')
+        ORDER BY ' + @SortSQL + '
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;';
+
+    EXEC sp_executesql @SQL,
+        N'@StatusFilter INT, @KategoriFilter VARCHAR(50), @Search VARCHAR(100), @Offset INT, @PageSize INT',
+        @StatusFilter, @KategoriFilter, @Search, @Offset, @PageSize;
+END
 GO
