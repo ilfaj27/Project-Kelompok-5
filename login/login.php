@@ -105,27 +105,36 @@ if (isset($_POST['login'])) {
             // Lakukan verifikasi hash password menggunakan password_verify() di PHP
             if ($row2 && password_verify($pass_input, $row2['Kata_Sandi'])) {
 
-                $_SESSION['logged_in'] = true;
-                $_SESSION['id_customer'] = $row2['ID_Customer'];
-                $_SESSION['role'] = 'customer';
-                $_SESSION['Nama_Customer'] = $row2['Nama_Customer'] ?? 'Customer';
-                $_SESSION['nama'] = $row2['Nama_Customer'] ?? 'Customer';
-                $_SESSION['nama_user'] = $row2['Nama_Customer'] ?? 'Customer';
-                $_SESSION['jabatan'] = 'Customer';
-                $_SESSION['Profile_Photo'] = $row2['Photo_Profile'] ?? '';
-                $_SESSION['Email'] = $row2['Email'] ?? '';
-                $_SESSION['No_Telepon'] = $row2['No_Telepon'] ?? '';
+                // Ambil status akun dari database
+                $status_customer = isset($row2['Status']) ? intval($row2['Status']) : 1;
 
-                if (isset($_POST['remember'])) {
-                    setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                if ($status_customer === 0) {
+                    // Tampilkan pesan penonaktifan jika status bernilai 0
+                    $error_msg = "Akun Anda dinonaktifkan karena melanggar syarat dan ketentuan.";
                 } else {
-                    setcookie('remember_me', '', time() - 3600, "/");
-                }
+                    // Proses login jika akun aktif (status bernilai 1)
+                    $_SESSION['logged_in'] = true;
+                    $_SESSION['id_customer'] = $row2['ID_Customer'];
+                    $_SESSION['role'] = 'customer';
+                    $_SESSION['Nama_Customer'] = $row2['Nama_Customer'] ?? 'Customer';
+                    $_SESSION['nama'] = $row2['Nama_Customer'] ?? 'Customer';
+                    $_SESSION['nama_user'] = $row2['Nama_Customer'] ?? 'Customer';
+                    $_SESSION['jabatan'] = 'Customer';
+                    $_SESSION['Profile_Photo'] = $row2['Photo_Profile'] ?? '';
+                    $_SESSION['Email'] = $row2['Email'] ?? '';
+                    $_SESSION['No_Telepon'] = $row2['No_Telepon'] ?? '';
 
-                header("Location: ../index.php");
-                exit();
+                    if (isset($_POST['remember'])) {
+                        setcookie('remember_me', $user_input, time() + (86400 * 30), "/");
+                    } else {
+                        setcookie('remember_me', '', time() - 3600, "/");
+                    }
+
+                    header("Location: ../index.php");
+                    exit();
+                }
             } else {
-                // Pesan error disamakan demi keamanan (mencegah enumerasi username)
+                // Pesan kesalahan jika password salah atau akun tidak ditemukan
                 $error_msg = "Nama Pengguna atau Kata Sandi salah.";
             }
         } // Penutup else cek customer

@@ -9,7 +9,8 @@ include '../includes/helpers.php';
 // HELPER: Deklarasi Aman dengan Pengecekan Duplikasi (Bebas Eror)
 // ============================================================
 if (!function_exists('getInitials')) {
-    function getInitials($name) {
+    function getInitials($name)
+    {
         $clean_name = trim($name);
         $name_parts = explode(' ', $clean_name);
         if (count($name_parts) >= 2) {
@@ -20,8 +21,10 @@ if (!function_exists('getInitials')) {
 }
 
 if (!function_exists('parseUmurRange')) {
-    function parseUmurRange($range) {
-        if ($range === 'all' || empty($range)) return null;
+    function parseUmurRange($range)
+    {
+        if ($range === 'all' || empty($range))
+            return null;
         $parts = explode('-', $range);
         if (count($parts) == 2) {
             return ['min' => intval($parts[0]), 'max' => intval($parts[1])];
@@ -31,10 +34,12 @@ if (!function_exists('parseUmurRange')) {
 }
 
 if (!function_exists('filterByUmur')) {
-    function filterByUmur($rows, $umur_range) {
+    function filterByUmur($rows, $umur_range)
+    {
         $range = parseUmurRange($umur_range);
-        if (!$range) return $rows;
-        return array_filter($rows, function($row) use ($range) {
+        if (!$range)
+            return $rows;
+        return array_filter($rows, function ($row) use ($range) {
             $umur = isset($row['Umur']) ? intval($row['Umur']) : 0;
             return $umur >= $range['min'] && $umur <= $range['max'];
         });
@@ -42,13 +47,15 @@ if (!function_exists('filterByUmur')) {
 }
 
 if (!function_exists('jk_label')) {
-    function jk_label($jk) {
+    function jk_label($jk)
+    {
         return $jk == 1 ? 'Laki-Laki' : 'Perempuan';
     }
 }
 
 if (!function_exists('format_tgl_display')) {
-    function format_tgl_display($date) {
+    function format_tgl_display($date)
+    {
         if ($date instanceof DateTime) {
             return $date->format('d-m-Y');
         }
@@ -96,13 +103,13 @@ if ($is_ajax) {
                     'ID_Customer' => $row['ID_Customer'],
                     'Nama_Customer' => $row['Nama_Customer'],
                     'Email' => $row['Email'] ?? '-',
-                    'Jenis_Kelamin' => (int)$row['Jenis_Kelamin'],
+                    'Jenis_Kelamin' => (int) $row['Jenis_Kelamin'],
                     'JenisKelaminText' => jk_label($row['Jenis_Kelamin']),
                     'Tanggal_Lahir' => $tgl_lahir_formatted,
                     'Tempat_Lahir' => $row['Tempat_Lahir'] ?? '-',
                     'Alamat' => $row['Alamat'] ?? '-',
                     'No_Telepon' => $row['No_Telepon'] ?? '-',
-                    'Status' => (int)($row['Status'] ?? 1)
+                    'Status' => (int) ($row['Status'] ?? 1)
                 ]
             ]);
         } else {
@@ -199,7 +206,8 @@ if ($is_ajax) {
                         <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
                     </div>
                 </td>
-                <td class="col-center cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
+                <td class="col-left cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
+                <!-- Diubah dari col-center menjadi col-left -->
                 <td class="col-center">
                     <span class="jk-badge <?= $jk_class ?>">
                         <i class="fa-solid <?= $jk_icon ?>"></i> <?= jk_label($row['Jenis_Kelamin']) ?>
@@ -214,7 +222,8 @@ if ($is_ajax) {
                 </td>
                 <td class="col-center">
                     <div class="actions">
-                        <button type="button" onclick="viewDetail(<?= $row['ID_Customer'] ?>)" class="btn-action btn-view" title="Lihat Detail">
+                        <button type="button" onclick="viewDetail(<?= $row['ID_Customer'] ?>)" class="btn-action btn-view"
+                            title="Lihat Detail">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                         <label class="toggle-switch" title="<?= $status_int === 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
@@ -246,7 +255,8 @@ if ($is_ajax) {
         <div class="pagination-info">
             <?php if ($total_cust_filtered > 0): ?>
                 Menampilkan <strong><?= (($page - 1) * $limit) + 1 ?></strong> -
-                <strong><?= min($page * $limit, $total_cust_filtered) ?></strong> dari <strong><?= $total_cust_filtered ?></strong> data
+                <strong><?= min($page * $limit, $total_cust_filtered) ?></strong> dari <strong><?= $total_cust_filtered ?></strong>
+                data
             <?php else: ?>
                 Menampilkan <strong>0</strong> data
             <?php endif; ?>
@@ -261,7 +271,8 @@ if ($is_ajax) {
             <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
                 <button onclick="changePage(<?= $i ?>)" class="page-btn <?= $i == $page ? 'active' : '' ?>"><?= $i ?></button>
             <?php endfor; ?>
-            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)"
+                class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
                 <i class="fa-solid fa-angle-right"></i>
             </button>
             <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
@@ -303,7 +314,7 @@ $sidebar_photo = $profile_photo;
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Customer | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
@@ -550,18 +561,23 @@ $sidebar_photo = $profile_photo;
         /* Nama Customer - Rata Kiri */
         .data-table th:nth-child(2) {
             width: 280px;
-            text-align: center;
+            text-align: left;
+            /* Diubah dari center menjadi left */
         }
+
         .data-table td:nth-child(2) {
             width: 280px;
-            text-align: center;
+            text-align: left;
+            /* Diubah dari center menjadi left */
         }
+
 
         /* Email - Rata Kiri */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
             width: 120px;
-            text-align: center;
+            text-align: left;
+            /* Diubah dari center menjadi left */
         }
 
         .data-table th:nth-child(4),
@@ -1393,7 +1409,8 @@ $sidebar_photo = $profile_photo;
 
         .btn-clear-search {
             position: absolute;
-            right: 8px; /* Menggunakan setelan 8px agar tidak bertabrakan dengan border kanan */
+            right: 8px;
+            /* Menggunakan setelan 8px agar tidak bertabrakan dengan border kanan */
             top: 50%;
             transform: translateY(-50%);
             background: none;
@@ -1456,8 +1473,8 @@ $sidebar_photo = $profile_photo;
                             class="chip-val" id="stat-aktif">0</span></div>
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span
                             class="chip-val" id="stat-nonaktif">0</span></div>
-                    <div class="stat-chip chip-blue"><i class="fa-solid fa-users"></i> TOTAL <span
-                            class="chip-val" id="stat-total">0</span></div>
+                    <div class="stat-chip chip-blue"><i class="fa-solid fa-users"></i> TOTAL <span class="chip-val"
+                            id="stat-total">0</span></div>
                 </div>
             </div>
 
@@ -1466,13 +1483,15 @@ $sidebar_photo = $profile_photo;
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <input type="text" id="src" placeholder="Cari customer... (Tekan Enter)"
                         onkeypress="handleSearch(event)" value="">
-                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch" style="display: none;">
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch"
+                        style="display: none;">
                         <i class="fa-solid fa-circle-xmark"></i>
                     </button>
                 </div>
                 <div class="action-right">
                     <div class="filter-wrap">
-                        <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
+                        <button type="button" class="btn-filter" id="btnFilterToggleCustom"
+                            onclick="toggleCustomFilterCard(event)">
                             <i class="fa-solid fa-filter"></i> Filter <i
                                 class="fa-solid fa-chevron-down arrow-icon"></i>
                         </button>
@@ -1552,8 +1571,8 @@ $sidebar_photo = $profile_photo;
                         <thead>
                             <tr>
                                 <th style="width: 80px;" class="col-center">No</th>
-                                <th class="col-center">Nama</th>
-                                <th class="col-center">Email</th>
+                                <th class="col-left">Nama</th> <!-- Diubah dari col-center menjadi col-left -->
+                                <th class="col-left">Email</th> <!-- Diubah dari col-center menjadi col-left -->
                                 <th style="width: 150px;" class="col-center">Jenis Kelamin</th>
                                 <th style="width: 120px;" class="col-center">Umur</th>
                                 <th style="width: 120px;" class="col-center">Status</th>
@@ -1654,7 +1673,7 @@ $sidebar_photo = $profile_photo;
 
                     const initials = data.Nama_Customer.trim().split(' ').slice(0, 2).map(word => word[0]).join('').toUpperCase();
 
-                    const statusPill = is_active_detail 
+                    const statusPill = is_active_detail
                         ? `<span class="status-badge status-active">AKTIF</span>`
                         : `<span class="status-badge status-inactive">NONAKTIF</span>`;
 
@@ -1761,7 +1780,7 @@ $sidebar_photo = $profile_photo;
             currentUmurRange = form.elements['umur_range'].value;
             currentPage = 1;
             loadTableData();
-            
+
             // Tutup filter dropdown
             document.getElementById('btnFilterToggleCustom').classList.remove('active');
             document.getElementById('filterCardCustom').classList.remove('open');
@@ -1863,7 +1882,8 @@ $sidebar_photo = $profile_photo;
             loadTableData();
         });
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

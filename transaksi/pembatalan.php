@@ -134,12 +134,18 @@ if ($is_ajax) {
         $filter_tanggal = isset($_GET['filter_tanggal']) ? trim($_GET['filter_tanggal']) : '';
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
+        // --- TAMBAHKAN DEFINISI PARAMETER DI BAWAH INI ---
+        $filter_status_param = ($filter_status === 'all') ? null : intval($filter_status);
+        $filter_tanggal_param = empty($filter_tanggal) ? null : $filter_tanggal;
+
         // 1. Hitung total data terfilter menggunakan UDF fn_Pembatalan_GetList
         $count_sql = "
           SELECT COUNT(*) AS total 
           FROM dbo.fn_Pembatalan_GetList(?, ?, ?)
       ";
-        $params_count = array($filter_status_param, $filter_customer, $filter_tanggal);
+        // Ganti parameter dengan variabel yang sudah didefinisikan dengan benar
+        $params_count = array($filter_status_param, $filter_customer, $filter_tanggal_param);
+
         $q_count = sqlsrv_query($conn, $count_sql, $params_count);
         $total_data = 0;
         if ($q_count) {
@@ -163,7 +169,8 @@ if ($is_ajax) {
               Tanggal_Batal DESC
           OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
       ";
-        $params_pembatalan = array($filter_status_param, $filter_customer, $filter_tanggal, $offset, $limit);
+        $params_pembatalan = array($filter_status_param, $filter_customer, $filter_tanggal_param, $offset, $limit);
+
         $pembatalan_list = [];
         $q_pembatalan = sqlsrv_query($conn, $sql_pembatalan, $params_pembatalan);
         if ($q_pembatalan) {
@@ -178,7 +185,7 @@ if ($is_ajax) {
           SELECT StatusRefund AS Status, Biaya_Batal, Nominal_Refund 
           FROM dbo.fn_Pembatalan_GetList(?, ?, ?)
       ";
-        $params_stats = array($filter_status_param, $filter_customer, $filter_tanggal);
+        $params_stats = array($filter_status_param, $filter_customer, $filter_tanggal_param);
         $q_stats = sqlsrv_query($conn, $stats_sql, $params_stats);
         if ($q_stats) {
             while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
