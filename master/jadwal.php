@@ -42,15 +42,11 @@ function safeFetch($stmt) {
 }
 
 function formatInputDate($d) {
-    if ($d instanceof DateTime) {
-        return $d->format('Y-m-d');
-    }
+    if ($d instanceof DateTime) return $d->format('Y-m-d');
     return !empty($d) ? date('Y-m-d', strtotime($d)) : '';
 }
 function formatInputTime($t) {
-    if ($t instanceof DateTime) {
-        return $t->format('H:i');
-    }
+    if ($t instanceof DateTime) return $t->format('H:i');
     return !empty($t) ? date('H:i', strtotime($t)) : '';
 }
 
@@ -63,11 +59,9 @@ if ($q_lap) {
 }
 
 // ===== KONFIGURASI JAM OPERASIONAL =====
-// Jadwal 1 jam bulat: 08:00-09:00, 09:00-10:00, ..., 23:00-00:00
 define('OPS_JAM_MULAI_AWAL', 8);   // 08:00
-define('OPS_JAM_MULAI_AKHIR', 23); // 23:00 (slot terakhir 23:00-00:00)
+define('OPS_JAM_MULAI_AKHIR', 23); // 23:00
 
-// Helper: dari jam mulai (H:i) hitung jam selesai +1 jam. "23:00" -> "00:00"
 function hitungJamSelesai($jam_mulai) {
     list($h, $m) = explode(':', $jam_mulai);
     $h = intval($h) + 1;
@@ -75,7 +69,6 @@ function hitungJamSelesai($jam_mulai) {
     return sprintf('%02d:%02d', $h, intval($m));
 }
 
-// Helper: bikin daftar semua jam mulai valid ["08:00", "09:00", ... "23:00"]
 function daftarJamOperasional() {
     $out = [];
     for ($h = OPS_JAM_MULAI_AWAL; $h <= OPS_JAM_MULAI_AKHIR; $h++) {
@@ -84,103 +77,169 @@ function daftarJamOperasional() {
     return $out;
 }
 
-// ===== SAVE (INSERT / EDIT) SATU SLOT JADWAL =====
-if (isset($_POST['save_jadwal'])) {
+// ============================================================================
+// AJAX HANDLER: AMBIL DATA DETAIL/EDIT
+// ============================================================================
+if (isset($_GET['ajax_get_detail'])) {
+    header('Content-Type: application/json');
+    $id = intval($_GET['ajax_get_detail']);
+    $r = safeQuery($conn, "EXEC SP_Jadwal_Select @ID_Jadwal=?", [$id]);
+    if ($r) {
+        $data = safeFetch($r);
+        if ($data) {
+            $data['Tanggal_Formatted'] = formatInputDate($data['Tanggal']);
+            $data['Jam_Mulai_Formatted'] = formatInputTime($data['Jam_Mulai']);
+            $data['Jam_Selesai_Formatted'] = formatInputTime($data['Jam_Selesai']);
+            echo json_encode(['status' => 'success', 'data' => $data]);
+            exit();
+        }
+    }
+    echo json_encode(['status' => 'error', 'msg' => 'Data jadwal tidak ditemukan.']);
+    exit();
+}
+
+// ============================================================================
+// AJAX HANDLER: SAVE (INSERT / EDIT) SATU SLOT JADWAL
+// ============================================================================
+if (isset($_POST['is_ajax_save'])) {
+    header('Content-Type: application/json');
     $id          = isset($_POST['id_jadwal']) ? trim($_POST['id_jadwal']) : '';
     $id_lapangan = $_POST['id_lapangan'] ?? '';
     $tanggal     = $_POST['tanggal'] ?? '';
     $jam_mulai   = $_POST['jam_mulai'] ?? '';
-    $edit_mode   = isset($_POST['edit_mode']);
+    $edit_mode   = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
 
-    // Default redirect target: kembali ke tanggal yang dipilih
-    $back_url = 'jadwal.php' . ($tanggal ? '?tanggal=' . urlencode($tanggal) : '');
-
-    if (empty($id_lapangan)) { header("Location: $back_url&status=error&msg=" . urlencode('Lapangan wajib dipilih.')); exit(); }
-    if (empty($tanggal))     { header("Location: $back_url&status=error&msg=" . urlencode('Tanggal wajib diisi.'));    exit(); }
-    if (empty($jam_mulai))   { header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai wajib dipilih.')); exit(); }
+    if (empty($id_lapangan)) { echo json_encode(['status'=>'error', 'msg'=>'Lapangan wajib dipilih.']); exit(); }
+    if (empty($tanggal))     { echo json_encode(['status'=>'error', 'msg'=>'Tanggal wajib diisi.']); exit(); }
+    if (empty($jam_mulai))   { echo json_encode(['status'=>'error', 'msg'=>'Jam mulai wajib dipilih.']); exit(); }
 
     $hari_ini = date('Y-m-d');
     if ($tanggal < $hari_ini) {
-        header("Location: $back_url&status=error&msg=" . urlencode('Tanggal tidak boleh kurang dari hari ini.')); exit();
+        echo json_encode(['status'=>'error', 'msg'=>'Tanggal tidak boleh kurang dari hari ini.']); exit();
     }
-
-    // Jam mulai harus bulat jam & dalam jam operasional
     if (!in_array($jam_mulai, daftarJamOperasional(), true)) {
-        header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai harus jam bulat antara 08:00 - 23:00.')); exit();
+        echo json_encode(['status'=>'error', 'msg'=>'Jam mulai harus jam bulat antara 08:00 - 23:00.']); exit();
     }
-
-    // Kalau hari ini: jam mulai harus lebih besar dari jam sekarang
     if ($tanggal === $hari_ini) {
         $jam_sekarang = date('H:i');
         if ($jam_mulai <= $jam_sekarang) {
-            header("Location: $back_url&status=error&msg=" . urlencode('Jam mulai harus lebih besar dari jam sekarang (' . $jam_sekarang . ' WIB).')); exit();
+            echo json_encode(['status'=>'error', 'msg'=>"Jam mulai harus lebih besar dari jam sekarang ($jam_sekarang WIB)."]); exit();
         }
     }
 
-    // Auto-calc jam selesai = jam mulai + 1 jam
     $jam_selesai = hitungJamSelesai($jam_mulai);
 
-    // Validasi bentrok sudah di-handle oleh SP (SP_Jadwal_Insert/Update)
-    // SP akan raise error jika bentrok, kita catch dan redirect
     if ($edit_mode) {
-        $r = safeQuery($conn, "EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?",
+        // Cek Bentrok untuk Edit
+        $cek = safeQuery($conn, "SELECT ID_Jadwal, Is_Deleted FROM Jadwal WHERE ID_Lapangan=? AND Tanggal=? AND Jam_Mulai=? AND ID_Jadwal != ?", [$id_lapangan, $tanggal, $jam_mulai, $id]);
+        $row = safeFetch($cek);
+        
+        if ($row) {
+            if ($row['Is_Deleted'] == 0) {
+                echo json_encode(['status'=>'error', 'msg'=>'Gagal! Waktu tersebut sudah terisi oleh jadwal lain.']); exit();
+            } else {
+                // Ada jadwal yang dulunya dihapus di slot tujuan. Hapus permanen data lama itu agar update ini bisa masuk.
+                safeQuery($conn, "DELETE FROM Jadwal WHERE ID_Jadwal=?", [$row['ID_Jadwal']]);
+            }
+        }
+
+        $r = safeQuery($conn, "SET NOCOUNT ON; EXEC SP_Jadwal_Update @ID_Jadwal=?, @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Modified_By=?",
             [$id, $id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+            
         if ($r === null) {
-            header("Location: $back_url&status=error&msg=" . urlencode('Gagal memperbarui jadwal. Slot mungkin bentrok atau lapangan tidak aktif.')); exit();
+            echo json_encode(['status'=>'error', 'msg'=>'Gagal memperbarui jadwal. Jadwal mungkin bentrok.']); exit();
         }
-        header("Location: $back_url&status=success&msg=" . urlencode('Jadwal berhasil diperbarui!'));
+        echo json_encode(['status'=>'success', 'msg'=>'Jadwal berhasil diperbarui!']);
+        
     } else {
-        $r = safeQuery($conn, "EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
-            [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
-        if ($r === null) {
-            header("Location: $back_url&status=error&msg=" . urlencode('Gagal menambahkan jadwal. Slot mungkin bentrok atau lapangan tidak aktif.')); exit();
+        // Cek Bentrok untuk Tambah
+        $cek = safeQuery($conn, "SELECT ID_Jadwal, Is_Deleted FROM Jadwal WHERE ID_Lapangan=? AND Tanggal=? AND Jam_Mulai=?", [$id_lapangan, $tanggal, $jam_mulai]);
+        $row = safeFetch($cek);
+        
+        if ($row) {
+            if ($row['Is_Deleted'] == 0) {
+                echo json_encode(['status'=>'error', 'msg'=>'Gagal! Jadwal pada waktu tersebut sudah ada.']); exit();
+            } else {
+                // Data jadwal pernah ada lalu dihapus (Soft Delete). Kita aktifkan (Restore) kembali jadwal ini.
+                $r = safeQuery($conn, "UPDATE Jadwal SET Is_Deleted=0, Status=1, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Jadwal=?", [$nama, $row['ID_Jadwal']]);
+                if ($r) {
+                    echo json_encode(['status'=>'success', 'msg'=>"Jadwal $jam_mulai - $jam_selesai berhasil ditambahkan!"]);
+                } else {
+                    echo json_encode(['status'=>'error', 'msg'=>'Gagal memulihkan jadwal.']);
+                }
+                exit();
+            }
         }
-        header("Location: $back_url&status=success&msg=" . urlencode('Slot ' . $jam_mulai . ' - ' . $jam_selesai . ' berhasil ditambahkan!'));
+
+        // Jika benar-benar kosong, buat baru via SP
+        $r = safeQuery($conn, "SET NOCOUNT ON; EXEC SP_Jadwal_Insert @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai=?, @Jam_Selesai=?, @Status=1, @Created_By=?",
+            [$id_lapangan, $tanggal, $jam_mulai, $jam_selesai, $nama]);
+            
+        if ($r === null) {
+            echo json_encode(['status'=>'error', 'msg'=>'Gagal menambahkan jadwal. Jadwal mungkin bentrok.']); exit();
+        }
+        echo json_encode(['status'=>'success', 'msg'=>"Jadwal $jam_mulai - $jam_selesai berhasil ditambahkan!"]);
     }
     exit();
 }
 
-// ===== BULK GENERATE: pakai SP_Jadwal_BulkGenerate =====
+// ===== BUAT JADWAL OTOMATIS =====
 if (isset($_POST['generate_all'])) {
     $id_lapangan = $_POST['id_lapangan'] ?? '';
     $tanggal     = $_POST['tanggal'] ?? '';
     $back_url = 'jadwal.php' . ($tanggal ? '?tanggal=' . urlencode($tanggal) : '');
 
     if (empty($id_lapangan) || empty($tanggal)) {
-        header("Location: $back_url&status=error&msg=" . urlencode('Lapangan & tanggal wajib untuk generate slot.')); exit();
+        header("Location: $back_url&status=error&msg=" . urlencode('Lapangan & tanggal wajib untuk membuat jadwal otomatis.')); exit();
     }
     if ($tanggal < date('Y-m-d')) {
-        header("Location: $back_url&status=error&msg=" . urlencode('Tidak bisa generate slot untuk tanggal lampau.')); exit();
+        header("Location: $back_url&status=error&msg=" . urlencode('Tidak bisa membuat jadwal otomatis untuk tanggal lampau.')); exit();
     }
 
-    // Hitung jam mulai awal (kalau hari ini, mulai dari jam sekarang + 1)
-    $jam_mulai_awal = '08:00';
+    $jam_mulai_awal = OPS_JAM_MULAI_AWAL; // 8 (08:00)
     if ($tanggal === date('Y-m-d')) {
         $jam_now = intval(date('H'));
-        if ($jam_now >= 8 && $jam_now < 23) {
-            $jam_mulai_awal = sprintf('%02d:00', $jam_now + 1);
-        } elseif ($jam_now >= 23) {
-            header("Location: $back_url&status=error&msg=" . urlencode('Tidak ada slot tersisa untuk hari ini.')); exit();
+        if ($jam_now >= OPS_JAM_MULAI_AWAL && $jam_now < OPS_JAM_MULAI_AKHIR) {
+            $jam_mulai_awal = $jam_now + 1;
+        } elseif ($jam_now >= OPS_JAM_MULAI_AKHIR) {
+            header("Location: $back_url&status=error&msg=" . urlencode('Tidak ada jadwal tersisa untuk hari ini.')); exit();
         }
     }
 
-    $r = safeQuery($conn, "EXEC SP_Jadwal_BulkGenerate @ID_Lapangan=?, @Tanggal=?, @Jam_Mulai_Awal=?, @Jam_Mulai_Akhir='23:00', @Durasi_Jam=1, @Status=1, @Created_By=?",
-        [$id_lapangan, $tanggal, $jam_mulai_awal, $nama]);
+    $target_dibuat = 0;
+    
+    // Looping jam per jam dan deteksi data yang terhapus (Soft Delete)
+    for ($h = $jam_mulai_awal; $h <= OPS_JAM_MULAI_AKHIR; $h++) {
+        $jm = sprintf('%02d:00', $h);
+        $js = hitungJamSelesai($jm);
 
-    $inserted = 0; $skipped = 0;
-    if ($r) {
-        $row = safeFetch($r);
+        $cek = safeQuery($conn, "SELECT ID_Jadwal, Is_Deleted FROM Jadwal WHERE ID_Lapangan=? AND Tanggal=? AND Jam_Mulai=?", [$id_lapangan, $tanggal, $jm]);
+        $row = safeFetch($cek);
+
         if ($row) {
-            $inserted = intval($row['Slot_Dibuat'] ?? 0);
-            $skipped = intval($row['Slot_Dilewati'] ?? 0);
+            if ($row['Is_Deleted'] == 1) {
+                // Restore jadwal yang dulu pernah dihapus
+                safeQuery($conn, "UPDATE Jadwal SET Is_Deleted=0, Status=1, Modified_By=?, Modified_Date=GETDATE() WHERE ID_Jadwal=?", [$nama, $row['ID_Jadwal']]);
+                $target_dibuat++;
+            }
+        } else {
+            // Insert jadwal benar-benar baru
+            safeQuery($conn, "INSERT INTO Jadwal (ID_Lapangan, Tanggal, Jam_Mulai, Jam_Selesai, Status, Is_Deleted, Created_By, Created_Date) VALUES (?, ?, ?, ?, 1, 0, ?, GETDATE())", 
+                [$id_lapangan, $tanggal, $jm, $js, $nama]);
+            $target_dibuat++;
         }
     }
-    $msg = $inserted . ' slot berhasil dibuat.' . ($skipped > 0 ? ' (' . $skipped . ' slot sudah ada / dilewati)' : '');
-    header("Location: $back_url&status=success&msg=" . urlencode($msg));
+
+    if ($target_dibuat > 0) {
+        $msg = $target_dibuat . ' jadwal baru berhasil dibuat otomatis!';
+        header("Location: $back_url&status=success&msg=" . urlencode($msg));
+    } else {
+        header("Location: $back_url&status=error&msg=" . urlencode('Semua jadwal sudah penuh, tidak ada yang ditambahkan.'));
+    }
     exit();
 }
 
-// Helper: bangun query string untuk pertahankan tanggal/lapangan state saat redirect
+
 function keepStateQS() {
     $qs = [];
     if (!empty($_GET['tanggal']))    $qs[] = 'tanggal=' . urlencode($_GET['tanggal']);
@@ -189,53 +248,41 @@ function keepStateQS() {
     return $qs ? '&' . implode('&', $qs) : '';
 }
 
+// ===== TOGGLE STATUS & DELETE (SEKARANG MENDUKUNG AJAX TANPA REFRESH) =====
 if (isset($_GET['toggle_id'])) {
-    safeQuery($conn, "EXEC SP_Jadwal_ToggleStatus @ID_Jadwal=?, @Modified_By=?", [$_GET['toggle_id'], $nama]);
-    header("Location: jadwal.php?status=success&msg=" . urlencode('Status jadwal berhasil diubah!') . keepStateQS());
-    exit();
-}
-
-if (isset($_GET['delete_id'])) {
-    safeQuery($conn, "EXEC SP_Jadwal_Delete @ID_Jadwal=?, @Deleted_By=?", [$_GET['delete_id'], $nama]);
-    header("Location: jadwal.php?status=success&msg=" . urlencode('Jadwal berhasil dihapus!') . keepStateQS());
-    exit();
-}
-
-$edit_data = null;
-if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "EXEC SP_Jadwal_Select @ID_Jadwal=?", [$_GET['edit_id']]);
-    if ($r) $edit_data = safeFetch($r);
-}
-
-$detail_data = null;
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "EXEC SP_Jadwal_Select @ID_Jadwal=?", [$_GET['detail_id']]);
-    if ($r) {
-        $detail_data = safeFetch($r);
-        $show_detail = true;
+    $is_ajax = isset($_GET['ajax']) && $_GET['ajax'] == '1';
+    $r = safeQuery($conn, "SET NOCOUNT ON; EXEC SP_Jadwal_ToggleStatus @ID_Jadwal=?, @Modified_By=?", [$_GET['toggle_id'], $nama]);
+    
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        if ($r !== null) echo json_encode(['status' => 'success', 'msg' => 'Status jadwal berhasil diubah!']);
+        else echo json_encode(['status' => 'error', 'msg' => 'Gagal mengubah status jadwal.']);
+        exit();
     }
 }
 
-$show_add = isset($_GET['add']) && $_GET['add'] == '1';
+if (isset($_GET['delete_id'])) {
+    $is_ajax = isset($_GET['ajax']) && $_GET['ajax'] == '1';
+    $r = safeQuery($conn, "SET NOCOUNT ON; EXEC SP_Jadwal_Delete @ID_Jadwal=?, @Deleted_By=?", [$_GET['delete_id'], $nama]);
+    
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        if ($r !== null) echo json_encode(['status' => 'success', 'msg' => 'Jadwal berhasil dihapus!']);
+        else echo json_encode(['status' => 'error', 'msg' => 'Gagal menghapus jadwal. Pastikan jadwal tidak sedang dibooking.']);
+        exit();
+    }
+}
 
 // ===== VIEW MODE: upcoming (default) atau history =====
 $view_mode = ($_GET['view'] ?? 'upcoming') === 'history' ? 'history' : 'upcoming';
 $today = date('Y-m-d');
 
-// Tanggal terpilih (untuk mode upcoming). Default = hari ini.
 $selected_date = $_GET['tanggal'] ?? $today;
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selected_date)) $selected_date = $today;
 if ($view_mode === 'upcoming' && $selected_date < $today) $selected_date = $today;
 
-// Filter lapangan opsional
 $filter_lapangan = (isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '') ? intval($_GET['f_lapangan']) : null;
 
-// Prefill untuk modal tambah (dari klik "+ Buat" di grid)
-$prefill_lapangan = $_GET['pf_lap']  ?? '';
-$prefill_jam      = $_GET['pf_jam']  ?? '';
-
-// ===== STATS: pakai SP_Jadwal_GetStats =====
 $aktif_count = 0; $nonaktif_count = 0; $total_upcoming = 0; $total_history = 0;
 $q_stats = safeQuery($conn, "EXEC SP_Jadwal_GetStats", []);
 if ($q_stats) {
@@ -247,11 +294,10 @@ if ($q_stats) {
         $total_history  = intval($row['Riwayat']  ?? 0);
     }
 }
-$total_jadwal = $total_upcoming; // stat chip "TOTAL" = upcoming
+$total_jadwal = $total_upcoming; 
 
-// ===== LOAD DATA GRID (mode upcoming: pakai SP_Jadwal_SelectAll) =====
-$slots_by_lap = [];   // [lap_id][ "HH:MM" ] = row jadwal
-$booking_flags = [];  // [id_jadwal] = true kalau ada booking aktif
+$slots_by_lap = [];  
+$booking_flags = []; 
 if ($view_mode === 'upcoming') {
     $q_grid = safeQuery($conn, "EXEC SP_Jadwal_SelectAll @Tanggal=?, @ID_Lapangan=?, @Is_Deleted=0",
         [$selected_date, $filter_lapangan]);
@@ -263,7 +309,6 @@ if ($view_mode === 'upcoming') {
             $slots_by_lap[$r['ID_Lapangan']][$jamStr] = $r;
             $ids[] = $r['ID_Jadwal'];
         }
-        // cek booking aktif (Status 0=pending, 1=confirmed)
         if (!empty($ids)) {
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $q_bk = safeQuery($conn, "SELECT ID_Jadwal FROM Booking WHERE ID_Jadwal IN ($placeholders) AND Status IN (0,1)", $ids);
@@ -276,14 +321,12 @@ if ($view_mode === 'upcoming') {
     }
 }
 
-// ===== LOAD DATA (mode history: pakai SP_Jadwal_SelectAll dengan pagination manual) =====
 $history_rows = [];
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $hist_limit = 20;
 $hist_total = 0;
 $hist_total_pages = 1;
 if ($view_mode === 'history') {
-    // Ambil semua data history pakai SP
     $q_h_all = safeQuery($conn, "EXEC SP_Jadwal_SelectAll @ID_Lapangan=?, @Tanggal_Sampai=?, @Is_Deleted=0",
         [$filter_lapangan, date('Y-m-d', strtotime('-1 day'))]);
     $all_hist = [];
@@ -297,13 +340,11 @@ if ($view_mode === 'history') {
     $history_rows = array_slice($all_hist, $offset, $hist_limit);
 }
 
-// URL param helper untuk pertahankan state saat pindah halaman
 $state_url = '';
 if ($filter_lapangan) $state_url .= '&f_lapangan=' . $filter_lapangan;
 if ($view_mode === 'history') $state_url .= '&view=history';
 if ($view_mode === 'upcoming' && $selected_date !== $today) $state_url .= '&tanggal=' . urlencode($selected_date);
 
-// Daftar 7 tanggal buat date scroller (mulai dari selected_date - 3 hari, tapi minimal hari ini)
 $scroller_start = new DateTime($selected_date);
 $scroller_start->modify('-3 days');
 if ($scroller_start < new DateTime($today)) $scroller_start = new DateTime($today);
@@ -374,7 +415,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-link.active::before { width: 100%; background: linear-gradient(90deg, rgba(255,69,0,0.2), rgba(255,69,0,0.08)); }
 .sb-link.active .sb-icon-wrap { background: var(--orange); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,69,0,.3); }
 
-/* Active indicator pill */
 .sb-link.active::after { content: ''; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--orange); border-radius: 3px 0 0 3px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
 
 .sb-bottom { margin-top: auto; padding-top: 20px; }
@@ -396,11 +436,9 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sb-logout i { position: relative; z-index: 1; transition: transform 0.3s ease; }
 .sb-logout:hover i { transform: translateX(2px); }
 
-/* Sidebar entrance animation */
 @keyframes sidebarSlideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .sidebar { animation: sidebarSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 
-/* Staggered menu item entrance */
 @keyframes menuItemFadeIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 .sb-link { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
 .sb-brand { animation: menuItemFadeIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s forwards; opacity: 0; }
@@ -560,7 +598,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 /* ========= SLOT GRID ========= */
 .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-.slot-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; transition: all .2s; position: relative; text-decoration: none; }
+.slot-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; transition: all .2s; position: relative; text-decoration: none; cursor: default; }
 .slot-card .slot-time { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; color: var(--text); letter-spacing: -.3px; }
 .slot-card .slot-dash { color: var(--muted); font-weight: 700; margin: 0 4px; }
 .slot-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
@@ -697,7 +735,7 @@ select.modal-input { cursor: pointer; appearance: none; background-image: url("d
 .btn-filter-reset:hover { background: #E5E7EB; }
 
 .btn-add { display: inline-flex; align-items: center; gap: 8px; background-color: var(--text); color: #fff; padding: 11px 22px; border-radius: 10px; font-size: 13px; font-weight: 800; text-decoration: none; text-transform: uppercase; transition: all .2s ease; border: none; cursor: pointer; }
-.btn-add:hover { background-color: var(--orange); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
+.btn-add:hover { background: var(--orange); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,69,0,.3); }
 .btn-add i { font-size: 14px; }
 
 .detail-icon-wrap { width: 80px; height: 80px; background: var(--orange-lt); color: var(--orange); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(255,69,0,0.15); }
@@ -731,6 +769,18 @@ input[type="time"].modal-input {
     cursor: pointer !important;
 }
 
+/* Pastikan SweetAlert tampil di urutan paling depan agar tidak ketiban modal jadwal */
+.swal2-container {
+    z-index: 99999 !important;
+}
+.swal2-popup {
+    font-family: 'Barlow', sans-serif !important;
+}
+.swal2-title {
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-size: 26px !important;
+}
+
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }
     .main { margin-left: 0; }
@@ -741,48 +791,37 @@ input[type="time"].modal-input {
 </head>
 <body>
 <!-- MODAL FORM JADWAL: Simplified — lapangan + tanggal + jam mulai (jam selesai otomatis +1 jam) -->
-<div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalJadwal">
+<div class="modal-overlay" id="modalJadwal">
     <div class="modal-box">
-        <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="modal-close" onclick="closeModal('modalJadwal')"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
             <div class="modal-subtitle">Kelola Jadwal</div>
-            <div class="modal-title"><?= $edit_data ? 'Edit Slot Jadwal' : 'Tambah Slot Jadwal' ?></div>
+            <div class="modal-title" id="formModalTitle">Tambah Jadwal Baru</div>
         </div>
         <div class="modal-body">
-            <form method="POST" id="formJadwal" onsubmit="return validateForm()" novalidate>
-                <?php if ($edit_data): ?>
-                    <input type="hidden" name="edit_mode" value="1">
-                    <input type="hidden" name="id_jadwal" id="id_jadwal" value="<?= htmlspecialchars($edit_data['ID_Jadwal']) ?>">
-                <?php endif; ?>
+            <form method="POST" id="formJadwal" onsubmit="return submitJadwalAjax(event)" novalidate>
+                <input type="hidden" name="is_ajax_save" value="1">
+                <input type="hidden" name="edit_mode" id="edit_mode" value="0">
+                <input type="hidden" name="id_jadwal" id="id_jadwal" value="">
 
                 <label class="modal-label">Lapangan <span class="required">*</span></label>
                 <select name="id_lapangan" id="id_lapangan" class="modal-input" required>
                     <option value="">Pilih Lapangan</option>
-                    <?php
-                    $lap_sel = $edit_data['ID_Lapangan'] ?? $prefill_lapangan;
-                    foreach ($lapangan_list as $lap): ?>
-                        <option value="<?= $lap['ID_Lapangan'] ?>" <?= ($lap_sel == $lap['ID_Lapangan']) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($lap['Nama_Lapangan']) ?>
-                        </option>
+                    <?php foreach ($lapangan_list as $lap): ?>
+                        <option value="<?= $lap['ID_Lapangan'] ?>"><?= htmlspecialchars($lap['Nama_Lapangan']) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <div class="val-msg" id="val-id_lapangan"></div>
 
                 <label class="modal-label">Tanggal <span class="required">*</span></label>
-                <input type="date" name="tanggal" id="tanggal" class="modal-input"
-                       value="<?= isset($edit_data['Tanggal']) ? formatInputDate($edit_data['Tanggal']) : ($show_add ? htmlspecialchars($selected_date) : '') ?>"
-                       min="<?= $today ?>" required>
+                <input type="date" name="tanggal" id="tanggal" class="modal-input" min="<?= $today ?>" required>
                 <div class="val-msg" id="val-tanggal"></div>
 
                 <label class="modal-label">Jam Mulai <span class="required">*</span></label>
                 <select name="jam_mulai" id="jam_mulai" class="modal-input" required>
                     <option value="">Pilih jam mulai</option>
-                    <?php
-                    $jam_sel = isset($edit_data['Jam_Mulai']) ? formatInputTime($edit_data['Jam_Mulai']) : $prefill_jam;
-                    foreach (daftarJamOperasional() as $jm):
-                        $jsel = hitungJamSelesai($jm);
-                    ?>
-                        <option value="<?= $jm ?>" <?= ($jam_sel === $jm) ? 'selected' : '' ?>><?= $jm ?> – <?= $jsel ?> WIB</option>
+                    <?php foreach (daftarJamOperasional() as $jm): $jsel = hitungJamSelesai($jm); ?>
+                        <option value="<?= $jm ?>"><?= $jm ?> – <?= $jsel ?> WIB</option>
                     <?php endforeach; ?>
                 </select>
                 <div class="val-msg" id="val-jam_mulai"></div>
@@ -792,51 +831,46 @@ input[type="time"].modal-input {
                     <span>Durasi otomatis <strong>1 jam</strong>. Jam operasional <strong>08:00 – 00:00 WIB</strong>.</span>
                 </div>
 
-                <button type="submit" name="save_jadwal" class="btn-submit">
-                    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Slot' ?>
+                <button type="submit" id="btnSubmitForm" class="btn-submit">
+                    <i class="fa-solid fa-plus"></i> Tambah Jadwal
                 </button>
-                <a onclick="closeModal()" class="btn-cancel">Batal</a>
+                <a onclick="closeModal('modalJadwal')" class="btn-cancel">Batal</a>
             </form>
         </div>
     </div>
 </div>
 
 <!-- MODAL DETAIL JADWAL -->
-<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+<div class="modal-overlay" id="modalDetail">
     <div class="modal-box" style="width: 440px;">
-        <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="modal-close" onclick="closeModal('modalDetail')"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
             <div class="modal-subtitle">Informasi Jadwal</div>
             <div class="modal-title">Detail Jadwal</div>
         </div>
         <div class="modal-body" style="padding-top: 10px;">
-            <?php if ($detail_data): ?>
-                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
-                    <div class="detail-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
-                    <div class="detail-main-name"><?= htmlspecialchars($detail_data['Nama_Lapangan']) ?></div>
-                </div>
-                <input type="hidden" value="<?= htmlspecialchars($detail_data['ID_Jadwal']) ?>">
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal</span>
-                    <span class="info-val" style="font-weight:700;"><?= formatInputDate($detail_data['Tanggal']) ?></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-clock"></i> Jam Operasional</span>
-                    <span class="info-val" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;"><?= formatInputTime($detail_data['Jam_Mulai']) ?> - <?= formatInputTime($detail_data['Jam_Selesai']) ?> WIB</span>
-                </div>
-                <div class="info-row" style="border-bottom:none;">
-                    <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
-                    <span class="info-val">
-                        <span class="status-pill <?= $detail_data['Status'] == 1 ? 'sp-active' : 'sp-inactive' ?>">
-                            <span class="sp-dot"></span>
-                            <?= $detail_data['Status'] == 1 ? 'AKTIF' : 'NONAKTIF' ?>
-                        </span>
-                    </span>
-                </div>
-            <?php endif; ?>
-            <button onclick="closeModal()" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
-                <i class="fa-solid fa-arrow-left"></i> Kembali Ke List
+            <div style="text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1.5px dashed var(--border);">
+                <div class="detail-icon-wrap"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="detail-main-name" id="det_lapangan">-</div>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-calendar-day"></i> Tanggal</span>
+                <span class="info-val" id="det_tanggal" style="font-weight:700;">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-key"><i class="fa-solid fa-clock"></i> Jam Operasional</span>
+                <span class="info-val" id="det_jam" style="font-family:'Barlow Condensed'; font-size:18px; color:var(--orange); font-weight:800;">- WIB</span>
+            </div>
+            <div class="info-row" style="border-bottom:none;">
+                <span class="info-key"><i class="fa-solid fa-circle-check"></i> Status</span>
+                <span class="info-val" id="det_status_pill">
+                    <span class="status-pill sp-active"><span class="sp-dot"></span> -</span>
+                </span>
+            </div>
+            
+            <button onclick="closeModal('modalDetail')" class="btn-submit" style="margin-top: 24px; background: #0D1117;">
+                <i class="fa-solid fa-arrow-left"></i> Kembali Ke Daftar Jadwal
             </button>
         </div>
     </div>
@@ -891,7 +925,6 @@ input[type="time"].modal-input {
         <!-- ===== MODE UPCOMING: DATE SCROLLER + PER-LAPANGAN SLOT GRID ===== -->
         <div class="date-scroller">
             <?php
-            // Prev arrow: geser scroller 1 hari mundur (tapi jangan sebelum hari ini)
             $prev_date = (new DateTime($scroller_dates[0]))->modify('-1 day')->format('Y-m-d');
             if ($prev_date < $today) $prev_date = $today;
             $next_date = (new DateTime(end($scroller_dates)))->modify('+1 day')->format('Y-m-d');
@@ -945,17 +978,18 @@ input[type="time"].modal-input {
                     <div>
                         <div class="lap-name"><i class="fa-solid fa-basketball"></i> <?= htmlspecialchars($lap['Nama_Lapangan']) ?></div>
                         <div class="lap-sub">
-                            <span><i class="fa-solid fa-circle-check" style="color:var(--green);"></i> <?= $slot_aktif_count ?> slot tersedia</span>
+                            <span><i class="fa-solid fa-circle-check" style="color:var(--green);"></i> <?= $slot_aktif_count ?> jadwal tersedia</span>
                             <span class="lap-sub-sep">•</span>
                             <span><i class="fa-solid fa-money-bill" style="color:var(--orange);"></i> Rp <?= number_format($lap['Harga_Sewa'], 0, ',', '.') ?> / jam</span>
                         </div>
                     </div>
                     <?php if ($missing_count > 0): ?>
-                    <form method="POST" action="jadwal.php" class="lap-gen-form" onsubmit="return confirmGenerate(this, '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?>', <?= $missing_count ?>);">
+                    <form method="POST" action="jadwal.php" class="lap-gen-form" onsubmit="return confirmGenerate(event, this, '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?>', <?= $missing_count ?>);">
                         <input type="hidden" name="generate_all" value="1">
                         <input type="hidden" name="id_lapangan" value="<?= $lap_id ?>">
                         <input type="hidden" name="tanggal" value="<?= htmlspecialchars($selected_date) ?>">
-                        <button type="submit" class="btn-generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate <?= $missing_count ?> Slot Kosong</button>
+                        <input type="hidden" name="jumlah_missing" value="<?= $missing_count ?>">
+                        <button type="submit" class="btn-generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Buat Otomatis <?= $missing_count ?> Jadwal</button>
                     </form>
                     <?php endif; ?>
                 </div>
@@ -985,25 +1019,25 @@ input[type="time"].modal-input {
                             <div class="slot-actions">
                                 <?php if (!$is_booked): ?>
                                     <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                        <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?> onchange="confirmToggle('<?= $slot['ID_Jadwal'] ?>', <?= $slot['Status'] ?>)">
+                                        <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?> onchange="confirmToggle(this, '<?= $slot['ID_Jadwal'] ?>', <?= $slot['Status'] ?>)">
                                         <span class="toggle-slider"></span>
                                     </label>
-                                    <a href="?detail_id=<?= $slot['ID_Jadwal'] ?><?= $state_url ?>" class="btn-action btn-view" title="Detail"><i class="fa-solid fa-eye"></i></a>
-                                    <button type="button" onclick="confirmDelete('<?= $slot['ID_Jadwal'] ?>', '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?> pukul <?= $jm ?>')" class="btn-action btn-delete" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
+                                    <button type="button" class="btn-action btn-view" onclick="openDetailModal('<?= $slot['ID_Jadwal'] ?>')" title="Detail"><i class="fa-solid fa-eye"></i></button>
+                                    <button type="button" class="btn-action btn-edit" onclick="openEditModal('<?= $slot['ID_Jadwal'] ?>')" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button type="button" onclick="confirmDelete(this, '<?= $slot['ID_Jadwal'] ?>', '<?= htmlspecialchars($lap['Nama_Lapangan'], ENT_QUOTES) ?>', '<?= $jm ?>', '<?= $jam_selesai_lbl ?>', '<?= $lap_id ?>', '<?= $selected_date ?>')" class="btn-action btn-delete" title="Hapus"><i class="fa-solid fa-trash-can"></i></button>
                                 <?php else: ?>
-                                    <a href="?detail_id=<?= $slot['ID_Jadwal'] ?><?= $state_url ?>" class="btn-action btn-view" title="Detail"><i class="fa-solid fa-eye"></i></a>
+                                    <button type="button" class="btn-action btn-view" onclick="openDetailModal('<?= $slot['ID_Jadwal'] ?>')" title="Detail"><i class="fa-solid fa-eye"></i></button>
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php else:
-                        // Slot kosong (belum ada di DB)
                         $can_create = !$sudah_lewat;
                     ?>
                         <?php if ($can_create): ?>
-                        <a href="?add=1&pf_lap=<?= $lap_id ?>&pf_jam=<?= urlencode($jm) ?>&tanggal=<?= urlencode($selected_date) ?><?= $filter_lapangan ? '&f_lapangan=' . $filter_lapangan : '' ?>" class="slot-card slot-empty">
+                        <div class="slot-card slot-empty" onclick="openAddModal('<?= $lap_id ?>', '<?= $jm ?>', '<?= $selected_date ?>')">
                             <div class="slot-time"><?= $jm ?> <span class="slot-dash">–</span> <?= $jam_selesai_lbl ?></div>
-                            <div class="slot-empty-cta"><i class="fa-solid fa-plus"></i> Buat slot</div>
-                        </a>
+                            <div class="slot-empty-cta"><i class="fa-solid fa-plus"></i> Buat Jadwal</div>
+                        </div>
                         <?php else: ?>
                         <div class="slot-card slot-empty slot-past">
                             <div class="slot-time"><?= $jm ?> <span class="slot-dash">–</span> <?= $jam_selesai_lbl ?></div>
@@ -1102,11 +1136,120 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-function closeModal() {
-    // Kembali ke halaman yang sama tapi buang parameter modal (edit_id/detail_id/add/pf_*)
-    var url = new URL(window.location.href);
-    ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
-    window.location.href = url.pathname + (url.search ? url.search : '');
+// ============================================
+// AJAX MODALS (TAMBAH, EDIT, DETAIL)
+// ============================================
+function openDetailModal(id) {
+    Swal.fire({title: 'Memuat...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch('jadwal.php?ajax_get_detail=' + id)
+    .then(r => r.json())
+    .then(res => {
+        Swal.close();
+        if (res.status === 'success') {
+            document.getElementById('det_lapangan').innerText = res.data.Nama_Lapangan;
+            document.getElementById('det_tanggal').innerText = res.data.Tanggal_Formatted;
+            document.getElementById('det_jam').innerText = res.data.Jam_Mulai_Formatted + ' - ' + res.data.Jam_Selesai_Formatted + ' WIB';
+            
+            let pill = document.getElementById('det_status_pill');
+            if (res.data.Status == 1) {
+                pill.innerHTML = '<span class="status-pill sp-active"><span class="sp-dot"></span> AKTIF</span>';
+            } else {
+                pill.innerHTML = '<span class="status-pill sp-inactive"><span class="sp-dot"></span> NONAKTIF</span>';
+            }
+            document.getElementById('modalDetail').classList.add('open');
+        } else {
+            Swal.fire('Error', res.msg, 'error');
+        }
+    }).catch(err => Swal.fire('Error', 'Kesalahan jaringan', 'error'));
+}
+
+function openAddModal(lapId, jamMulai, tanggal) {
+    document.getElementById('formJadwal').reset();
+    document.getElementById('edit_mode').value = '0';
+    document.getElementById('id_jadwal').value = '';
+    
+    document.getElementById('id_lapangan').value = lapId;
+    document.getElementById('tanggal').value = tanggal;
+    document.getElementById('jam_mulai').value = jamMulai;
+    
+    document.getElementById('formModalTitle').innerText = 'Tambah Jadwal Baru';
+    document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Jadwal';
+    
+    document.getElementById('modalJadwal').classList.add('open');
+}
+
+function openEditModal(id) {
+    Swal.fire({title: 'Memuat...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch('jadwal.php?ajax_get_detail=' + id)
+    .then(r => r.json())
+    .then(res => {
+        Swal.close();
+        if (res.status === 'success') {
+            document.getElementById('edit_mode').value = '1';
+            document.getElementById('id_jadwal').value = res.data.ID_Jadwal;
+            
+            document.getElementById('id_lapangan').value = res.data.ID_Lapangan;
+            document.getElementById('tanggal').value = res.data.Tanggal_Formatted;
+            document.getElementById('jam_mulai').value = res.data.Jam_Mulai_Formatted;
+            
+            document.getElementById('formModalTitle').innerText = 'Edit Jadwal';
+            document.getElementById('btnSubmitForm').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+            
+            document.getElementById('modalJadwal').classList.add('open');
+        } else {
+            Swal.fire('Error', res.msg, 'error');
+        }
+    }).catch(err => Swal.fire('Error', 'Kesalahan jaringan', 'error'));
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('open');
+}
+
+// INI FUNGSI JAVASCRIPTNYA BRO!
+function submitJadwalAjax(e) {
+    e.preventDefault();
+    if(!validateForm()) return false;
+    
+    let formData = new FormData(document.getElementById('formJadwal'));
+    let btn = document.getElementById('btnSubmitForm');
+    let oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+    btn.disabled = true;
+
+    fetch('jadwal.php', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') {
+            closeModal('modalJadwal'); // Modal ditutup duluan
+            setTimeout(() => { // Baru tampil pop up sukses
+                Swal.fire({
+                    icon: 'success', 
+                    title: 'Berhasil!', 
+                    text: res.msg, 
+                    timer: 1500, 
+                    showConfirmButton: false
+                }).then(() => { window.location.reload(); });
+            }, 300);
+        } else {
+            // Kalau gagal, pop up tampil, modal form biarkan tetap kebuka
+            Swal.fire({
+                icon: 'error', 
+                title: 'Gagal!', 
+                text: res.msg,
+                confirmButtonColor: '#FF4500'
+            });
+            btn.innerHTML = oldHtml;
+            btn.disabled = false;
+        }
+    })
+    .catch(err => {
+        Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+        btn.innerHTML = oldHtml;
+        btn.disabled = false;
+    });
+    
+    return false;
 }
 
 function validateField(fieldId, valId, rules) {
@@ -1165,31 +1308,36 @@ function validateForm() {
     return valid;
 }
 
-function confirmGenerate(formEl, namaLap, jumlah) {
-    event.preventDefault();
+function confirmGenerate(e, formEl, namaLap, jumlah) {
+    e.preventDefault(); // Menghentikan form submit otomatis
     Swal.fire({
-        title: 'Generate ' + jumlah + ' Slot?',
-        html: 'Semua slot 1-jam yang belum ada untuk <strong style="color:var(--orange)">' + namaLap + '</strong> pada tanggal ini akan dibuat sekaligus (status Aktif).',
+        title: 'Buat Otomatis ' + jumlah + ' Jadwal?',
+        html: 'Semua jadwal 1-jam yang masih kosong untuk <strong style="color:var(--orange)">' + namaLap + '</strong> pada tanggal ini akan dibuat sekaligus (status Aktif).',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#FF4500',
         cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, generate!',
+        confirmButtonText: 'Ya, Buat Sekarang!',
         cancelButtonText: 'Batal',
         reverseButtons: true,
         allowOutsideClick: false
     }).then(function(result) {
         if (result.isConfirmed) {
             Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: function(){ Swal.showLoading(); } });
-            formEl.submit();
+            formEl.submit(); // Lanjut proses ke PHP
         }
     });
     return false;
 }
 
-function confirmToggle(id, status) {
+// TOGGLE STATUS MENGGUNAKAN FETCH (AJAX) - TANPA REFRESH
+function confirmToggle(checkboxEl, id, status) {
     const action = status == 1 ? 'nonaktifkan' : 'aktifkan';
     const iconType = status == 1 ? 'warning' : 'question';
+    
+    // Cegah checkbox berubah secara visual sampai dikonfirmasi SweetAlert
+    checkboxEl.checked = !checkboxEl.checked; 
+
     Swal.fire({
         title: 'Konfirmasi Perubahan Status',
         text: 'Apakah Anda yakin ingin ' + action + ' jadwal ini?',
@@ -1209,24 +1357,44 @@ function confirmToggle(id, status) {
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
-            setTimeout(() => {
-                var url = new URL(window.location.href);
-                ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
-                url.searchParams.set('toggle_id', id);
-                url.searchParams.set('s', status);
-                window.location.href = url.pathname + '?' + url.searchParams.toString();
-            }, 600);
-        } else {
-            var checkbox = document.querySelector('input[onchange*="confirmToggle(\'' + id + '\'"]');
-            if (checkbox) checkbox.checked = !checkbox.checked;
+            
+            fetch(`jadwal.php?toggle_id=${id}&s=${status}&ajax=1`)
+            .then(r => r.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    Swal.fire({ icon: 'success', title: 'Berhasil!', text: data.msg, timer: 1200, showConfirmButton: false });
+                    
+                    // Update visual UI kartu jadwal tanpa refresh
+                    checkboxEl.checked = (status == 0);
+                    let card = checkboxEl.closest('.slot-card');
+                    let badge = card.querySelector('.slot-badge');
+                    
+                    if (status == 1) { // Menjadi Nonaktif
+                        card.classList.remove('slot-aktif');
+                        card.classList.add('slot-nonaktif');
+                        badge.className = 'slot-badge sb-nonaktif';
+                        badge.innerHTML = '<span class="sb-dot"></span> Nonaktif';
+                        checkboxEl.setAttribute('onchange', `confirmToggle(this, '${id}', 0)`);
+                    } else { // Menjadi Aktif
+                        card.classList.remove('slot-nonaktif');
+                        card.classList.add('slot-aktif');
+                        badge.className = 'slot-badge sb-aktif';
+                        badge.innerHTML = '<span class="sb-dot"></span> Tersedia';
+                        checkboxEl.setAttribute('onchange', `confirmToggle(this, '${id}', 1)`);
+                    }
+                } else {
+                    Swal.fire('Gagal!', data.msg, 'error');
+                }
+            }).catch(err => Swal.fire('Error!', 'Terjadi kesalahan sistem.', 'error'));
         }
     });
 }
 
-function confirmDelete(id, name) {
+// DELETE JADWAL MENGGUNAKAN FETCH (AJAX) - TANPA REFRESH
+function confirmDelete(btnEl, id, lapName, jamMulai, jamSelesai, lapId, tanggal) {
     Swal.fire({
         title: 'Hapus Jadwal?',
-        html: 'Anda akan menghapus jadwal lapangan <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
+        html: 'Anda akan menghapus jadwal <strong style="color:var(--orange);">' + lapName + ' pukul ' + jamMulai + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara Permanen</span>',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
@@ -1243,12 +1411,38 @@ function confirmDelete(id, name) {
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
-            setTimeout(() => {
-                var url = new URL(window.location.href);
-                ['edit_id','detail_id','add','pf_lap','pf_jam','status','msg'].forEach(function(p){ url.searchParams.delete(p); });
-                url.searchParams.set('delete_id', id);
-                window.location.href = url.pathname + '?' + url.searchParams.toString();
-            }, 600);
+            
+            fetch(`jadwal.php?delete_id=${id}&ajax=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: data.msg,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    
+                    // Ganti UI kartu jadwal penuh menjadi slot kosong "Buat Jadwal"
+                    let oldCard = btnEl.closest('.slot-card');
+                    if (oldCard) {
+                        let emptyCard = document.createElement('div');
+                        emptyCard.setAttribute('onclick', `openAddModal('${lapId}', '${jamMulai}', '${tanggal}')`);
+                        emptyCard.className = 'slot-card slot-empty';
+                        emptyCard.innerHTML = `
+                            <div class="slot-time">${jamMulai} <span class="slot-dash">–</span> ${jamSelesai}</div>
+                            <div class="slot-empty-cta"><i class="fa-solid fa-plus"></i> Buat Jadwal</div>
+                        `;
+                        oldCard.parentNode.replaceChild(emptyCard, oldCard);
+                    }
+                } else {
+                    Swal.fire('Gagal!', data.msg, 'error');
+                }
+            })
+            .catch(err => {
+                Swal.fire('Error!', 'Terjadi kesalahan sistem.', 'error');
+            });
         }
     });
 }
@@ -1273,9 +1467,6 @@ function resetFilter() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // ============================================
-    // NOTIFIKASI POPUP TENGAH (CENTERED MODAL)
-    // ============================================
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
     const msg = urlParams.get('msg');
@@ -1296,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         window.history.replaceState({}, document.title, window.location.pathname);
     }
-    // ============================================
+    
     ['id_lapangan','tanggal','jam_mulai'].forEach(function(fid) {
         var el = document.getElementById(fid);
         if (el) el.addEventListener('change', function() {
