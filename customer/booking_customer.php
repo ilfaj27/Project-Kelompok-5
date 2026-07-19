@@ -1748,41 +1748,60 @@ for ($i = 0; $i < 7; $i++) {
         /* ============ UPLOAD BUKTI PEMBAYARAN ============ */
         .bukti-upload-box {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            padding: 22px;
+            flex-direction: column;
             border: 2px dashed var(--border-color);
             border-radius: var(--radius-md);
+            padding: 20px 14px;
             cursor: pointer;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 600;
-            transition: var(--transition)
+            transition: var(--transition);
+            min-height: 110px;
+            background: var(--bg-light, #FAFAFA);
         }
 
         .bukti-upload-box:hover {
             border-color: var(--orange);
             background: var(--orange-light);
-            color: var(--orange)
+        }
+
+        .bukti-upload-box.has-file {
+            border-style: solid;
+            border-color: var(--green, #10B981);
+            padding: 8px;
         }
 
         .bukti-upload-box i {
             font-size: 22px;
-            color: var(--orange)
+            color: var(--text-muted);
+            margin-bottom: 6px;
         }
 
-        .bukti-upload-box.filled {
-            border-style: solid;
-            border-color: var(--green);
-            color: var(--green);
-            background: var(--green-light)
+        .bukti-upload-text {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-dark);
         }
 
-        .bukti-upload-box.filled i {
-            color: var(--green)
+        .bukti-upload-hint {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        #buktiUploadPreview {
+            max-width: 100%;
+            max-height: 160px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        .bukti-upload-error {
+            font-size: 11px;
+            color: var(--red, #EF4444);
+            font-weight: 600;
+            margin-top: 6px;
+            min-height: 14px;
         }
 
         /* ============ PAGINATION LAPANGAN ============ */
@@ -2149,15 +2168,16 @@ for ($i = 0; $i < 7; $i++) {
                 <div class="promo-label" style="margin-top:20px">Unggah Bukti Pembayaran <span
                         style="color:var(--red)">*</span></div>
                 <label for="buktiPembayaranInput" class="bukti-upload-box" id="buktiUploadBox">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <span id="buktiUploadText">Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)</span>
+                    <div id="buktiUploadPlaceholder" style="display:flex;flex-direction:column;align-items:center;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div class="bukti-upload-text">Klik untuk pilih foto/screenshot bukti transfer</div>
+                        <div class="bukti-upload-hint">JPG, PNG, atau PDF. Maks 5MB.</div>
+                    </div>
+                    <img id="buktiUploadPreview" style="display:none;" alt="Preview Bukti Pembayaran">
                 </label>
                 <input type="file" id="buktiPembayaranInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none"
                     onchange="handleBuktiFileChange(this)">
-                <div id="buktiPreviewWrap" style="display:none;margin-top:10px">
-                    <img id="buktiPreviewImg" src="" alt="Preview Bukti Pembayaran"
-                        style="max-width:100%;max-height:180px;border-radius:var(--radius-md);border:1.5px solid var(--border-color)">
-                </div>
+                <div class="bukti-upload-error" id="buktiUploadError"></div>
             </div>
             <div class="modal-footer">
                 <!-- Tombol kembali telah dihapus, menyisakan tombol konfirmasi saja -->
@@ -2218,12 +2238,9 @@ for ($i = 0; $i < 7; $i++) {
 
         // ============ UPLOAD BUKTI PEMBAYARAN ============
         function handleBuktiFileChange(input) {
-            const file = input.files[0];
-            const box = document.getElementById('buktiUploadBox');
-            const textEl = document.getElementById('buktiUploadText');
-            const previewWrap = document.getElementById('buktiPreviewWrap');
-            const previewImg = document.getElementById('buktiPreviewImg');
-
+            const errorEl = document.getElementById('buktiUploadError');
+            if (errorEl) errorEl.textContent = '';
+            const file = input.files && input.files[0];
             if (!file) { buktiFile = null; return; }
 
             const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -2241,18 +2258,19 @@ for ($i = 0; $i < 7; $i++) {
             }
 
             buktiFile = file;
-            box.classList.add('filled');
-            textEl.innerText = file.name;
-
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    previewImg.src = e.target.result;
-                    previewWrap.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            } else {
-                previewWrap.style.display = 'none';
+            const box = document.getElementById('buktiUploadBox');
+            if (box) box.classList.add('has-file');
+            const placeholder = document.getElementById('buktiUploadPlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
+            const preview = document.getElementById('buktiUploadPreview');
+            if (preview) {
+                if (file.type.startsWith('image/')) {
+                    preview.src = URL.createObjectURL(file);
+                    preview.style.display = 'block';
+                } else {
+                    preview.src = '';
+                    preview.style.display = 'none';
+                }
             }
         }
 
@@ -2261,11 +2279,20 @@ for ($i = 0; $i < 7; $i++) {
             const inputEl = document.getElementById('buktiPembayaranInput');
             if (inputEl) inputEl.value = '';
             const box = document.getElementById('buktiUploadBox');
-            if (box) box.classList.remove('filled');
-            const textEl = document.getElementById('buktiUploadText');
-            if (textEl) textEl.innerText = 'Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)';
-            const previewWrap = document.getElementById('buktiPreviewWrap');
-            if (previewWrap) previewWrap.style.display = 'none';
+            if (box) box.classList.remove('has-file');
+            const placeholder = document.getElementById('buktiUploadPlaceholder');
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+                placeholder.style.flexDirection = 'column';
+                placeholder.style.alignItems = 'center';
+            }
+            const preview = document.getElementById('buktiUploadPreview');
+            if (preview) {
+                preview.src = '';
+                preview.style.display = 'none';
+            }
+            const errorEl = document.getElementById('buktiUploadError');
+            if (errorEl) errorEl.textContent = '';
         }
 
         function formatRupiah(n) {
