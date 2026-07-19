@@ -13,6 +13,11 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     // Karena index.php di luar dan file di dalam folder 'login'
     require_once 'login/auto_logout.php';
 }
+
+if (file_exists('includes/config.php')) {
+    include 'includes/config.php';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">

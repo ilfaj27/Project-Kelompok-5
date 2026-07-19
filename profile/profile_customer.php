@@ -23,8 +23,8 @@ if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET')
         exit();
     }
 
-    if (!preg_match('/^[a-zA-Z0-9_]+$/', $check_username)) {
-        echo json_encode(['exists' => false, 'valid' => false, 'message' => 'Username hanya boleh huruf, angka, dan underscore']);
+    if (!preg_match('/^(?=.*[a-zA-Z])(?=.*[0-9\._])[a-zA-Z0-9\._]+$/', $check_username)) {
+        echo json_encode(['exists' => false, 'valid' => false, 'message' => 'Nama Pengguna harus berupa kombinasi huruf dengan angka, titik (.), atau underscore (_)']);
         exit();
     }
 
@@ -130,8 +130,8 @@ if (isset($_POST['update_biodata'])) {
         $field_errors['username'] = 'Nama Pengguna minimal 3 karakter dan maksimal 20 karakter.';
     } elseif (strpos($username_input, ' ') !== false) {
         $field_errors['username'] = 'Nama Pengguna tidak boleh mengandung spasi.';
-    } elseif (!preg_match('/^[a-zA-Z0-9\._]+$/', $username_input)) {
-        $field_errors['username'] = 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).';
+    } elseif (!preg_match('/^(?=.*[a-zA-Z])(?=.*[0-9\._])[a-zA-Z0-9\._]+$/', $username_input)) {
+        $field_errors['username'] = 'Nama Pengguna harus berupa kombinasi huruf dengan angka, titik (.), atau underscore (_).';
     }
 
     // 2. Validasi Tanggal Lahir (Usia 10 - 100 tahun)
@@ -400,16 +400,24 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
         if (in_array($file['type'], $allowed) && $file['size'] <= $max_size) {
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
             $filename = 'profile_' . $ID_Customer . '_' . time() . '.' . $ext;
-            $upload_dir = 'uploads/profiles/';
-            if (!is_dir($upload_dir))
-                mkdir($upload_dir, 0755, true);
-            $upload_path = $upload_dir . $filename;
+            
+            // Simpan jalur bersih relatif ke root untuk database
+            $db_upload_path = 'uploads/profiles/' . $filename;
+            
+            // Tentukan folder fisik tujuan menggunakan $path_prefix (../)
+            $physical_upload_dir = $path_prefix . 'uploads/profiles/';
+            if (!is_dir($physical_upload_dir)) {
+                mkdir($physical_upload_dir, 0755, true);
+            }
+            $physical_upload_path = $physical_upload_dir . $filename;
 
-            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+            // Pindahkan file ke folder uploads di tingkat root
+            if (move_uploaded_file($file['tmp_name'], $physical_upload_path)) {
                 // --- MENGGUNAKAN SP: Update foto dengan sp_UpdateCustomerPhoto ---
                 $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
-                sqlsrv_query($conn, "EXEC dbo.sp_UpdateCustomerPhoto ?, ?, ?", array($ID_Customer, $upload_path, $modified_by));
-                $_SESSION['Profile_Photo'] = $upload_path;
+                sqlsrv_query($conn, "EXEC dbo.sp_UpdateCustomerPhoto ?, ?, ?", array($ID_Customer, $db_upload_path, $modified_by));
+                
+                $_SESSION['Profile_Photo'] = $db_upload_path;
                 $swal_status = 'success';
                 $swal_msg = 'Foto profil berhasil diperbarui!';
             } else {
@@ -431,14 +439,22 @@ $res_cust = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerDetail ?", array($ID_Cus
 $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
 sqlsrv_free_stmt($res_cust);
 
+// RESTRUKTURISASI RESOLUSI PATH FOTO PROFIL (BARU)
+$profile_photo_db = $biodata['Photo_Profile'] ?? $_SESSION['Profile_Photo'] ?? '';
+$profile_photo = '';
+
+if (!empty($profile_photo_db)) {
+    // Hubungkan dengan $path_prefix agar mengarah ke root uploads secara tepat
+    $resolved_path = $path_prefix . $profile_photo_db;
+    if (file_exists($resolved_path)) {
+        $profile_photo = $resolved_path;
+    }
+}
+
+// SINKRONISASI SESSION DENGAN DATABASE (YANG SEBELUMNYA)
 if ($biodata) {
     $_SESSION['nama'] = $biodata['Nama_Customer'];
     $_SESSION['Nama_Customer'] = $biodata['Nama_Customer'];
-}
-
-$profile_photo = $biodata['Photo_Profile'] ?? $_SESSION['Profile_Photo'] ?? '';
-if (empty($profile_photo) || !file_exists($profile_photo)) {
-    $profile_photo = '';
 }
 
 $nama = $biodata['Nama_Customer'] ?? $_SESSION['nama'] ?? 'Customer';
@@ -2802,10 +2818,10 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
                     </div>
 
-                        <div class="form-buttons">
-                            <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
-                            <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
-                        </div>
+                    <div class="form-buttons">
+                        <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
+                        <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
+                    </div>
                 </form>
             </div>
 
@@ -3343,7 +3359,8 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             if (!usernameInput) return true;
             const val = usernameInput.value.trim();
             const error = document.getElementById('usernameError');
-            const usernamePattern = /^[a-zA-Z0-9\._]+$/;
+            // Pola regex baru untuk kombinasi karakter wajib
+            const usernamePattern = /^(?=.*[a-zA-Z])(?=.*[0-9\._])[a-zA-Z0-9\._]+$/;
 
             if (val === '') {
                 usernameInput.classList.add('error');
@@ -3362,7 +3379,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 return false;
             } else if (!usernamePattern.test(val)) {
                 usernameInput.classList.add('error');
-                error.textContent = 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).';
+                error.textContent = 'Nama Pengguna harus berupa kombinasi huruf dengan angka, titik (.), atau underscore (_).';
                 error.classList.add('show');
                 return false;
             }
@@ -3374,7 +3391,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 return true;
             }
 
-            // Pengecekan asinkronus ke server menggunakan API AJAX yang sudah Anda buat
+            // Pengecekan asinkronus ke server menggunakan API AJAX
             fetch(`profile_customer.php?ajax_check_username=1&username=${encodeURIComponent(val)}&exclude=<?= $ID_Customer ?>`)
                 .then(response => response.json())
                 .then(data => {

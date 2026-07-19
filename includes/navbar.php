@@ -471,15 +471,21 @@ function isActive($page, $dir = '')
 
             function navResolvePhoto($photo_path)
             {
+                global $prefix; // Mengambil variabel prefix dinamis dari halaman yang memanggil
+        
                 if (empty($photo_path))
                     return '';
+
+                // Jika foto menggunakan URL eksternal (http/https)
                 if (strpos($photo_path, 'http://') === 0 || strpos($photo_path, 'https://') === 0)
                     return $photo_path;
-                if (strpos($photo_path, '../') === 0)
-                    return $photo_path;
-                if (strpos($photo_path, '/') === 0)
-                    return '..' . $photo_path;
-                return '../' . ltrim($photo_path, '/');
+
+                // Bersihkan jalur dari simbol ../ atau / di awal agar seragam
+                $clean_path = ltrim($photo_path, '/');
+                $clean_path = str_replace('../', '', $clean_path);
+
+                // Gabungkan prefix halaman dengan jalur bersih
+                return $prefix . $clean_path;
             }
             ?>
             <div class="profile-dropdown-container">

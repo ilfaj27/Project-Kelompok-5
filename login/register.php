@@ -140,7 +140,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Registrasi | HoopBall BasketPro</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
         rel="stylesheet">
@@ -150,8 +150,8 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .auth-info {
-            align-self: start !important;
-            margin-top: 130px !important;
+        align-self: start !important; /* <-- Menempelkan posisi ke bagian atas */
+        margin-top: 130px !important;  /* <-- Mengatur jarak turunnya dari atas agar pas */
         }
 
         .form-step {
@@ -211,7 +211,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             border: 2px solid #e2e8f0;
             border-radius: 12px;
             background: #f8fafc;
-            color: #94a3b8;
+            color: #94a3b8; /* abu-abu */
             font-weight: 600;
             font-size: 14px;
             transition: all 0.25s ease;
@@ -227,6 +227,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             background: #f1f5f9;
         }
 
+        /* Checked state - warna aktif */
         .radio-group-container .radio-card input[type="radio"]:checked + .radio-custom-box {
             border-color: #FF5400;
             background: #fff7ed;
@@ -234,8 +235,9 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             box-shadow: 0 0 0 3px rgba(255, 84, 0, 0.15);
         }
 
+        /* Placeholder / belum dipilih state */
         .radio-group-container .radio-card input[type="radio"]:not(:checked) + .radio-custom-box {
-            color: #94a3b8;
+            color: #94a3b8; /* abu-abu */
         }
 
         .radio-group-container.error .radio-custom-box {
@@ -243,7 +245,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             background: #fef2f2;
         }
 
-        .radio-group-container.error-active ~ .error-text {
+        .radio-group-container.error-active~.error-text {
             display: block;
         }
 
@@ -302,7 +304,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
 <body>
 
-   <?php include 'floating_balls.php'; ?>
+    <?php include 'floating_balls.php'; ?>
 
     <a href="login.php" class="btn-close-auth" title="Kembali ke Login">
         <i class="fa-solid fa-xmark"></i>
@@ -404,10 +406,8 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                                 <div class="input-wrapper">
                                     <i class="fa-solid fa-cake-candles icon-left"></i>
                                     <input type="date" name="tanggal_lahir" id="tglLahirField"
-                                        value="<?= htmlspecialchars($tgl_lahir) ?>"
-                                        max="<?= $max_date ?>"
-                                        min="1900-01-01"
-                                        onfocus="this.showPicker()">
+                                        value="<?= htmlspecialchars($tgl_lahir) ?>" max="<?= $max_date ?>"
+                                        min="1900-01-01" onfocus="this.showPicker()">
                                 </div>
                                 <span class="error-text" id="tglLahirError"></span>
                             </div>
@@ -758,7 +758,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 let isStep2Valid = true;
 
                 const usernameVal = username.value.trim();
-                const usernamePattern = /^[a-zA-Z0-9\._]+$/;
+                const usernamePattern = /^(?=.*[a-zA-Z])(?=.*[0-9\._])[a-zA-Z0-9\._]+$/;
 
                 if (usernameVal === '') {
                     setValidationError(username, usernameError, 'Nama Pengguna wajib diisi.');
@@ -770,7 +770,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     setValidationError(username, usernameError, 'Nama Pengguna tidak boleh mengandung spasi.');
                     isStep2Valid = false;
                 } else if (!usernamePattern.test(usernameVal)) {
-                    setValidationError(username, usernameError, 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).');
+                    setValidationError(username, usernameError, 'Nama Pengguna harus berupa kombinasi antara huruf dengan angka, titik (.), atau underscore (_).');
                     isStep2Valid = false;
                 } else {
                     clearValidationError(username, usernameError);
