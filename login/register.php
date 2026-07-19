@@ -135,6 +135,9 @@ if (isset($_POST['register'])) {
 }
 
 $max_date = date('Y-m-d', strtotime('-10 years'));
+
+// Tentukan step yang aktif: kosong = step1, success/error = step2
+$is_submitted = ($res_status !== '');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -150,8 +153,8 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .auth-info {
-        align-self: start !important; /* <-- Menempelkan posisi ke bagian atas */
-        margin-top: 130px !important;  /* <-- Mengatur jarak turunnya dari atas agar pas */
+        align-self: start !important;
+        margin-top: 130px !important;
         }
 
         .form-step {
@@ -211,7 +214,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             border: 2px solid #e2e8f0;
             border-radius: 12px;
             background: #f8fafc;
-            color: #94a3b8; /* abu-abu */
+            color: #94a3b8;
             font-weight: 600;
             font-size: 14px;
             transition: all 0.25s ease;
@@ -237,7 +240,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
         /* Placeholder / belum dipilih state */
         .radio-group-container .radio-card input[type="radio"]:not(:checked) + .radio-custom-box {
-            color: #94a3b8; /* abu-abu */
+            color: #94a3b8;
         }
 
         .radio-group-container.error .radio-custom-box {
@@ -353,14 +356,15 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
                 <div class="step-indicator">
                     <div class="step-dot active" id="dot1">1</div>
-                    <div class="step-line <?= ($res_status === 'error') ? 'active' : ''; ?>" id="line1"></div>
-                    <div class="step-dot <?= ($res_status === 'error') ? 'active' : ''; ?>" id="dot2">2</div>
+                    <div class="step-line <?= $is_submitted ? 'active' : ''; ?>" id="line1"></div>
+                    <div class="step-dot <?= $is_submitted ? 'active' : ''; ?>" id="dot2">2</div>
                 </div>
 
                 <form method="POST" id="registerForm" novalidate>
+                    <input type="hidden" name="register" value="1">
 
                     <!-- LANGKAH 1: DATA PRIBADI -->
-                    <div class="form-step <?= ($res_status !== 'error') ? 'active' : ''; ?>" id="step1">
+                    <div class="form-step <?= !$is_submitted ? 'active' : ''; ?>" id="step1">
                         <div class="form-grid">
                             <div class="input-group">
                                 <label>Nama Lengkap<span style="color: red;">*</span></label>
@@ -440,7 +444,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     </div>
 
                     <!-- LANGKAH 2: DATA AKUN -->
-                    <div class="form-step <?= ($res_status === 'error') ? 'active' : ''; ?>" id="step2">
+                    <div class="form-step <?= $is_submitted ? 'active' : ''; ?>" id="step2">
                         <div class="form-grid">
                             <div class="input-group">
                                 <label>Nama Pengguna<span style="color: red;">*</span></label>
@@ -511,8 +515,13 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 text: '<?= addslashes($res_msg) ?>',
                 background: '#ffffff',
                 color: '#1e293b',
-                confirmButtonColor: '#FF5400'
-            }).then(() => {
+                confirmButtonColor: '#FF5400',
+                showConfirmButton: true,
+                confirmButtonText: 'OK',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false
+            }).then((result) => {
                 <?php if ($res_status == "success"): ?>
                     window.location.href = 'login.php';
                 <?php endif; ?>
