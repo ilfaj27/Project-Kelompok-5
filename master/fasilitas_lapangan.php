@@ -61,18 +61,22 @@ if ($is_ajax) {
         // Validasi format nama dan detail
         if (empty($nama_fasilitas)) {
             $errors[] = "Nama fasilitas wajib diisi!";
-        } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $nama_fasilitas)) {
-            $errors[] = "Nama fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
+        } elseif (strlen($nama_fasilitas) < 3) { // Diubah dari 10 menjadi 3
+            $errors[] = "Nama fasilitas minimal harus 3 karakter!";
+        } elseif (!preg_match('/^[a-zA-Z\s]+$/', $nama_fasilitas)) {
+            $errors[] = "Nama fasilitas hanya boleh berisi huruf dan spasi!";
         }
 
         if (empty($detail_fasilitas)) {
             $errors[] = "Detail fasilitas wajib diisi!";
-        } elseif (!preg_match('/^[a-zA-Z0-9\s\-]+$/', $detail_fasilitas)) {
-            $errors[] = "Detail fasilitas hanya boleh berisi huruf, angka, spasi, dan tanda strip!";
+        } elseif (strlen($detail_fasilitas) < 10) { // Ditambahkan batas minimal 10 karakter
+            $errors[] = "Detail fasilitas minimal harus 10 karakter!";
+        } elseif (!preg_match('/^[a-zA-Z\s\-]+$/', $detail_fasilitas)) { // Dihilangkan regex angka '0-9'
+            $errors[] = "Detail fasilitas hanya boleh berisi huruf, spasi, dan tanda strip (tidak boleh angka)!";
         }
 
-        if ($stok_total <= 0) {
-            $errors[] = "Stok total harus lebih dari 0!";
+        if ($stok_total < 5) {
+            $errors[] = "Stok total tidak boleh kurang dari 5!";
         }
 
         if (empty($errors)) {
@@ -1321,7 +1325,7 @@ $sidebar_photo = $profile_photo;
                     <div id="hiddenInputsArea"></div>
 
                     <label class="modal-label">Stok Total <span class="required">*</span></label>
-                    <input type="number" name="stok_total" id="stok_total" class="modal-input" required min="1"
+                    <input type="number" name="stok_total" id="stok_total" class="modal-input" required min="5"
                         placeholder="Contoh: 15" autocomplete="off">
                     <div class="val-msg" id="val-stok_total"></div>
 
@@ -1332,7 +1336,7 @@ $sidebar_photo = $profile_photo;
 
                     <label class="modal-label">Detail Fasilitas <span class="required">*</span></label>
                     <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input" required
-                        maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
+                        minlength="10" maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
                     <div class="val-msg" id="val-detail_fasilitas"></div>
 
                     <button type="submit" class="btn-submit" id="btnSubmitForm">
@@ -1576,7 +1580,38 @@ $sidebar_photo = $profile_photo;
                 return false;
             }
 
-            if (rules.pattern && value !== '') {
+            if (rules.minValue !== undefined && value !== '') {
+                if (parseInt(value) < rules.minValue) {
+                    field.classList.add('error');
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' minimal harus ' + rules.minValue;
+                    valMsg.classList.add('show');
+                    return false;
+                }
+            }
+
+            // Validasi khusus hanya huruf dan spasi
+            if (rules.patternAlphaOnly && value !== '') {
+                const regex = /^[a-zA-Z\s]+$/;
+                if (!regex.test(value)) {
+                    field.classList.add('error');
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' hanya boleh berisi huruf dan spasi';
+                    valMsg.classList.add('show');
+                    return false;
+                }
+            }
+
+            if (rules.patternAlphaSpaceHyphen && value !== '') {
+                const regex = /^[a-zA-Z\s\-]+$/;
+                if (!regex.test(value)) {
+                    field.classList.add('error');
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' hanya boleh berisi huruf, spasi, dan strip (tidak boleh angka)';
+                    valMsg.classList.add('show');
+                    return false;
+                }
+            }
+
+            // Validasi huruf, angka, spasi, dan strip (untuk detail)
+            if (rules.patternDefault && value !== '') {
                 const regex = /^[a-zA-Z0-9\s\-]+$/;
                 if (!regex.test(value)) {
                     field.classList.add('error');
@@ -1594,6 +1629,7 @@ $sidebar_photo = $profile_photo;
 
             if (!validateField('stok_total', 'val-stok_total', {
                 required: true,
+                minValue: 5, // Ditambahkan batas minimal nilai 5
                 label: 'Stok total'
             })) valid = false;
 
@@ -1601,14 +1637,15 @@ $sidebar_photo = $profile_photo;
                 required: true,
                 minLength: 3,
                 maxLength: 50,
-                pattern: true,
+                patternAlphaOnly: true,
                 label: 'Nama fasilitas'
             })) valid = false;
 
             if (!validateField('detail_fasilitas', 'val-detail_fasilitas', {
                 required: true,
+                minLength: 10,
                 maxLength: 50,
-                pattern: true,
+                patternAlphaSpaceHyphen: true,
                 label: 'Detail fasilitas'
             })) valid = false;
 
@@ -1922,15 +1959,35 @@ $sidebar_photo = $profile_photo;
             // Jalankan load data tabel utama
             loadTableData();
 
+            const stokTotal = document.getElementById('stok_total');
+            if (stokTotal) {
+                stokTotal.addEventListener('blur', function () {
+                    validateField('stok_total', 'val-stok_total', {
+                        required: true,
+                        minValue: 5,
+                        label: 'Stok total'
+                    });
+                });
+                stokTotal.addEventListener('input', function () {
+                    if (this.classList.contains('error')) {
+                        validateField('stok_total', 'val-stok_total', {
+                            required: true,
+                            minValue: 5,
+                            label: 'Stok total'
+                        });
+                    }
+                });
+            }
+
             // Real-time validations
             const namaFas = document.getElementById('nama_fasilitas');
             if (namaFas) {
                 namaFas.addEventListener('blur', function () {
                     validateField('nama_fasilitas', 'val-nama_fasilitas', {
                         required: true,
-                        minLength: 3,
+                        minLength: 3, // Diubah menjadi 3
                         maxLength: 50,
-                        pattern: true,
+                        patternAlphaOnly: true,
                         label: 'Nama fasilitas'
                     });
                 });
@@ -1938,9 +1995,9 @@ $sidebar_photo = $profile_photo;
                     if (this.classList.contains('error')) {
                         validateField('nama_fasilitas', 'val-nama_fasilitas', {
                             required: true,
-                            minLength: 3,
+                            minLength: 3, // Diubah menjadi 3
                             maxLength: 50,
-                            pattern: true,
+                            patternAlphaOnly: true,
                             label: 'Nama fasilitas'
                         });
                     }
@@ -1952,8 +2009,9 @@ $sidebar_photo = $profile_photo;
                 detailFas.addEventListener('blur', function () {
                     validateField('detail_fasilitas', 'val-detail_fasilitas', {
                         required: true,
+                        minLength: 10, // Ditambahkan minimal 10
                         maxLength: 50,
-                        pattern: true,
+                        patternAlphaSpaceHyphen: true, // Menggunakan aturan tanpa angka
                         label: 'Detail fasilitas'
                     });
                 });
@@ -1961,8 +2019,9 @@ $sidebar_photo = $profile_photo;
                     if (this.classList.contains('error')) {
                         validateField('detail_fasilitas', 'val-detail_fasilitas', {
                             required: true,
+                            minLength: 10, // Ditambahkan minimal 10
                             maxLength: 50,
-                            pattern: true,
+                            patternAlphaSpaceHyphen: true, // Menggunakan aturan tanpa angka
                             label: 'Detail fasilitas'
                         });
                     }

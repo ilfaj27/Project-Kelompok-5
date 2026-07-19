@@ -89,10 +89,10 @@ if (file_exists('../includes/config.php')) {
     die("Config file tidak ditemukan!");
 }
 
-$pass_error_field = $_SESSION['pass_error_field'] ?? '';
-if (!empty($pass_error_field)) {
+if (isset($_SESSION['pass_error_field'])) {
     unset($_SESSION['pass_error_field']);
 }
+$pass_error_field = ''; // Gunakan variabel lokal murni
 
 // ============================================================================
 // UPDATE BIODATA (MENGGUNAKAN SP)
@@ -118,6 +118,19 @@ if (isset($_POST['update_biodata'])) {
     // 1. Validasi Nama Lengkap
     if (empty($nama)) {
         $field_errors['nama'] = 'Nama lengkap wajib diisi.';
+    } elseif (!preg_match('/^[a-zA-Z\s]+$/', $nama)) {
+        $field_errors['nama'] = 'Nama lengkap hanya boleh berisi huruf dan spasi.';
+    }
+
+    // Validasi Nama Pengguna (Username) - SAMA DENGAN REGISTER
+    if (empty($username_input)) {
+        $field_errors['username'] = 'Nama Pengguna wajib diisi.';
+    } elseif (strlen($username_input) < 3 || strlen($username_input) > 20) {
+        $field_errors['username'] = 'Nama Pengguna minimal 3 karakter dan maksimal 20 karakter.';
+    } elseif (strpos($username_input, ' ') !== false) {
+        $field_errors['username'] = 'Nama Pengguna tidak boleh mengandung spasi.';
+    } elseif (!preg_match('/^[a-zA-Z0-9\._]+$/', $username_input)) {
+        $field_errors['username'] = 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).';
     }
 
     // 2. Validasi Tanggal Lahir (Usia 10 - 100 tahun)
@@ -223,13 +236,16 @@ if (isset($_POST['update_biodata'])) {
             while (sqlsrv_next_result($stmt)) {
             }
             sqlsrv_free_stmt($stmt);
+
+            // Atur semua data session terlebih dahulu
             $_SESSION['nama'] = $nama;
             $_SESSION['nama_user'] = $nama;
-            session_write_close();
-
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Biodata berhasil diperbarui!';
+
+            // Tutup penulisan session setelah semua data tersimpan
+            session_write_close();
 
             header("Location: profile_customer.php");
             exit();
@@ -263,13 +279,31 @@ if (isset($_POST['update_password'])) {
     // Validasi kecocokan menggunakan Argon2id di PHP
     $is_valid = password_verify($old_pass, $db_hashed_pass);
 
+    // Daftar kata sandi sederhana yang dilarang
+    $simple_passwords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'hoopball', 'hoopball123'];
+
+    $old_pass_error_msg = "";
+
+    // Struktur rantai validasi yang benar (satu kesatuan)
     if (!$is_valid) {
-        $swal_status = 'error';
-        $swal_msg = 'Kata Sandi lama tidak sesuai.';
+        // Hapus swal_status & swal_msg agar pop-up tidak muncul
         $_SESSION['pass_error_field'] = 'old_password';
+        $old_pass_error_msg = 'Kata Sandi lama tidak sesuai.'; // Disimpan ke variabel lokal
+    } elseif ($old_pass === $new_pass) { // <-- VALIDASI BARU
+        $swal_status = 'error';
+        $swal_msg = 'Kata sandi baru tidak boleh sama dengan kata sandi lama.';
+        $_SESSION['pass_error_field'] = 'new_password';
     } elseif (strlen($new_pass) < 8) {
         $swal_status = 'error';
-        $swal_msg = 'Kata Sandi baru minimal 8 karakter.';
+        $swal_msg = 'Kata Sandi baru minimal berisi 8 karakter.';
+        $_SESSION['pass_error_field'] = 'new_password';
+    } elseif (!preg_match('/[a-zA-Z]/', $new_pass) || !preg_match('/[0-9]/', $new_pass)) {
+        $swal_status = 'error';
+        $swal_msg = 'Kata sandi baru harus berisi kombinasi huruf dan angka.';
+        $_SESSION['pass_error_field'] = 'new_password';
+    } elseif (in_array(strtolower($new_pass), $simple_passwords)) {
+        $swal_status = 'error';
+        $swal_msg = 'Kata sandi baru terlalu mudah ditebak. Silakan gunakan kombinasi lain.';
         $_SESSION['pass_error_field'] = 'new_password';
     } elseif ($new_pass !== $confirm_pass) {
         $swal_status = 'error';
@@ -285,9 +319,8 @@ if (isset($_POST['update_password'])) {
         $stmt = sqlsrv_query(
             $conn,
             "EXEC dbo.sp_UpdateCustomerPassword ?, ?, ?",
-            array($ID_Customer, $hashed_new_pass, $modified_by) // <--- Mengirim hash password baru
+            array($ID_Customer, $hashed_new_pass, $modified_by)
         );
-
 
         if ($stmt) {
             while (sqlsrv_next_result($stmt)) {
@@ -504,12 +537,15 @@ function format_date_display($date)
     }
     return $date;
 }
+
+// Batasi tanggal maksimal hari ini dikurangi 10 tahun
+$max_date = date('Y-m-d', strtotime('-10 years'));
 ?>
 <!DOCTYPE html>
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Profil Saya | HoopBall</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
@@ -2486,9 +2522,9 @@ function format_date_display($date)
             }
         }
 
-         /* ============================================
-   MATIKAN SEMUA ANIMASI SWEETALERT2 
-   ============================================ */
+        /* ============================================
+    MATIKAN SEMUA ANIMASI SWEETALERT2 
+    ============================================ */
         .swal2-popup {
             animation: none !important;
             transition: none !important;
@@ -2510,7 +2546,7 @@ function format_date_display($date)
         body.swal2-shown,
         body.swal2-height-auto {
             padding-right: 0 !important;
-   }
+        }
     </style>
 
 </head>
@@ -2637,66 +2673,94 @@ function format_date_display($date)
             </aside>
 
             <!-- SISI KANAN: FORM EDIT BIODATA (Tinggi menyesuaikan stretch secara otomatis) -->
-            <div class="form-card" id="profile-form-card" class="reveal-right" style="justify-content: flex-start;">
+            <div class="form-card reveal-right" id="profile-form-card" style="justify-content: flex-start;">
                 <div class="form-card-title">Informasi Pribadi</div>
-                <form method="POST" id="formBiodata" style="display: flex; flex-direction: column; flex: 1;">
+                <form method="POST" id="formBiodata" novalidate style="display: flex; flex-direction: column; flex: 1;">
                     <div>
-                        <div class="form-row-2">
-                            <!-- Nama Lengkap -->
-                            <div class="form-group">
-                                <label class="form-label">Nama Lengkap <span class="required">*</span></label>
-                                <input type="text" name="nama_customer" id="nama_customer"
-                                    class="form-input <?= isset($field_errors['nama']) ? 'error' : '' ?>"
-                                    value="<?= htmlspecialchars($nama) ?>" placeholder="Nama lengkap sesuai identitas"
-                                    autocomplete="off">
-                                <div class="error-msg <?= isset($field_errors['nama']) ? 'show' : '' ?>" id="namaError">
-                                    <?= $field_errors['nama'] ?? 'Nama lengkap wajib diisi.' ?>
+                        <div>
+                            <div class="form-row-2">
+                                <!-- Nama Lengkap -->
+                                <div class="form-group">
+                                    <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                                    <input type="text" name="nama_customer" id="nama_customer"
+                                        class="form-input <?= isset($field_errors['nama']) ? 'error' : '' ?>"
+                                        value="<?= htmlspecialchars($nama) ?>"
+                                        placeholder="Nama lengkap sesuai identitas" autocomplete="off">
+                                    <div class="error-msg <?= isset($field_errors['nama']) ? 'show' : '' ?>"
+                                        id="namaError">
+                                        <?= $field_errors['nama'] ?? 'Nama lengkap wajib diisi.' ?>
+                                    </div>
+                                </div>
+
+                                <!-- Nama Pengguna (Username) -->
+                                <div class="form-group">
+                                    <label class="form-label">Nama Pengguna <span class="required">*</span></label>
+                                    <input type="text" name="username" id="username"
+                                        class="form-input <?= isset($field_errors['username']) ? 'error' : '' ?>"
+                                        value="<?= htmlspecialchars($username) ?>" placeholder="budi_hoops"
+                                        autocomplete="off">
+                                    <div class="error-msg <?= isset($field_errors['username']) ? 'show' : '' ?>"
+                                        id="usernameError">
+                                        <?= $field_errors['username'] ?? 'Nama Pengguna wajib diisi.' ?>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Email -->
-                            <div class="form-group">
-                                <label class="form-label">Email <span class="required">*</span></label>
-                                <input type="email" name="email" id="email"
-                                    class="form-input <?= isset($field_errors['email']) ? 'error' : '' ?>"
-                                    value="<?= htmlspecialchars($email) ?>" placeholder="email@domain.com"
-                                    autocomplete="off">
-                                <div class="error-msg <?= isset($field_errors['email']) ? 'show' : '' ?>"
-                                    id="emailError">
-                                    <?= $field_errors['email'] ?? 'Email wajib diisi.' ?>
+                            <div class="form-row-2">
+                                <!-- Email -->
+                                <div class="form-group">
+                                    <label class="form-label">Email <span class="required">*</span></label>
+                                    <input type="text" name="email" id="email"
+                                        class="form-input <?= isset($field_errors['email']) ? 'error' : '' ?>"
+                                        value="<?= htmlspecialchars($email) ?>" placeholder="email@domain.com"
+                                        autocomplete="off">
+                                    <div class="error-msg <?= isset($field_errors['email']) ? 'show' : '' ?>"
+                                        id="emailError">
+                                        <?= $field_errors['email'] ?? 'Email wajib diisi.' ?>
+                                    </div>
+                                </div>
+
+                                <!-- No. HP -->
+                                <div class="form-group">
+                                    <label class="form-label">No. HP <span class="required">*</span></label>
+                                    <input type="tel" name="no_telepon" id="no_telepon"
+                                        class="form-input <?= isset($field_errors['telepon']) ? 'error' : '' ?>"
+                                        value="<?= htmlspecialchars($telepon) ?>" maxlength="14"
+                                        placeholder="Contoh: 08123456789">
+                                    <div class="error-msg <?= isset($field_errors['telepon']) ? 'show' : '' ?>"
+                                        id="teleponError">
+                                        <?= $field_errors['telepon'] ?? 'Nomor telepon wajib diisi.' ?>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-row-2">
-                            <!-- No. HP -->
-                            <div class="form-group">
-                                <label class="form-label">No. HP <span class="required">*</span></label>
-                                <input type="tel" name="no_telepon" id="no_telepon"
-                                    class="form-input <?= isset($field_errors['telepon']) ? 'error' : '' ?>"
-                                    value="<?= htmlspecialchars($telepon) ?>" maxlength="14"
-                                    placeholder="Contoh: 08123456789">
-                                <div class="error-msg <?= isset($field_errors['telepon']) ? 'show' : '' ?>"
-                                    id="teleponError">
-                                    <?= $field_errors['telepon'] ?? 'Nomor telepon wajib diisi.' ?>
+                            <div class="form-row-2">
+                                <!-- Tanggal Lahir -->
+                                <div class="form-group">
+                                    <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
+                                    <input type="date" name="tanggal_lahir" id="tanggal_lahir"
+                                        class="form-input <?= isset($field_errors['tgl_lahir']) ? 'error' : '' ?>"
+                                        value="<?= format_date_input($tgl_lahir) ?>" max="<?= $max_date ?>"
+                                        min="1900-01-01" onfocus="this.showPicker()">
+                                    <div class="error-msg <?= isset($field_errors['tgl_lahir']) ? 'show' : '' ?>"
+                                        id="tglLahirError">
+                                        <?= $field_errors['tgl_lahir'] ?? 'Tanggal lahir wajib diisi.' ?>
+                                    </div>
+                                </div>
+
+                                <!-- Kota / Tempat Lahir -->
+                                <div class="form-group">
+                                    <label class="form-label">Kota <span class="required">*</span></label>
+                                    <input type="text" name="tempat_lahir" id="tempat_lahir"
+                                        class="form-input <?= isset($field_errors['tmp_lahir']) ? 'error' : '' ?>"
+                                        value="<?= htmlspecialchars($tmp_lahir) ?>" placeholder="Kota tempat tinggal">
+                                    <div class="error-msg <?= isset($field_errors['tmp_lahir']) ? 'show' : '' ?>"
+                                        id="tmpLahirError">
+                                        <?= $field_errors['tmp_lahir'] ?? 'Tempat lahir wajib diisi.' ?>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Tanggal Lahir -->
-                            <div class="form-group">
-                                <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
-                                <input type="date" name="tanggal_lahir" id="tanggal_lahir"
-                                    class="form-input <?= isset($field_errors['tgl_lahir']) ? 'error' : '' ?>"
-                                    value="<?= format_date_input($tgl_lahir) ?>">
-                                <div class="error-msg <?= isset($field_errors['tgl_lahir']) ? 'show' : '' ?>"
-                                    id="tglLahirError">
-                                    <?= $field_errors['tgl_lahir'] ?? 'Tanggal lahir wajib diisi.' ?>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-row-2">
-                            <!-- Jenis Kelamin -->
                             <div class="form-group">
                                 <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
                                 <div class="radio-group-container">
@@ -2715,59 +2779,50 @@ function format_date_display($date)
                                 </div>
                             </div>
 
-                            <!-- Kota / Tempat Lahir -->
+                            <!-- Alamat Lengkap -->
                             <div class="form-group">
-                                <label class="form-label">Kota <span class="required">*</span></label>
-                                <input type="text" name="tempat_lahir" id="tempat_lahir"
-                                    class="form-input <?= isset($field_errors['tmp_lahir']) ? 'error' : '' ?>"
-                                    value="<?= htmlspecialchars($tmp_lahir) ?>" placeholder="Kota tempat tinggal">
-                                <div class="error-msg <?= isset($field_errors['tmp_lahir']) ? 'show' : '' ?>"
-                                    id="tmpLahirError">
-                                    <?= $field_errors['tmp_lahir'] ?? 'Tempat lahir wajib diisi.' ?>
+                                <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
+                                <textarea name="alamat" id="alamat"
+                                    class="form-input <?= isset($field_errors['alamat']) ? 'error' : '' ?>"
+                                    placeholder="Tuliskan alamat lengkap Anda" rows="4"
+                                    style="resize: vertical; min-height: 100px; font-family: inherit;"><?= htmlspecialchars($alamat) ?></textarea>
+                                <div class="error-msg <?= isset($field_errors['alamat']) ? 'show' : '' ?>"
+                                    id="alamatError">
+                                    <?= $field_errors['alamat'] ?? 'Alamat lengkap wajib diisi.' ?>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Alamat Lengkap -->
-                        <div class="form-group">
-                            <label class="form-label">Alamat Lengkap <span class="required">*</span></label>
-                            <textarea name="alamat" id="alamat"
-                                class="form-input <?= isset($field_errors['alamat']) ? 'error' : '' ?>"
-                                placeholder="Tuliskan alamat lengkap Anda" rows="4"
-                                style="resize: vertical; min-height: 100px; font-family: inherit;"><?= htmlspecialchars($alamat) ?></textarea>
-                            <div class="error-msg <?= isset($field_errors['alamat']) ? 'show' : '' ?>" id="alamatError">
-                                <?= $field_errors['alamat'] ?? 'Alamat lengkap wajib diisi.' ?>
-                            </div>
+                    </div>
+
+                        <div class="form-buttons">
+                            <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
+                            <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
                         </div>
-
-                        <input type="hidden" name="username" id="username" value="<?= htmlspecialchars($username) ?>">
-                    </div>
-
-                    <div class="form-buttons">
-                        <button type="button" class="btn-cancel" onclick="window.location.reload();">Batal</button>
-                        <button type="submit" name="update_biodata" class="btn-submit">Simpan Perubahan</button>
-                    </div>
                 </form>
             </div>
 
             <!-- FORM KATA SANDI (TAB GANTI PASSWORD) -->
-            <div class="form-card" id="password-form-card" class="reveal-right"
-                style="display: none; align-self: start;">
+            <div class="form-card" id="password-form-card" style="display: none; align-self: start;">
                 <div class="form-card-title">Keamanan & Ubah Password</div>
                 <form method="POST" id="formPassword"
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
                     <div>
                         <div class="form-group">
                             <label class="form-label">Kata Sandi Lama <span class="required">*</span></label>
-                            <!-- Tambahkan wrapper ini -->
                             <div class="password-wrapper" style="position: relative;">
+                                <!-- Class error otomatis aktif jika ada kesalahan dari backend -->
                                 <input type="password" name="old_password" id="old_password"
-                                    class="form-input <?= ($pass_error_field === 'old_password') ? 'error' : '' ?>"
+                                    class="form-input <?= ($pass_error_field === 'old_password' || !empty($old_pass_error_msg)) ? 'error' : '' ?>"
                                     placeholder="Sandi saat ini" style="padding-right: 40px;">
                                 <i class="fa-regular fa-eye toggle-password" data-target="old_password"
                                     style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
                             </div>
-                            <div class="error-msg" id="oldPassError">Kata Sandi lama wajib diisi.</div>
+                            <!-- Menampilkan pesan secara langsung di bawah kolom -->
+                            <div class="error-msg <?= ($pass_error_field === 'old_password' || !empty($old_pass_error_msg)) ? 'show' : '' ?>"
+                                id="oldPassError">
+                                <?= !empty($old_pass_error_msg) ? htmlspecialchars($old_pass_error_msg) : 'Kata Sandi lama wajib diisi.' ?>
+                            </div>
                         </div>
 
                         <div class="form-row-2">
@@ -2805,49 +2860,48 @@ function format_date_display($date)
             </div>
 
             <!-- TAB HAPUS AKUN -->
-            <div class="form-card" id="delete-form-card" class="reveal-right" style="display: none; align-self: start;">
+            <div class="form-card" id="delete-form-card" style="display: none; align-self: start;">
                 <div class="form-card-title" style="color: var(--red);">Hapus Akun Permanen</div>
                 <form method="POST" id="formDeleteAccount" novalidate
                     style="display: flex; flex-direction: column; flex: 1; justify-content: space-between;">
-                <input type="hidden" name="delete_account" value="1">
-                <div>
-                    <div
-                        style="background-color: #FFEBEA; border: 1px solid rgba(255, 59, 48, 0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-                        <h4 style="color: var(--red); font-size: 14px; font-weight: 800; margin-bottom: 6px;"><i
-                                class="fa-solid fa-triangle-exclamation"></i> Peringatan Penting</h4>
-                        <p style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px;">
-                            Menghapus akun akan mengakibatkan hal-hal berikut:
-                        </p>
-                        <ul style="font-size: 12px; color: #555; margin-left: 20px; line-height: 1.6;">
-                            <li>Anda tidak akan dapat login kembali menggunakan akun ini.</li>
-                            <li>Semua riwayat transaksi dan data keanggotaan aktif Anda akan ditangguhkan.</li>
-                            <li>Semua jadwal booking aktif/mendatang akan otomatis dibatalkan.</li>
-                        </ul>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Masukkan Kata Sandi Anda <span class="required">*</span></label>
-                        <!-- Tambahkan wrapper ini -->
-                        <div class="password-wrapper" style="position: relative;">
-                            <input type="password" name="confirm_delete_password" id="confirm_delete_password"
-                                class="form-input" placeholder="Ketik kata sandi saat ini untuk konfirmasi"
-                                style="padding-right: 40px;">
-                            <i class="fa-regular fa-eye toggle-password" data-target="confirm_delete_password"
-                                style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
+                    <input type="hidden" name="delete_account" value="1">
+                    <div>
+                        <div
+                            style="background-color: #FFEBEA; border: 1px solid rgba(255, 59, 48, 0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="color: var(--red); font-size: 14px; font-weight: 800; margin-bottom: 6px;"><i
+                                    class="fa-solid fa-triangle-exclamation"></i> Peringatan Penting</h4>
+                            <p style="font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px;">
+                                Menghapus akun akan mengakibatkan hal-hal berikut:
+                            </p>
+                            <ul style="font-size: 12px; color: #555; margin-left: 20px; line-height: 1.6;">
+                                <li>Anda tidak akan dapat login kembali menggunakan akun ini.</li>
+                                <li>Semua riwayat transaksi dan data keanggotaan aktif Anda akan ditangguhkan.</li>
+                                <li>Semua jadwal booking aktif/mendatang akan otomatis dibatalkan.</li>
+                            </ul>
                         </div>
-                        <div class="error-msg" id="deletePassError">Wajib memasukkan kata sandi konfirmasi.</div>
+                        <div class="form-group">
+                            <label class="form-label">Masukkan Kata Sandi Anda <span class="required">*</span></label>
+                            <!-- Tambahkan wrapper ini -->
+                            <div class="password-wrapper" style="position: relative;">
+                                <input type="password" name="confirm_delete_password" id="confirm_delete_password"
+                                    class="form-input" placeholder="Ketik kata sandi saat ini untuk konfirmasi"
+                                    style="padding-right: 40px;">
+                                <i class="fa-regular fa-eye toggle-password" data-target="confirm_delete_password"
+                                    style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted-text);"></i>
+                            </div>
+                            <div class="error-msg" id="deletePassError">Wajib memasukkan kata sandi konfirmasi.</div>
+                        </div>
                     </div>
-                </div>
-                <div class="form-buttons" style="margin-top: auto;">
-                    <button type="submit" class="btn-submit" style="background: var(--red);">Konfirmasi Hapus
-                        Akun</button>
-                </div>
+                    <div class="form-buttons" style="margin-top: auto;">
+                        <button type="submit" class="btn-submit" style="background: var(--red);">Konfirmasi Hapus
+                            Akun</button>
+                    </div>
                 </form>
             </div>
 
             <!-- TAB 1: KARTU RIWAYAT BOOKING -->
 
-            <div class="form-card" id="booking-list-card" class="reveal-right"
-                style="display: none; align-self: start;">
+            <div class="form-card" id="booking-list-card" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Booking Lapangan</div>
 
                 <div class="list-container" id="booking-items-wrapper">
@@ -2917,7 +2971,7 @@ function format_date_display($date)
 
 
             <!-- TAB 2: KARTU RIWAYAT LANGGANAN MEMBER -->
-            <div class="form-card" id="member-list-card" class="reveal-right" style="display: none; align-self: start;">
+            <div class="form-card" id="member-list-card" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Langganan Member</div>
 
                 <div class="list-container" id="member-items-wrapper">
@@ -2983,8 +3037,7 @@ function format_date_display($date)
             </div>
 
             <!-- TAB 3: KARTU RIWAYAT PEMBELIAN PERLENGKAPAN -->
-            <div class="form-card" id="purchase-list-card" class="reveal-right"
-                style="display: none; align-self: start;">
+            <div class="form-card" id="purchase-list-card" style="display: none; align-self: start;">
                 <div class="form-card-title">Riwayat Pembelian Perlengkapan</div>
 
                 <div class="list-container" id="purchase-items-wrapper">
@@ -3042,6 +3095,10 @@ function format_date_display($date)
 
     <?php include '../includes/footer.php'; ?>
     <script>
+        // --- 1. Mencegah error menetap akibat Refresh & Post Ulang (Replace History State) ---
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
+        }
 
         // FUNGSI UTAMA UNTUK HANDLING PAGINATION
         function initPagination(wrapperId, navId, itemsPerPage = 5) {
@@ -3052,7 +3109,6 @@ function format_date_display($date)
             const items = Array.from(wrapper.getElementsByClassName('paginated-item'));
             const totalItems = items.length;
 
-            // Jika jumlah item lebih sedikit atau sama dengan limit, sembunyikan navigasi
             if (totalItems <= itemsPerPage) {
                 navContainer.style.display = 'none';
                 return;
@@ -3068,9 +3124,9 @@ function format_date_display($date)
 
                 items.forEach((item, index) => {
                     if (index >= start && index < end) {
-                        item.style.display = 'flex'; // Tampilkan item pada halaman aktif
+                        item.style.display = 'flex';
                     } else {
-                        item.style.display = 'none'; // Sembunyikan item lainnya
+                        item.style.display = 'none';
                     }
                 });
 
@@ -3080,7 +3136,6 @@ function format_date_display($date)
             function renderControls() {
                 navContainer.innerHTML = '';
 
-                // Tombol Sebelumnya (Prev)
                 const prevBtn = document.createElement('button');
                 prevBtn.type = 'button';
                 prevBtn.className = 'pagination-btn';
@@ -3089,7 +3144,6 @@ function format_date_display($date)
                 prevBtn.onclick = () => showPage(currentPage - 1);
                 navContainer.appendChild(prevBtn);
 
-                // Angka Halaman
                 for (let i = 1; i <= totalPages; i++) {
                     const pageBtn = document.createElement('button');
                     pageBtn.type = 'button';
@@ -3099,7 +3153,6 @@ function format_date_display($date)
                     navContainer.appendChild(pageBtn);
                 }
 
-                // Tombol Berikutnya (Next)
                 const nextBtn = document.createElement('button');
                 nextBtn.type = 'button';
                 nextBtn.className = 'pagination-btn';
@@ -3109,19 +3162,59 @@ function format_date_display($date)
                 navContainer.appendChild(nextBtn);
             }
 
-            showPage(1); // Set ke halaman awal saat pertama dimuat
+            showPage(1);
         }
 
-        // Jalankan pagination saat DOM selesai dimuat sepenuhnya
+        // GABUNGKAN SEMUA LOGIKA DOMCONTENTLOADED DI SINI
         document.addEventListener('DOMContentLoaded', () => {
-            // Parameter angka '5' di bawah ini adalah limit jumlah data per halaman (bisa disesuaikan)
+            // A. Jalankan pagination
             initPagination('booking-items-wrapper', 'booking-pagination-nav', 2);
             initPagination('member-items-wrapper', 'member-pagination-nav', 2);
             initPagination('purchase-items-wrapper', 'purchase-pagination-nav', 2);
+
+            // B. Intersection Observer untuk scroll animations
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.1
+            };
+
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
+                revealObserver.observe(el);
+            });
+
+            // C. Fitur Tampil / Sembunyikan Password
+            const togglePasswordIcons = document.querySelectorAll('.toggle-password');
+            togglePasswordIcons.forEach(icon => {
+                icon.addEventListener('click', function () {
+                    const targetId = this.getAttribute('data-target');
+                    const passwordInput = document.getElementById(targetId);
+
+                    if (passwordInput) {
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            this.classList.remove('fa-eye');
+                            this.classList.add('fa-eye-slash');
+                        } else {
+                            passwordInput.type = 'password';
+                            this.classList.remove('fa-eye-slash');
+                            this.classList.add('fa-eye');
+                        }
+                    }
+                });
+            });
         });
 
         function switchTab(tab) {
-            // Menghapus status active dari semua tombol menu
             document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
 
             const profileForm = document.getElementById('profile-form-card');
@@ -3133,7 +3226,6 @@ function format_date_display($date)
 
             const sections = [profileForm, passwordForm, deleteForm, bookingList, memberList, purchaseList];
 
-            // Menyembunyikan semua section terlebih dahulu secara aman
             sections.forEach(sec => {
                 if (sec) {
                     sec.style.display = 'none';
@@ -3143,7 +3235,6 @@ function format_date_display($date)
 
             let activeSection = null;
 
-            // Menentukan section mana yang akan ditampilkan berdasarkan tab yang diklik
             if (tab === 'profile') {
                 document.getElementById('menu-profile').classList.add('active');
                 activeSection = profileForm;
@@ -3164,46 +3255,134 @@ function format_date_display($date)
                 activeSection = purchaseList;
             }
 
-            // Menampilkan panel aktif dengan efek transisi
             if (activeSection) {
                 activeSection.style.display = 'flex';
-                void activeSection.offsetWidth; // Memicu render ulang untuk animasi CSS
+                void activeSection.offsetWidth;
                 activeSection.style.animation = 'tabSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards';
             }
         }
 
-        // Notification handler (SweetAlert)
-        <?php if ($swal_status && $swal_msg): ?>
-            Swal.fire({
-                icon: '<?= $swal_status ?>',
-                title: '<?= $swal_status === 'success' ? 'Berhasil!' : 'Gagal!' ?>',
-                text: '<?= addslashes($swal_msg) ?>',
-                timer: 4000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                timerProgressBar: true,
-                background: '#ffffff',
-                color: '#1C1C1E',
-                iconColor: '<?= $swal_status === 'success' ? '#34C759' : '#FF3B30' ?>',
-                customClass: { popup: 'swal-light' }
-            });
+        // Pengecekan Tab setelah submit form agar tidak bentrok dengan SweetAlert
+        <?php if (isset($_POST['update_password'])): ?>
+            switchTab('password');
+        <?php elseif (isset($_POST['delete_account']) && $swal_status === 'error'): ?>
+            switchTab('delete');
         <?php endif; ?>
 
         // Real-time Field Validation
         const namaInput = document.getElementById('nama_customer');
+        const usernameInput = document.getElementById('username'); // Ambil element input username
         const tglLahirInput = document.getElementById('tanggal_lahir');
         const tmpLahirInput = document.getElementById('tempat_lahir');
         const teleponInput = document.getElementById('no_telepon');
         const alamatInput = document.getElementById('alamat');
         const emailInput = document.getElementById('email');
 
+        // Simpan username awal untuk menghindari AJAX check jika tidak ada perubahan
+        const initialUsername = usernameInput ? usernameInput.value.trim() : '';
+
+        // Validasi Nama Lengkap (Hanya Huruf & Spasi)
         if (namaInput) {
             namaInput.addEventListener('input', function () {
                 this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
                 validateNama();
             });
             namaInput.addEventListener('blur', validateNama);
+        }
+
+        // Validasi Nama Pengguna (Hanya Huruf, Angka, Titik, Underscore - Tanpa Spasi)
+        if (usernameInput) {
+            usernameInput.addEventListener('input', function () {
+                this.value = this.value.replace(/[^a-zA-Z0-9\._]/g, '');
+                validateUsername();
+            });
+            usernameInput.addEventListener('blur', validateUsername);
+        }
+
+        // Validasi Tempat Lahir (Hanya Huruf & Spasi)
+        if (tmpLahirInput) {
+            tmpLahirInput.addEventListener('input', function () {
+                this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+                validateTmpLahir();
+            });
+            tmpLahirInput.addEventListener('blur', validateTmpLahir);
+        }
+
+        // Validasi Tanggal Lahir
+        if (tglLahirInput) {
+            tglLahirInput.addEventListener('change', validateTglLahir);
+            tglLahirInput.addEventListener('blur', validateTglLahir);
+        }
+
+        // Validasi Nomor Telepon
+        if (teleponInput) {
+            teleponInput.addEventListener('input', validateTelepon);
+            teleponInput.addEventListener('blur', validateTelepon);
+        }
+
+        // Validasi Alamat Lengkap
+        if (alamatInput) {
+            alamatInput.addEventListener('input', validateAlamat);
+            alamatInput.addEventListener('blur', validateAlamat);
+        }
+
+        // Validasi Email
+        if (emailInput) {
+            emailInput.addEventListener('input', validateEmail);
+            emailInput.addEventListener('blur', validateEmail);
+        }
+
+        function validateUsername() {
+            if (!usernameInput) return true;
+            const val = usernameInput.value.trim();
+            const error = document.getElementById('usernameError');
+            const usernamePattern = /^[a-zA-Z0-9\._]+$/;
+
+            if (val === '') {
+                usernameInput.classList.add('error');
+                error.textContent = 'Nama Pengguna wajib diisi.';
+                error.classList.add('show');
+                return false;
+            } else if (val.length < 3 || val.length > 20) {
+                usernameInput.classList.add('error');
+                error.textContent = 'Nama Pengguna minimal 3 karakter dan maksimal 20 karakter.';
+                error.classList.add('show');
+                return false;
+            } else if (usernameInput.value.includes(' ')) {
+                usernameInput.classList.add('error');
+                error.textContent = 'Nama Pengguna tidak boleh mengandung spasi.';
+                error.classList.add('show');
+                return false;
+            } else if (!usernamePattern.test(val)) {
+                usernameInput.classList.add('error');
+                error.textContent = 'Nama Pengguna hanya boleh menggunakan huruf, angka, titik (.), dan underscore (_).';
+                error.classList.add('show');
+                return false;
+            }
+
+            // Jika username sama dengan username awal, tidak perlu memanggil AJAX check
+            if (val.toLowerCase() === initialUsername.toLowerCase()) {
+                usernameInput.classList.remove('error');
+                error.classList.remove('show');
+                return true;
+            }
+
+            // Pengecekan asinkronus ke server menggunakan API AJAX yang sudah Anda buat
+            fetch(`profile_customer.php?ajax_check_username=1&username=${encodeURIComponent(val)}&exclude=<?= $ID_Customer ?>`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        usernameInput.classList.add('error');
+                        error.textContent = 'Nama Pengguna sudah digunakan oleh customer lain.';
+                        error.classList.add('show');
+                    } else {
+                        usernameInput.classList.remove('error');
+                        error.classList.remove('show');
+                    }
+                })
+                .catch(() => { });
+
+            return true;
         }
 
         function validateNama() {
@@ -3268,7 +3447,7 @@ function format_date_display($date)
             teleponInput.value = val;
 
             const error = document.getElementById('teleponError');
-            const phonePattern = /^08[0-9]{8,11}$/; // 10-13 digit murni
+            const phonePattern = /^08[0-9]{8,11}$/;
 
             if (val === '') {
                 teleponInput.classList.add('error'); error.textContent = 'Nomor telepon wajib diisi.'; error.classList.add('show'); return false;
@@ -3322,7 +3501,6 @@ function format_date_display($date)
         // Form Submit Validation (Biodata)
         const formBiodata = document.getElementById('formBiodata');
         if (formBiodata) {
-            // 1. Rekam keadaan/nilai awal semua input saat halaman pertama kali dimuat
             const trackedInputs = formBiodata.querySelectorAll('input, select, textarea');
             trackedInputs.forEach(input => {
                 if (input.type === 'radio') {
@@ -3333,7 +3511,6 @@ function format_date_display($date)
             });
 
             formBiodata.addEventListener('submit', function (e) {
-                // 2. Cek apakah pengguna melakukan perubahan pada input
                 let hasChanged = false;
                 trackedInputs.forEach(input => {
                     if (input.type === 'radio') {
@@ -3347,26 +3524,32 @@ function format_date_display($date)
                     }
                 });
 
-                // 3. JIKA TIDAK ADA PERUBAHAN: Batalkan submit secara senyap (halaman tidak reload/scroll)
                 if (!hasChanged) {
                     e.preventDefault();
-                    return; // Keluar langsung tanpa menjalankan validasi atau SweetAlert
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Tidak Ada Perubahan',
+                        text: 'Anda belum melakukan perubahan data pada profil Anda.',
+                        confirmButtonColor: '#FF5200'
+                    });
+                    return;
                 }
 
-                // 4. JIKA ADA PERUBAHAN: Jalankan proses validasi seperti biasa
                 let valid = true;
                 if (!validateNama()) valid = false;
+                if (!validateUsername()) valid = false;
                 if (!validateTglLahir()) valid = false;
                 if (!validateTmpLahir()) valid = false;
                 if (!validateAlamat()) valid = false;
                 if (!validateTelepon()) valid = false;
                 if (!validateEmail()) valid = false;
+
                 if (!valid) {
                     e.preventDefault();
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal Memperbarui',
-                        text: 'Mohon periksa kembali data yang diisi dengan benar.',
+                        text: 'Mohon periksa kembali kolom input dengan benar.',
                         confirmButtonColor: '#FF5200'
                     });
                 }
@@ -3384,13 +3567,48 @@ function format_date_display($date)
             if (!oldPass.value) { oldPass.classList.add('error'); error.classList.add('show'); return false; }
             else { oldPass.classList.remove('error'); error.classList.remove('show'); return true; }
         }
+
         function validateNewPass() {
             if (!newPass) return true;
-            const val = newPass.value;
+            const val = newPass.value.trim();
+            const oldVal = oldPass ? oldPass.value.trim() : ''; // Ambil nilai kata sandi lama
             const error = document.getElementById('newPassError');
-            if (val.length < 8) { newPass.classList.add('error'); error.classList.add('show'); return false; }
-            else { newPass.classList.remove('error'); error.classList.remove('show'); return true; }
+            const hasLetter = /[a-zA-Z]/;
+            const hasNumber = /[0-9]/;
+            const simplePasswords = ['12345678', '87654321', 'password', 'qwertyui', '1234567890', 'hoopball', 'hoopball123'];
+
+            if (val === '') {
+                newPass.classList.add('error');
+                error.textContent = 'Kata sandi baru wajib diisi.';
+                error.classList.add('show');
+                return false;
+            } else if (val === oldVal && val !== '') {
+                newPass.classList.add('error');
+                error.textContent = 'Kata sandi baru tidak boleh sama dengan kata sandi lama.';
+                error.classList.add('show');
+                return false;
+            } else if (val.length < 8) {
+                newPass.classList.add('error');
+                error.textContent = 'Kata sandi baru minimal berisi 8 karakter.';
+                error.classList.add('show');
+                return false;
+            } else if (!hasLetter.test(val) || !hasNumber.test(val)) {
+                newPass.classList.add('error');
+                error.textContent = 'Kata sandi baru harus berisi kombinasi huruf dan angka.';
+                error.classList.add('show');
+                return false;
+            } else if (simplePasswords.includes(val.toLowerCase())) {
+                newPass.classList.add('error');
+                error.textContent = 'Kata sandi terlalu mudah ditebak. Silakan gunakan kombinasi lain.';
+                error.classList.add('show');
+                return false;
+            } else {
+                newPass.classList.remove('error');
+                error.classList.remove('show');
+                return true;
+            }
         }
+
         function validateConfirm() {
             if (!confirmPass || !newPass) return true;
             const error = document.getElementById('confirmPassError');
@@ -3398,7 +3616,20 @@ function format_date_display($date)
             else { confirmPass.classList.remove('error'); error.classList.remove('show'); return true; }
         }
 
-        if (oldPass) oldPass.addEventListener('blur', validateOldPass);
+        if (oldPass) {
+            oldPass.addEventListener('input', function () {
+                this.classList.remove('error');
+                const oldErrorElement = document.getElementById('oldPassError');
+                if (oldErrorElement) oldErrorElement.classList.remove('show');
+
+                // Tambahkan pemicu ini agar kata sandi baru divalidasi ulang saat kata sandi lama diubah
+                if (newPass && newPass.value !== '') {
+                    validateNewPass();
+                }
+            });
+            oldPass.addEventListener('blur', validateOldPass);
+        }
+
         if (newPass) { newPass.addEventListener('input', validateNewPass); newPass.addEventListener('blur', validateNewPass); }
         if (confirmPass) { confirmPass.addEventListener('input', validateConfirm); confirmPass.addEventListener('blur', validateConfirm); }
 
@@ -3410,7 +3641,7 @@ function format_date_display($date)
                 if (!validateNewPass()) valid = false;
                 if (!validateConfirm()) valid = false;
                 if (!valid) {
-                    e.preventDefault(); // Menghentikan submit secara senyap agar pengguna fokus pada teks merah
+                    e.preventDefault();
                 }
             });
         }
@@ -3462,75 +3693,39 @@ function format_date_display($date)
             });
         }
 
-        // Notification handler (SweetAlert)
+        // SATU-SATUNYA NOTIFICATION HANDLER (SWEETALERT)
         <?php if ($swal_status && $swal_msg): ?>
-            Swal.fire({
-                icon: '<?= $swal_status ?>',
-                title: '<?= $swal_title ?? ($swal_status === 'success' ? 'Berhasil Memperbarui' : 'Gagal Memperbarui') ?>',
-                text: '<?= addslashes($swal_msg) ?>',
-                confirmButtonColor: '#FF5200'
-            });
+            <?php if ($swal_status === 'success'): ?>
+                Swal.fire({
+                    icon: 'success',
+                    title: '<?= htmlspecialchars($swal_title ?? "Berhasil!") ?>',
+                    text: '<?= addslashes($swal_msg) ?>',
+                    confirmButtonColor: '#FF5200',
+                    confirmButtonText: 'OK',
+                    background: '#ffffff',
+                    color: '#1C1C1E',
+                    customClass: { popup: 'swal-light' }
+                });
+            <?php else: ?>
+                Swal.fire({
+                    icon: 'error',
+                    title: '<?= htmlspecialchars($swal_title ?? "Gagal!") ?>',
+                    text: '<?= addslashes($swal_msg) ?>',
+                    confirmButtonColor: '#FF5200',
+                    confirmButtonText: 'OK',
+                    background: '#ffffff',
+                    color: '#1C1C1E',
+                    customClass: { popup: 'swal-light' }
+                });
+            <?php endif; ?>
         <?php endif; ?>
-
-
-
-        // ============ INTERSECTION OBSERVER FOR SCROLL ANIMATIONS ============
-        document.addEventListener('DOMContentLoaded', function () {
-            const observerOptions = {
-                root: null,
-                rootMargin: '0px',
-                threshold: 0.1
-            };
-
-            const revealObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('active');
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, observerOptions);
-
-            // Observe all reveal elements
-            document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger, .reveal-flip, .reveal-zoom').forEach(el => {
-                revealObserver.observe(el);
-            });
-
-        });
-
-        // Fitur Tampil / Sembunyikan Password
-        document.addEventListener('DOMContentLoaded', function () {
-            const togglePasswordIcons = document.querySelectorAll('.toggle-password');
-
-            togglePasswordIcons.forEach(icon => {
-                icon.addEventListener('click', function () {
-                    // Ambil id input target dari atribut data-target
-                    const targetId = this.getAttribute('data-target');
-                    const passwordInput = document.getElementById(targetId);
-
-                    if (passwordInput) {
-                        if (passwordInput.type === 'password') {
-                            passwordInput.type = 'text';
-                            // Ganti icon mata biasa ke mata dicoret
-                            this.classList.remove('fa-eye');
-                            this.classList.add('fa-eye-slash');
-                        } else {
-                            passwordInput.type = 'password';
-                            // Kembalikan ke icon mata biasa
-                            this.classList.remove('fa-eye-slash');
-                            this.classList.add('fa-eye');
-                        }
-                    }
-                });
-            });
-        });
 
         window.Swal = Swal.mixin({
             scrollbarPadding: false
         });
-
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>
