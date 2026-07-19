@@ -14,6 +14,10 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     require_once 'login/auto_logout.php';
 }
 
+if (file_exists('includes/config.php')) {
+    include 'includes/config.php';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
