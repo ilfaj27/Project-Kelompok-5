@@ -65,6 +65,7 @@ if (isset($_POST['login'])) {
         if ($row) {
             if (password_verify($pass_input, $row['Kata_Sandi'])) {
                 $_SESSION['login'] = true;
+                $_SESSION['logged_in'] = true;
                 $_SESSION['id_akun'] = $row['ID_Karyawan'];
                 $_SESSION['id_karyawan'] = $row['ID_Karyawan'];
 
