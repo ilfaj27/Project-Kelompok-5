@@ -3,33 +3,71 @@ session_start();
 $path_prefix = "../";
 include '../includes/config.php';
 
+// ============================================
+// AJAX HANDLER: Cek duplikat sebelum lanjut step
+// ============================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_check_duplicate'])) {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $check_username = trim($_POST['username'] ?? '');
+    $check_email    = trim($_POST['email'] ?? '');
+    $check_telp     = trim($_POST['telp'] ?? '');
+
+    $response = ['duplicate' => false, 'field' => null, 'message' => ''];
+
+    if ($check_username !== '' || $check_email !== '' || $check_telp !== '') {
+        $sql_check = "EXEC dbo.sp_CheckCustomerDuplicate ?, ?, ?";
+        $stmt_check = sqlsrv_query($conn, $sql_check, array($check_username, $check_email, $check_telp));
+
+        if ($stmt_check === false) {
+            $response = ['duplicate' => false, 'error' => 'db_error', 'message' => 'Terjadi kesalahan koneksi database.'];
+        } else if (sqlsrv_has_rows($stmt_check)) {
+            while ($row_check = sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC)) {
+                if ($check_telp !== '' && $row_check['No_Telepon'] === $check_telp) {
+                    $response = ['duplicate' => true, 'field' => 'telp', 'message' => 'Nomor telepon sudah terdaftar! Gunakan nomor lain.'];
+                    break;
+                }
+                if ($check_username !== '' && strtolower($row_check['Username']) === strtolower($check_username)) {
+                    $response = ['duplicate' => true, 'field' => 'username', 'message' => 'Nama Pengguna sudah terdaftar! Gunakan Nama Pengguna lain.'];
+                    break;
+                }
+                if ($check_email !== '' && strtolower($row_check['Email']) === strtolower($check_email)) {
+                    $response = ['duplicate' => true, 'field' => 'email', 'message' => 'Email sudah terdaftar! Gunakan email lain.'];
+                    break;
+                }
+            }
+        }
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
 $res_status = "";
-$res_msg = "";
+$res_msg    = "";
 
 // Inisialisasi variabel form
-$nama = "";
-$username = "";
-$email = "";
-$telp = "";
-$jk_input = "";
-$alamat = "";
-$tgl_lahir = "";
-$tmp_lahir = "";
+$nama       = "";
+$username   = "";
+$email      = "";
+$telp       = "";
+$jk_input   = "";
+$alamat     = "";
+$tgl_lahir  = "";
+$tmp_lahir  = "";
 
 if (isset($_POST['register'])) {
-    $nama = trim($_POST['nama']);
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $telp = trim($_POST['telp']);
-    $jk_input = $_POST['jk'];
+    $nama       = trim($_POST['nama']);
+    $username   = trim($_POST['username']);
+    $email      = trim($_POST['email']);
+    $telp       = trim($_POST['telp']);
+    $jk_input   = $_POST['jk'];
     $password_raw = $_POST['password'];
-    // Mengamankan password menggunakan Argon2id sebelum disimpan
-    $password = password_hash($password_raw, PASSWORD_ARGON2ID);
-    $alamat = trim($_POST['alamat']);
-    $tgl_lahir = $_POST['tanggal_lahir'] ?? '';
-    $tmp_lahir = trim($_POST['tempat_lahir'] ?? '');
+    $password   = password_hash($password_raw, PASSWORD_ARGON2ID);
+    $alamat     = trim($_POST['alamat']);
+    $tgl_lahir  = $_POST['tanggal_lahir'] ?? '';
+    $tmp_lahir  = trim($_POST['tempat_lahir'] ?? '');
 
-    // Validasi Jenis Kelamin sesuai database (0 atau 1)
     $jk = (int) $jk_input;
     if ($jk !== 0 && $jk !== 1) {
         $jk = 1;
@@ -41,13 +79,12 @@ if (isset($_POST['register'])) {
 
     if ($stmt_check === false) {
         $res_status = "error";
-        $res_msg = "Terjadi kesalahan koneksi database.";
+        $res_msg    = "Terjadi kesalahan koneksi database.";
     } else if (sqlsrv_has_rows($stmt_check)) {
-        $res_status = "error";
-
-        $exist_user = false;
-        $exist_email = false;
-        $exist_telp = false;
+        $res_status   = "error";
+        $exist_user   = false;
+        $exist_email  = false;
+        $exist_telp   = false;
 
         while ($row_check = sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC)) {
             if (strtolower($row_check['Username']) === strtolower($username)) {
@@ -73,25 +110,15 @@ if (isset($_POST['register'])) {
     } else {
         sqlsrv_begin_transaction($conn);
 
-        // --- MENGGUNAKAN SP: Simpan data customer baru ---
         $sql_customer = "EXEC dbo.sp_CreateCustomer ?, ?, ?, ?, ?, ?, ?, ?, ?";
-
         $stmt_customer = sqlsrv_query($conn, $sql_customer, array(
-            $nama,
-            $tgl_lahir,
-            $tmp_lahir,
-            $jk,
-            $alamat,
-            $telp,
-            $email,
-            $username,
-            $password
+            $nama, $tgl_lahir, $tmp_lahir, $jk, $alamat, $telp, $email, $username, $password
         ));
 
         if ($stmt_customer) {
             sqlsrv_commit($conn);
             $res_status = "success";
-            $res_msg = "Pendaftaran Berhasil! Silahkan Login.";
+            $res_msg    = "Pendaftaran Berhasil! Silahkan Login.";
         } else {
             sqlsrv_rollback($conn);
             $errors = sqlsrv_errors();
@@ -102,12 +129,11 @@ if (isset($_POST['register'])) {
                 }
             }
             $res_status = "error";
-            $res_msg = "Terjadi kesalahan sistem saat mendaftar: " . $error_detail;
+            $res_msg    = "Terjadi kesalahan sistem saat mendaftar: " . $error_detail;
         }
     }
 }
 
-// Mengurangi tanggal hari ini sebanyak 10 tahun
 $max_date = date('Y-m-d', strtotime('-10 years'));
 ?>
 <!DOCTYPE html>
@@ -123,10 +149,9 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
     <link rel="stylesheet" href="../asset/css/navbar_footer.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-
         .auth-info {
-        align-self: start !important; /* <-- Menempelkan posisi ke bagian atas */
-        margin-top: 130px !important;  /* <-- Mengatur jarak turunnya dari atas agar pas */
+            align-self: start !important;
+            margin-top: 130px !important;
         }
 
         .form-step {
@@ -139,15 +164,8 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
         }
 
         @keyframes fadeStep {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
         .form-grid {
@@ -193,7 +211,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             border: 2px solid #e2e8f0;
             border-radius: 12px;
             background: #f8fafc;
-            color: #94a3b8; /* abu-abu */
+            color: #94a3b8;
             font-weight: 600;
             font-size: 14px;
             transition: all 0.25s ease;
@@ -204,13 +222,11 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             font-size: 16px;
         }
 
-        /* Hover state */
         .radio-group-container .radio-card:hover .radio-custom-box {
             border-color: #cbd5e1;
             background: #f1f5f9;
         }
 
-        /* Checked state - warna aktif */
         .radio-group-container .radio-card input[type="radio"]:checked + .radio-custom-box {
             border-color: #FF5400;
             background: #fff7ed;
@@ -218,12 +234,10 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             box-shadow: 0 0 0 3px rgba(255, 84, 0, 0.15);
         }
 
-        /* Placeholder / belum dipilih state */
         .radio-group-container .radio-card input[type="radio"]:not(:checked) + .radio-custom-box {
-            color: #94a3b8; /* abu-abu */
+            color: #94a3b8;
         }
 
-        /* Error state */
         .radio-group-container.error .radio-custom-box {
             border-color: #ef4444;
             background: #fef2f2;
@@ -233,26 +247,46 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
             display: block;
         }
 
+        /* Loading spinner untuk tombol */
+        .btn-submit.loading {
+            position: relative;
+            color: transparent !important;
+            pointer-events: none;
+        }
+        .btn-submit.loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spinner 0.8s linear infinite;
+        }
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 992px) {
             .auth-hero-wrapper {
                 grid-template-columns: 1fr;
                 padding-top: 140px;
                 text-align: center;
             }
-
             .auth-info .intro-p {
                 margin: 0 auto 40px auto;
             }
-
             .info-list {
                 align-items: center;
                 margin-bottom: 40px;
             }
-
             .auth-card-container {
                 justify-content: center;
             }
-
             .footer-grid {
                 grid-template-columns: 1fr 1fr;
             }
@@ -455,7 +489,7 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
                         <div class="step-buttons">
                             <button type="button" class="btn-back-step" id="btnBack">Sebelumnya</button>
-                            <button type="submit" name="register" class="btn-submit">Daftar Sekarang</button>
+                            <button type="submit" name="register" class="btn-submit" id="btnSubmit">Daftar Sekarang</button>
                         </div>
                     </div>
 
@@ -488,13 +522,13 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Tanggal Lahir picker - no auto-fill, calendar opens freely
             const tglLahirField = document.getElementById('tglLahirField');
 
             const step1 = document.getElementById('step1');
             const step2 = document.getElementById('step2');
             const btnNext = document.getElementById('btnNext');
             const btnBack = document.getElementById('btnBack');
+            const btnSubmit = document.getElementById('btnSubmit');
 
             const dot1 = document.getElementById('dot1');
             const dot2 = document.getElementById('dot2');
@@ -547,6 +581,21 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 errorEl.style.display = 'none';
             }
 
+            // Helper: cek duplikat ke server via AJAX
+            async function checkDuplicate(fieldData) {
+                const formData = new FormData();
+                formData.append('ajax_check_duplicate', '1');
+                if (fieldData.username) formData.append('username', fieldData.username);
+                if (fieldData.email)    formData.append('email', fieldData.email);
+                if (fieldData.telp)     formData.append('telp', fieldData.telp);
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+                return await response.json();
+            }
+
             nama.addEventListener('input', () => {
                 nama.value = nama.value.replace(/[^a-zA-Z\s]/g, '');
             });
@@ -559,14 +608,16 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 telp.value = telp.value.replace(/[^0-9]/g, '');
             });
 
-            // Clear jk error saat user memilih salah satu radio
             jkRadios.forEach(radio => {
                 radio.addEventListener('change', () => {
                     clearValidationError(jkContainer, jkError);
                 });
             });
 
-            btnNext.addEventListener('click', () => {
+            // ==========================================
+            // STEP 1: Klik Lanjutkan -> cek duplikat No.Telp dulu
+            // ==========================================
+            btnNext.addEventListener('click', async () => {
                 let isStep1Valid = true;
 
                 if (nama.value.trim() === '') {
@@ -576,7 +627,6 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     clearValidationError(nama, namaError);
                 }
 
-                // Validasi Jenis Kelamin - belum dipilih?
                 const jkSelected = document.querySelector('input[name="jk"]:checked');
                 if (!jkSelected) {
                     setValidationError(jkContainer, jkError, 'Jenis kelamin wajib dipilih.');
@@ -590,7 +640,6 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     setValidationError(tglLahir, tglLahirError, 'Tanggal lahir wajib diisi.');
                     isStep1Valid = false;
                 } else {
-                    // Validasi usia minimal 10 tahun
                     const birthDate = new Date(tglVal);
                     const today = new Date();
                     const minBirthDate = new Date();
@@ -626,10 +675,11 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 }
 
                 const phonePattern = /^08[0-9]{8,11}$/;
-                if (telp.value.trim() === '') {
+                const telpVal = telp.value.trim();
+                if (telpVal === '') {
                     setValidationError(telp, telpError, 'Nomor telepon wajib diisi.');
                     isStep1Valid = false;
-                } else if (!phonePattern.test(telp.value.trim())) {
+                } else if (!phonePattern.test(telpVal)) {
                     setValidationError(telp, telpError, 'Nomor telepon wajib berupa angka, diawali 08, dan panjang 10-13 digit.');
                     isStep1Valid = false;
                 } else {
@@ -660,7 +710,32 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     clearValidationError(alamat, alamatError);
                 }
 
-                if (isStep1Valid) {
+                if (!isStep1Valid) return;
+
+                // --- CEK DUPLIKAT NOMOR TELEPON KE SERVER ---
+                btnNext.classList.add('loading');
+                btnNext.disabled = true;
+
+                try {
+                    const data = await checkDuplicate({ telp: telpVal });
+                    btnNext.classList.remove('loading');
+                    btnNext.disabled = false;
+
+                    if (data.duplicate) {
+                        setValidationError(telp, telpError, data.message);
+                        return;
+                    }
+
+                    // Lolos semua -> lanjut step 2
+                    step1.classList.remove('active');
+                    step2.classList.add('active');
+                    dot2.classList.add('active');
+                    line1.classList.add('active');
+                } catch (err) {
+                    btnNext.classList.remove('loading');
+                    btnNext.disabled = false;
+                    console.error('Error checking duplicate:', err);
+                    // Kalau error jaringan, tetap lanjut (nanti dicek lagi saat submit)
                     step1.classList.remove('active');
                     step2.classList.add('active');
                     dot2.classList.add('active');
@@ -675,8 +750,11 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                 line1.classList.remove('active');
             });
 
+            // ==========================================
+            // STEP 2: Submit form -> cek duplikat Username & Email dulu
+            // ==========================================
             const form = document.getElementById('registerForm');
-            form.addEventListener('submit', function (e) {
+            form.addEventListener('submit', async function (e) {
                 let isStep2Valid = true;
 
                 const usernameVal = username.value.trim();
@@ -752,6 +830,39 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                     card.classList.remove('shake');
                     void card.offsetWidth;
                     card.classList.add('shake');
+                    return;
+                }
+
+                // --- CEK DUPLIKAT USERNAME & EMAIL KE SERVER ---
+                e.preventDefault();
+                btnSubmit.classList.add('loading');
+                btnSubmit.disabled = true;
+
+                try {
+                    const data = await checkDuplicate({ username: usernameVal, email: emailVal });
+                    btnSubmit.classList.remove('loading');
+                    btnSubmit.disabled = false;
+
+                    if (data.duplicate) {
+                        if (data.field === 'username') {
+                            setValidationError(username, usernameError, data.message);
+                        } else if (data.field === 'email') {
+                            setValidationError(email, emailError, data.message);
+                        }
+                        const card = document.querySelector('.auth-card');
+                        card.classList.remove('shake');
+                        void card.offsetWidth;
+                        card.classList.add('shake');
+                        return;
+                    }
+
+                    // Lolos semua -> submit form secara manual
+                    form.submit();
+                } catch (err) {
+                    btnSubmit.classList.remove('loading');
+                    btnSubmit.disabled = false;
+                    console.error('Error checking duplicate:', err);
+                    form.submit(); // Kalau error jaringan, submit saja (server jadi fallback)
                 }
             });
 
