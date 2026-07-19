@@ -4,7 +4,7 @@
 // ============================================================================
 ob_start();
 
-session_start();
+require_once '../login/auth_check.php';
 $path_prefix = "../";
 include '../includes/config.php';
 

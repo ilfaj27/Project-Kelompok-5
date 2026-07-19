@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../login/auth_check.php';
 $path_prefix = "../";
 include '../includes/config.php';
 include '../includes/helpers.php';

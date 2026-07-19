@@ -1,4 +1,5 @@
 <?php
+
 $path_prefix = "../";
 // ============================================================================
 // AJAX HANDLER — Cek Username Duplikat (MENGGUNAKAN SP)
@@ -54,7 +55,7 @@ if (isset($_GET['ajax_check_username']) && $_SERVER['REQUEST_METHOD'] === 'GET')
     exit();
 }
 
-session_start();
+require_once '../login/auth_check.php';
 
 include '../includes/auth_helper.php';
 cek_akses('customer');

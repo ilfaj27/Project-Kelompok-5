@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 if (isset($_GET['load']) && $_GET['load'] === 'done') {
     $_SESSION['intro_done'] = true;
 }

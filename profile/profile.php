@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../login/auth_check.php';
 $path_prefix = "../";
 
 // 1. Baca semua data session ke variabel lokal terlebih dahulu

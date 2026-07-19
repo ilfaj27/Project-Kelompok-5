@@ -1,6 +1,6 @@
 <?php
 ob_start();
-session_start();
+require_once '../login/auth_check.php';
 date_default_timezone_set("Asia/Jakarta");
 $path_prefix = "../";
 include '../includes/config.php';

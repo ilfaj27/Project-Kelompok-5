@@ -3,7 +3,7 @@
 // BUFFER OUTPUT & SESSION
 // ============================================================================
 ob_start();
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+require_once '../login/auth_check.php';
 $path_prefix = "../";
 include '../includes/config.php';
 

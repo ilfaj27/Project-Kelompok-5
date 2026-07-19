@@ -1,9 +1,6 @@
 <?php
 ob_start();
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
+require_once '../login/auth_check.php';
 
 date_default_timezone_set('Asia/Jakarta');
 $path_prefix = "../";

@@ -1,8 +1,7 @@
 <?php
 ob_start();
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once '../login/auth_check.php';
+
 $path_prefix = "../";
 include '../includes/auth_helper.php';
 include '../includes/config.php';
