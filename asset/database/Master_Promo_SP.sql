@@ -70,7 +70,7 @@ IF OBJECT_ID('dbo.sp_Promo_Insert', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Insert;
 GO
 
-ALTER PROCEDURE dbo.sp_Promo_Insert
+CREATE PROCEDURE dbo.sp_Promo_Insert
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),
     @Tanggal_Mulai   DATE,
@@ -159,7 +159,7 @@ IF OBJECT_ID('dbo.sp_Promo_Update', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Update;
 GO
 
-ALTER PROCEDURE dbo.sp_Promo_Update
+CREATE PROCEDURE dbo.sp_Promo_Update
    @ID_Promo        INT,
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),

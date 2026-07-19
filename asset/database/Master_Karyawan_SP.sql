@@ -244,7 +244,7 @@ GO
 -- ============================================================
 -- 7. SP: GET TOTAL KARYAWAN (DENGAN FILTER)
 -- ============================================================
-ALTER PROCEDURE sp_Karyawan_GetTotal
+CREATE PROCEDURE sp_Karyawan_GetTotal
     @Filter_Jabatan INT = 0,
     @Filter_JK      INT = -1,
     @Filter_Status  INT = -1,
