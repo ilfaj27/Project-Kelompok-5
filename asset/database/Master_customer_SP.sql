@@ -321,10 +321,11 @@ BEGIN
         Tempat_Lahir,
         Photo_Profile,
         Kata_Sandi,
-        Status
+        Status -- Kolom ini akan diverifikasi oleh PHP
     FROM Customer
     WHERE Is_Deleted = 0 
-        AND Status = 1
+        -- Kondisi "AND Status = 1" dihapus agar data akun nonaktif tetap ditarik 
+        -- sehingga verifikasi status dan kata sandi dapat diproses di tingkat aplikasi (PHP)
         AND (Username = @UsernameOrEmail OR Email = @UsernameOrEmail)
 END;
 GO
