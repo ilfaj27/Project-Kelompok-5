@@ -60,8 +60,6 @@ $member_tipe = $has_member ? $member_aktif['Nama_Tipe'] : '';
 if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     header('Content-Type: application/json');
 
-    // NOTE: request sekarang multipart/form-data (bukan JSON body lagi),
-    // karena harus ikut kirim file bukti pembayaran.
     $cart = json_decode($_POST['cart_data'] ?? '[]', true) ?: [];
     $metode = htmlspecialchars($_POST['metode_pembayaran'] ?? '');
     $total = floatval($_POST['total_bayar'] ?? 0);
@@ -71,11 +69,8 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
         exit();
     }
 
-    // ------------------------------------------------------------------
-    // VALIDASI WAJIB: Bukti Pembayaran (foto/image)
-    // ------------------------------------------------------------------
     if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK || empty($_FILES['bukti_pembayaran']['name'])) {
-        echo json_encode(['success' => false, 'message' => 'Bukti pembayaran wajib diupload (foto/screenshot transfer).']);
+        echo json_encode(['success' => false, 'message' => 'Bukti pembayaran wajib diupload.']);
         exit();
     }
 
@@ -87,7 +82,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
         exit();
     }
     if ($bukti_file['size'] > 5 * 1024 * 1024) {
-        echo json_encode(['success' => false, 'message' => 'Ukuran foto bukti pembayaran maksimal 5MB.']);
+        echo json_encode(['success' => false, 'message' => 'Ukuran foto maksimal 5MB.']);
         exit();
     }
 
@@ -97,7 +92,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
     }
     $bukti_filename = 'bukti_' . time() . '_' . uniqid() . '.' . $bukti_ext;
     if (!move_uploaded_file($bukti_file['tmp_name'], $bukti_upload_dir . $bukti_filename)) {
-        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan foto bukti pembayaran. Coba lagi.']);
+        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan foto bukti pembayaran.']);
         exit();
     }
     $bukti_pembayaran_path = 'asset/image/bukti_pembayaran/' . $bukti_filename;
@@ -108,9 +103,6 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
     }
 
     try {
-        // Kelompokkan item cart per ID_Alat (karena PK Detail_Beli_Alat = ID_Alat + ID_Beli,
-        // satu alat dengan beberapa ukuran harus digabung jadi 1 baris detail).
-        // $grouped[id_alat] = ['jumlah'=>N, 'sizes'=>['S'=>2,'M'=>1], 'subtotal'=>..]
         $grouped = [];
         $calculated_total = 0;
 
@@ -128,22 +120,22 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
             $grouped[$id_alat]['sizes'][$ukuran] = ($grouped[$id_alat]['sizes'][$ukuran] ?? 0) + $jumlah;
         }
 
-        // 1. Validasi stok (total per alat + stok per ukuran kalau ada)
+        // Cek murni berdasarkan stok fisik di database saat ini
         foreach ($grouped as $id_alat => $g) {
             $cek = sqlsrv_query($conn, "SELECT Nama_Alat, Stok, Harga_Jual FROM Alat WHERE ID_Alat = ? AND Status = 1 AND Is_Deleted = 0", array($id_alat));
             $alat_data = sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC);
             if (!$alat_data) throw new Exception("Salah satu alat tidak ditemukan.");
+
             if ($alat_data['Stok'] < $g['jumlah']) {
-                throw new Exception("Stok " . $alat_data['Nama_Alat'] . " tidak mencukupi.");
+                throw new Exception("Stok " . $alat_data['Nama_Alat'] . " saat ini tidak mencukupi.");
             }
 
-            // Validasi stok per ukuran (jika ukuran bukan 'All Size')
             foreach ($g['sizes'] as $uk => $qty) {
                 if ($uk === 'All Size') continue;
                 $cek_size = sqlsrv_query($conn, "SELECT Stok FROM Alat_Size WHERE ID_Alat = ? AND Ukuran = ?", array($id_alat, $uk));
                 $size_row = $cek_size ? sqlsrv_fetch_array($cek_size, SQLSRV_FETCH_ASSOC) : null;
                 if ($size_row && $size_row['Stok'] < $qty) {
-                    throw new Exception("Stok " . $alat_data['Nama_Alat'] . " ukuran " . $uk . " tidak mencukupi (tersisa " . intval($size_row['Stok']) . ").");
+                    throw new Exception("Stok " . $alat_data['Nama_Alat'] . " ukuran " . $uk . " tidak mencukupi.");
                 }
             }
 
@@ -152,76 +144,49 @@ if (isset($_GET['action']) && $_GET['action'] == 'checkout' && $_SERVER['REQUEST
             $calculated_total += $subtotal;
         }
 
-        // 2. Insert ke Beli_Alat (Status = 0 -> Menunggu Konfirmasi Karyawan)
         $sql_beli = "INSERT INTO Beli_Alat (ID_Karyawan, ID_Customer, Tanggal_Beli, Metode_Pembayaran, Total_Bayar, Bukti_Pembayaran, Status, Created_By, Created_Date)
                      OUTPUT INSERTED.ID_Beli
-                     VALUES (1, ?, GETDATE(), ?, ?, ?, 0, ?, GETDATE())"; // Default Karyawan 1 untuk online
+                     VALUES (1, ?, GETDATE(), ?, ?, ?, 0, ?, GETDATE())"; 
         $stmt_beli = sqlsrv_query($conn, $sql_beli, array($id_customer, $metode, $calculated_total, $bukti_pembayaran_path, $nama_customer));
         if ($stmt_beli === false) throw new Exception("Gagal membuat data pesanan utama.");
 
         $row_id = sqlsrv_fetch_array($stmt_beli, SQLSRV_FETCH_ASSOC);
         $id_beli = $row_id['ID_Beli'];
 
-        // 3. Insert detail (1 baris per alat) + update stok per ukuran (Alat_Size)
         foreach ($grouped as $id_alat => $g) {
-            // Rangkai label ukuran, contoh: "S x2, M x1" atau "All Size"
             $size_parts = [];
             foreach ($g['sizes'] as $uk => $qty) $size_parts[] = $uk . ' x' . $qty;
             $ukuran_label = implode(', ', $size_parts);
-            if (strlen($ukuran_label) > 15) {
-                // Kolom hanya VARCHAR(15): kalau kepanjangan, simpan ringkas
-                $ukuran_label = (count($g['sizes']) === 1) ? array_key_first($g['sizes']) : 'Multi';
-            }
+            if (strlen($ukuran_label) > 15) $ukuran_label = (count($g['sizes']) === 1) ? array_key_first($g['sizes']) : 'Multi';
 
             $sql_detail = "INSERT INTO Detail_Beli_Alat (ID_Alat, ID_Beli, Jumlah, SubTotal, Ukuran) VALUES (?, ?, ?, ?, ?)";
             $stmt_detail = sqlsrv_query($conn, $sql_detail, array($id_alat, $id_beli, $g['jumlah'], $g['subtotal'], $ukuran_label));
             if ($stmt_detail === false) throw new Exception("Gagal menyimpan detail alat.");
-
-            // CATATAN TIM: Stok Alat & Alat_Size TIDAK dipotong manual di sini.
-            // Trigger trg_DetailBeliAlat_AutoUpdateStok (Transaksi_PembelianAlat_SP_TRG.sql)
-            // otomatis motong Alat.Stok & Alat_Size.Stok begitu baris di atas ke-insert.
-            // JANGAN tambahkan UPDATE Stok manual lagi di sini, nanti stok kepotong 2x.
         }
 
         sqlsrv_commit($conn);
-        echo json_encode(['success' => true, 'message' => 'Pesanan berhasil dibuat! Menunggu konfirmasi karyawan.']);
+        echo json_encode(['success' => true, 'message' => 'Pesanan berhasil dibuat! Menunggu konfirmasi admin.']);
     } catch (Exception $e) {
         sqlsrv_rollback($conn);
-        // Hapus file bukti pembayaran yang sudah keburu keupload, biar gak jadi file nyampah
-        if (!empty($bukti_pembayaran_path) && file_exists('../' . $bukti_pembayaran_path)) {
-            @unlink('../' . $bukti_pembayaran_path);
-        }
+        if (!empty($bukti_pembayaran_path) && file_exists('../' . $bukti_pembayaran_path)) @unlink('../' . $bukti_pembayaran_path);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit();
 }
 
 // ============================================================================
-// AMBIL DATA ALAT YANG AKTIF & TERSEDIA
+// AMBIL DATA ALAT YANG AKTIF & TERSEDIA MURNI
 // ============================================================================
 $alat_list = [];
-$query_alat = sqlsrv_query($conn, 
-    "SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Jual, Photo_Alat, Status 
-     FROM Alat 
-     WHERE Status = 1 AND Is_Deleted = 0 AND Stok > 0
-     ORDER BY Nama_Alat ASC"
-);
+$query_alat = sqlsrv_query($conn, "SELECT ID_Alat, Nama_Alat, Kategori, Stok, Harga_Jual, Photo_Alat, Status FROM Alat WHERE Status = 1 AND Is_Deleted = 0 AND Stok > 0 ORDER BY Nama_Alat ASC");
 if ($query_alat) {
     while ($row = sqlsrv_fetch_array($query_alat, SQLSRV_FETCH_ASSOC)) {
         $alat_list[] = $row;
     }
 }
 
-// Ambil stok per ukuran untuk semua alat (buat pilihan size di kartu)
-// Hasil: $sizes_by_alat[ID_Alat] = [ ['Ukuran'=>'S','Stok'=>5], ... ]
 $sizes_by_alat = [];
-$query_sizes = sqlsrv_query($conn,
-    "SELECT s.ID_Alat, s.Ukuran, s.Stok
-     FROM Alat_Size s
-     INNER JOIN Alat a ON s.ID_Alat = a.ID_Alat
-     WHERE a.Status = 1 AND a.Is_Deleted = 0 AND s.Stok > 0
-     ORDER BY s.ID_Alat, s.ID_Alat_Size"
-);
+$query_sizes = sqlsrv_query($conn, "SELECT s.ID_Alat, s.Ukuran, s.Stok FROM Alat_Size s INNER JOIN Alat a ON s.ID_Alat = a.ID_Alat WHERE a.Status = 1 AND a.Is_Deleted = 0 AND s.Stok > 0 ORDER BY s.ID_Alat, s.ID_Alat_Size");
 if ($query_sizes) {
     while ($row = sqlsrv_fetch_array($query_sizes, SQLSRV_FETCH_ASSOC)) {
         $sizes_by_alat[$row['ID_Alat']][] = ['Ukuran' => $row['Ukuran'], 'Stok' => intval($row['Stok'])];

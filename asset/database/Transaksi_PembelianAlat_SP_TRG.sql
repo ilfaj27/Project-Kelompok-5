@@ -239,6 +239,13 @@ BEGIN
 END;
 GO
 
+USE Hoopball;
+GO
+-- Hapus trigger otomatis potong stok (sesuaikan namanya jika beda)
+IF OBJECT_ID('trg_DetailBeliAlat_AutoUpdateStok', 'TR') IS NOT NULL
+    DROP TRIGGER trg_DetailBeliAlat_AutoUpdateStok;
+GO
+
 -- ----------------------------------------------------------------------------
 -- 2.1 TABEL LOG: Log_Detail_Beli_Alat (audit lengkap tiap perubahan item)
 -- ----------------------------------------------------------------------------
