@@ -135,7 +135,7 @@ if (isset($_POST['login'])) {
                 }
             } else {
                 // Pesan kesalahan jika password salah atau akun tidak ditemukan
-                $error_msg = "Nama Pengguna atau Kata Sandi salah.";
+                $error_msg = "Nama Pengguna atau Kata Sandi Tidak ditemukan.";
             }
         } // Penutup else cek customer
     } // Penutup else validasi input kosong

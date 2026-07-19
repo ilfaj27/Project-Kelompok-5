@@ -63,27 +63,26 @@ END;
 GO
 
 -- [READ] Mengambil detail satu booking untuk proses pembatalan
-CREATE PROCEDURE sp_Booking_GetDetail
+CREATE OR ALTER PROCEDURE sp_Booking_GetDetail
     @ID_Booking INT
 AS
 BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-           -- Ambil semua data bawaan dari table booking
+           -- Mengambil semua data dari table booking
            B.*, 
-           -- Ambil data dari tabel Customer
+           -- Mengambil detail Customer
            C.Nama_Customer, C.Email, C.No_Telepon,
-           -- Ambil data dari tabel Lapangan
+           -- Mengambil detail Lapangan
            L.Nama_Lapangan, L.Harga_Sewa,
-           -- Ambil data dari tabel Jadwal (TANGGAL & JAM ADA DI SINI)
+           -- Mengambil detail Jadwal bermain
            J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
-           -- Ambil data dari tabel Promo
+           -- Mengambil detail Promo (jika ada)
            P.Nama_Promo, P.Diskon,
-           -- Ambil nama admin/karyawan pencatat
+           -- Mengambil nama karyawan pencatat
            K.Nama_Karyawan as Nama_Karyawan_Input
     FROM Booking B 
-    -- Melakukan relasi antar tabel (JOIN)
     INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
     INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
     INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan

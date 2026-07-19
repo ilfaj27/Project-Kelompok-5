@@ -201,13 +201,26 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE sp_Customer_GetActiveMember @ID_Customer INT AS
+CREATE OR ALTER PROCEDURE sp_Customer_GetActiveMember 
+    @ID_Customer INT 
+AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT TOP 1 L.*, T.Nama_Tipe, T.Potongan_Harga, T.Harga_Member 
+    SELECT TOP 1 
+        L.ID_Langganan, 
+        L.ID_Customer, 
+        L.ID_Tipe, 
+        L.Tanggal_Mulai, 
+        L.Tanggal_Selesai, 
+        L.Status AS Status_Langganan,
+        T.Nama_Tipe, 
+        T.Potongan_Harga, -- Kolom potongan harga tipe member (50000) ditarik dengan aman tanpa tabrakan
+        T.Harga_Member 
     FROM Langganan L
     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-    WHERE L.ID_Customer = @ID_Customer AND L.Status = 1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
+    WHERE L.ID_Customer = @ID_Customer 
+      AND L.Status = 1 
+      AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
     ORDER BY L.Tanggal_Selesai DESC;
 END;
 GO

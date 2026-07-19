@@ -87,8 +87,15 @@ if ($mc) {
     $member_data = sqlsrv_fetch_array($mc, SQLSRV_FETCH_ASSOC);
 }
 $has_member = !empty($member_data);
-$member_tipe = $has_member ? $member_data['Nama_Tipe'] : '';
-$member_discount = $has_member ? floatval($member_data['Potongan_Harga']) : 0;
+$member_tipe = $has_member ? ($member_data['Nama_Tipe'] ?? $member_data['Nama_Tipe_Member'] ?? 'Member') : '';
+
+// PHP akan mendeteksi otomatis jika nama kolom di DB adalah Potongan_Harga, Nominal_Potongan, Potongan, atau Diskon
+$member_discount = $has_member ? floatval(
+    $member_data['Potongan_Harga'] ?? 
+    $member_data['Nominal_Potongan'] ?? 
+    $member_data['Potongan'] ?? 
+    $member_data['Diskon'] ?? 0
+) : 0;
 
 /**
  * Menyusun path foto agar selalu valid diakses dari folder customer/.
@@ -152,11 +159,14 @@ function generateJadwalOtomatis($conn)
         }
     }
 }
-generateJadwalOtomatis($conn);
+if (!isset($_GET['action'])) {
+    generateJadwalOtomatis($conn);
+}
 // =========================================================================
 // Endpoint AJAX (JSON)
 // =========================================================================
 if (isset($_GET['action'])) {
+    ob_clean();
     header('Content-Type: application/json');
 
     // Ambil slot jadwal per court & tanggal menggunakan SP

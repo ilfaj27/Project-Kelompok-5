@@ -400,10 +400,10 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
         if (in_array($file['type'], $allowed) && $file['size'] <= $max_size) {
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
             $filename = 'profile_' . $ID_Customer . '_' . time() . '.' . $ext;
-            
+
             // Simpan jalur bersih relatif ke root untuk database
             $db_upload_path = 'uploads/profiles/' . $filename;
-            
+
             // Tentukan folder fisik tujuan menggunakan $path_prefix (../)
             $physical_upload_dir = $path_prefix . 'uploads/profiles/';
             if (!is_dir($physical_upload_dir)) {
@@ -416,7 +416,7 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
                 // --- MENGGUNAKAN SP: Update foto dengan sp_UpdateCustomerPhoto ---
                 $modified_by = $_SESSION['nama'] ?? 'SYSTEM';
                 sqlsrv_query($conn, "EXEC dbo.sp_UpdateCustomerPhoto ?, ?, ?", array($ID_Customer, $db_upload_path, $modified_by));
-                
+
                 $_SESSION['Profile_Photo'] = $db_upload_path;
                 $swal_status = 'success';
                 $swal_msg = 'Foto profil berhasil diperbarui!';
@@ -497,6 +497,32 @@ if ($res_booking) {
     sqlsrv_free_stmt($res_booking);
 }
 
+// URUTKAN RIWAYAT BOOKING (Prioritas: Menunggu [0] -> Terkonfirmasi [1] -> Selesai [2] -> Dibatalkan [3])
+usort($bookings, function ($a, $b) {
+    $prio = [
+        0 => 1, // Menunggu Konfirmasi (Prioritas 1)
+        1 => 2, // Terkonfirmasi (Prioritas 2)
+        2 => 3, // Selesai (Prioritas 3)
+        3 => 4  // Dibatalkan (Prioritas 4)
+    ];
+
+    $statusA = isset($a['BookingStatus']) ? intval($a['BookingStatus']) : 99;
+    $statusB = isset($b['BookingStatus']) ? intval($b['BookingStatus']) : 99;
+
+    $weightA = $prio[$statusA] ?? 99;
+    $weightB = $prio[$statusB] ?? 99;
+
+    if ($weightA !== $weightB) {
+        return $weightA <=> $weightB;
+    }
+
+    // Jika status sama, urutkan berdasarkan Tanggal_Booking terbaru
+    $dateA = $a['Tanggal_Booking'] instanceof DateTime ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking'] ?? '');
+    $dateB = $b['Tanggal_Booking'] instanceof DateTime ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking'] ?? '');
+    return $dateB <=> $dateA;
+});
+
+
 // 2. Riwayat Langganan Member Lengkap (MENGGUNAKAN SP)
 $memberships = [];
 $res_member = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerMembershipHistory ?", array($ID_Customer));
@@ -506,6 +532,32 @@ if ($res_member) {
     }
     sqlsrv_free_stmt($res_member);
 }
+
+// URUTKAN RIWAYAT MEMBER (Prioritas: Menunggu [0] -> Aktif [1] -> Berakhir [2] -> Ditolak [3])
+usort($memberships, function ($a, $b) {
+    $prio = [
+        0 => 1, // Menunggu Konfirmasi (Prioritas 1)
+        1 => 2, // Aktif (Prioritas 2)
+        2 => 3, // Berakhir (Prioritas 3)
+        3 => 4  // Ditolak (Prioritas 4)
+    ];
+
+    $statusA = isset($a['MemberStatus']) ? intval($a['MemberStatus']) : 99;
+    $statusB = isset($b['MemberStatus']) ? intval($b['MemberStatus']) : 99;
+
+    $weightA = $prio[$statusA] ?? 99;
+    $weightB = $prio[$statusB] ?? 99;
+
+    if ($weightA !== $weightB) {
+        return $weightA <=> $weightB;
+    }
+
+    // Jika status sama, urutkan berdasarkan Tanggal_Mulai terbaru
+    $dateA = $a['Tanggal_Mulai'] instanceof DateTime ? $a['Tanggal_Mulai']->getTimestamp() : strtotime($a['Tanggal_Mulai'] ?? '');
+    $dateB = $b['Tanggal_Mulai'] instanceof DateTime ? $b['Tanggal_Mulai']->getTimestamp() : strtotime($b['Tanggal_Mulai'] ?? '');
+    return $dateB <=> $dateA;
+});
+
 
 // 3. Riwayat Pembelian Alat Lengkap beserta Sub Detail item (MENGGUNAKAN SP)
 $purchases = [];
@@ -526,6 +578,24 @@ if ($res_purchase) {
     }
     sqlsrv_free_stmt($res_purchase);
 }
+
+// URUTKAN RIWAYAT PEMBELIAN (Prioritas: Diproses [0] -> Selesai [1])
+usort($purchases, function ($a, $b) {
+    $statusA = isset($a['PurchaseStatus']) ? intval($a['PurchaseStatus']) : 0;
+    $statusB = isset($b['PurchaseStatus']) ? intval($b['PurchaseStatus']) : 0;
+
+    $weightA = ($statusA === 0) ? 1 : 2; // Diproses = 1, Selesai = 2
+    $weightB = ($statusB === 0) ? 1 : 2;
+
+    if ($weightA !== $weightB) {
+        return $weightA <=> $weightB;
+    }
+
+    // Jika status sama, urutkan berdasarkan Tanggal_Beli terbaru
+    $dateA = $a['Tanggal_Beli'] instanceof DateTime ? $a['Tanggal_Beli']->getTimestamp() : strtotime($a['Tanggal_Beli'] ?? '');
+    $dateB = $b['Tanggal_Beli'] instanceof DateTime ? $b['Tanggal_Beli']->getTimestamp() : strtotime($b['Tanggal_Beli'] ?? '');
+    return $dateB <=> $dateA;
+});
 
 // Booking Berikutnya: ambil dari riwayat booking (status 1 & tanggal >= hari ini), urutkan ascending
 $next_booking = null;

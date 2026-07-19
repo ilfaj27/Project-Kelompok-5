@@ -102,6 +102,7 @@ if ($is_ajax) {
                 'data' => [
                     'ID_Customer' => $row['ID_Customer'],
                     'Nama_Customer' => $row['Nama_Customer'],
+                    'Username' => $row['Username'] ?? '-',
                     'Email' => $row['Email'] ?? '-',
                     'Jenis_Kelamin' => (int) $row['Jenis_Kelamin'],
                     'JenisKelaminText' => jk_label($row['Jenis_Kelamin']),
@@ -177,6 +178,26 @@ if ($is_ajax) {
         if ($umur_range !== 'all' && !empty($umur_range)) {
             $all_rows = filterByUmur($all_rows, $umur_range);
             $all_rows = array_values($all_rows); // tata kembali index-nya
+        }
+
+        // ============================================================
+        // PERBAIKAN: Jalankan Sorting Umur secara Manual di Sisi PHP
+        // ============================================================
+        if ($sort_by === 'Umur') {
+            usort($all_rows, function ($a, $b) use ($sort_order) {
+                $umurA = isset($a['Umur']) ? intval($a['Umur']) : 0;
+                $umurB = isset($b['Umur']) ? intval($b['Umur']) : 0;
+                
+                if ($umurA === $umurB) {
+                    return 0;
+                }
+                
+                if ($sort_order === 'DESC') {
+                    return ($umurA < $umurB) ? 1 : -1;
+                } else {
+                    return ($umurA > $umurB) ? 1 : -1;
+                }
+            });
         }
 
         $total_cust_filtered = count($all_rows);
@@ -1688,6 +1709,10 @@ $sidebar_photo = $profile_photo;
                             <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
                             <span class="info-val">${data.Nama_Customer}</span>
                         </div>
+                        <div class="info-row">
+    <span class="info-key"><i class="fa-solid fa-user-tag"></i> Username</span>
+    <span class="info-val">${data.Username}</span>
+</div>
                         <div class="info-row">
                             <span class="info-key"><i class="fa-solid fa-envelope"></i> Email</span>
                             <span class="info-val">${data.Email}</span>

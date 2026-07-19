@@ -146,6 +146,21 @@ if ($stmtBookings) {
             $bookings_riwayat[] = $row;
         }
     }
+
+    // === TAMBAHKAN BLOK KODE URUTAN DI BAWAH INI ===
+    // Mengurutkan riwayat: Selesai (2) terlebih dahulu, baru Dibatalkan (3)
+    usort($bookings_riwayat, function($a, $b) {
+        if ($a['StatusBooking'] != $b['StatusBooking']) {
+            // Jika status tidak sama, utamakan status 2 (Selesai) dibanding status 3 (Dibatalkan)
+            return ($a['StatusBooking'] == 2) ? -1 : 1;
+        }
+        
+        // Jika statusnya sama, urutkan berdasarkan waktu bermain terbaru (Tanggal & Jam DESC)
+        $waktuA = strtotime($a['Tanggal_Formatted'] . ' ' . $a['Jam_Mulai_Formatted']);
+        $waktuB = strtotime($b['Tanggal_Formatted'] . ' ' . $b['Jam_Mulai_Formatted']);
+        return $waktuB <=> $waktuA; 
+    });
+    // === AKHIR DARI BLOK KODE URUTAN ===
 }
 
 function resolvePhotoPath($photo_path) {
