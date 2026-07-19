@@ -321,13 +321,16 @@ if ($is_ajax) {
             $params_query[] = "%$search%";
         }
 
+        // Definisi ekspresi perhitungan umur (konsisten untuk SELECT, WHERE, dan ORDER BY)
+        $age_expr = "DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() THEN 1 ELSE 0 END";
+
         // Filter Umur dinamis
         if ($filter_umur === 'muda') {
-            $sql_where .= " AND (DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() THEN 1 ELSE 0 END) < 25";
+            $sql_where .= " AND (" . $age_expr . ") < 25 AND Tanggal_Lahir IS NOT NULL";
         } elseif ($filter_umur === 'produktif') {
-            $sql_where .= " AND (DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() THEN 1 ELSE 0 END) BETWEEN 25 AND 40";
+            $sql_where .= " AND (" . $age_expr . ") BETWEEN 25 AND 40 AND Tanggal_Lahir IS NOT NULL";
         } elseif ($filter_umur === 'senior') {
-            $sql_where .= " AND (DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() THEN 1 ELSE 0 END) > 40";
+            $sql_where .= " AND (" . $age_expr . ") > 40 AND Tanggal_Lahir IS NOT NULL";
         }
 
         // PERBAIKAN URUTAN LOGIKA: Kueri total data dijalankan setelah $sql_where dibangun lengkap di atas
@@ -361,14 +364,14 @@ if ($is_ajax) {
         ];
         $sort_column = $allowed_sort[$sort_by] ?? 'Nama_Karyawan';
 
-        // Ambil Data List Karyawan + Kalkulasi Umur
+        // Ambil Data List Karyawan + Kalkulasi Umur (gunakan subquery agar ORDER BY Umur pasti dikenali SQL Server)
         $sql_data = "
-            SELECT *, 
-                   DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
-                   CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() 
-                        THEN 1 ELSE 0 END AS Umur
-            FROM Karyawan
-            " . $sql_where . "
+            SELECT * FROM (
+                SELECT *, 
+                       " . $age_expr . " AS Umur
+                FROM Karyawan
+                " . $sql_where . "
+            ) AS KaryawanWithAge
             ORDER BY " . $sort_column . " " . $sort_order . "
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
         ";
@@ -402,7 +405,6 @@ if ($is_ajax) {
                     data-name="<?= strtolower(htmlspecialchars($nama_kry)) ?>">
                     <!-- Menambahkan properti font-weight tebal dan warna teks yang tegas -->
                     <td class="row-num" style="text-align: center; font-weight: 700; color: var(--text);"><?= $row_num ?></td>
-                    </div>
                     <!-- Rata Kiri -->
                     <td style="text-align: left;">
                         <div class="emp-name-cell">
@@ -451,7 +453,7 @@ if ($is_ajax) {
 
         if (!$has_data): ?>
             <tr>
-                <td colspan="6">
+                <td colspan="7">
                     <div class="empty-state"><i class="fa-solid fa-user-tie"></i>
                         <p>Belum ada data karyawan terdaftar</p>
                     </div>
