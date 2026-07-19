@@ -241,6 +241,7 @@ if (isset($_POST['update_biodata'])) {
             // Atur semua data session terlebih dahulu
             $_SESSION['nama'] = $nama;
             $_SESSION['nama_user'] = $nama;
+            $_SESSION['Nama_Customer'] = $nama;
             $_SESSION['swal_status'] = 'success';
             $_SESSION['swal_title'] = 'Berhasil Memperbarui';
             $_SESSION['swal_msg'] = 'Biodata berhasil diperbarui!';
@@ -429,6 +430,11 @@ if (isset($_POST['update_photo']) && isset($_FILES['photo'])) {
 $res_cust = sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerDetail ?", array($ID_Customer));
 $biodata = sqlsrv_fetch_array($res_cust, SQLSRV_FETCH_ASSOC);
 sqlsrv_free_stmt($res_cust);
+
+if ($biodata) {
+    $_SESSION['nama'] = $biodata['Nama_Customer'];
+    $_SESSION['Nama_Customer'] = $biodata['Nama_Customer'];
+}
 
 $profile_photo = $biodata['Photo_Profile'] ?? $_SESSION['Profile_Photo'] ?? '';
 if (empty($profile_photo) || !file_exists($profile_photo)) {
