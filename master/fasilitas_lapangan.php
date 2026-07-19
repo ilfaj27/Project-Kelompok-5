@@ -71,8 +71,8 @@ if ($is_ajax) {
             $errors[] = "Detail fasilitas wajib diisi!";
         } elseif (strlen($detail_fasilitas) < 10) { // Ditambahkan batas minimal 10 karakter
             $errors[] = "Detail fasilitas minimal harus 10 karakter!";
-        } elseif (!preg_match('/^[a-zA-Z\s\-]+$/', $detail_fasilitas)) { // Dihilangkan regex angka '0-9'
-            $errors[] = "Detail fasilitas hanya boleh berisi huruf, spasi, dan tanda strip (tidak boleh angka)!";
+        } elseif (!preg_match('/^[a-zA-Z\s]+$/', $detail_fasilitas)) {
+            $errors[] = "Detail fasilitas hanya boleh berisi huruf dan spasi!";
         }
 
         if ($stok_total < 5) {
@@ -236,17 +236,22 @@ if ($is_ajax) {
                     </td>
                     <td class="col-center">
                         <div class="actions">
-                            <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-view" title="Lihat Detail">
+                            <button type="button" onclick="showDetail('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-view"
+                                title="Lihat Detail">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button type="button" onclick="showEditForm('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-edit" title="Edit Fasilitas">
+                            <button type="button" onclick="showEditForm('<?= $row['ID_Fasilitas'] ?>')" class="btn-action btn-edit"
+                                title="Edit Fasilitas">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
                             <label class="toggle-switch" title="<?= $row['Status'] == 1 ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?> onchange="confirmToggle('<?= $row['ID_Fasilitas'] ?>', <?= $row['Status'] ?>, event)">
+                                <input type="checkbox" <?= $row['Status'] == 1 ? 'checked' : '' ?>
+                                    onchange="confirmToggle('<?= $row['ID_Fasilitas'] ?>', <?= $row['Status'] ?>, event)">
                                 <span class="toggle-slider"></span>
                             </label>
-                            <button type="button" onclick="confirmDelete('<?= $row['ID_Fasilitas'] ?>', '<?= htmlspecialchars($row['Nama_Fasilitas'], ENT_QUOTES) ?>')" class="btn-action btn-delete" title="Hapus Fasilitas">
+                            <button type="button"
+                                onclick="confirmDelete('<?= $row['ID_Fasilitas'] ?>', '<?= htmlspecialchars($row['Nama_Fasilitas'], ENT_QUOTES) ?>')"
+                                class="btn-action btn-delete" title="Hapus Fasilitas">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
@@ -291,7 +296,8 @@ if ($is_ajax) {
                     <?= $i ?>
                 </button>
             <?php endfor; ?>
-            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
+            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)"
+                class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
                 <i class="fa-solid fa-angle-right"></i>
             </button>
             <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>">
@@ -474,32 +480,35 @@ $sidebar_photo = $profile_photo;
             box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
         }
 
-        .card-header { 
-            padding: 20px 24px; 
-            border-bottom: 1px solid var(--border); 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .card-title { 
-            font-size: 15px; 
-            font-weight: 800; 
-            color: var(--text); 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
+        .card-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .card-title i { color: var(--orange); font-size: 14px; }
+        .card-title i {
+            color: var(--orange);
+            font-size: 14px;
+        }
 
-        .card-badge { 
-            background: var(--orange-lt); 
-            color: var(--orange); 
-            font-size: 11px; 
-            font-weight: 800; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
+        .card-badge {
+            background: var(--orange-lt);
+            color: var(--orange);
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
         }
 
         .table-wrap {
@@ -507,7 +516,10 @@ $sidebar_photo = $profile_photo;
             scrollbar-width: none;
             -ms-overflow-style: none;
         }
-        .table-wrap::-webkit-scrollbar { display: none; }
+
+        .table-wrap::-webkit-scrollbar {
+            display: none;
+        }
 
         .data-table {
             width: 100%;
@@ -515,13 +527,13 @@ $sidebar_photo = $profile_photo;
         }
 
         .data-table th {
-            font-family: 'Barlow Condensed', sans-serif !important; 
-            font-size: 13.5px !important; 
-            font-weight: 900 !important; 
-            color: #FFFFFF !important; 
-            text-transform: uppercase !important; 
-            letter-spacing: 0.8px !important; 
-            padding: 16px 20px; 
+            font-family: 'Barlow Condensed', sans-serif !important;
+            font-size: 13.5px !important;
+            font-weight: 900 !important;
+            color: #FFFFFF !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            padding: 16px 20px;
             border-bottom: 2px solid var(--border-lt);
             background: #ff6f00 !important;
         }
@@ -542,8 +554,8 @@ $sidebar_photo = $profile_photo;
             font-size: 13.5px;
         }
 
-        .data-table tbody tr { 
-            height: 72px; 
+        .data-table tbody tr {
+            height: 72px;
             border-bottom: 1px solid var(--border-lt);
         }
 
@@ -1406,8 +1418,8 @@ $sidebar_photo = $profile_photo;
                             class="chip-val" id="stat-aktif">0</span></div>
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span
                             class="chip-val" id="stat-nonaktif">0</span></div>
-                    <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span
-                            class="chip-val" id="stat-total">0</span></div>
+                    <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span class="chip-val"
+                            id="stat-total">0</span></div>
                 </div>
             </div>
 
@@ -1416,14 +1428,16 @@ $sidebar_photo = $profile_photo;
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <input type="text" id="src" placeholder="Cari fasilitas... (Tekan Enter)"
                         onkeypress="handleSearch(event)" value="">
-                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch" style="display: none;">
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch"
+                        style="display: none;">
                         <i class="fa-solid fa-circle-xmark"></i>
                     </button>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
                         <!-- Perbaikan ID custom dan onclick khusus untuk bypass tabrakan event global.js -->
-                        <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
+                        <button type="button" class="btn-filter" id="btnFilterToggleCustom"
+                            onclick="toggleCustomFilterCard(event)">
                             <i class="fa-solid fa-filter"></i> Filter <i
                                 class="fa-solid fa-chevron-down arrow-icon"></i>
                         </button>
@@ -1645,7 +1659,7 @@ $sidebar_photo = $profile_photo;
                 required: true,
                 minLength: 10,
                 maxLength: 50,
-                patternAlphaSpaceHyphen: true,
+                patternAlphaOnly: true, // Menggunakan aturan khusus huruf dan spasi
                 label: 'Detail fasilitas'
             })) valid = false;
 
@@ -2009,9 +2023,9 @@ $sidebar_photo = $profile_photo;
                 detailFas.addEventListener('blur', function () {
                     validateField('detail_fasilitas', 'val-detail_fasilitas', {
                         required: true,
-                        minLength: 10, // Ditambahkan minimal 10
+                        minLength: 10,
                         maxLength: 50,
-                        patternAlphaSpaceHyphen: true, // Menggunakan aturan tanpa angka
+                        patternAlphaOnly: true, // Diubah ke patternAlphaOnly
                         label: 'Detail fasilitas'
                     });
                 });
@@ -2019,9 +2033,9 @@ $sidebar_photo = $profile_photo;
                     if (this.classList.contains('error')) {
                         validateField('detail_fasilitas', 'val-detail_fasilitas', {
                             required: true,
-                            minLength: 10, // Ditambahkan minimal 10
+                            minLength: 10,
                             maxLength: 50,
-                            patternAlphaSpaceHyphen: true, // Menggunakan aturan tanpa angka
+                            patternAlphaOnly: true, // Diubah ke patternAlphaOnly
                             label: 'Detail fasilitas'
                         });
                     }
@@ -2030,7 +2044,8 @@ $sidebar_photo = $profile_photo;
         });
     </script>
     <!-- Panggil sensor di paling bawah sebelum body ditutup -->
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>  
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>
