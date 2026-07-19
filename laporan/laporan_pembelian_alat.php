@@ -84,45 +84,26 @@ if ($filter_type === 'today') {
 }
 
 // Alat filter
-// FIX: pakai EXISTS (bukan "dba.ID_Alat = ?") supaya kondisi ini tetap valid
-// di query manapun yang pakai $where_sql, baik yang JOIN Detail_Beli_Alat
-// (detail_sql, pop_sql, dst) MAUPUN yang TIDAK join sama sekali (beli_sql,
-// stats header). Sebelumnya beli_sql error "Invalid column name 'dba'"
-// setiap kali filter Alat dipakai karena beli_sql gak join Detail_Beli_Alat.
 if ($alat_filter !== 'all') {
     $where_clauses[] = "EXISTS (SELECT 1 FROM Detail_Beli_Alat dba_f WHERE dba_f.ID_Beli = ba.ID_Beli AND dba_f.ID_Alat = ?)";
     $params[] = $alat_filter;
 }
 
-// Simpan checkpoint SEBELUM status filter ditambahkan -> dipakai khusus
-// buat query Total Profit di bawah (profit selalu dari transaksi Berhasil
-// saja, terlepas dari pilihan dropdown Status di filter bar).
 $where_clauses_base = $where_clauses;
 $params_base = $params;
 
-// Status filter (ini yang ngikutin pilihan dropdown user, dipakai buat
-// tabel/statistik biasa)
 if ($status_filter !== 'all') {
     $where_clauses[] = "ba.Status = ?";
     $params[] = $status_filter;
 }
 
 $where_sql = implode(" AND ", $where_clauses);
-
-// Where khusus Total Profit: base (tanggal + alat) + HARDCODE Status = 1
-// (Berhasil), gak ikut dropdown filter Status di halaman.
 $where_sql_profit = implode(" AND ", array_merge($where_clauses_base, ["ba.Status = 1"]));
 $params_profit = $params_base;
-
 
 // ============================================
 // STATISTIK
 // ============================================
-// FIX: dulu 1 query gabungan LEFT JOIN Detail_Beli_Alat + SUM(ba.Total_Bayar)
-// -> Total_Bayar (nilai di level HEADER) ke-duplikat sebanyak jumlah item
-// di transaksi itu (fan-out JOIN), jadi total pendapatan kegedean.
-// Sekarang dipisah: agregat level transaksi (transaksi/status/pendapatan)
-// dari Beli_Alat SAJA, dan agregat level item (total_item) query terpisah.
 $total_transaksi = 0;
 $total_berhasil = 0;
 $total_pending = 0;
@@ -162,10 +143,6 @@ if ($d) {
     $total_item = $d['total_item'] ?? 0;
 }
 
-// FIX/NEW: Total Profit = SUM((Harga_Jual - Harga_Beli) * Jumlah), HANYA dari
-// transaksi Status = Berhasil (1) -- gak ikut dropdown filter Status di
-// halaman, karena profit cuma masuk akal dihitung dari penjualan yang
-// beneran kejadian. Tetap ikut filter Periode & Alat seperti biasa.
 $profit_sql = "SELECT SUM((a.Harga_Jual - a.Harga_Beli) * dba.Jumlah) as total_profit
 FROM Beli_Alat ba
 INNER JOIN Detail_Beli_Alat dba ON ba.ID_Beli = dba.ID_Beli
@@ -208,7 +185,6 @@ if ($q !== null) {
 // DETAIL ITEM PER TRANSAKSI
 // ============================================
 $detail_items = [];
-// FIX: Harga_Alat -> Harga_Jual (kolom Harga_Alat tidak ada di tabel Alat)
 $detail_sql = "SELECT 
     dba.ID_Beli,
     a.Nama_Alat,
@@ -232,7 +208,6 @@ if ($q !== null) {
 // ALAT POPULER
 // ============================================
 $alat_populer = [];
-// FIX: Harga_Alat -> Harga_Jual
 $pop_sql = "SELECT 
     a.Nama_Alat,
     a.Harga_Jual,
@@ -257,8 +232,6 @@ if ($q !== null) {
 // DAFTAR ALAT UNTUK FILTER
 // ============================================
 $daftar_alat = [];
-// FIX: Harga_Alat -> Harga_Jual (query ini gagal total sebelumnya,
-// jadi dropdown filter "Alat" cuma nampilin "Semua Alat" doang)
 $q = safeQuery($conn, "SELECT ID_Alat, Nama_Alat, Harga_Jual FROM Alat WHERE Is_Deleted = 0 ORDER BY ID_Alat");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
@@ -269,8 +242,6 @@ if ($q !== null) {
 // ============================================
 // CHART DATA: Pembelian per Bulan
 // ============================================
-// FIX: sama seperti stats, dipisah jadi 2 query supaya SUM(ba.Total_Bayar)
-// per bulan tidak ikut ke-fanout gara-gara JOIN Detail_Beli_Alat.
 $chart_labels = [];
 $chart_data = [];
 $chart_item = [];
@@ -325,8 +296,6 @@ foreach ($chart_map as $row) {
     $chart_item[] = $row['item'];
 }
 
-// FIX: tambah case Status = 2 (Ditolak). Sebelumnya cuma cek Status==1,
-// jadi transaksi Ditolak ikut ke-label "Menunggu" (salah).
 function statusBeliLabel($status) {
     switch ((int)$status) {
         case 1: return ['Berhasil', 'sp-active'];
@@ -360,7 +329,6 @@ function statusBeliLabel($status) {
 html { scroll-behavior: smooth; }
 body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; min-height: 100vh; color: var(--text); }
 
-/* SIDEBAR */
 /* MAIN & TOPBAR */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { background: var(--card-bg); height: var(--topbar-h); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 0 rgba(0,0,0,.04); }
@@ -401,11 +369,10 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .filter-btn.secondary:hover { background: var(--border-lt); }
 
 /* STAT GRID */
-.stat-grid { display: flex; flex-wrap: nowrap; gap: 16px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; }
-.stat-grid::-webkit-scrollbar { height: 6px; }
-.stat-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-.stat-grid::-webkit-scrollbar-track { background: transparent; }
-.stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; flex: 1 1 0; min-width: 170px; }
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+@media(max-width:1200px){ .stat-grid { grid-template-columns: repeat(3, 1fr); } }
+@media(max-width:768px){ .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px 22px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: all .2s ease; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
 .sc-blue::before { background: var(--blue); }
@@ -413,7 +380,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .sc-orange::before { background: var(--orange); }
 .sc-purple::before { background: var(--purple); }
 .sc-red::before { background: var(--red); }
-.sc-yellow::before { background: var(--yellow); }
 .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .stat-icon-wrap { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 .si-blue { background: var(--blue-lt); color: var(--blue); }
@@ -421,7 +387,6 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .si-orange { background: var(--orange-lt); color: var(--orange); }
 .si-purple { background: var(--purple-lt); color: var(--purple); }
 .si-red { background: var(--red-lt); color: var(--red); }
-.si-yellow { background: var(--yellow-lt); color: var(--yellow); }
 .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; margin-bottom: 4px; }
 .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 
@@ -435,17 +400,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .card-body { padding: 20px 24px; }
 
 /* TABLE */
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th { padding: 13px 16px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); white-space: nowrap; }
-.data-table td { padding: 16px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.data-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.data-table th { padding: 12px 14px; font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 2px solid var(--border-lt); text-align: left; background: var(--bg); white-space: nowrap; }
+.data-table td { padding: 14px 14px; font-size: 13px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr { transition: background .15s; }
-.data-table tbody tr:nth-child(even) td { background: #FBFBFC; }
-.data-table tbody tr:hover td { background: #FFF7ED; }
-.data-table th.text-right, .data-table td.text-right { text-align: right; }
-.data-table th.text-center, .data-table td.text-center { text-align: center; }
-.data-table td.text-right .cell-price { text-align: right; }
-
+.data-table tbody tr:hover td { background: #FAFAFA; }
 .cell-name { font-weight: 700; color: var(--text); }
 .cell-detail { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
 .cell-price { font-weight: 800; color: var(--text); white-space: nowrap; }
@@ -459,8 +419,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .chart-container { position: relative; height: 320px; }
 
 /* GRID LAYOUT */
-.dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; }
-@media(max-width:1100px){ .dashboard-grid { grid-template-columns: 1fr; } }
+.dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
 
 /* POPULAR ITEM */
 .popular-list { max-height: 400px; overflow-y: auto; padding-right: 6px; margin-right: -6px; }
@@ -481,25 +440,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .item-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .item-tag { background: var(--orange-lt); color: var(--orange); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 
-/* RINGKASAN KEUANGAN */
-.ringkasan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-@media(max-width:900px){ .ringkasan-grid { grid-template-columns: 1fr; } }
-.ringkasan-box { text-align: center; padding: 22px 20px; border-radius: 14px; border: 1px solid; transition: transform .2s ease; }
-.ringkasan-box:hover { transform: translateY(-2px); }
-.ringkasan-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin: 0 auto 12px; }
-.ringkasan-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
-.ringkasan-value { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; }
-.rk-green { background: var(--green-lt); border-color: rgba(16,185,129,.2); }
-.rk-green .ringkasan-icon { background: rgba(16,185,129,.15); color: var(--green); }
-.rk-green .ringkasan-value { color: var(--green); }
-.rk-blue { background: var(--blue-lt); border-color: rgba(59,130,246,.2); }
-.rk-blue .ringkasan-icon { background: rgba(59,130,246,.15); color: var(--blue); }
-.rk-blue .ringkasan-value { color: var(--blue); }
-.rk-purple { background: var(--purple-lt); border-color: rgba(139,92,246,.2); }
-.rk-purple .ringkasan-icon { background: rgba(139,92,246,.15); color: var(--purple); }
-.rk-purple .ringkasan-value { color: var(--purple); }
+/* ALIGNMENT UTILITIES */
+.text-center { text-align: center !important; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
 
-/* PRINT HEADER (logo, hanya muncul pas print/PDF) */
+/* PRINT HEADER */
 .print-header { display: none; }
 .print-header-inner { display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
 .print-logo { display: flex; align-items: center; gap: 12px; }
@@ -519,12 +465,12 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
     .card { break-inside: avoid; page-break-inside: avoid; }
     .print-header { display: block !important; }
     .popular-list { max-height: none !important; overflow: visible !important; padding-right: 0 !important; margin-right: 0 !important; }
-    .stat-grid { overflow: visible !important; flex-wrap: wrap !important; }
-    .stat-card { min-width: 0 !important; }
+    .stat-grid { grid-template-columns: repeat(3, 1fr) !important; }
 }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
 /* CLOCK */
 #clock-display { display: flex; align-items: center; gap: 16px; }
 .clock-time { 
@@ -548,8 +494,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     text-transform: uppercase; 
     letter-spacing: 0.5px; 
 }
-
-
 
 .topbar-user { background-color: #FFFFFF !important; }
 
@@ -582,7 +526,6 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     animation: none !important;
 }
 
-/* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
 html.swal2-shown,
 body.swal2-shown,
 body.swal2-height-auto {
@@ -599,16 +542,13 @@ include '../includes/sidebar.php';
 ?>
 <main class="main">
 <?php
-// ============================================================
-// SET TOPBAR VARIABLES & INCLUDE UNIFIED TOPBAR
-// ============================================================
 $topbar_title = 'Laporan Pembelian Alat';
 $topbar_breadcrumb = 'Laporan / Pembelian Alat';
 include '../includes/topbar.php';
 ?>
 
 <div class="content">
-    <!-- Print Header (cuma muncul pas Cetak/PDF, gantiin sidebar yang di-hide) -->
+    <!-- Print Header -->
     <div class="print-header">
         <div class="print-header-inner">
             <div class="print-logo">
@@ -664,9 +604,26 @@ include '../includes/topbar.php';
                 <option value="2" <?= $status_filter == '2' ? 'selected' : '' ?>>Ditolak</option>
             </select>
         </div>
-        <button type="button" class="filter-btn secondary" onclick="window.print()" title="Cetak Laporan" style="margin-left:auto;"><i class="fa-solid fa-print"></i> Cetak</button>
-        <button type="submit" class="filter-btn"><i class="fa-solid fa-filter"></i> Terapkan</button>
-        <a href="laporan_pembelian_alat.php" class="filter-btn secondary"><i class="fa-solid fa-rotate-right"></i> Reset</a>
+
+        <!-- Spacer -->
+        <div style="flex-grow: 1; min-width: 0;"></div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 6px; align-items: end; flex-wrap: wrap;">
+            <button type="submit" class="filter-btn" style="white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-magnifying-glass"></i> Cari
+            </button>
+            <a href="laporan_pembelian_alat.php" class="filter-btn secondary" style="text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px; display: inline-flex; align-items: center;">
+                <i class="fa-solid fa-rotate-right"></i> Reset
+            </a>
+            <div style="width: 1px; height: 32px; background-color: var(--border); margin: 0 4px;"></div>
+            <a href="cetak_pdf_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: var(--red); text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-pdf"></i> Unduh PDF
+            </a>
+            <a href="cetak_excel_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: #10B981; text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+                <i class="fa-solid fa-file-excel"></i> Unduh Excel
+            </a>
+        </div>
     </form>
 
     <!-- Statistik -->
@@ -694,14 +651,14 @@ include '../includes/topbar.php';
     </div>
 
     <!-- Chart & Populer -->
-    <div class="dashboard-grid">
-        <div class="card">
+    <div class="dashboard-grid" style="grid-template-columns: 2fr 1fr;">
+        <div class="card" style="margin-bottom: 0;">
             <div class="card-header"><div class="card-title"><i class="fa-solid fa-chart-column"></i> Trend Pembelian per Periode</div></div>
             <div class="card-body"><div class="chart-container"><canvas id="beliChart"></canvas></div></div>
         </div>
-        <div class="card">
-            <div class="card-header"><div class="card-title"><i class="fa-solid fa-trophy"></i> Alat Terlaris</div></div>
-            <div class="card-body">
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header"><div class="card-title"><i class="fa-solid fa-trophy" style="color:var(--orange);"></i> Alat Terlaris</div></div>
+            <div class="card-body" style="padding-top: 14px; max-height: 385px; overflow-y: auto;">
                 <?php if(count($alat_populer) > 0): ?>
                 <div class="popular-list">
                 <?php $rank = 1; foreach($alat_populer as $ap): ?>
@@ -716,14 +673,14 @@ include '../includes/topbar.php';
                 <?php endforeach; ?>
                 </div>
                 <?php else: ?>
-                <div style="text-align:center; padding:30px; color:var(--muted);">
-                    <i class="fa-solid fa-inbox" style="font-size:32px; margin-bottom:10px; opacity:.5; display:block;"></i>
-                    <div style="font-size:13px; font-weight:700;">Belum ada data</div>
+                <div style="text-align:center; padding:30px 0; color:var(--muted); font-size:13px; font-weight:600;">
+                    Belum ada data pada periode ini
                 </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
+    <br>
 
     <!-- Tabel Detail Pembelian -->
     <div class="card">
@@ -735,14 +692,14 @@ include '../includes/topbar.php';
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Nomor</th>
-                        <th>Customer</th>
-                        <th>Tanggal Beli</th>
-                        <th>Item Dibeli</th>
-                        <th>Metode Bayar</th>
-                        <th class="text-right">Total Bayar</th>
-                        <th class="text-center">Status</th>
-                        <th>Karyawan</th>
+                        <th class="text-center" style="width: 80px;">ID</th>
+                        <th class="text-left" style="width: 200px;">Customer</th>
+                        <th class="text-center" style="width: 120px;">Tanggal</th>
+                        <th class="text-left" style="width: 220px;">Item Dibeli</th>
+                        <th class="text-left" style="width: 140px;">Metode Bayar</th>
+                        <th class="text-right" style="width: 140px;">Total Bayar</th>
+                        <th class="text-center" style="width: 110px;">Status</th>
+                        <th class="text-left" style="width: 160px;">Karyawan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -752,12 +709,12 @@ include '../includes/topbar.php';
                     $items = $detail_items[$ba['ID_Beli']] ?? [];
                 ?>
                     <tr>
-                        <td><div class="cell-name">#<?= $ba['ID_Beli'] ?></div></td>
+                        <td class="text-center"><div class="cell-name">#<?= $ba['ID_Beli'] ?></div></td>
                         <td>
                             <div class="cell-name"><?= htmlspecialchars($ba['Nama_Customer']) ?></div>
                             <div class="cell-detail"><?= htmlspecialchars($ba['Email'] ?? '') ?></div>
                         </td>
-                        <td><?= $ba['Tanggal_Beli'] ? $ba['Tanggal_Beli']->format('d M Y') : '-' ?></td>
+                        <td class="text-center"><?= $ba['Tanggal_Beli'] ? $ba['Tanggal_Beli']->format('d M Y') : '-' ?></td>
                         <td>
                             <?php if(count($items) > 0): ?>
                             <div class="item-list">
@@ -790,21 +747,18 @@ include '../includes/topbar.php';
     <div class="card">
         <div class="card-header"><div class="card-title"><i class="fa-solid fa-calculator"></i> Ringkasan Keuangan Pembelian Alat</div></div>
         <div class="card-body">
-            <div class="ringkasan-grid">
-                <div class="ringkasan-box rk-green">
-                    <div class="ringkasan-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
-                    <div class="ringkasan-label">Total Pendapatan</div>
-                    <div class="ringkasan-value"><?= rupiahFormat($total_pendapatan) ?></div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div style="text-align: center; padding: 20px; background: var(--green-lt); border-radius: 12px; border: 1px solid rgba(16,185,129,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Pendapatan</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--green);"><?= rupiahFormat($total_pendapatan) ?></div>
                 </div>
-                <div class="ringkasan-box rk-blue">
-                    <div class="ringkasan-icon"><i class="fa-solid fa-sack-dollar"></i></div>
-                    <div class="ringkasan-label">Total Profit</div>
-                    <div class="ringkasan-value"><?= rupiahFormat($total_profit) ?></div>
+                <div style="text-align: center; padding: 20px; background: var(--blue-lt); border-radius: 12px; border: 1px solid rgba(59,130,246,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Total Profit</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--blue);"><?= rupiahFormat($total_profit) ?></div>
                 </div>
-                <div class="ringkasan-box rk-purple">
-                    <div class="ringkasan-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
-                    <div class="ringkasan-label">Item Terjual</div>
-                    <div class="ringkasan-value"><?= $total_item ?> unit</div>
+                <div style="text-align: center; padding: 20px; background: var(--purple-lt); border-radius: 12px; border: 1px solid rgba(139,92,246,.2);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Item Terjual</div>
+                    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: var(--purple);"><?= $total_item ?> unit</div>
                 </div>
             </div>
         </div>
@@ -821,37 +775,37 @@ function toggleCustomDate(select) {
 
 const ctx = document.getElementById('beliChart').getContext('2d');
 new Chart(ctx, {
-    type: 'line', // Diubah menjadi line chart
+    type: 'line',
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [
             {
                 label: 'Pendapatan',
                 data: <?= json_encode($chart_data) ?>,
-                borderColor: '#FF4500', // Warna oranye utama
-                backgroundColor: 'rgba(255, 69, 0, 0.1)', // Fill area transparan oranye di bawah garis
-                fill: true, // Mengaktifkan area fill
-                tension: 0.4, // Membuat kurva melengkung halus (smooth bezier)
+                borderColor: '#FF4500',
+                backgroundColor: 'rgba(255, 69, 0, 0.1)',
+                fill: true,
+                tension: 0.4,
                 pointBackgroundColor: '#FF4500',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
                 pointRadius: 5,
                 pointHoverRadius: 7,
-                yAxisID: 'y' // Terikat ke sumbu Y kiri (Rupiah)
+                yAxisID: 'y'
             },
             {
                 label: 'Item Terjual',
                 data: <?= json_encode($chart_item) ?>,
-                borderColor: '#3B82F6', // Warna biru utama
-                backgroundColor: 'rgba(59, 130, 246, 0.05)', // Fill area transparan biru di bawah garis
-                fill: true, // Mengaktifkan area fill
-                tension: 0.4, // Membuat kurva melengkung halus (smooth bezier)
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                fill: true,
+                tension: 0.4,
                 pointBackgroundColor: '#3B82F6',
                 pointBorderColor: '#FFFFFF',
                 pointBorderWidth: 2,
                 pointRadius: 5,
                 pointHoverRadius: 7,
-                yAxisID: 'y1' // Terikat ke sumbu Y kanan (Unit)
+                yAxisID: 'y1'
             }
         ]
     },
@@ -861,10 +815,10 @@ new Chart(ctx, {
         plugins: {
             legend: { 
                 position: 'top', 
-                align: 'end', // Menyejajarkan legenda ke kanan atas
+                align: 'end',
                 labels: { 
                     font: { family: 'Barlow', size: 12, weight: '600' }, 
-                    usePointStyle: true, // Menggunakan penanda lingkaran pada legenda
+                    usePointStyle: true,
                     boxWidth: 8,
                     padding: 20 
                 } 
@@ -890,7 +844,7 @@ new Chart(ctx, {
             y: { 
                 type: 'linear', 
                 display: true, 
-                position: 'left', // Sumbu Y kiri untuk nominal Pendapatan
+                position: 'left',
                 beginAtZero: true, 
                 grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, 
                 ticks: { 
@@ -904,14 +858,14 @@ new Chart(ctx, {
             y1: { 
                 type: 'linear', 
                 display: true, 
-                position: 'right', // Sumbu Y kanan untuk jumlah Item Terjual
+                position: 'right',
                 beginAtZero: true, 
-                grid: { drawOnChartArea: false }, // Agar grid line tidak bertabrakan dengan sumbu kiri
+                grid: { drawOnChartArea: false },
                 ticks: { 
                     font: { family: 'Barlow', size: 11 }, 
                     color: '#6B7280',
                     callback: function(value) {
-                        if (Math.floor(value) === value) { // Menampilkan angka bulat saja
+                        if (Math.floor(value) === value) {
                             return value + ' unit';
                         }
                     }
