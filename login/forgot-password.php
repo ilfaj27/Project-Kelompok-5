@@ -110,10 +110,7 @@ if (isset($_POST['reset_password'])) {
         $id_customer = $_SESSION['reset_id_customer'];
         $new_pass = trim($_POST['new_password']);
 
-        $sql_old = "SELECT Kata_Sandi FROM Customer WHERE ID_Customer = ?";
-        $q_old = sqlsrv_query($conn, $sql_old, array($id_customer));
-        $d_old = sqlsrv_fetch_array($q_old, SQLSRV_FETCH_ASSOC);
-        $old_pass = $d_old['Kata_Sandi'] ?? '';
+        // Query ke database untuk mengambil kata sandi lama telah dihapus dari sini
 
         if (empty($new_pass)) {
             $res_status = "error";
@@ -121,10 +118,9 @@ if (isset($_POST['reset_password'])) {
         } else if (strlen($new_pass) < 8) {
             $res_status = "error";
             $res_msg = "Kata sandi baru minimal harus berisi 8 karakter!";
-        } else if (password_verify($new_pass, $old_pass)) {
-            $res_status = "error";
-            $res_msg = "Kata sandi baru tidak boleh sama dengan kata sandi lama Anda!";
         } else {
+            // Validasi password_verify dengan kata sandi lama telah dihapus
+
             // Enkripsi kata sandi baru menggunakan Argon2id
             $hashed_new_pass = password_hash($new_pass, PASSWORD_ARGON2ID);
 
@@ -152,7 +148,7 @@ if (isset($_POST['reset_password'])) {
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Lupa Kata Sandi | HoopBall BasketPro</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
         rel="stylesheet">
@@ -269,7 +265,7 @@ if (isset($_POST['reset_password'])) {
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock icon-left"></i>
                                 <input type="password" name="new_password" id="passwordInput"
-                                    placeholder="Min. 8 Karakter (Huruf & Angka)" maxlength="50">
+                                    placeholder="Min. 8 Karakter (Huruf & Angka)">
                                 <i class="fa-solid fa-eye icon-right" id="togglePass" onclick="togglePassword()"></i>
                             </div>
                             <span class="error-text" id="passwordError"></span>
@@ -280,7 +276,7 @@ if (isset($_POST['reset_password'])) {
                             <div class="input-wrapper">
                                 <i class="fa-solid fa-lock icon-left"></i>
                                 <input type="password" name="password_confirm" id="passwordConfirmInput"
-                                    placeholder="Ulangi Kata Sandi" maxlength="50">
+                                    placeholder="Ulangi Kata Sandi">
                                 <i class="fa-solid fa-eye icon-right" id="toggleConfirmPass"
                                     onclick="toggleConfirmPassword()"></i>
                             </div>
@@ -430,8 +426,8 @@ if (isset($_POST['reset_password'])) {
                     if (passwordVal === '') {
                         setValidationError(password, passwordError, 'Kata sandi baru wajib diisi.');
                         isValid = false;
-                    } else if (passwordVal.length < 8 || passwordVal.length > 50) {
-                        setValidationError(password, passwordError, 'Kata sandi baru minimal 8 karakter dan maksimal 50 karakter.');
+                    } else if (passwordVal.length < 8) {
+                        setValidationError(password, passwordError, 'Kata sandi baru minimal berisi 8 karakter.');
                         isValid = false;
                     } else if (!hasLetter.test(passwordVal) || !hasNumber.test(passwordVal)) {
                         setValidationError(password, passwordError, 'Kata sandi baru harus berisi kombinasi huruf dan angka.');

@@ -17,7 +17,7 @@ $notif_msg = $_GET['msg'] ?? '';
 // CEK SESSION — Jika sudah login, redirect ke dashboard
 // ============================================================================
 if (isset($_SESSION['id_customer']) && !empty($_SESSION['id_customer'])) {
-    header("Location: ../customer/view_customer.php");
+    header("Location: ../index.php");
     exit();
 }
 if (isset($_SESSION['id_karyawan']) && !empty($_SESSION['id_karyawan'])) {
@@ -93,7 +93,7 @@ if (isset($_POST['login'])) {
                 } elseif ($_SESSION['role'] == 'karyawan') {
                     header("Location: ../dashboard/view_admin.php");
                 } else {
-                    header("Location: ../customer/view_customer.php");
+                    header("Location: ../index.php");
                 }
                 exit();
             } else {

@@ -23,8 +23,8 @@ if (isset($_SESSION['pass_error_field'])) {
 
 include '../includes/config.php';
 
-if (!isset($_SESSION['role'])) {
-    header("Location: ../login/login.php");
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'pemilik') {
+    echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
 

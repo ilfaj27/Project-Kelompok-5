@@ -3,7 +3,7 @@ session_start();
 require_once '../login/auth_check.php';
 include '../includes/config.php';
 
-if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION['role'] !== 'pemilik')) {
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {
     echo "<script>alert('Akses Ditolak!'); window.location='../dashboard/dashboard.php';</script>";
     exit();
 }
