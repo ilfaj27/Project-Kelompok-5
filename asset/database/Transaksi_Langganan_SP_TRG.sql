@@ -1023,32 +1023,6 @@ BEGIN
 END
 GO
 
--- ============================================================================
--- 15. STORED PROCEDURE: SP_GetDashboardStats
--- ============================================================================
--- Statistik dashboard untuk halaman kelola langganan
--- ============================================================================
-
-IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'SP_GetDashboardStats')
-    DROP PROCEDURE SP_GetDashboardStats;
-GO
-
-CREATE PROCEDURE SP_GetDashboardStats
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT 
-        (SELECT COUNT(*) FROM Langganan) AS Total_Langganan,
-        (SELECT COUNT(*) FROM Langganan WHERE Status = 0) AS Menunggu_Konfirmasi,
-        (SELECT COUNT(*) FROM Langganan WHERE Status = 1) AS Aktif,
-        (SELECT COUNT(*) FROM Langganan WHERE Status = 2) AS Berakhir,
-        (SELECT COUNT(*) FROM Langganan WHERE Status = 3) AS Ditolak,
-        (SELECT ISNULL(SUM(Total_Bayar), 0) FROM Langganan WHERE Status = 1) AS Total_Omzet_Aktif,
-        (SELECT ISNULL(SUM(Total_Bayar), 0) FROM Langganan) AS Total_Omzet_Semua,
-        (SELECT COUNT(*) FROM Langganan WHERE Status = 1 AND Tanggal_Selesai <= DATEADD(DAY, 7, GETDATE())) AS Akan_Expired_7Hari;
-END
-GO
 
 -- ============================================================================
 -- 16. STORED PROCEDURE: SP_GetLanggananList
@@ -1150,6 +1124,91 @@ BEGIN
     SET @ParamDef = N'@Filter_Status INT, @Filter_Customer VARCHAR(50), @Filter_TanggalMulai DATE, @Filter_TanggalSelesai DATE, @Offset INT, @PageSize INT';
     EXEC sp_executesql @SQL, @ParamDef, @Filter_Status, @Filter_Customer, @Filter_TanggalMulai, @Filter_TanggalSelesai, @Offset, @PageSize;
 END
+GO
+
+-- 1. TAMBAHKAN UDF UNTUK DASHBOARD STATS (Menggantikan SP di atas)
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fn_Langganan_GetDashboardStats]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
+    DROP FUNCTION [dbo].[fn_Langganan_GetDashboardStats];
+GO
+
+CREATE FUNCTION fn_Langganan_GetDashboardStats ()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        COUNT(*) AS Total_Langganan,
+        SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS Menunggu_Konfirmasi,
+        SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Aktif,
+        SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS Berakhir,
+        SUM(CASE WHEN Status = 3 THEN 1 ELSE 0 END) AS Ditolak,
+        ISNULL(SUM(CASE WHEN Status = 1 THEN Total_Bayar ELSE 0 END), 0) AS Total_Omzet_Aktif,
+        ISNULL(SUM(Total_Bayar), 0) AS Total_Omzet_Semua,
+        SUM(CASE WHEN Status = 1 AND Tanggal_Selesai <= DATEADD(DAY, 7, GETDATE()) THEN 1 ELSE 0 END) AS Akan_Expired_7Hari
+    FROM Langganan
+);
+GO
+
+
+USE Hoopball;
+GO
+
+-- UDF Baru: Mengambil List Transaksi Langganan untuk Dashboard Kelola (Karyawan)
+CREATE OR ALTER FUNCTION dbo.fn_Langganan_GetList (
+    @FilterStatus INT,
+    @SearchKeyword VARCHAR(50),
+    @FilterTanggal DATE
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        L.ID_Langganan, L.ID_Customer, C.Nama_Customer, C.Email, L.ID_Tipe, TM.Nama_Tipe, TM.Harga_Member,
+        L.Tanggal_Mulai, L.Tanggal_Selesai, L.Total_Bayar, L.Metode_Pembayaran, L.Status,
+        K.Nama_Karyawan AS Nama_Karyawan_Konfirmasi, L.Created_Date, L.Modified_Date, L.Bukti_Pembayaran
+    FROM Langganan L
+    INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
+    INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
+    LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
+    WHERE (@FilterStatus IS NULL OR L.Status = @FilterStatus)
+      AND (@FilterTanggal IS NULL OR L.Tanggal_Mulai >= @FilterTanggal)
+      AND (@SearchKeyword = '' OR C.Nama_Customer LIKE '%' + @SearchKeyword + '%' OR TM.Nama_Tipe LIKE '%' + @SearchKeyword + '%')
+);
+GO
+
+
+-- 2. TAMBAHKAN SP UNTUK MENGAMBIL DATA TIPE MEMBER AKTIF
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'SP_TipeMember_GetActive')
+    DROP PROCEDURE SP_TipeMember_GetActive;
+GO
+
+CREATE PROCEDURE SP_TipeMember_GetActive
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ID_Tipe, Nama_Tipe, Harga_Member, Potongan_Harga, Status
+    FROM Tipe_Member
+    WHERE Status = 1 AND Is_Deleted = 0
+    ORDER BY Harga_Member ASC;
+END;
+GO
+
+-- 3. TAMBAHKAN SP UNTUK UPDATE BUKTI PEMBAYARAN LANGGANAN
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'SP_Langganan_UpdateBukti')
+    DROP PROCEDURE SP_Langganan_UpdateBukti;
+GO
+
+CREATE PROCEDURE SP_Langganan_UpdateBukti
+    @ID_Langganan INT,
+    @Bukti_Pembayaran VARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Langganan 
+    SET Bukti_Pembayaran = @Bukti_Pembayaran 
+    WHERE ID_Langganan = @ID_Langganan;
+END;
 GO
 
 -- ============================================================================

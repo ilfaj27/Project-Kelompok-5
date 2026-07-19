@@ -30,10 +30,10 @@ $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
 if (!empty($id_karyawan_session)) {
     $photo_stmt = sqlsrv_query(
-        $conn,
-        "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0",
-        array($id_karyawan_session)
-    );
+    $conn,
+    "EXEC sp_Karyawan_GetByID ?",
+    array($id_karyawan_session)
+);
     if ($photo_stmt && $photo_row = sqlsrv_fetch_array($photo_stmt, SQLSRV_FETCH_ASSOC)) {
         $db_photo = $photo_row['Photo_Profile'] ?? '';
         if (!empty($db_photo)) {
@@ -144,15 +144,7 @@ if ($is_ajax) {
     // Action: Ambil Detail Karyawan (AJAX)
     if ($action === 'get_detail') {
         $id = intval($_GET['id'] ?? 0);
-        $sql = "
-            SELECT *, 
-                   DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
-                   CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() 
-                        THEN 1 ELSE 0 END AS Umur
-            FROM Karyawan 
-            WHERE ID_Karyawan = ? AND Is_Deleted = 0
-        ";
-        $r = safe_sqlsrv_query($conn, $sql, array($id), false);
+        $r = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_GetByID ?", array($id), false);
         if ($r && $data = safe_sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC)) {
             if (isset($data['Tanggal_Lahir']) && is_object($data['Tanggal_Lahir'])) {
                 $data['Tanggal_Lahir_Formatted'] = $data['Tanggal_Lahir']->format('Y-m-d');
@@ -299,43 +291,8 @@ if ($is_ajax) {
         $limit = 10;
 
         // --- SOLUSI: Menggunakan Raw SQL Dinamis agar pencarian nama, nik, username berfungsi penuh ---
-        $sql_where = " WHERE Is_Deleted = 0";
-        $params_query = [];
-
-        if ($filter_jabatan > 0) {
-            $sql_where .= " AND Jabatan = ?";
-            $params_query[] = $filter_jabatan;
-        }
-        if ($filter_jk != -1) {
-            $sql_where .= " AND Jenis_Kelamin = ?";
-            $params_query[] = $filter_jk;
-        }
-        if ($filter_status != -1) {
-            $sql_where .= " AND Status = ?";
-            $params_query[] = $filter_status;
-        }
-        if ($search !== '') {
-            $sql_where .= " AND (Nama_Karyawan LIKE ? OR NIK LIKE ? OR Username LIKE ?)";
-            $params_query[] = "%$search%";
-            $params_query[] = "%$search%";
-            $params_query[] = "%$search%";
-        }
-
-        // Definisi ekspresi perhitungan umur (konsisten untuk SELECT, WHERE, dan ORDER BY)
-        $age_expr = "DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() THEN 1 ELSE 0 END";
-
-        // Filter Umur dinamis
-        if ($filter_umur === 'muda') {
-            $sql_where .= " AND (" . $age_expr . ") < 25 AND Tanggal_Lahir IS NOT NULL";
-        } elseif ($filter_umur === 'produktif') {
-            $sql_where .= " AND (" . $age_expr . ") BETWEEN 25 AND 40 AND Tanggal_Lahir IS NOT NULL";
-        } elseif ($filter_umur === 'senior') {
-            $sql_where .= " AND (" . $age_expr . ") > 40 AND Tanggal_Lahir IS NOT NULL";
-        }
-
-        // PERBAIKAN URUTAN LOGIKA: Kueri total data dijalankan setelah $sql_where dibangun lengkap di atas
-        $count_sql = "SELECT COUNT(*) AS Total FROM Karyawan" . $sql_where;
-        $count_query = safe_sqlsrv_query($conn, $count_sql, $params_query, false);
+        $params_total = array($filter_jabatan, $filter_jk, $filter_status, $filter_umur, $search);
+        $count_query = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_GetTotal ?, ?, ?, ?, ?", $params_total, false);
         $total_rows = 0;
         if ($count_query !== false) {
             $count_row = safe_sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
@@ -346,7 +303,7 @@ if ($is_ajax) {
         $page = min($page, $total_pages);
         $offset = ($page - 1) * $limit;
 
-        // Ambil Total Aktif (UDF)
+        // 2. Ambil Total Aktif (UDF)
         $q_total_aktif = safe_sqlsrv_query($conn, "SELECT dbo.fn_GetTotalKaryawanAktif() AS t", [], false);
         $total_aktif = 0;
         if ($q_total_aktif !== false) {
@@ -354,30 +311,9 @@ if ($is_ajax) {
             $total_aktif = $row_aktif['t'] ?? 0;
         }
 
-        // Mapping Kolom Sorting (Termasuk Umur)
-        $allowed_sort = [
-            'Nama_Karyawan' => 'Nama_Karyawan',
-            'Jenis_Kelamin' => 'Jenis_Kelamin',
-            'Jabatan' => 'Jabatan',
-            'Status' => 'Status',
-            'Umur' => 'Umur'
-        ];
-        $sort_column = $allowed_sort[$sort_by] ?? 'Nama_Karyawan';
-
-        // Ambil Data List Karyawan + Kalkulasi Umur (gunakan subquery agar ORDER BY Umur pasti dikenali SQL Server)
-        $sql_data = "
-            SELECT * FROM (
-                SELECT *, 
-                       " . $age_expr . " AS Umur
-                FROM Karyawan
-                " . $sql_where . "
-            ) AS KaryawanWithAge
-            ORDER BY " . $sort_column . " " . $sort_order . "
-            OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
-        ";
-
-        $params_data = array_merge($params_query, [$offset, $limit]);
-        $query = safe_sqlsrv_query($conn, $sql_data, $params_data, false);
+        // 3. Ambil List Karyawan Terfilter dengan memanggil SP sp_Karyawan_GetAll
+        $params_data = array($filter_jabatan, $filter_jk, $filter_status, $filter_umur, $search, $sort_by, $sort_order, $page, $limit);
+        $query = safe_sqlsrv_query($conn, "EXEC sp_Karyawan_GetAll ?, ?, ?, ?, ?, ?, ?, ?, ?", $params_data, false);
 
         // Render HTML Tabel Body
         ob_start();

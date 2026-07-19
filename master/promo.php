@@ -27,7 +27,7 @@ $current_page = 'promo';
 $profile_photo = '';
 $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 if (!empty($id_karyawan_session)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan_session));
+    $stmt_photo = sqlsrv_query($conn, "EXEC sp_Karyawan_GetProfile @ID_Karyawan = ?", array($id_karyawan_session));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {

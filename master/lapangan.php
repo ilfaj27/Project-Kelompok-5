@@ -245,21 +245,13 @@ if ($is_ajax) {
         // TAMBAHAN: VALIDASI BOOKING AKTIF SEBELUM DINONAKTIFKAN
         // ============================================================================
         if ($s_baru == 0) { // Jika mencoba menonaktifkan lapangan (Maintenance)
-            $sql_check_booking = "
-                SELECT COUNT(*) as BookingCount 
-                FROM Booking B
-                INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                WHERE J.ID_Lapangan = ? 
-                  AND B.Status IN (0, 1) -- 0: Menunggu, 1: Berhasil
-                  AND J.Tanggal >= CAST(GETDATE() AS DATE)
-            ";
-            
+            $sql_check_booking = "EXEC dbo.sp_CheckLapanganActiveBookings ?";
             $stmt_check = executeAjaxQuery($conn, $sql_check_booking, [$id]);
             $row_check = sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC);
-            
+
             if ($row_check && $row_check['BookingCount'] > 0) {
                 sendAjaxResponse([
-                    'success' => false, 
+                    'success' => false,
                     'msg' => 'Lapangan tidak dapat dinonaktifkan karena memiliki booking aktif yang belum selesai.'
                 ]);
             }
@@ -450,7 +442,7 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Lapangan | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
@@ -2400,10 +2392,10 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
             try {
                 const response = await fetch(`lapangan.php?action=get_detail&id=${id}`);
                 const res = await response.json();
-                
+
                 if (res.success) {
                     const d = res.data;
-                    
+
                     showAddForm(); // Reset UI form
 
                     // Ubah Judul & Tombol
@@ -2455,10 +2447,10 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
             try {
                 const response = await fetch(`lapangan.php?action=get_detail&id=${id}`);
                 const res = await response.json();
-                
+
                 if (res.success) {
                     const d = res.data;
-                    
+
                     document.getElementById('det_nama_title').innerText = d.Nama_Lapangan;
                     document.getElementById('det_harga').innerHTML = d.Harga_Sewa_Rupiah + ' <span style="font-size:14px;color:var(--muted);font-family:\'Barlow\';font-weight:600;">/ jam</span>';
                     document.getElementById('det_harga_val').innerText = d.Harga_Sewa_Rupiah;
@@ -2568,7 +2560,8 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
             loadTableData();
         });
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

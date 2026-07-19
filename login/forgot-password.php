@@ -36,7 +36,7 @@ $otp_sent = isset($_SESSION['simulated_otp']);
 if (isset($_POST['request_otp'])) {
     $email_input = trim($_POST['email_input'] ?? '');
 
-    $sql = "SELECT ID_Customer, Email FROM Customer WHERE Email = ? AND Is_Deleted = 0";
+    $sql = "EXEC sp_CheckCustomerDuplicate @Email = ?";
     $params = array($email_input);
     $stmt = sqlsrv_query($conn, $sql, $params);
 
@@ -124,8 +124,9 @@ if (isset($_POST['reset_password'])) {
             // Enkripsi kata sandi baru menggunakan Argon2id
             $hashed_new_pass = password_hash($new_pass, PASSWORD_ARGON2ID);
 
-            $sql = "UPDATE Customer SET Kata_Sandi = ? WHERE ID_Customer = ?";
-            $stmt = sqlsrv_query($conn, $sql, array($hashed_new_pass, $id_customer));
+            // Menggunakan Stored Procedure untuk mengubah kata sandi customer
+            $sql = "EXEC sp_UpdateCustomerPassword @ID_Customer = ?, @Kata_Sandi_Baru = ?, @Modified_By = 'CUSTOMER_RESET'";
+            $stmt = sqlsrv_query($conn, $sql, array($id_customer, $hashed_new_pass));
 
             if ($stmt !== false) {
                 unset($_SESSION['reset_id_customer']);

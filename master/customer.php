@@ -145,7 +145,7 @@ if ($is_ajax) {
         $limit = 10;
 
         // Ambil Statistik Terkini via SP
-        $q_stats = safe_sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerStats", [], false);
+        $q_stats = safe_sqlsrv_query($conn, "SELECT * FROM dbo.fn_GetCustomerStats()", [], false);
         $stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
         $total_cust = $stats['Total'] ?? 0;
         $total_aktif = $stats['Aktif'] ?? 0;
@@ -287,7 +287,7 @@ if ($is_ajax) {
 }
 
 // ── GET STATISTICS UNTUK AWAL PAGE LOAD ──
-$q_stats = safe_sqlsrv_query($conn, "EXEC dbo.sp_GetCustomerStats", [], false);
+$q_stats = safe_sqlsrv_query($conn, "SELECT * FROM dbo.fn_GetCustomerStats()", [], false);
 $stats = safe_sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC);
 $total_cust = $stats['Total'] ?? 0;
 $total_aktif = $stats['Aktif'] ?? 0;

@@ -330,23 +330,6 @@ END;
 GO
 
 -- ============================================================
--- 11. SP: Get Customer Statistics
--- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_GetCustomerStats
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        COUNT(*) AS Total,
-        SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Aktif,
-        SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS Nonaktif
-    FROM Customer
-    WHERE Is_Deleted = 0;
-END;
-GO
-
--- ============================================================
 -- 12. SP: Get Customer Transaction Summary
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GetCustomerTransactionSummary
@@ -601,6 +584,34 @@ BEGIN
                 AND Kata_Sandi = @Kata_Sandi
         ) THEN 1 ELSE 0 END AS IsValid;
 END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_AuthenticateKaryawan
+    @UsernameOrEmail VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ID_Karyawan, Nama_Karyawan, Username, Email, Kata_Sandi, Jabatan, Photo_Profile, Status 
+    FROM Karyawan 
+    WHERE (Username = @UsernameOrEmail OR Email = @UsernameOrEmail) 
+      AND Is_Deleted = 0 
+      AND Status = 1;
+END;
+GO
+
+-- UDF Baru: Mengambil Statistik Customer (Menggantikan sp_GetCustomerStats)
+CREATE OR ALTER FUNCTION dbo.fn_GetCustomerStats ()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        COUNT(*) AS Total,
+        SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS Aktif,
+        SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS Nonaktif
+    FROM Customer
+    WHERE Is_Deleted = 0
+);
 GO
 
 PRINT '============================================================';

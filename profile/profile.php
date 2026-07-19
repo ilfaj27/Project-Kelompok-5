@@ -48,20 +48,8 @@ $dashboard_url = ($role === 'pemilik') ? '../dashboard/view_pemilik.php' : '../d
 
 // ── CARI DATA KARYAWAN ──
 $user_data = null;
-
-// FIX: Coba cari berdasarkan ID_Karyawan dulu
 if (!empty($id_karyawan)) {
-    $query = "SELECT * FROM Karyawan WHERE ID_Karyawan = ?";
-    $stmt = sqlsrv_query($conn, $query, array($id_karyawan));
-    if ($stmt && sqlsrv_has_rows($stmt)) {
-        $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    }
-}
-
-// Kalau tidak ketemu, coba cari berdasarkan Nama_Karyawan (bukan Nama)
-if (!$user_data && !empty($nama)) {
-    $query = "SELECT TOP 1 * FROM Karyawan WHERE Nama_Karyawan = ?";
-    $stmt = sqlsrv_query($conn, $query, array($nama));
+    $stmt = sqlsrv_query($conn, "EXEC sp_Karyawan_GetByID ?", array($id_karyawan));
     if ($stmt && sqlsrv_has_rows($stmt)) {
         $user_data = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     }
@@ -147,7 +135,7 @@ if (isset($_POST['change_password'])) {
         // Proses update password menggunakan Argon2id
         $hashed_new = password_hash($new, PASSWORD_ARGON2ID);
 
-        $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Kata_Sandi = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($hashed_new, $nama, $user_data['ID_Karyawan']));
+        $upd = sqlsrv_query($conn, "EXEC sp_Karyawan_ChangePassword ?, ?, ?", array($user_data['ID_Karyawan'], $hashed_new, $nama));
 
         if ($upd) {
             echo json_encode([
@@ -186,7 +174,7 @@ if (isset($_POST['upload_photo']) && isset($_FILES['profile_photo'])) {
             }
 
             if (move_uploaded_file($file['tmp_name'], $target_file)) {
-                $upd = sqlsrv_query($conn, "UPDATE Karyawan SET Photo_Profile = ?, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Karyawan = ?", array($db_filename, $nama, $user_data['ID_Karyawan']));
+                $upd = sqlsrv_query($conn, "EXEC sp_Karyawan_UpdatePhoto ?, ?, ?", array($user_data['ID_Karyawan'], $db_filename, $nama));
                 if ($upd) {
                     $_SESSION['Photo_Profile'] = $db_filename;
                     echo json_encode([

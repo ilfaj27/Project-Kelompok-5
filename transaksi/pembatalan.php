@@ -29,7 +29,7 @@ $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 // ============================================================================
 $profile_photo = '';
 if (!empty($id_karyawan)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
+    $stmt_photo = sqlsrv_query($conn, "EXEC sp_Karyawan_GetProfile @ID_Karyawan = ?", array($id_karyawan));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -101,24 +101,8 @@ if ($is_ajax) {
     // Action: Ambil Detail Pembatalan (AJAX)
     if ($action === 'get_detail') {
         $id = intval($_GET['id'] ?? 0);
-        $sql = "
-            SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alasan, 
-                   P.Biaya_Batal, P.Nominal_Refund, P.Metode_Refund, P.Status AS StatusRefund,
-                   P.Created_Date, P.Modified_Date,
-                   B.Total_Bayar AS Total_Booking_Awal, B.Metode_Pembayaran AS Metode_Bayar_Awal,
-                   C.Nama_Customer, C.Email, C.No_Telepon,
-                   L.Nama_Lapangan,
-                   J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
-                   K.Nama_Karyawan AS Nama_Karyawan_Proses
-            FROM Pembatalan_Booking P
-            INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
-            INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
-            INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-            INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-            LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
-            WHERE P.ID_Pembatalan = ?
-        ";
-        $q_detail = sqlsrv_query($conn, $sql, array($id));
+        $q_detail = sqlsrv_query($conn, "EXEC sp_Pembatalan_GetByID @ID_Pembatalan = ?", array($id));
+
         if ($q_detail && $data = safeFetch($q_detail)) {
             echo json_encode(['success' => true, 'data' => $data]);
         } else {
@@ -132,8 +116,8 @@ if ($is_ajax) {
         $id_pembatalan = intval($_POST['id_pembatalan'] ?? 0);
         $stmt = sqlsrv_query(
             $conn,
-            "UPDATE Pembatalan_Booking SET Status = 1, Modified_By = ?, Modified_Date = GETDATE() WHERE ID_Pembatalan = ? AND Status = 0",
-            array($nama, $id_pembatalan)
+            "EXEC sp_Pembatalan_ConfirmRefund @ID_Pembatalan = ?, @Modified_By = ?",
+            array($id_pembatalan, $nama)
         );
         if ($stmt) {
             echo json_encode(['success' => true, 'msg' => 'Pembayaran refund berhasil dikonfirmasi.']);
@@ -150,33 +134,13 @@ if ($is_ajax) {
         $filter_tanggal = isset($_GET['filter_tanggal']) ? trim($_GET['filter_tanggal']) : '';
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
-        $sql_where = "WHERE 1=1";
-        $params = [];
-
-        if ($filter_status !== '' && $filter_status !== 'all') {
-            $sql_where .= " AND P.Status = ?";
-            $params[] = (int) $filter_status;
-        }
-
-        // --- TAMBAHAN: Kondisi kueri pencarian dinamis (Bisa scan Nama Customer ATAU Nama Lapangan) ---
-        if ($filter_customer !== '') {
-            $sql_where .= " AND (C.Nama_Customer LIKE ? OR L.Nama_Lapangan LIKE ?)";
-            $params[] = "%$filter_customer%";
-            $params[] = "%$filter_customer%";
-        }
-        if ($filter_tanggal !== '') {
-            $sql_where .= " AND CAST(P.Tanggal_Batal AS DATE) = ?";
-            $params[] = $filter_tanggal;
-        }
-
-        // Hitung total data terfilter
-        $count_sql = "SELECT COUNT(*) as total FROM Pembatalan_Booking P
-                      INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
-                      INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
-                      INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                      INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                      $sql_where";
-        $q_count = sqlsrv_query($conn, $count_sql, $params);
+        // 1. Hitung total data terfilter menggunakan UDF fn_Pembatalan_GetList
+        $count_sql = "
+          SELECT COUNT(*) AS total 
+          FROM dbo.fn_Pembatalan_GetList(?, ?, ?)
+      ";
+        $params_count = array($filter_status_param, $filter_customer, $filter_tanggal);
+        $q_count = sqlsrv_query($conn, $count_sql, $params_count);
         $total_data = 0;
         if ($q_count) {
             $row_count = sqlsrv_fetch_array($q_count, SQLSRV_FETCH_ASSOC);
@@ -188,43 +152,34 @@ if ($is_ajax) {
         $page = min($page, $total_pages);
         $offset = ($page - 1) * $limit;
 
-        // Ambil Data List terfilter
-        $sql_pembatalan = "SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alasan, 
-                                  P.Biaya_Batal, P.Nominal_Refund, P.Metode_Refund, P.Status AS StatusRefund,
-                                  C.Nama_Customer, C.Email, L.Nama_Lapangan,
-                                  J.Tanggal, J.Jam_Mulai, J.Jam_Selesai
-                           FROM Pembatalan_Booking P
-                           INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
-                           INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
-                           INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                           INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                           $sql_where
-                           ORDER BY 
-                            CASE 
-                                WHEN P.Status = 0 THEN 0
-                                WHEN P.Status = 1 THEN 1
-                            END ASC,
-                            P.Tanggal_Batal DESC
-                           OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
-
-        $params_with_paging = array_merge($params, [$offset, $limit]);
+        // 2. Ambil List Transaksi Terfilter menggunakan UDF fn_Pembatalan_GetList dengan pagination OFFSET & FETCH
+        $sql_pembatalan = "
+          SELECT * FROM dbo.fn_Pembatalan_GetList(?, ?, ?)
+          ORDER BY 
+              CASE 
+                  WHEN StatusRefund = 0 THEN 0
+                  WHEN StatusRefund = 1 THEN 1
+              END ASC,
+              Tanggal_Batal DESC
+          OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+      ";
+        $params_pembatalan = array($filter_status_param, $filter_customer, $filter_tanggal, $offset, $limit);
         $pembatalan_list = [];
-        $q_pembatalan = sqlsrv_query($conn, $sql_pembatalan, $params_with_paging);
+        $q_pembatalan = sqlsrv_query($conn, $sql_pembatalan, $params_pembatalan);
         if ($q_pembatalan) {
             while ($row = sqlsrv_fetch_array($q_pembatalan, SQLSRV_FETCH_ASSOC)) {
                 $pembatalan_list[] = $row;
             }
         }
 
-        // Ambil Statistik Terkini
+        // 3. Ambil Statistik Terkini menggunakan UDF fn_Pembatalan_GetList
         $stats = ['total' => 0, 'menunggu' => 0, 'selesai' => 0, 'total_denda' => 0, 'total_refund' => 0];
-        $stats_sql = "SELECT P.Status, P.Biaya_Batal, P.Nominal_Refund FROM Pembatalan_Booking P
-                      INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
-                      INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
-                      INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                      INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-                      $sql_where";
-        $q_stats = sqlsrv_query($conn, $stats_sql, $params);
+        $stats_sql = "
+          SELECT StatusRefund AS Status, Biaya_Batal, Nominal_Refund 
+          FROM dbo.fn_Pembatalan_GetList(?, ?, ?)
+      ";
+        $params_stats = array($filter_status_param, $filter_customer, $filter_tanggal);
+        $q_stats = sqlsrv_query($conn, $stats_sql, $params_stats);
         if ($q_stats) {
             while ($row = sqlsrv_fetch_array($q_stats, SQLSRV_FETCH_ASSOC)) {
                 $stats['total']++;
@@ -365,7 +320,7 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Pembatalan | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
@@ -1140,24 +1095,24 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
                     <div class="card-title"><i class="fa-solid fa-table-list"></i> Daftar Pengajuan Pembatalan</div>
                 </div>
                 <div class="card-body">
-                    <div class="table-wrap"> 
-                    <table class="data-table" id="tbl">
-                        <thead>
-                            <tr>
-                                <th style="text-align: center; width: 70px;">No</th>
-                                <!-- Rata Kiri -->
-                                <th style="text-align: left;">Pelanggan</th>
-                                <th style="text-align: left;">Lapangan & Jadwal</th>
-                                <th style="text-align: right;">Tanggal Batal</th>
-                                <th style="text-align: right;">Denda / Refund</th>
-                                <th style="text-align: center;">Status</th>
-                                <th style="text-align: center;">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Dinamis diisi lewat AJAX Javascript -->
-                        </tbody>
-                    </table>
+                    <div class="table-wrap">
+                        <table class="data-table" id="tbl">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center; width: 70px;">No</th>
+                                    <!-- Rata Kiri -->
+                                    <th style="text-align: left;">Pelanggan</th>
+                                    <th style="text-align: left;">Lapangan & Jadwal</th>
+                                    <th style="text-align: right;">Tanggal Batal</th>
+                                    <th style="text-align: right;">Denda / Refund</th>
+                                    <th style="text-align: center;">Status</th>
+                                    <th style="text-align: center;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinamis diisi lewat AJAX Javascript -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1452,7 +1407,8 @@ $topbar_breadcrumb = 'Transaksi / Pengembalian Dana (Refund)';
             loadTableData();
         });
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

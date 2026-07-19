@@ -29,7 +29,7 @@ $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 // ============================================================================
 $profile_photo = '';
 if (!empty($id_karyawan)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
+    $stmt_photo = sqlsrv_query($conn, "EXEC sp_Karyawan_GetProfile @ID_Karyawan = ?", array($id_karyawan));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -132,17 +132,13 @@ if ($is_ajax) {
     // Action: Ambil Detail Langganan (AJAX)
     if ($action === 'get_detail') {
         $id = intval($_GET['id'] ?? 0);
-        $sql = "
-            SELECT L.*, C.Nama_Customer, C.Email, C.No_Telepon, T.Nama_Tipe, T.Harga_Member,
-                   K.Nama_Karyawan as Nama_Karyawan_Input
-            FROM Langganan L
-            INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-            INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-            LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
-            WHERE L.ID_Langganan = ?
-        ";
-        $q_langganan = sqlsrv_query($conn, $sql, array($id));
+        $q_langganan = sqlsrv_query($conn, "EXEC SP_GetLanggananByID @ID_Langganan = ?", array($id));
         if ($q_langganan && $langganan_data = safeFetch($q_langganan)) {
+            // Memetakan alias kolom SP agar sesuai dengan kebutuhan variabel template detail PHP Anda
+            $langganan_data['Email'] = $langganan_data['Customer_Email'] ?? '';
+            $langganan_data['No_Telepon'] = $langganan_data['Customer_Telepon'] ?? '';
+            $langganan_data['Nama_Karyawan_Input'] = $langganan_data['Nama_Karyawan_Konfirmasi'] ?? $langganan_data['Created_By'] ?? '';
+            
             $langganan_data['TanggalMulaiFormatted'] = formatTanggal($langganan_data['Tanggal_Mulai']);
             $langganan_data['TanggalSelesaiFormatted'] = formatTanggal($langganan_data['Tanggal_Selesai']);
             echo json_encode(['success' => true, 'data' => $langganan_data]);
@@ -214,31 +210,13 @@ if ($is_ajax) {
 
         $limit = 10;
 
-        // --- TAMBAHAN: Membangun kueri pencarian SQL terpadu (Bisa cari Customer ATAU Tipe Member) ---
-        $sql_count = "
+        // 1. Ambil Total Baris Data Terfilter menggunakan UDF fn_Langganan_GetList
+        $count_sql = "
             SELECT COUNT(*) AS Total_Count 
-            FROM Langganan L
-            INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-            INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
-            WHERE 1=1
+            FROM dbo.fn_Langganan_GetList(?, ?, ?)
         ";
-        $params_count = [];
-        if ($filter_status_param !== null) {
-            $sql_count .= " AND L.Status = ?";
-            $params_count[] = $filter_status_param;
-        }
-        if ($filter_customer !== '') {
-            $sql_count .= " AND (C.Nama_Customer LIKE ? OR TM.Nama_Tipe LIKE ?)";
-            $params_count[] = '%' . $filter_customer . '%';
-            $params_count[] = '%' . $filter_customer . '%';
-        }
-        if ($filter_tanggal !== '') {
-            $sql_count .= " AND L.Tanggal_Mulai >= ?";
-            $params_count[] = $filter_tanggal;
-        }
-
-        // Ambil total data terfilter
-        $count_query = sqlsrv_query($conn, $sql_count, $params_count);
+        $params_count = array($filter_status_param, $filter_customer, $filter_tanggal);
+        $count_query = sqlsrv_query($conn, $count_sql, $params_count);
         $total_data = 0;
         if ($count_query) {
             $count_row = sqlsrv_fetch_array($count_query, SQLSRV_FETCH_ASSOC);
@@ -249,49 +227,23 @@ if ($is_ajax) {
         $page = min($page, $total_pages);
         $offset = ($page - 1) * $limit;
 
-        // --- TAMBAHAN: Kueri detail list dengan pencarian gabungan Nama & Tipe ---
+        // 2. Ambil List Transaksi Terfilter menggunakan UDF fn_Langganan_GetList dengan pagination OFFSET & FETCH
         $sql_data = "
-            SELECT 
-                L.ID_Langganan, L.ID_Customer, C.Nama_Customer, C.Email, L.ID_Tipe, TM.Nama_Tipe, TM.Harga_Member,
-                L.Tanggal_Mulai, L.Tanggal_Selesai, L.Total_Bayar, L.Metode_Pembayaran, L.Status,
-                K.Nama_Karyawan AS Nama_Karyawan_Konfirmasi, L.Created_Date, L.Modified_Date
-            FROM Langganan L
-            INNER JOIN Customer C ON L.ID_Customer = C.ID_Customer
-            INNER JOIN Tipe_Member TM ON L.ID_Tipe = TM.ID_Tipe
-            LEFT JOIN Karyawan K ON L.ID_Karyawan = K.ID_Karyawan
-            WHERE 1=1
-        ";
-        $params_data = [];
-        if ($filter_status_param !== null) {
-            $sql_data .= " AND L.Status = ?";
-            $params_data[] = $filter_status_param;
-        }
-        if ($filter_customer !== '') {
-            $sql_data .= " AND (C.Nama_Customer LIKE ? OR TM.Nama_Tipe LIKE ?)";
-            $params_data[] = '%' . $filter_customer . '%';
-            $params_data[] = '%' . $filter_customer . '%';
-        }
-        if ($filter_tanggal !== '') {
-            $sql_data .= " AND L.Tanggal_Mulai >= ?";
-            $params_data[] = $filter_tanggal;
-        }
-        $sql_data .= "
+            SELECT * FROM dbo.fn_Langganan_GetList(?, ?, ?)
             ORDER BY 
-                CASE L.Status
+                CASE Status
                     WHEN 0 THEN 0
                     WHEN 1 THEN 1
                     WHEN 2 THEN 2
                     WHEN 3 THEN 3
                 END ASC,
-                L.Created_Date DESC
+                Created_Date DESC
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
         ";
-        $params_data[] = $offset;
-        $params_data[] = $limit;
-
-        // Ambil data Paged list
+        $params_data = array($filter_status_param, $filter_customer, $filter_tanggal, $offset, $limit);
         $langganans = [];
         $data_query = sqlsrv_query($conn, $sql_data, $params_data);
+
         if ($data_query) {
             while ($row = sqlsrv_fetch_array($data_query, SQLSRV_FETCH_ASSOC)) {
                 $langganans[] = $row;

@@ -130,6 +130,47 @@ RETURN
 );
 GO
 
+-- UDF untuk Data Tipe Member Populer (Menampilkan Peringkat Terpopuler)
+CREATE OR ALTER FUNCTION dbo.fn_GetTipeMemberPopuler (
+    @FilterType VARCHAR(50),
+    @StartDate DATE,
+    @EndDate DATE,
+    @TipeFilter INT,
+    @StatusFilter INT
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT TOP 5
+        tm.Nama_Tipe,
+        tm.Harga_Member,
+        tm.Potongan_Harga,
+        COUNT(lg.ID_Langganan) AS jumlah,
+        SUM(lg.Total_Bayar) AS total_pendapatan
+    FROM Langganan lg
+    INNER JOIN Tipe_Member tm ON lg.ID_Tipe = tm.ID_Tipe
+    WHERE lg.Status <> 0 -- Abaikan status menunggu konfirmasi
+        AND (@TipeFilter IS NULL OR lg.ID_Tipe = @TipeFilter)
+        AND (
+            @StatusFilter IS NULL OR 
+            (CASE 
+                WHEN lg.Status = 1 AND CAST(lg.Tanggal_Selesai AS DATE) < CAST(GETDATE() AS DATE) THEN 2
+                ELSE lg.Status
+             END) = @StatusFilter
+        )
+        AND (
+            @FilterType = 'all' OR
+            (@FilterType = 'today' AND CAST(lg.Tanggal_Mulai AS DATE) = CAST(GETDATE() AS DATE)) OR
+            (@FilterType = 'week' AND lg.Tanggal_Mulai >= DATEADD(day, -7, CAST(GETDATE() AS DATE))) OR
+            (@FilterType = 'month' AND MONTH(lg.Tanggal_Mulai) = MONTH(GETDATE()) AND YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())) OR
+            (@FilterType = 'year' AND YEAR(lg.Tanggal_Mulai) = YEAR(GETDATE())) OR
+            (@FilterType = 'custom' AND lg.Tanggal_Mulai BETWEEN @StartDate AND @EndDate)
+        )
+    GROUP BY tm.Nama_Tipe, tm.Harga_Member, tm.Potongan_Harga
+    ORDER BY jumlah DESC, total_pendapatan DESC
+);
+GO
 
 -- ============================================================
 -- 3. AUDIT LOG TABLE & TRIGGER HISTORY FOR TRANSACTIONS

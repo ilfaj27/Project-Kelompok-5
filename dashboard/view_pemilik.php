@@ -24,7 +24,7 @@ $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 if (empty($profile_photo) || (!empty($profile_photo) && !file_exists($profile_photo))) {
     $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
     if (!empty($id_karyawan_session)) {
-        $photo_query = safeQuery($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0", array($id_karyawan_session));
+        $photo_query = safeQuery($conn, "EXEC sp_Karyawan_GetProfile @ID_Karyawan = ?", array($id_karyawan_session));
         if ($photo_query !== null) {
             $row_photo = safeFetch($photo_query);
             if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -65,101 +65,34 @@ function safeFetch($stmt) {
 // STATISTIK PEMILIK - FOKUS: KARYAWAN, CUSTOMER, ALAT, OMZET
 // ============================================================
 
-// 1. Total Karyawan Aktif
-$total_karyawan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Status = 1 AND Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_karyawan = $d['total'] ?? 0;
+$q_summary = safeQuery($conn, "SELECT * FROM fn_Pemilik_GetDashboardSummary()");
+$d_summary = safeFetch($q_summary);
 
-// 2. Total Karyawan Nonaktif
-$total_karyawan_nonaktif = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Karyawan WHERE Status = 0 AND Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_karyawan_nonaktif = $d['total'] ?? 0;
+$total_karyawan          = $d_summary['Total_Karyawan'] ?? 0;
+$total_karyawan_nonaktif = $d_summary['Total_Karyawan_Nonaktif'] ?? 0;
+$total_customer          = $d_summary['Total_Customer'] ?? 0;
+$total_customer_aktif    = $d_summary['Total_Customer_Aktif'] ?? 0;
+$total_alat              = $d_summary['Total_Alat'] ?? 0;
+$total_alat_aktif        = $d_summary['Total_Alat_Aktif'] ?? 0;
+$stok_rendah             = $d_summary['Stok_Rendah'] ?? 0;
+$total_omzet             = $d_summary['Total_Omzet'] ?? 0;
+$total_booking_sukses    = $d_summary['Total_Booking_Sukses'] ?? 0;
+$total_booking_batal     = $d_summary['Total_Booking_Batal'] ?? 0;
+$total_booking_pending   = $d_summary['Total_Booking_Pending'] ?? 0;
+$total_langganan         = $d_summary['Total_Langganan'] ?? 0;
+$total_beli_alat         = $d_summary['Total_Beli_Alat'] ?? 0;
+$total_pendapatan_alat   = $d_summary['Total_Pendapatan_Alat'] ?? 0;
 
-// 3. Total Customer
-$total_customer = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_customer = $d['total'] ?? 0;
-
-// 4. Total Customer Aktif
-$total_customer_aktif = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Status = 1 AND Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_customer_aktif = $d['total'] ?? 0;
-
-// 5. Total Alat
-$total_alat = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_alat = $d['total'] ?? 0;
-
-// 6. Alat Aktif
-$total_alat_aktif = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Status = 1 AND Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $total_alat_aktif = $d['total'] ?? 0;
-
-// 7. Stok Alat Rendah (< 10)
-$stok_rendah = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Stok < 10 AND Is_Deleted = 0");
-$d = safeFetch($q);
-if ($d) $stok_rendah = $d['total'] ?? 0;
-
-// 8. Total Omzet (Semua Booking Berhasil/Selesai)
-$total_omzet = 0;
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
-$d = safeFetch($q);
-if ($d) $total_omzet = $d['total'] ?? 0;
-
-// 9. Total Booking Berhasil/Selesai (jumlah transaksi, bukan nominal)
-$total_booking_sukses = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status IN (1, 2)");
-$d = safeFetch($q);
-if ($d) $total_booking_sukses = $d['total'] ?? 0;
-
-// 10. Total Booking Dibatalkan
-$total_booking_batal = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 3");
-$d = safeFetch($q);
-if ($d) $total_booking_batal = $d['total'] ?? 0;
-
-// 11. Total Booking Menunggu
-$total_booking_pending = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 0");
-$d = safeFetch($q);
-if ($d) $total_booking_pending = $d['total'] ?? 0;
-
-// 12. Rata-rata Omzet per Booking
 $avg_omzet = 0;
 if ($total_booking_sukses > 0) {
     $avg_omzet = $total_omzet / $total_booking_sukses;
 }
 
-// 13. Total Langganan Aktif
-$total_langganan = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 1");
-$d = safeFetch($q);
-if ($d) $total_langganan = $d['total'] ?? 0;
-
-// 14. Total Pembelian Alat (Transaksi Beli_Alat)
-$total_beli_alat = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Status = 1");
-$d = safeFetch($q);
-if ($d) $total_beli_alat = $d['total'] ?? 0;
-
-// 15. Total Pendapatan dari Beli Alat
-$total_pendapatan_alat = 0;
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Beli_Alat WHERE Status = 1");
-$d = safeFetch($q);
-if ($d) $total_pendapatan_alat = $d['total'] ?? 0;
-
 // ============================================================
 // DATA KARYAWAN TERBARU
 // ============================================================
 $recent_karyawan = [];
-$q = safeQuery($conn, "SELECT TOP 5 ID_Karyawan, Nama_Karyawan, Jabatan, No_Telepon, Status FROM Karyawan WHERE Is_Deleted = 0 ORDER BY ID_Karyawan DESC");
+$q = safeQuery($conn, "SELECT * FROM fn_Pemilik_GetRecentKaryawan()");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $recent_karyawan[] = $row;
@@ -170,7 +103,7 @@ if ($q !== null) {
 // DATA ALAT TERBARU (Stok Rendah)
 // ============================================================
 $alat_rendah = [];
-$q = safeQuery($conn, "SELECT TOP 5 ID_Alat, Nama_Alat, Stok, Harga_Alat FROM Alat WHERE Stok < 10 AND Is_Deleted = 0 ORDER BY Stok ASC");
+$q = safeQuery($conn, "SELECT * FROM fn_Pemilik_GetLowStockAlat()");
 if ($q !== null) {
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
         $alat_rendah[] = $row;
@@ -182,16 +115,8 @@ if ($q !== null) {
 // ============================================================
 $chart_labels = [];
 $chart_data = [];
-$chart_query = safeQuery($conn, 
-    "SELECT 
-        MONTH(Tanggal_Booking) as bulan, 
-        YEAR(Tanggal_Booking) as tahun,
-        ISNULL(SUM(Total_Bayar), 0) as total 
-     FROM Booking 
-     WHERE Status IN (1, 2) 
-     GROUP BY MONTH(Tanggal_Booking), YEAR(Tanggal_Booking)
-     ORDER BY YEAR(Tanggal_Booking), MONTH(Tanggal_Booking)"
-);
+$chart_query = safeQuery($conn, "SELECT * FROM fn_Pemilik_GetMonthlyOmzet() ORDER BY tahun ASC, bulan ASC");
+
 if ($chart_query !== null) {
     $monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
     while ($row = sqlsrv_fetch_array($chart_query, SQLSRV_FETCH_ASSOC)) {

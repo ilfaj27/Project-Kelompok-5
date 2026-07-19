@@ -20,9 +20,9 @@ $photo_profile = '';
 
 if (!empty($id_customer)) {
     $cek_deleted = sqlsrv_query($conn,
-        "SELECT Nama_Customer, Photo_Profile, Is_Deleted, Status FROM Customer WHERE ID_Customer = ?",
-        array($id_customer)
-    );
+    "EXEC sp_Customer_GetProfile @ID_Customer = ?",
+    array($id_customer)
+);
     if ($cek_deleted) {
         $row_cust = sqlsrv_fetch_array($cek_deleted, SQLSRV_FETCH_ASSOC);
         if ($row_cust) {
@@ -42,10 +42,7 @@ if (!empty($id_customer)) {
 
 $member_data = null;
 $member_check = sqlsrv_query($conn,
-    "SELECT TOP 1 L.*, T.Nama_Tipe FROM Langganan L
-     INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-     WHERE L.ID_Customer = ? AND L.Status = 1
-     AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai",
+    "EXEC sp_Customer_GetActiveMember @ID_Customer = ?",
     array($id_customer)
 );
 if ($member_check) {
@@ -129,15 +126,8 @@ $bookings_aktif = [];
 $bookings_riwayat = [];
 
 $queryGetBookings = "
-    SELECT B.ID_Booking, B.ID_Jadwal, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status AS StatusBooking,
-           J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, L.Nama_Lapangan, L.Photo_Lapangan, L.Harga_Sewa,
-           P.Nominal_Refund, P.Biaya_Batal, P.Status AS StatusRefund
-    FROM Booking B
-    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-    LEFT JOIN Pembatalan_Booking P ON B.ID_Booking = P.ID_Booking
-    WHERE B.ID_Customer = ?
-    ORDER BY J.Tanggal DESC, J.Jam_Mulai DESC";
+    SELECT * FROM fn_Booking_GetCustomerHistory(?) 
+    ORDER BY Tanggal DESC, Jam_Mulai DESC";
 
 $stmtBookings = sqlsrv_query($conn, $queryGetBookings, array($id_customer));
 if ($stmtBookings === false) {

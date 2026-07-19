@@ -314,6 +314,20 @@ BEGIN
 END;
 GO
 
+CREATE OR ALTER PROCEDURE dbo.sp_CheckLapanganActiveBookings
+    @ID_Lapangan INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) as BookingCount 
+    FROM Booking B
+    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+    WHERE J.ID_Lapangan = @ID_Lapangan 
+      AND B.Status IN (0, 1) -- 0: Menunggu, 1: Berhasil
+      AND J.Tanggal >= CAST(GETDATE() AS DATE);
+END;
+GO
+
 -- ============================================================
 -- VERIFIKASI SP & FUNCTION
 -- ============================================================

@@ -144,7 +144,7 @@ GO
 -- ============================================================
 -- 5. SP: GET KARYAWAN BY ID
 -- ============================================================
-CREATE PROCEDURE sp_Karyawan_GetByID
+CREATE OR ALTER PROCEDURE sp_Karyawan_GetByID
     @ID_Karyawan INT
 AS
 BEGIN
@@ -155,6 +155,10 @@ BEGIN
         NIK,
         Nama_Karyawan,
         Tanggal_Lahir,
+        -- KALKULASI UMUR DINAMIS
+        DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
+        CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()), Tanggal_Lahir) > GETDATE() 
+             THEN 1 ELSE 0 END AS Umur,
         Tempat_Lahir,
         Alamat,
         Jenis_Kelamin,
@@ -535,9 +539,9 @@ GO
 -- ============================================================
 -- 20. SP: CHANGE PASSWORD
 -- ============================================================
-CREATE PROCEDURE sp_Karyawan_ChangePassword
+CREATE OR ALTER PROCEDURE sp_Karyawan_ChangePassword
     @ID_Karyawan   INT,
-    @Kata_Sandi    VARCHAR(20),
+    @Kata_Sandi    VARCHAR(255), -- Diubah dari VARCHAR(20) agar muat password hash Argon2id/Bcrypt
     @Modified_By   VARCHAR(50)
 AS
 BEGIN

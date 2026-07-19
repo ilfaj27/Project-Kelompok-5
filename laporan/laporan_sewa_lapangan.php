@@ -23,7 +23,7 @@ $profile_photo = $_SESSION['Photo_Profile'] ?? '';
 if (empty($profile_photo) || (!empty($profile_photo) && !file_exists($profile_photo))) {
     $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
     if (!empty($id_karyawan_session)) {
-        $photo_query = safeQuery($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ? AND Is_Deleted = 0", array($id_karyawan_session));
+        $photo_query = safeQuery($conn, "{CALL sp_GetKaryawanPhoto(?)}", array($id_karyawan_session));
         if ($photo_query !== null) {
             $row_photo = safeFetch($photo_query);
             if ($row_photo && !empty($row_photo['Photo_Profile'])) {

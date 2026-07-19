@@ -134,6 +134,18 @@ RETURN (
 );
 GO
 
+-- UDF Pendukung Laporan: Mengambil Daftar Lapangan Aktif untuk Opsi Filter
+CREATE OR ALTER FUNCTION dbo.fn_GetActiveLapangan ()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT ID_Lapangan, Nama_Lapangan 
+    FROM Lapangan 
+    WHERE Status = 1 AND Is_Deleted = 0
+);
+GO
+
 
 -- SP: Create Booking
 CREATE PROCEDURE sp_InsertBooking

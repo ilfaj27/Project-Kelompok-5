@@ -22,7 +22,7 @@ $id_karyawan = $_SESSION['id_karyawan'] ?? '';
 // FIX: Ambil foto profil dari database dengan kolom Photo_Profile
 $profile_photo = '';
 if (!empty($id_karyawan)) {
-    $stmt_photo = sqlsrv_query($conn, "SELECT Photo_Profile FROM Karyawan WHERE ID_Karyawan = ?", array($id_karyawan));
+    $stmt_photo = sqlsrv_query($conn, "EXEC sp_Karyawan_GetProfile @ID_Karyawan = ?", array($id_karyawan));
     if ($stmt_photo !== false) {
         $row_photo = sqlsrv_fetch_array($stmt_photo, SQLSRV_FETCH_ASSOC);
         if ($row_photo && !empty($row_photo['Photo_Profile'])) {
@@ -80,129 +80,64 @@ function safeFetch($stmt) {
     return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 }
 
-// STATISTIK KARYAWAN
-$total_customer = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Customer WHERE Is_Deleted = 0");
-$d = safeFetch($q); if ($d) $total_customer = $d['total'] ?? 0;
+// STATISTIK KARYAWAN & TINDAKAN PENDING MENGGUNAKAN UDF
+$q_summary = safeQuery($conn, "SELECT * FROM fn_Karyawan_GetDashboardSummary()");
+$d_summary = safeFetch($q_summary);
 
-$total_booking = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking");
-$d = safeFetch($q); if ($d) $total_booking = $d['total'] ?? 0;
+$total_customer       = $d_summary['Total_Customer'] ?? 0;
+$total_booking        = $d_summary['Total_Booking'] ?? 0;
+$total_booking_today  = $d_summary['Total_Booking_Today'] ?? 0;
+$member_aktif         = $d_summary['Member_Aktif'] ?? 0;
 
-$total_booking_today = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE CAST(Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE)");
-$d = safeFetch($q); if ($d) $total_booking_today = $d['total'] ?? 0;
+$omzet_booking        = (float)($d_summary['Omzet_Booking'] ?? 0);
+$omzet_alat           = (float)($d_summary['Omzet_Alat'] ?? 0);
+$omzet_langganan      = (float)($d_summary['Omzet_Langganan'] ?? 0);
+$total_omzet          = $omzet_booking + $omzet_alat + $omzet_langganan;
 
-// Member yang BENAR-BENAR aktif (status 1 & masih dalam periode)
-$member_aktif = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 1 AND GETDATE() BETWEEN Tanggal_Mulai AND Tanggal_Selesai");
-$d = safeFetch($q); if ($d) $member_aktif = $d['total'] ?? 0;
-
-// ============================================================
-// TOTAL OMZET GABUNGAN (uang yang benar-benar terkumpul)
-//   Booking     : Status 1 (Berhasil) & 2 (Selesai)
-//   Beli Alat   : Status 1 (Berhasil / dikonfirmasi)
-//   Langganan   : Status 1 (Aktif) & 2 (Berakhir) -> sudah dibayar
-// Angka omzet alat di sini = angka "Total Dana Terkumpul"
-// di halaman laporan pembelian (pembelian.php), biar nyambung.
-// ============================================================
-$omzet_booking = 0; $omzet_alat = 0; $omzet_langganan = 0;
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Booking WHERE Status IN (1, 2)");
-$d = safeFetch($q); if ($d) $omzet_booking = (float)($d['total'] ?? 0);
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Beli_Alat WHERE Status = 1");
-$d = safeFetch($q); if ($d) $omzet_alat = (float)($d['total'] ?? 0);
-$q = safeQuery($conn, "SELECT ISNULL(SUM(Total_Bayar), 0) as total FROM Langganan WHERE Status IN (1, 2)");
-$d = safeFetch($q); if ($d) $omzet_langganan = (float)($d['total'] ?? 0);
-$total_omzet = $omzet_booking + $omzet_alat + $omzet_langganan;
+$pending_booking      = $d_summary['Pending_Booking'] ?? 0;
+$pending_beli         = $d_summary['Pending_Beli'] ?? 0;
+$pending_langganan    = $d_summary['Pending_Langganan'] ?? 0;
+$stok_menipis         = $d_summary['Stok_Menipis'] ?? 0;
 
 // ============================================================
-// PERLU TINDAKAN (transaksi menunggu konfirmasi karyawan)
+// TREN PENDAPATAN 14 HARI TERAKHIR MENGGUNAKAN UDF
 // ============================================================
-$pending_booking = 0; $pending_beli = 0; $pending_langganan = 0; $stok_menipis = 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Booking WHERE Status = 0");
-$d = safeFetch($q); if ($d) $pending_booking = $d['total'] ?? 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Beli_Alat WHERE Status = 0");
-$d = safeFetch($q); if ($d) $pending_beli = $d['total'] ?? 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Langganan WHERE Status = 0");
-$d = safeFetch($q); if ($d) $pending_langganan = $d['total'] ?? 0;
-$q = safeQuery($conn, "SELECT COUNT(*) as total FROM Alat WHERE Is_Deleted = 0 AND Status = 1 AND Stok <= 5");
-$d = safeFetch($q); if ($d) $stok_menipis = $d['total'] ?? 0;
+$trend_days = [];
+$trend_booking = [];
+$trend_alat = [];
 
-// ============================================================
-// TREN PENDAPATAN 14 HARI TERAKHIR (Booking vs Pembelian Alat)
-// ============================================================
-$trend_days = [];    // label tanggal
-$trend_booking = []; // omzet booking per hari
-$trend_alat = [];    // omzet alat per hari
-$map_booking = []; $map_alat = [];
-$q = safeQuery($conn, "SELECT CAST(Tanggal_Booking AS DATE) AS d, SUM(Total_Bayar) AS t
-                       FROM Booking WHERE Status IN (1,2) AND Tanggal_Booking >= DATEADD(DAY, -13, CAST(GETDATE() AS DATE))
-                       GROUP BY CAST(Tanggal_Booking AS DATE)");
-if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-    $key = is_object($r['d']) ? $r['d']->format('Y-m-d') : $r['d'];
-    $map_booking[$key] = (float)$r['t'];
-} }
-$q = safeQuery($conn, "SELECT CAST(Tanggal_Beli AS DATE) AS d, SUM(Total_Bayar) AS t
-                       FROM Beli_Alat WHERE Status = 1 AND Tanggal_Beli >= DATEADD(DAY, -13, CAST(GETDATE() AS DATE))
-                       GROUP BY CAST(Tanggal_Beli AS DATE)");
-if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-    $key = is_object($r['d']) ? $r['d']->format('Y-m-d') : $r['d'];
-    $map_alat[$key] = (float)$r['t'];
-} }
-for ($i = 13; $i >= 0; $i--) {
-    $tgl = date('Y-m-d', strtotime("-$i days"));
-    $trend_days[] = date('d/m', strtotime($tgl));
-    $trend_booking[] = $map_booking[$tgl] ?? 0;
-    $trend_alat[] = $map_alat[$tgl] ?? 0;
+$q_trend = safeQuery($conn, "SELECT * FROM fn_Karyawan_GetRevenueTrend14Days() ORDER BY TrendDate ASC");
+if ($q_trend !== null) {
+    while ($r = sqlsrv_fetch_array($q_trend, SQLSRV_FETCH_ASSOC)) {
+        $tgl = is_object($r['TrendDate']) ? $r['TrendDate']->format('Y-m-d') : $r['TrendDate'];
+        $trend_days[] = date('d/m', strtotime($tgl));
+        $trend_booking[] = (float)$r['Omzet_Booking'];
+        $trend_alat[] = (float)$r['Omzet_Alat'];
+    }
 }
 
 // ============================================================
-// ALAT TERLARIS & KURANG LAKU (dari pembelian terkonfirmasi)
+// ALAT TERLARIS & KURANG LAKU MENGGUNAKAN UDF
 // ============================================================
 $alat_terlaris = [];
-$q = safeQuery($conn, "SELECT TOP 5 A.Nama_Alat, ISNULL(A.Kategori, 'Lainnya') AS Kategori,
-                              SUM(D.Jumlah) AS TotalTerjual, SUM(D.SubTotal) AS Pendapatan
-                       FROM Detail_Beli_Alat D
-                       INNER JOIN Beli_Alat B ON D.ID_Beli = B.ID_Beli AND B.Status = 1
-                       INNER JOIN Alat A ON A.ID_Alat = D.ID_Alat
-                       WHERE A.Is_Deleted = 0
-                       GROUP BY A.Nama_Alat, A.Kategori
-                       ORDER BY TotalTerjual DESC, Pendapatan DESC");
+$q = safeQuery($conn, "SELECT * FROM fn_Alat_GetTopSelling() ORDER BY TotalTerjual DESC, Pendapatan DESC");
 if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $alat_terlaris[] = $r; }
 
 $alat_kurang_laku = [];
-$q = safeQuery($conn, "SELECT TOP 5 A.Nama_Alat, ISNULL(A.Kategori, 'Lainnya') AS Kategori, A.Stok,
-                              ISNULL(SUM(CASE WHEN B.Status = 1 THEN D.Jumlah END), 0) AS TotalTerjual
-                       FROM Alat A
-                       LEFT JOIN Detail_Beli_Alat D ON D.ID_Alat = A.ID_Alat
-                       LEFT JOIN Beli_Alat B ON B.ID_Beli = D.ID_Beli
-                       WHERE A.Is_Deleted = 0
-                       GROUP BY A.Nama_Alat, A.Kategori, A.Stok
-                       ORDER BY TotalTerjual ASC, A.Nama_Alat ASC");
+$q = safeQuery($conn, "SELECT * FROM fn_Alat_GetLowSelling() ORDER BY TotalTerjual ASC, Nama_Alat ASC");
 if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $alat_kurang_laku[] = $r; }
 
 // ============================================================
 // LAPANGAN TERPOPULER & JAM FAVORIT (booking berhasil/selesai)
 // ============================================================
 $lapangan_populer = [];
-$q = safeQuery($conn, "SELECT L.Nama_Lapangan, COUNT(*) AS TotalBooking, SUM(B.Total_Bayar) AS Pendapatan
-                       FROM Booking B
-                       INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                       INNER JOIN Lapangan L ON L.ID_Lapangan = J.ID_Lapangan
-                       WHERE B.Status IN (1, 2)
-                       GROUP BY L.Nama_Lapangan
-                       ORDER BY TotalBooking DESC");
+$q = safeQuery($conn, "SELECT * FROM fn_Lapangan_GetPopular() ORDER BY TotalBooking DESC");
 if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $lapangan_populer[] = $r; }
 $max_booking_lap = 0;
 foreach ($lapangan_populer as $lp) $max_booking_lap = max($max_booking_lap, (int)$lp['TotalBooking']);
 
 $jam_favorit = [];
-$q = safeQuery($conn, "SELECT TOP 6 DATEPART(HOUR, J.Jam_Mulai) AS Jam, COUNT(*) AS Jumlah
-                       FROM Booking B
-                       INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
-                       WHERE B.Status IN (1, 2)
-                       GROUP BY DATEPART(HOUR, J.Jam_Mulai)
-                       ORDER BY Jumlah DESC");
+$q = safeQuery($conn, "SELECT * FROM fn_Booking_GetFavoriteHours() ORDER BY Jumlah DESC");
 if ($q !== null) { while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) $jam_favorit[] = $r; }
 $max_jam = 0;
 foreach ($jam_favorit as $jf) $max_jam = max($max_jam, (int)$jf['Jumlah']);

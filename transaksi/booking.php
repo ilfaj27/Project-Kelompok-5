@@ -130,24 +130,7 @@ if ($is_ajax) {
 
         // --- UBAHAN DI SINI: Kita menggunakan kueri SQL Manual (Direct JOIN) daripada Stored Procedure ---
         // Karena Stored Procedure lama masih nyangkut di database tidak membawa kolom lengkap
-        $sql = "
-            SELECT 
-                   B.*, 
-                   C.Nama_Customer, C.Email, C.No_Telepon,
-                   L.Nama_Lapangan, L.Harga_Sewa,
-                   J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
-                   P.Nama_Promo, P.Diskon,
-                   K.Nama_Karyawan as Nama_Karyawan_Input
-            FROM Booking B 
-            INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
-            INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal 
-            INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
-            LEFT JOIN Promo P ON B.ID_Promo = P.ID_Promo
-            LEFT JOIN Karyawan K ON B.ID_Karyawan = K.ID_Karyawan
-            WHERE B.ID_Booking = ?
-        ";
-
-        $q_booking = sqlsrv_query($conn, $sql, array($id));
+        $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($id));
 
         if ($q_booking && $booking_data = safeFetch($q_booking)) {
             // Karena SQL-nya di atas sudah lengkap, sekarang data ini tidak akan null lagi

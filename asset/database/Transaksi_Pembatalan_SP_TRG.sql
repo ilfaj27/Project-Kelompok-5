@@ -502,6 +502,114 @@ WHERE t.name LIKE 'Log_%'
 ORDER BY t.name;
 GO
 
+
+-- 1. UDF UNTUK MENGAMBIL RIWAYAT BOOKING CUSTOMER (Dashboard Data Source)
+IF OBJECT_ID('dbo.fn_Booking_GetCustomerHistory', 'IF') IS NOT NULL
+    DROP FUNCTION dbo.fn_Booking_GetCustomerHistory;
+GO
+
+CREATE FUNCTION fn_Booking_GetCustomerHistory (@ID_Customer INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT B.ID_Booking, B.ID_Jadwal, B.Tanggal_Booking, B.Metode_Pembayaran, B.Total_Bayar, B.Status AS StatusBooking,
+           J.Tanggal, J.Jam_Mulai, J.Jam_Selesai, L.Nama_Lapangan, L.Photo_Lapangan, L.Harga_Sewa,
+           P.Nominal_Refund, P.Biaya_Batal, P.Status AS StatusRefund
+    FROM Booking B
+    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    LEFT JOIN Pembatalan_Booking P ON B.ID_Booking = P.ID_Booking
+    WHERE B.ID_Customer = @ID_Customer
+);
+GO
+
+-- 2. SP UNTUK CEK MEMBER AKTIF (Menghindari raw query di PHP)
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'sp_Customer_GetActiveMember')
+    DROP PROCEDURE sp_Customer_GetActiveMember;
+GO
+
+CREATE PROCEDURE sp_Customer_GetActiveMember
+    @ID_Customer INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 L.ID_Langganan, L.ID_Tipe, L.Tanggal_Mulai, L.Tanggal_Selesai, L.Status, T.Nama_Tipe 
+    FROM Langganan L
+    INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
+    WHERE L.ID_Customer = @ID_Customer AND L.Status = 1
+    AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai;
+END;
+GO
+
+
+USE Hoopball;
+GO
+
+-- 1. SP Baru: Mengambil Detail Pembatalan berdasarkan ID
+CREATE OR ALTER PROCEDURE sp_Pembatalan_GetByID
+    @ID_Pembatalan INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alasan, 
+           P.Biaya_Batal, P.Nominal_Refund, P.Metode_Refund, P.Status AS StatusRefund,
+           P.Created_Date, P.Modified_Date,
+           B.Total_Bayar AS Total_Booking_Awal, B.Metode_Pembayaran AS Metode_Bayar_Awal,
+           C.Nama_Customer, C.Email, C.No_Telepon,
+           L.Nama_Lapangan,
+           J.Tanggal, J.Jam_Mulai, J.Jam_Selesai,
+           K.Nama_Karyawan AS Nama_Karyawan_Proses
+    FROM Pembatalan_Booking P
+    INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
+    INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    LEFT JOIN Karyawan K ON P.ID_Karyawan = K.ID_Karyawan
+    WHERE P.ID_Pembatalan = @ID_Pembatalan;
+END;
+GO
+
+-- 2. SP Baru: Konfirmasi Pembayaran Refund oleh Karyawan
+CREATE OR ALTER PROCEDURE sp_Pembatalan_ConfirmRefund
+    @ID_Pembatalan INT,
+    @Modified_By VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE Pembatalan_Booking 
+    SET Status = 1, 
+        Modified_By = @Modified_By, 
+        Modified_Date = GETDATE() 
+    WHERE ID_Pembatalan = @ID_Pembatalan AND Status = 0;
+END;
+GO
+
+-- 3. UDF Baru: Mengambil List Pengajuan Pembatalan Terfilter untuk Dashboard Kelola (Karyawan)
+CREATE OR ALTER FUNCTION dbo.fn_Pembatalan_GetList (
+    @FilterStatus INT,
+    @SearchKeyword VARCHAR(50),
+    @FilterTanggal DATE
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT P.ID_Pembatalan, P.ID_Booking, P.Tanggal_Batal, P.Alasan, 
+           P.Biaya_Batal, P.Nominal_Refund, P.Metode_Refund, P.Status AS StatusRefund,
+           C.Nama_Customer, C.Email, L.Nama_Lapangan,
+           J.Tanggal, J.Jam_Mulai, J.Jam_Selesai
+    FROM Pembatalan_Booking P
+    INNER JOIN Booking B ON P.ID_Booking = B.ID_Booking
+    INNER JOIN Customer C ON B.ID_Customer = C.ID_Customer
+    INNER JOIN Jadwal J ON B.ID_Jadwal = J.ID_Jadwal
+    INNER JOIN Lapangan L ON J.ID_Lapangan = L.ID_Lapangan
+    WHERE (@FilterStatus IS NULL OR P.Status = @FilterStatus)
+      AND (@FilterTanggal IS NULL OR CAST(P.Tanggal_Batal AS DATE) = @FilterTanggal)
+      AND (@SearchKeyword = '' OR C.Nama_Customer LIKE '%' + @SearchKeyword + '%' OR L.Nama_Lapangan LIKE '%' + @SearchKeyword + '%')
+);
+GO
+
 -- ============================================================================
 -- PART 4: CONTOH PENGGUNAAN SP
 -- ============================================================================

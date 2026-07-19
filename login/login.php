@@ -47,16 +47,7 @@ if (isset($_POST['login'])) {
         // Coba SP sp_AuthenticateKaryawan (jika ada)
         $sql_karyawan = "EXEC dbo.sp_AuthenticateKaryawan ?";
         $params = array($user_input);
-        $stmt = @sqlsrv_query($conn, $sql_karyawan, $params);
-
-        if ($stmt === false || !sqlsrv_has_rows($stmt)) {
-            // SP tidak ada, gunakan raw SQL sebagai fallback
-            $sql_karyawan = "SELECT ID_Karyawan, Nama_Karyawan, Username, Email, Kata_Sandi, Jabatan, Photo_Profile, Status 
-                             FROM Karyawan 
-                             WHERE (Username = ? OR Email = ?) AND Is_Deleted = 0 AND Status = 1";
-            $params = array($user_input, $user_input);
-            $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
-        }
+        $stmt = sqlsrv_query($conn, $sql_karyawan, $params);
 
         if ($stmt) {
             $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
