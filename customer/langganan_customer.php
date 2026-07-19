@@ -906,13 +906,14 @@ $tipe_config = [
         .loader-ball:nth-child(3){animation-delay:0.4s}
 
         /* UPLOAD BUKTI PEMBAYARAN */
-        .bukti-upload-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:22px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;text-align:center;color:var(--muted);font-size:12px;font-weight:600;transition:var(--transition-smooth);margin-top:12px}
-        .bukti-upload-box:hover{border-color:var(--orange);background:var(--orange-lt);color:var(--orange)}
-        .bukti-upload-box i{font-size:22px;color:var(--orange)}
-        .bukti-upload-box.filled{border-style:solid;border-color:var(--green);color:var(--green);background:var(--green-lt)}
-        .bukti-upload-box.filled i{color:var(--green)}
-        .bukti-preview-wrap{display:none;margin-top:10px;text-align:center}
-        .bukti-preview-wrap img{max-width:100%;max-height:180px;border-radius:12px;border:1.5px solid var(--border)}
+        .bukti-upload-box{display:flex;align-items:center;justify-content:center;flex-direction:column;border:2px dashed var(--border);border-radius:12px;padding:20px 14px;cursor:pointer;transition:var(--transition-smooth);min-height:110px;background:var(--bg,#FAFAFA);margin-top:12px}
+        .bukti-upload-box:hover{border-color:var(--orange);background:var(--orange-lt)}
+        .bukti-upload-box.has-file{border-style:solid;border-color:var(--green,#10B981);padding:8px}
+        .bukti-upload-box i{font-size:22px;color:var(--muted);margin-bottom:6px}
+        .bukti-upload-text{font-size:12px;font-weight:700;color:var(--text-primary)}
+        .bukti-upload-hint{font-size:10.5px;color:var(--muted);margin-top:2px}
+        #buktiUploadPreview{max-width:100%;max-height:160px;border-radius:8px;object-fit:contain}
+        .bukti-upload-error{font-size:11px;color:var(--red,#EF4444);font-weight:600;margin-top:6px;min-height:14px}
 
          /* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
@@ -1426,13 +1427,15 @@ $tipe_config = [
                     <i class="fa-solid fa-receipt"></i> Unggah Bukti Pembayaran <span style="color: var(--red);">*</span>
                 </div>
                 <label for="buktiPembayaranInput" class="bukti-upload-box" id="buktiUploadBox">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <span id="buktiUploadText">Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)</span>
+                    <div id="buktiUploadPlaceholder" style="display:flex;flex-direction:column;align-items:center;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div class="bukti-upload-text">Klik untuk pilih foto/screenshot bukti transfer</div>
+                        <div class="bukti-upload-hint">JPG, PNG, atau PDF. Maks 5MB.</div>
+                    </div>
+                    <img id="buktiUploadPreview" style="display:none;" alt="Preview Bukti Pembayaran">
                 </label>
                 <input type="file" name="bukti_pembayaran" id="buktiPembayaranInput" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleBuktiFileChange(this)">
-                <div class="bukti-preview-wrap" id="buktiPreviewWrap">
-                    <img id="buktiPreviewImg" src="" alt="Preview Bukti Pembayaran">
-                </div>
+                <div class="bukti-upload-error" id="buktiUploadError"></div>
             </div>
 
             <button type="submit" name="beli_langganan" class="btn-done-pay" id="btnDonePayment">
@@ -1447,12 +1450,9 @@ $tipe_config = [
 let buktiFile = null;
 
 function handleBuktiFileChange(input) {
-    const file = input.files[0];
-    const box = document.getElementById('buktiUploadBox');
-    const textEl = document.getElementById('buktiUploadText');
-    const previewWrap = document.getElementById('buktiPreviewWrap');
-    const previewImg = document.getElementById('buktiPreviewImg');
-
+    const errorEl = document.getElementById('buktiUploadError');
+    if (errorEl) errorEl.textContent = '';
+    const file = input.files && input.files[0];
     if (!file) { buktiFile = null; return; }
 
     const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -1482,18 +1482,19 @@ function handleBuktiFileChange(input) {
     }
 
     buktiFile = file;
-    if (box) box.classList.add('filled');
-    if (textEl) textEl.innerText = file.name;
-
-    if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = e => {
-            if (previewImg) previewImg.src = e.target.result;
-            if (previewWrap) previewWrap.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    } else {
-        if (previewWrap) previewWrap.style.display = 'none';
+    const box = document.getElementById('buktiUploadBox');
+    if (box) box.classList.add('has-file');
+    const placeholder = document.getElementById('buktiUploadPlaceholder');
+    if (placeholder) placeholder.style.display = 'none';
+    const preview = document.getElementById('buktiUploadPreview');
+    if (preview) {
+        if (file.type.startsWith('image/')) {
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = 'block';
+        } else {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
     }
 }
 
@@ -1502,11 +1503,20 @@ function resetBuktiUpload() {
     const inputEl = document.getElementById('buktiPembayaranInput');
     if (inputEl) inputEl.value = '';
     const box = document.getElementById('buktiUploadBox');
-    if (box) box.classList.remove('filled');
-    const textEl = document.getElementById('buktiUploadText');
-    if (textEl) textEl.innerText = 'Klik untuk pilih file (JPG, PNG, atau PDF, maks 5MB)';
-    const previewWrap = document.getElementById('buktiPreviewWrap');
-    if (previewWrap) previewWrap.style.display = 'none';
+    if (box) box.classList.remove('has-file');
+    const placeholder = document.getElementById('buktiUploadPlaceholder');
+    if (placeholder) {
+        placeholder.style.display = 'flex';
+        placeholder.style.flexDirection = 'column';
+        placeholder.style.alignItems = 'center';
+    }
+    const preview = document.getElementById('buktiUploadPreview');
+    if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+    }
+    const errorEl = document.getElementById('buktiUploadError');
+    if (errorEl) errorEl.textContent = '';
 }
 
 /* ENHANCED ANIMATIONS */

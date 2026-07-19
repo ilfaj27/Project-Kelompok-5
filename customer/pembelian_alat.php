@@ -540,20 +540,18 @@ function resolvePhotoPath($photo_path) {
     .payment-section { border-top:1px solid var(--border-lt); padding:20px 0 10px; }
     .payment-header { font-size:12.5px; font-weight:700; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
     .payment-header i { color:var(--muted); }
-    .payment-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .payment-card { border:1px solid var(--border); border-radius:10px; padding:12px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:var(--transition-smooth); user-select:none; position:relative; overflow:hidden; }
-    .payment-card::before { content:''; position:absolute; top:50%; left:50%; width:0; height:0; background:rgba(255,90,31,.1); border-radius:50%; transform:translate(-50%,-50%); transition:width .4s,height .4s; }
-    .payment-card:hover::before { width:200px; height:200px; }
-    .payment-card:hover { border-color:var(--orange); transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,90,31,.1); }
-    .payment-card.selected { border-color:var(--orange); background:var(--orange-lt); animation: scaleIn 0.3s ease-out; }
-    .payment-card:hover .payment-name { color: var(--orange); transition: color 0.3s ease; }
-    .custom-radio { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--muted); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:.2s; }
-    .payment-card.selected .custom-radio { border-color:var(--orange); }
-    .custom-radio::after { content:''; width:8px; height:8px; border-radius:50%; background:var(--orange); display:none; }
-    .payment-card.selected .custom-radio::after { display:block; animation:scaleIn .2s ease-out; }
-    .payment-card-content { display:flex; flex-direction:column; justify-content:center; }
-    .payment-name { font-size:11px; font-weight:700; color:var(--text-primary); line-height:1.3; }
-    .payment-sub { font-size:9px; color:var(--muted); margin-top:1px; font-weight:500; }
+    .payment-options { display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+    .payment-option { display:flex; align-items:center; gap:12px; padding:14px; border:1.5px solid var(--border); border-radius:10px; cursor:pointer; transition:var(--transition-smooth); background:var(--white); user-select:none; }
+    .payment-option:hover { border-color:var(--orange); transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,90,31,.1); }
+    .payment-option.selected { border-color:var(--orange); background:var(--orange-lt); animation: scaleIn 0.3s ease-out; }
+    .payment-radio { width:20px; height:20px; border-radius:50%; border:2px solid var(--muted); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:var(--transition-smooth); }
+    .payment-option.selected .payment-radio { border-color:var(--orange); }
+    .payment-radio::after { content:''; width:10px; height:10px; border-radius:50%; background:var(--orange); display:none; }
+    .payment-option.selected .payment-radio::after { display:block; animation:scaleIn .2s ease-out; }
+    .payment-info { flex:1; }
+    .payment-name { font-size:13px; font-weight:700; color:var(--text-primary); }
+    .payment-desc { font-size:11px; color:var(--muted); margin-top:2px; }
+    .payment-icon { width:40px; height:40px; border-radius:10px; background:var(--orange-lt); display:flex; align-items:center; justify-content:center; color:var(--orange); font-size:16px; flex-shrink:0; }
 
     /* ---- BUKTI PEMBAYARAN UPLOAD ---- */
     .bukti-upload-section { text-align:left; margin: 6px 0 16px; }
@@ -1055,19 +1053,21 @@ function resolvePhotoPath($photo_path) {
 
         <div class="payment-section">
             <div class="payment-header"><i class="fa-solid fa-wallet"></i> Metode Pembayaran</div>
-            <div class="payment-grid">
-                <div class="payment-card selected" data-method="Transfer Bank" onclick="selectPaymentMethod('Transfer Bank', this)">
-                    <div class="custom-radio"></div>
-                    <div class="payment-card-content">
-                        <span class="payment-name">Transfer Bank</span>
-                        <span class="payment-sub">Virtual Account</span>
+            <div class="payment-options">
+                <div class="payment-option selected" data-method="Transfer Bank" onclick="selectPaymentMethod(this)">
+                    <div class="payment-radio"></div>
+                    <div class="payment-icon"><i class="fa-solid fa-building-columns"></i></div>
+                    <div class="payment-info">
+                        <div class="payment-name">Transfer Bank</div>
+                        <div class="payment-desc">Virtual Account</div>
                     </div>
                 </div>
-                <div class="payment-card" data-method="QRIS" onclick="selectPaymentMethod('QRIS', this)">
-                    <div class="custom-radio"></div>
-                    <div class="payment-card-content">
-                        <span class="payment-name qris-logo">QRIS</span>
-                        <span class="payment-sub">Scan & Bayar Instan</span>
+                <div class="payment-option" data-method="QRIS" onclick="selectPaymentMethod(this)">
+                    <div class="payment-radio"></div>
+                    <div class="payment-icon"><i class="fa-solid fa-qrcode"></i></div>
+                    <div class="payment-info">
+                        <div class="payment-name">QRIS</div>
+                        <div class="payment-desc">Scan & Pay</div>
                     </div>
                 </div>
             </div>
@@ -1352,10 +1352,10 @@ function closeCheckoutModal() {
     document.body.style.overflow = '';
 }
 
-function selectPaymentMethod(method, element) {
-    document.querySelectorAll('.payment-card').forEach(el => el.classList.remove('selected'));
-    element.classList.add('selected');
-    selectedPaymentMethod = method;
+function selectPaymentMethod(el) {
+    document.querySelectorAll('.payment-option').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPaymentMethod = el.dataset.method;
 }
 
 // ============================================================================
