@@ -312,6 +312,7 @@ function statusBeliLabel($status) {
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="../asset/css/responsive_tipe_member.css?v=<?= time() ?>">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
@@ -531,6 +532,30 @@ body.swal2-shown,
 body.swal2-height-auto {
     padding-right: 0 !important;
 }
+
+/* === Swal Popup Konsisten === */
+.swal-popup-konsisten {
+    border-radius: 16px !important;
+    font-family: 'Barlow', sans-serif !important;
+}
+.swal-popup-konsisten .swal2-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #111827 !important;
+}
+.swal-popup-konsisten .swal2-html-container {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+}
+.swal-popup-konsisten .swal2-confirm,
+.swal-popup-konsisten .swal2-cancel {
+    font-family: 'Barlow', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
+    padding: 10px 20px !important;
+}
 </style>
 </head>
 <body>
@@ -617,12 +642,12 @@ include '../includes/topbar.php';
                 <i class="fa-solid fa-rotate-right"></i> Reset
             </a>
             <div style="width: 1px; height: 32px; background-color: var(--border); margin: 0 4px;"></div>
-            <a href="cetak_pdf_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: var(--red); text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+            <button type="button" onclick="confirmDownload('pdf')" class="filter-btn" style="background-color: var(--red); border: none; font-family: 'Barlow', sans-serif; font-weight: 800; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
                 <i class="fa-solid fa-file-pdf"></i> Unduh PDF
-            </a>
-            <a href="cetak_excel_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>" target="_blank" class="filter-btn" style="background-color: #10B981; text-decoration: none; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
+            </button>
+            <button type="button" onclick="confirmDownload('excel')" class="filter-btn" style="background-color: #10B981; border: none; font-family: 'Barlow', sans-serif; font-weight: 800; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-size: 12px; gap: 6px;">
                 <i class="fa-solid fa-file-excel"></i> Unduh Excel
-            </a>
+            </button>
         </div>
     </form>
 
@@ -879,6 +904,43 @@ new Chart(ctx, {
 window.Swal = Swal.mixin({
     scrollbarPadding: false
 });
+
+// ============================================
+// POPUP KONFIRMASI DOWNLOAD LAPORAN
+// ============================================
+function confirmDownload(type) {
+    const isPdf = type === 'pdf';
+    const title = isPdf ? 'Unduh Laporan PDF' : 'Unduh Laporan Excel';
+    const text = isPdf 
+        ? 'Laporan Pembelian Alat akan diunduh dalam format PDF. Lanjutkan?' 
+        : 'Laporan Pembelian Alat akan diunduh dalam format Excel. Lanjutkan?';
+    const confirmColor = isPdf ? '#EF4444' : '#10B981';
+    const url = isPdf 
+        ? 'cetak_pdf_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>' 
+        : 'cetak_excel_pembelian.php?<?= $_SERVER['QUERY_STRING'] ?>';
+
+    Swal.fire({
+        title: title,
+        text: text,
+        icon: 'question',
+        iconColor: confirmColor,
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Unduh',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: confirmColor,
+        cancelButtonColor: '#6B7280',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        scrollbarPadding: false,
+        customClass: {
+            popup: 'swal-popup-konsisten'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.open(url, '_blank');
+        }
+    });
+}
 </script>
     <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
