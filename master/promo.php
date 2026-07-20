@@ -137,6 +137,11 @@ if ($is_ajax) {
         $tgl_m = $_POST['tgl_m'] ?? '';
         $tgl_s = $_POST['tgl_s'] ?? '';
 
+        // Validasi Nama Promo: Hanya boleh huruf dan spasi
+        if (!preg_match('/^[a-zA-Z\s]+$/', $nama_promo)) {
+            echo json_encode(['success' => false, 'msg' => 'Nama promo hanya boleh berisi huruf!']); exit();
+        }
+
         // Validasi Diskon: 1-100%
         if ($diskon <= 0) {
             echo json_encode(['success' => false, 'msg' => 'Diskon tidak boleh 0 atau kurang dari 0!']); exit();
@@ -2584,6 +2589,16 @@ $topbar_breadcrumb = 'Operasional / Promo';
             });
         }
 
+        function showError(title, message) {
+            Swal.close(); // Tutup modal loading terlebih dahulu
+            Swal.fire({
+                icon: 'error',
+                title: title,
+                text: message,
+                confirmButtonColor: '#EF4444'
+            });
+        }
+
         // ============================================
         // AJAX SUBMIT FORM (TAMBAH / EDIT)
         // ============================================
@@ -2778,9 +2793,10 @@ $topbar_breadcrumb = 'Operasional / Promo';
                     valMsg.classList.add('show');
                     return false;
                 }
-                if (/^\d+$/.test(value)) {
+                // Mengubah pengecekan agar wajib berupa huruf dan spasi
+                if (!/^[a-zA-Z\s]+$/.test(value)) {
                     field.classList.add('error');
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama promo tidak boleh hanya angka.';
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama promo hanya boleh berisi huruf.';
                     valMsg.classList.add('show');
                     return false;
                 }

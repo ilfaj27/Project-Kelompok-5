@@ -100,7 +100,7 @@ GO
 -- ==========================================
 
 -- SP untuk Mengambil Daftar Tipe Member (Read List dengan Pagination & Filter)
-CREATE PROCEDURE sp_GetTipeMemberList
+ALTER PROCEDURE sp_GetTipeMemberList -- Gunakan ALTER jika ingin memperbarui SP yang sudah ada
     @SearchVal VARCHAR(100) = NULL,
     @StatusFilter INT = NULL,
     @SortBy VARCHAR(50) = 'nama_asc',
@@ -116,7 +116,9 @@ BEGIN
       AND (@SearchVal IS NULL OR Nama_Tipe LIKE @SearchVal)
     ORDER BY 
         CASE WHEN @SortBy = 'nama_asc' THEN Nama_Tipe END ASC,
-        CASE WHEN @SortBy = 'harga_desc' THEN Harga_Member END DESC
+        CASE WHEN @SortBy = 'nama_desc' THEN Nama_Tipe END DESC,     -- Tambahkan baris ini
+        CASE WHEN @SortBy = 'harga_desc' THEN Harga_Member END DESC,
+        CASE WHEN @SortBy = 'harga_asc' THEN Harga_Member END ASC    -- Tambahkan baris ini
     OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
 END;
 GO
@@ -193,4 +195,3 @@ BEGIN
     WHERE ID_Tipe = @ID_Tipe;
 END;
 GO
-

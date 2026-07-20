@@ -297,18 +297,16 @@ BEGIN
            OR (@FilterStatus = 'nonaktif' AND Status = 0))
       AND (@Search = '' OR Nama_Lapangan LIKE '%' + @Search + '%')
     ORDER BY 
-        CASE 
-            WHEN @SortBy = 'nama_asc' THEN Nama_Lapangan 
-        END ASC,
-        CASE 
-            WHEN @SortBy = 'harga_desc' THEN CAST(Harga_Sewa AS VARCHAR(20))
-        END DESC,
-        CASE 
-            WHEN @SortBy = 'harga_asc' THEN CAST(Harga_Sewa AS VARCHAR(20))
-        END ASC,
-        CASE 
-            WHEN @SortBy = 'ID_Lapangan' THEN CAST(ID_Lapangan AS VARCHAR(20))
-        END ASC
+        -- 1. Pengurutan berbasis Karakter/Huruf (Nama)
+        CASE WHEN @SortBy = 'nama_asc' THEN Nama_Lapangan END ASC,
+        CASE WHEN @SortBy = 'nama_desc' THEN Nama_Lapangan END DESC,
+        
+        -- 2. Pengurutan berbasis Angka Murni (Harga) - Tanpa CAST VARCHAR
+        CASE WHEN @SortBy = 'harga_desc' THEN Harga_Sewa END DESC,
+        CASE WHEN @SortBy = 'harga_asc' THEN Harga_Sewa END ASC,
+        
+        -- 3. Pengurutan default (ID)
+        CASE WHEN @SortBy = 'ID_Lapangan' THEN ID_Lapangan END ASC
     OFFSET @Offset ROWS
     FETCH NEXT @Limit ROWS ONLY;
 END;
