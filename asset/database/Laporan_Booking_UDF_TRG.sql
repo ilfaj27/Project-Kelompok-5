@@ -109,19 +109,27 @@ RETURNS TABLE
 AS
 RETURN (
     SELECT 
-        MONTH(b.Tanggal_Booking) as bulan,
-        YEAR(b.Tanggal_Booking) as tahun,
+        -- Penentuan format Label Sumbu-X secara Dinamis
+        CASE 
+            WHEN @FilterType IN ('today', 'week', 'month') 
+                 OR (@FilterType = 'custom' AND DATEDIFF(day, @StartDate, @EndDate) <= 31)
+            THEN FORMAT(b.Tanggal_Booking, 'dd MMM yyyy') -- Format Harian (Contoh: '14 Jul 2026')
+            ELSE FORMAT(b.Tanggal_Booking, 'MMM yyyy')    -- Format Bulanan (Contoh: 'Jul 2026')
+        END as label_tren,
+        
         SUM(CASE WHEN b.Status = 1 THEN 1 ELSE 0 END) as berhasil,
         SUM(CASE WHEN b.Status = 2 THEN 1 ELSE 0 END) as selesai,
         SUM(CASE WHEN b.Status = 3 THEN 1 ELSE 0 END) as batal,
-        SUM(CASE WHEN b.Status = 0 THEN 1 ELSE 0 END) as menunggu
+        SUM(CASE WHEN b.Status = 0 THEN 1 ELSE 0 END) as menunggu,
+        
+        -- Kolom untuk mengurutkan data secara kronologis di PHP
+        MIN(b.Tanggal_Booking) as tanggal_urut
     FROM Booking b
     LEFT JOIN Jadwal j ON b.ID_Jadwal = j.ID_Jadwal
     LEFT JOIN Lapangan l ON j.ID_Lapangan = l.ID_Lapangan
     WHERE b.Created_By IS NOT NULL
       AND (@ID_Lapangan IS NULL OR l.ID_Lapangan = @ID_Lapangan)
-      -- SINKRONISASI: Jika filter status bernilai ALL (NULL), maka abaikan status 0 (Menunggu Konfirmasi)
-      AND ((@Status IS NULL AND b.Status <> 0) OR b.Status = @Status)
+      AND (b.Status <> 0) -- Abaikan status menunggu konfirmasi
       AND (
           @FilterType = 'all'
           OR (@FilterType = 'today' AND CAST(b.Tanggal_Booking AS DATE) = CAST(GETDATE() AS DATE))
@@ -130,19 +138,23 @@ RETURN (
           OR (@FilterType = 'year' AND YEAR(b.Tanggal_Booking) = YEAR(GETDATE()))
           OR (@FilterType = 'custom' AND b.Tanggal_Booking BETWEEN @StartDate AND @EndDate)
       )
-    GROUP BY MONTH(b.Tanggal_Booking), YEAR(b.Tanggal_Booking)
-);
-GO
-
--- UDF Pendukung Laporan: Mengambil Daftar Lapangan Aktif untuk Opsi Filter
-CREATE OR ALTER FUNCTION dbo.fn_GetActiveLapangan ()
-RETURNS TABLE
-AS
-RETURN
-(
-    SELECT ID_Lapangan, Nama_Lapangan 
-    FROM Lapangan 
-    WHERE Status = 1 AND Is_Deleted = 0
+    GROUP BY 
+        -- Grouping secara Dinamis berdasarkan rentang waktu filter
+        CASE 
+            WHEN @FilterType IN ('today', 'week', 'month') 
+                 OR (@FilterType = 'custom' AND DATEDIFF(day, @StartDate, @EndDate) <= 31)
+            THEN FORMAT(b.Tanggal_Booking, 'dd MMM yyyy')
+            ELSE FORMAT(b.Tanggal_Booking, 'MMM yyyy')
+        END,
+        -- Pemisah logika grouping harian vs bulanan
+        CASE 
+            WHEN @FilterType IN ('today', 'week', 'month') 
+                 OR (@FilterType = 'custom' AND DATEDIFF(day, @StartDate, @EndDate) <= 31)
+            THEN b.Tanggal_Booking 
+            ELSE NULL 
+        END,
+        YEAR(b.Tanggal_Booking),
+        MONTH(b.Tanggal_Booking)
 );
 GO
 

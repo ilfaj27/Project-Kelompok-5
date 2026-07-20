@@ -83,11 +83,11 @@ $p_status = ($status_filter !== 'all') ? (int) $status_filter : null;
 
 // Struktur parameter terpadu untuk fungsi UDF
 $params = array(
-    array($p_filter_type, SQLSRV_PARAM_IN),
-    array($p_start_date, SQLSRV_PARAM_IN),
-    array($p_end_date, SQLSRV_PARAM_IN),
-    array($p_lapangan, SQLSRV_PARAM_IN),
-    array($p_status, SQLSRV_PARAM_IN)
+    array($p_filter_type, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_VARCHAR(10)),
+    array($p_start_date, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_DATE),
+    array($p_end_date, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_DATE),
+    array($p_lapangan, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_INT),
+    array($p_status, SQLSRV_PARAM_IN, null, SQLSRV_SQLTYPE_INT)
 );
 
 // ============================================
@@ -113,6 +113,7 @@ if ($d) {
     $total_omzet = $d['omzet'] ?? 0;
     $total_refund = $d['refund'] ?? 0;
 }
+if ($q !== null) sqlsrv_free_stmt($q);
 
 $omzet_bersih = $total_omzet - $total_refund;
 
@@ -131,6 +132,7 @@ $q_count = safeQuery($conn, $count_sql, $params);
 if ($q_count !== null) {
     $row_count = safeFetch($q_count);
     $total_rows = $row_count['total_rows'] ?? 0;
+    sqlsrv_free_stmt($q_count);
 }
 
 $total_pages = ceil($total_rows / $limit);
@@ -208,17 +210,19 @@ $chart_data_berhasil = [];
 $chart_data_batal = [];
 $chart_data_menunggu = [];
 
-$chart_sql = "SELECT bulan, tahun, berhasil, selesai, batal, menunggu FROM dbo.fn_GetBookingChartData(?, ?, ?, ?, ?) ORDER BY tahun, bulan";
+// Mengambil kolom label_tren yang dinamis dan tanggal_urut untuk mengurutkan data secara kronologis
+$chart_sql = "SELECT label_tren, berhasil, selesai, batal, menunggu FROM dbo.fn_GetBookingChartData(?, ?, ?, ?, ?) ORDER BY tanggal_urut ASC";
 
 $q = safeQuery($conn, $chart_sql, $params);
 if ($q !== null) {
-    $monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $chart_labels[] = $monthNames[$row['bulan']] . ' ' . $row['tahun'];
+        // Langsung mengambil label_tren dari database tanpa perlu pemrosesan array bulan di PHP
+        $chart_labels[] = $row['label_tren'];
         $chart_data_berhasil[] = ($row['berhasil'] ?? 0) + ($row['selesai'] ?? 0);
         $chart_data_batal[] = $row['batal'] ?? 0;
         $chart_data_menunggu[] = $row['menunggu'] ?? 0;
     }
+    sqlsrv_free_stmt($q); // Bebaskan statement setelah digunakan
 }
 
 // ============================================

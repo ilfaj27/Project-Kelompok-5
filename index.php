@@ -1,6 +1,15 @@
 <?php
 session_start();
 
+if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+    // Sesuaikan nama variabel 'role' dengan yang digunakan di aplikasi Anda (misal: 'level' atau 'status')
+    if (!isset($_SESSION['role']) || strtolower($_SESSION['role']) !== 'customer') {
+        // Jika bukan customer (misal manajer/karyawan), dialihkan ke dashboard mereka atau logout
+        header("Location: dashboard/dashboard.php"); // ganti sesuai dengan halaman dashboard admin/manajer Anda
+        exit();
+    }
+}
+
 if (isset($_GET['load']) && $_GET['load'] === 'done') {
     $_SESSION['intro_done'] = true;
 }
