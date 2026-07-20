@@ -898,7 +898,6 @@ function showDetail(id) {
     const html = `
         <div class="detail-grid">
             <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
-            <div class="detail-item"><div class="detail-label">ID Transaksi</div><div class="detail-value detail-id-badge">#${String(pembelian.ID_Beli).padStart(4, '0')}</div></div>
             <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${pembelian.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${pembelian.Email || '-'} | ${pembelian.No_Telepon || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tanggal Pembelian</div><div class="detail-value">${tanggalBeli}</div></div>
             <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${pembelian.Metode_Pembayaran}</div></div>
@@ -962,7 +961,7 @@ function prosesPembelian(id, nama) {
 
     // 3. Tampilkan SweetAlert
     Swal.fire({
-        title: 'Proses Pembelian #' + String(id).padStart(4, '0'),
+        title: 'Konfirmasi Pembayaran #' + String(id).padStart(4, '0'),
         html: `Transaksi atas nama <strong style="color:var(--text);">${nama}</strong>.<br>
                ${buktiHtml}
                <span style="color: #6B7280; font-size: 12.5px;">Verifikasi jika pembayaran sudah sesuai, atau tolak pesanan ini.</span>`,
@@ -983,7 +982,7 @@ function prosesPembelian(id, nama) {
             document.getElementById('formKonfirmasi').submit();
         } else if (result.isDenied) {
             Swal.fire({
-                title: 'Tolak Pembelian #' + String(id).padStart(4, '0'),
+                title: 'Tolak Pembelian #',
                 html: '<span style="font-size: 13px; color: #6B7280;">Status akan menjadi <strong style="color:#EF4444">Ditolak</strong> dan stok alat <strong>dikembalikan</strong> ke inventory (termasuk stok per ukuran).</span>',
                 icon: 'warning',
                 input: 'textarea',
