@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../login/auth_check.php';
+$path_prefix = "../";
 include '../includes/config.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'karyawan') {

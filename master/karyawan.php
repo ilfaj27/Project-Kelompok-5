@@ -30,10 +30,10 @@ $id_karyawan_session = $_SESSION['id_karyawan'] ?? $_SESSION['id_akun'] ?? '';
 
 if (!empty($id_karyawan_session)) {
     $photo_stmt = sqlsrv_query(
-    $conn,
-    "EXEC sp_Karyawan_GetByID ?",
-    array($id_karyawan_session)
-);
+        $conn,
+        "EXEC sp_Karyawan_GetByID ?",
+        array($id_karyawan_session)
+    );
     if ($photo_stmt && $photo_row = sqlsrv_fetch_array($photo_stmt, SQLSRV_FETCH_ASSOC)) {
         $db_photo = $photo_row['Photo_Profile'] ?? '';
         if (!empty($db_photo)) {
@@ -2616,9 +2616,10 @@ $current_page = 'karyawan';
                         <div>
                             <label class="field-label">Tanggal Lahir <span class="required">*</span></label>
                             <input type="date" name="tanggal_lahir" id="tanggal_lahir" class="modal-input" required
-                                max="<?= date('Y-m-d') ?>" onchange="validateDate(this)">
+                                min="<?= date('Y-m-d', strtotime('-55 years')) ?>"
+                                max="<?= date('Y-m-d', strtotime('-17 years')) ?>" onchange="validateDate(this)">
                             <div class="val-msg" id="val-tanggal_lahir"><i class="fa-solid fa-circle-exclamation"></i>
-                                Tanggal lahir wajib diisi dan tidak boleh di masa depan</div>
+                                Tanggal lahir wajib diisi dan usia minimal 17 tahun</div>
                         </div>
                         <div class="full-width">
                             <label class="field-label">Alamat Lengkap <span class="required">*</span></label>
@@ -3112,12 +3113,16 @@ $current_page = 'karyawan';
                 if (valMsg) setValidationError(input, valMsg, 'Tanggal lahir wajib diisi.');
                 return false;
             }
-            if (selected > today) {
-                if (valMsg) setValidationError(input, valMsg, 'Tanggal lahir tidak boleh di masa depan!');
-                return false;
+
+            // Hitung perkiraan usia
+            let age = today.getFullYear() - selected.getFullYear();
+            const monthDiff = today.getMonth() - selected.getMonth();
+
+            // Penyesuaian presisi usia berdasarkan bulan dan tanggal
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < selected.getDate())) {
+                age--;
             }
 
-            const age = today.getFullYear() - selected.getFullYear();
             if (age < 17) {
                 if (valMsg) setValidationError(input, valMsg, 'Karyawan harus berusia minimal 17 tahun!');
                 return false;
@@ -3150,9 +3155,9 @@ $current_page = 'karyawan';
 
             const fields = [
                 { id: 'nik', err: 'val-nik', label: 'NIK', required: true, min: 16, max: 16, pattern: /^[0-9]{16}$/ },
-                { id: 'nama', err: 'val-nama', label: 'Nama', required: true, min: 3, max: 20, pattern: /^[a-zA-Z\s]+$/ },
-                { id: 'username', err: 'val-username', label: 'Username', required: true, min: 3, max: 20, pattern: /^[a-zA-Z0-9\._]+$/, noSpace: true },
-                { id: 'password', err: 'val-password', label: 'Password', required: true, min: 8, max: 20, noSpace: true },
+                { id: 'nama', err: 'val-nama', label: 'Nama Lengkap', required: true, min: 3, max: 20, pattern: /^[a-zA-Z\s]+$/ },
+                { id: 'username', err: 'val-username', label: 'Nama Pengguna', required: true, min: 3, max: 20, pattern: /^[a-zA-Z0-9\._]+$/, noSpace: true },
+                { id: 'password', err: 'val-password', label: 'Kata Sandi', required: true, min: 8, max: 20, noSpace: true },
                 { id: 'email', err: 'val-email', label: 'Email', required: true, email: true },
                 { id: 'telp', err: 'val-telp', label: 'Nomor Telepon', required: true, phone: true },
                 { id: 'tempat_lahir', err: 'val-tempat_lahir', label: 'Tempat Lahir', required: true, min: 3, max: 50, pattern: /^[a-zA-Z\s]+$/ },
@@ -3301,66 +3306,60 @@ $current_page = 'karyawan';
         // AMBIL DATA EDIT KE MODAL (AJAX)
         // ============================================
         async function showEditForm(id) {
-            Swal.fire({
-                title: 'Memuat...',
-                text: 'Mengambil data karyawan...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            try {
-                const response = await fetch(`karyawan.php?action=get_detail&id=${id}`);
-                const res = await response.json();
-                if (res.success) {
-                    Swal.close();
-                    const d = res.data;
+    try {
+        // Langsung melakukan fetch data tanpa menampilkan pop-up loading terlebih dahulu
+        const response = await fetch(`karyawan.php?action=get_detail&id=${id}`);
+        const res = await response.json();
+        if (res.success) {
+            const d = res.data;
 
-                    // Reset Form & Error messages
-                    document.getElementById('formKaryawan').reset();
-                    document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
-                    document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
-                    document.querySelectorAll('.radio-custom-box').forEach(box => box.classList.remove('error'));
+            // Reset Form & Error messages
+            document.getElementById('formKaryawan').reset();
+            document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.radio-custom-box').forEach(box => box.classList.remove('error'));
 
-                    // Set values
-                    document.getElementById('edit_id_kry').value = d.ID_Karyawan;
-                    document.getElementById('nik').value = d.NIK;
-                    document.getElementById('nama').value = d.Nama_Karyawan;
-                    document.getElementById('username').value = d.Username;
-                    document.getElementById('password').value = d.Kata_Sandi;
-                    document.getElementById('email').value = d.Email;
-                    document.getElementById('telp').value = d.No_Telepon;
-                    document.getElementById('tempat_lahir').value = d.Tempat_Lahir;
-                    document.getElementById('tanggal_lahir').value = d.Tanggal_Lahir_Formatted;
-                    document.getElementById('alamat').value = d.Alamat;
-                    document.getElementById('jabatan').value = d.Jabatan;
+            // Set values
+            document.getElementById('edit_id_kry').value = d.ID_Karyawan;
+            document.getElementById('nik').value = d.NIK;
+            document.getElementById('nama').value = d.Nama_Karyawan;
+            document.getElementById('username').value = d.Username;
+            document.getElementById('password').value = d.Kata_Sandi;
+            document.getElementById('email').value = d.Email;
+            document.getElementById('telp').value = d.No_Telepon;
+            document.getElementById('tempat_lahir').value = d.Tempat_Lahir;
+            document.getElementById('tanggal_lahir').value = d.Tanggal_Lahir_Formatted;
+            document.getElementById('alamat').value = d.Alamat;
+            document.getElementById('jabatan').value = d.Jabatan;
 
-                    // Set Jenis Kelamin Radio
-                    const rMale = document.querySelector('input[name="jk"][value="1"]');
-                    const rFemale = document.querySelector('input[name="jk"][value="0"]');
-                    if (d.Jenis_Kelamin == '1' && rMale) rMale.checked = true;
-                    if (d.Jenis_Kelamin == '0' && rFemale) rFemale.checked = true;
+            // Set Jenis Kelamin Radio
+            const rMale = document.querySelector('input[name="jk"][value="1"]');
+            const rFemale = document.querySelector('input[name="jk"][value="0"]');
+            if (d.Jenis_Kelamin == '1' && rMale) rMale.checked = true;
+            if (d.Jenis_Kelamin == '0' && rFemale) rFemale.checked = true;
 
-                    // Enable Status Dropdown untuk Mode Edit
-                    const statusSelect = document.getElementById('status');
-                    if (statusSelect) {
-                        statusSelect.style.pointerEvents = 'auto';
-                        statusSelect.style.backgroundColor = '#FAFAFA';
-                        statusSelect.value = d.Status;
-                    }
-
-                    // Ganti Title Modal
-                    document.querySelector('.modal-title').textContent = 'Edit Data Staf';
-                    document.querySelector('.modal-sub').textContent = 'Perbarui informasi karyawan yang ada';
-                    document.querySelector('.btn-submit').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
-
-                    openModalDirect('modal');
-                } else {
-                    showError('Gagal!', res.msg);
-                }
-            } catch (error) {
-                console.error("Gagal load edit form:", error);
-                showError('Error', 'Gagal memuat form edit.');
+            // Enable Status Dropdown untuk Mode Edit
+            const statusSelect = document.getElementById('status');
+            if (statusSelect) {
+                statusSelect.style.pointerEvents = 'auto';
+                statusSelect.style.backgroundColor = '#FAFAFA';
+                statusSelect.value = d.Status;
             }
+
+            // Ganti Title Modal
+            document.querySelector('.modal-title').textContent = 'Edit Data Staf';
+            document.querySelector('.modal-sub').textContent = 'Perbarui informasi karyawan yang ada';
+            document.querySelector('.btn-submit').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+            openModalDirect('modal');
+        } else {
+            showError('Gagal!', res.msg);
         }
+    } catch (error) {
+        console.error("Gagal load edit form:", error);
+        showError('Error', 'Gagal memuat form edit.');
+    }
+}
 
         // ============================================
         // RESET FORM TAMBAH BARU (AJAX)
@@ -3671,7 +3670,8 @@ $current_page = 'karyawan';
             loadTableData();
         });
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>
