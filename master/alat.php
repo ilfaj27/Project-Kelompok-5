@@ -172,9 +172,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
         }
     }
     if (empty($errors)) {
-        $q_check = safeQuery($conn, "EXEC SP_Alat_CheckDuplicate @Nama_Alat = ?, @ExcludeID = ?", [$nama_alat, $id]);
+        // Gunakan query SELECT langsung ke tabel Alat agar lebih pasti (cek yang belum dihapus)
+        $sql_check = "SELECT TOP 1 ID_Alat FROM Alat WHERE Nama_Alat = ? AND ID_Alat != ? AND Is_Deleted = 0";
+        $q_check = safeQuery($conn, $sql_check, [$nama_alat, $id]);
+        
         if ($q_check && safeFetch($q_check)) {
-            $errors[] = 'Nama alat sudah terdaftar.';
+            $errors[] = 'Nama alat "' . $nama_alat . '" sudah terdaftar! Silakan gunakan nama lain.';
         }
     }
     if (empty($errors)) {
@@ -427,7 +430,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 
 .alat-card-photo-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: var(--border-lt); overflow: hidden; }
 .alat-card-photo-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; display: block; }
-.alat-card:hover .alat-card-photo-wrap img { transform: scale(0.05); }
+.alat-card:hover .alat-card-photo-wrap img { transform: scale(1.05); }
 .alat-card-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); position: absolute; top: 0; left: 0; }
 .alat-card-photo-placeholder i { font-size: 48px; color: var(--orange); opacity: .5; }
 
