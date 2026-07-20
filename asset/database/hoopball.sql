@@ -614,6 +614,10 @@ INSERT INTO Alat
 ('Handuk Kecil Micro',  45,  12000.00,  20000.00,  1, 0, '2', '2024-01-04 08:00:00'),
 ('Papan Skor Meja Lipat',6,   110000.00, 185000.00, 1, 0, '2', '2024-01-04 08:00:00');
 
+UPDATE Alat 
+SET Nama_Alat = 'Tas Serut HoopBall' 
+WHERE Nama_Alat = 'Tas Serut Tas Basket';
+
 -- ============================================================================
 -- Master_Alat_DATABASE.sql
 -- HOOPBALL - MASTER ALAT: STRUKTUR DATABASE (Tabel, Kolom, Data)
