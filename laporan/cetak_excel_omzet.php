@@ -7,8 +7,11 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
     exit();
 }
 
+$tanggal_unduh = date('dmy');
+$nama_file = 'LaporanOmzet_' . $tanggal_unduh . '.xls';
+
 header("Content-type: application/vnd-ms-excel");
-header("Content-Disposition: attachment; filename=Laporan_Omzet.xls");
+header("Content-Disposition: attachment; filename=" . $nama_file);
 header("Pragma: no-cache");
 header("Expires: 0");
 

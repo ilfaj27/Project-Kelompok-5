@@ -307,6 +307,7 @@ $html3 .= '
     </tbody>
 </table>';
 
-$pdf->writeHTML($html3, true, false, true, false, '');
+$tanggal_unduh = date('dmy'); 
+$nama_file = 'LaporanOmzet_' . $tanggal_unduh . '.pdf';
 
-$pdf->Output('Laporan_Omzet.pdf', 'D');
+$pdf->Output($nama_file, 'D');
