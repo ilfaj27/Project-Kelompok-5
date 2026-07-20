@@ -106,9 +106,9 @@ if ($is_ajax) {
                 'data' => [
                     'ID_Tipe' => $row['ID_Tipe'],
                     'Nama_Tipe' => $row['Nama_Tipe'],
-                    'Harga_Member' => (int)$row['Harga_Member'],
-                    'Potongan_Harga' => (int)$row['Potongan_Harga'],
-                    'Status' => (int)$row['Status']
+                    'Harga_Member' => (int) $row['Harga_Member'],
+                    'Potongan_Harga' => (int) $row['Potongan_Harga'],
+                    'Status' => (int) $row['Status']
                 ]
             ]);
         } else {
@@ -126,49 +126,62 @@ if ($is_ajax) {
 
         // Validasi Nama Tipe Member
         if ($nama_tipe === '') {
-            echo json_encode(['success' => false, 'msg' => 'Nama tipe member wajib diisi.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member wajib diisi.']);
+            exit();
         }
         if (strlen($nama_tipe) < 3) {
-            echo json_encode(['success' => false, 'msg' => 'Nama tipe member minimal 3 karakter.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member minimal 3 karakter.']);
+            exit();
         }
-        if (is_numeric($nama_tipe)) {
-            echo json_encode(['success' => false, 'msg' => 'Nama tipe member tidak boleh hanya angka.']); exit();
+        if (!preg_match('/^[a-zA-Z\s]+$/', $nama_tipe)) {
+            echo json_encode(['success' => false, 'msg' => 'Nama tipe member hanya boleh berisi huruf.']);
+            exit();
         }
 
         // Validasi Harga Member
         if ($harga_member_raw === '') {
-            echo json_encode(['success' => false, 'msg' => 'Harga member wajib diisi.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Harga member wajib diisi.']);
+            exit();
         }
         if (!is_numeric($harga_member_raw)) {
-            echo json_encode(['success' => false, 'msg' => 'Harga member harus berupa angka.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Harga member harus berupa angka.']);
+            exit();
         }
         $harga_member = floatval($harga_member_raw);
         if ($harga_member == 0) {
-            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh 0.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh 0.']);
+            exit();
         }
         if ($harga_member < 0) {
-            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh kurang dari 0.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh kurang dari 0.']);
+            exit();
         }
         if ($harga_member < 80000) {
-            echo json_encode(['success' => false, 'msg' => 'Harga member minimal 80000.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Harga member minimal 80000.']);
+            exit();
         }
 
         // Validasi Potongan Harga
         if ($potongan_harga_raw === '') {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga wajib diisi.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga wajib diisi.']);
+            exit();
         }
         if (!is_numeric($potongan_harga_raw)) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga harus berupa angka.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga harus berupa angka.']);
+            exit();
         }
         $potongan_harga = floatval($potongan_harga_raw);
         if ($potongan_harga < 0) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh kurang dari 0.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh kurang dari 0.']);
+            exit();
         }
         if ($potongan_harga < 50000) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga minimal 50000.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga minimal 50000.']);
+            exit();
         }
         if ($potongan_harga > $harga_member) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh lebih besar dari harga member.']); exit();
+            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh lebih besar dari harga member.']);
+            exit();
         }
 
         // Validasi duplikat nama tipe (MENGGUNAKAN USER DEFINED FUNCTION)
@@ -176,7 +189,7 @@ if ($is_ajax) {
         if ($q_check_name) {
             $row_check = safe_sqlsrv_fetch_array($q_check_name, SQLSRV_FETCH_ASSOC);
             if (($row_check['is_duplicate'] ?? 0) == 1) {
-                echo json_encode(['success' => false, 'msg' => 'Nama tipe member sudah terdaftar.']); 
+                echo json_encode(['success' => false, 'msg' => 'Nama tipe member sudah terdaftar.']);
                 exit();
             }
         }
@@ -240,7 +253,7 @@ if ($is_ajax) {
     if ($action === 'get_table_data') {
         $search_val = isset($_GET['src']) && trim($_GET['src']) !== '' ? trim($_GET['src']) : '';
         $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? intval($_GET['f_status']) : '';
-        
+
         $search_param = ($search_val !== '') ? "%$search_val%" : null;
         $status_param = ($f_status !== '') ? $f_status : null;
 
@@ -272,9 +285,9 @@ if ($is_ajax) {
 
         // Ambil Data Berdasarkan Stored Procedure
         $query = safe_sqlsrv_query(
-            $conn, 
-            "EXEC sp_GetTipeMemberList @SearchVal=?, @StatusFilter=?, @SortBy=?, @Offset=?, @Limit=?", 
-            array($search_param, $status_param, $f_sort, $offset, $limit), 
+            $conn,
+            "EXEC sp_GetTipeMemberList @SearchVal=?, @StatusFilter=?, @SortBy=?, @Offset=?, @Limit=?",
+            array($search_param, $status_param, $f_sort, $offset, $limit),
             false
         );
 
@@ -320,7 +333,8 @@ if ($is_ajax) {
                             <button onclick="viewDetail(<?= $row['ID_Tipe'] ?>)" class="btn-action btn-view" title="Lihat Detail">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button onclick="openEditModal(<?= $row['ID_Tipe'] ?>)" class="btn-action btn-edit" title="Edit Tipe Member">
+                            <button onclick="openEditModal(<?= $row['ID_Tipe'] ?>)" class="btn-action btn-edit"
+                                title="Edit Tipe Member">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
                             <label class="toggle-switch" title="<?= $is_active ? 'Nonaktifkan' : 'Aktifkan' ?> tipe member">
@@ -328,7 +342,8 @@ if ($is_ajax) {
                                     onchange="confirmToggle('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>', <?= $row['Status'] ?>, event)">
                                 <span class="toggle-slider"></span>
                             </label>
-                            <button onclick="confirmDelete('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>')"
+                            <button
+                                onclick="confirmDelete('<?= $row['ID_Tipe'] ?>', '<?= htmlspecialchars($row['Nama_Tipe'], ENT_QUOTES) ?>')"
                                 class="btn-action btn-delete" title="Hapus Tipe Member">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
@@ -363,7 +378,8 @@ if ($is_ajax) {
                 <button onclick="changePage(1)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Pertama">
                     <i class="fa-solid fa-angles-left"></i>
                 </button>
-                <button onclick="changePage(<?= $page - 1 ?>)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>" title="Halaman Sebelumnya">
+                <button onclick="changePage(<?= $page - 1 ?>)" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"
+                    title="Halaman Sebelumnya">
                     <i class="fa-solid fa-angle-left"></i>
                 </button>
 
@@ -392,10 +408,12 @@ if ($is_ajax) {
                     <button onclick="changePage(<?= $total_pages ?>)" class="page-btn"><?= $total_pages ?></button>
                 <?php endif; ?>
 
-                <button onclick="changePage(<?= $page + 1 ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Selanjutnya">
+                <button onclick="changePage(<?= $page + 1 ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"
+                    title="Halaman Selanjutnya">
                     <i class="fa-solid fa-angle-right"></i>
                 </button>
-                <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>" title="Halaman Terakhir">
+                <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"
+                    title="Halaman Terakhir">
                     <i class="fa-solid fa-angles-right"></i>
                 </button>
             </div>
@@ -447,7 +465,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
 <html lang="id">
 
 <head>
-  <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Tipe Member | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
@@ -2254,7 +2272,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             color: #1F2937 !important;
         }
 
-    
+
         body.swal2-shown,
         html.swal2-shown {
             padding-right: 0px !important;
@@ -2314,23 +2332,21 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
 
                     <label class="modal-label">Nama Tipe <span class="required">*</span></label>
                     <input type="text" name="nama_tipe" id="nama_tipe" class="modal-input"
-                        placeholder="Masukkan nama tipe (misal: Silver, Gold, Platinum)" autocomplete="off"
-                        value="" required minlength="3" maxlength="10">
+                        placeholder="Masukkan nama tipe (misal: Silver, Gold, Platinum)" autocomplete="off" value=""
+                        required minlength="3" maxlength="10">
                     <div class="val-msg" id="val-nama_tipe"></div>
 
                     <div class="modal-grid-2">
                         <div>
                             <label class="modal-label">Harga Member (Rp) <span class="required">*</span></label>
                             <input type="number" name="harga_member" id="harga_member" class="modal-input"
-                                placeholder="Contoh: 100000" min="0" step="1000" autocomplete="off"
-                                value="" required>
+                                placeholder="Contoh: 100000" min="0" step="1000" autocomplete="off" value="" required>
                             <div class="val-msg" id="val-harga_member"></div>
                         </div>
                         <div>
                             <label class="modal-label">Potongan Harga (Rp) <span class="required">*</span></label>
                             <input type="number" name="potongan_harga" id="potongan_harga" class="modal-input"
-                                placeholder="Contoh: 50000" min="0" step="1000" autocomplete="off"
-                                value="" required>
+                                placeholder="Contoh: 50000" min="0" step="1000" autocomplete="off" value="" required>
                             <div class="val-msg" id="val-potongan_harga"></div>
                         </div>
                     </div>
@@ -2363,8 +2379,8 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                             class="chip-val" id="stat-aktif"><?= $active_count ?></span></div>
                     <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span
                             class="chip-val" id="stat-nonaktif"><?= $inactive_count ?></span></div>
-                    <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span
-                            class="chip-val" id="stat-total"><?= $total_data ?></span></div>
+                    <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span class="chip-val"
+                            id="stat-total"><?= $total_data ?></span></div>
                 </div>
             </div>
 
@@ -2372,15 +2388,18 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             <div class="action-bar">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="src" placeholder="Cari tipe member... (Tekan Enter)" onkeypress="handleSearch(event)" value="">
-                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch" style="display: none;">
+                    <input type="text" id="src" placeholder="Cari tipe member... (Tekan Enter)"
+                        onkeypress="handleSearch(event)" value="">
+                    <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch"
+                        style="display: none;">
                         <i class="fa-solid fa-circle-xmark"></i>
                     </button>
                 </div>
 
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
-                        <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
+                        <button type="button" class="btn-filter" id="btnFilterToggleCustom"
+                            onclick="toggleCustomFilterCard(event)">
                             <i class="fa-solid fa-filter"></i> Filter <i
                                 class="fa-solid fa-chevron-down arrow-icon"></i>
                         </button>
@@ -2392,7 +2411,9 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
                                         <option value="nama_asc">Nama A - Z</option>
+                                        <option value="nama_desc">Nama Z - A</option>
                                         <option value="harga_desc">Harga Tertinggi</option>
+                                        <option value="harga_asc">Harga Terendah</option>
                                     </select>
                                 </div>
 
@@ -2425,11 +2446,13 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                     <span class="card-badge" id="header-badge"><?= $total_data ?> total</span>
                 </div>
                 <?php if ($query_error): ?>
-                    <div id="db-error-banner" style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
+                    <div id="db-error-banner"
+                        style="padding:20px;background:#fee;border:1px solid #fcc;border-radius:8px;margin:20px 0;">
                         <p style="color:#c00;font-weight:bold;margin:0;"><i class="fa-solid fa-circle-exclamation"></i>
                             Gagal mengambil data dari database. Silakan refresh halaman atau hubungi administrator.</p>
                         <p style="color:#666;font-size:11px;margin:5px 0 0;">Error:
-                            <?php echo htmlspecialchars($query_error_msg); ?></p>
+                            <?php echo htmlspecialchars($query_error_msg); ?>
+                        </p>
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
@@ -2530,7 +2553,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             document.getElementById('formTipe').reset();
             document.getElementById('id_tipe').value = '';
             document.getElementById('additional-form-inputs').innerHTML = '';
-            
+
             // Bersihkan error validasi sebelumnya
             document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
             document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
@@ -2583,7 +2606,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                     const formatRupiah = (val) => 'Rp ' + new Intl.NumberFormat('id-ID').format(val);
                     const isActive = data.Status === 1;
 
-                    const statusPill = isActive 
+                    const statusPill = isActive
                         ? `<span class="status-pill sp-active"><span class="sp-dot"></span>AKTIF</span>`
                         : `<span class="status-pill sp-inactive"><span class="sp-dot"></span>NONAKTIF</span>`;
 
@@ -2705,7 +2728,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             currentStatus = form.elements['f_status'].value;
             currentPage = 1;
             loadTableData();
-            
+
             // Tutup filter dropdown
             document.getElementById('btnFilterToggleCustom').classList.remove('active');
             document.getElementById('filterCardCustom').classList.remove('open');
@@ -2839,9 +2862,9 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                     valMsg.classList.add('show');
                     return false;
                 }
-                if (/^\d+$/.test(value)) {
+                if (!/^[a-zA-Z\s]+$/.test(value)) {
                     field.classList.add('error');
-                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama tipe member tidak boleh hanya angka.';
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama tipe member hanya boleh berisi huruf.';
                     valMsg.classList.add('show');
                     return false;
                 }
@@ -3002,7 +3025,8 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         });
     </script>
     <!-- Panggil sensor di paling bawah sebelum body ditutup -->
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>

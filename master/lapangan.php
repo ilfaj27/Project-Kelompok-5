@@ -1918,15 +1918,16 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
                                         <option value="nama_asc">Nama A-Z</option>
+                                        <option value="nama_desc">Nama Z-A</option> <!-- Tambahkan baris ini -->
                                         <option value="harga_desc">Harga Termahal</option>
                                         <option value="harga_asc">Harga Termurah</option>
                                     </select>
                                 </div>
                                 <div class="filter-buttons">
-                                    <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i>
-                                        Terapkan</button>
                                     <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
                                             class="fa-solid fa-rotate-left"></i> Reset</button>
+                                    <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check"></i>
+                                        Terapkan</button>
                                 </div>
                             </form>
                         </div>

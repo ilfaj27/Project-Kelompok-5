@@ -1568,11 +1568,11 @@ $sidebar_photo = $profile_photo;
                                 </div>
 
                                 <div class="filter-actions">
-                                    <button type="submit" class="btn-filter-apply">
-                                        <i class="fa-solid fa-check"></i> Terapkan
-                                    </button>
                                     <button type="button" class="btn-filter-reset" onclick="resetFilter()">
                                         <i class="fa-solid fa-rotate-left"></i> Reset
+                                    </button>
+                                    <button type="submit" class="btn-filter-apply">
+                                        <i class="fa-solid fa-check"></i> Terapkan
                                     </button>
                                 </div>
                             </form>
