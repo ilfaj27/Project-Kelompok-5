@@ -245,16 +245,16 @@ if (isset($_GET['toggle_id'])) {
     $toggle_id = intval($_GET['toggle_id']);
     $current_status = intval($_GET['s']);
     $s_baru = ($current_status == 1) ? 0 : 1;
+    
+    // Pastikan SP_Alat_Update lo nerima param status
     $result = safeQuery($conn, "EXEC SP_Alat_Update @ID_Alat = ?, @Status = ?, @Modified_By = ?", [$toggle_id, $s_baru, $nama]);
+    
     if ($result !== false) {
-        ob_end_clean();
+        if (ob_get_length()) ob_end_clean();
         $msg = ($s_baru == 1) ? 'Alat berhasil diaktifkan!' : 'Alat berhasil dinonaktifkan!';
         header("Location: alat.php?status=success&msg=" . urlencode($msg));
-    } else {
-        ob_end_clean();
-        header("Location: alat.php?status=error&msg=" . urlencode('Gagal mengubah status alat: ' . getLastSqlError($conn)));
+        exit();
     }
-    exit();
 }
 
 if (isset($_GET['delete_id'])) {
@@ -441,8 +441,8 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .badge-aktif .badge-dot { background: var(--green); }
 .badge-nonaktif .badge-dot { background: var(--red); }
 
-.alat-card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity .2s ease; z-index: 3; }
-.alat-card:hover .alat-card-actions { opacity: 1; }
+.alat-card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; opacity: 1; transition: opacity .2s ease; z-index: 3; }
+.alat-card:hover .alat-card-actions { transform: scale(1.05); }
 .alat-card-action-btn { width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all .25s cubic-bezier(.4,0,.2,1); backdrop-filter: blur(4px); text-decoration: none; font-weight: 700;}
 .ac-btn-view { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: #1E40AF; border-color: #BFDBFE;}
 .ac-btn-view:hover { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: #fff; border-color: #3B82F6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,.35);}
@@ -880,7 +880,7 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 $photo_url = getPhotoUrl($row['Photo_Alat'] ?? '');
                 $is_aktif = intval($row['Status']) === 1;
         ?>
-            <div class="alat-card">
+            <div class="alat-card" id="alat-<?= intval($row['ID_Alat']) ?>">
                 <div class="alat-card-photo-wrap" onclick="window.location.href='?detail_id=<?= intval($row['ID_Alat']) ?>'">
                     <div class="alat-card-photo-placeholder">
                         <i class="fa-solid fa-toolbox"></i>
@@ -1331,36 +1331,24 @@ document.addEventListener('DOMContentLoaded', function() {
 });
         
 function confirmToggle(id, name, currentStatus, event) {
-    var checkbox = event.target;
-    var newStatus = currentStatus === 1 ? 0 : 1;
-    var statusText = newStatus === 1 ? 'Aktif' : 'Nonaktif';
-    var icon = newStatus === 1 ? 'success' : 'warning';
-    var confirmColor = newStatus === 1 ? '#10B981' : '#EF4444';
-
+    const checkbox = event.target;
+    const action = (currentStatus == 1) ? 'Menonaktifkan' : 'Mengaktifkan';
+    
     Swal.fire({
-        title: 'Ubah Status?',
-        html: 'Ubah status <strong style="color:var(--orange);">' + name + '</strong> menjadi <strong>' + statusText + '</strong>?',
-        icon: icon,
+        title: action + ' Alat?',
+        html: `Apakah Anda yakin ingin mengubah status <b>${name}</b>?`,
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: confirmColor,
+        confirmButtonColor: '#FF4500',
         cancelButtonColor: '#6B7280',
         confirmButtonText: 'Ya, Ubah!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true,
-        allowOutsideClick: false
-    }).then(function(result) {
+        cancelButtonText: 'Batal'
+    }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Memproses...',
-                text: 'Mengubah status alat',
-                allowOutsideClick: false,
-                didOpen: function() {
-                    Swal.showLoading();
-                }
-            });
-            setTimeout(function() {
-                window.location.href = '?toggle_id=' + id + '&s=' + currentStatus;
-            }, 600);
+            // --- TAMBAHKAN INI ---
+            simpanPosisi(); 
+            // ---------------------
+            window.location.href = `alat.php?toggle_id=${id}&s=${currentStatus}`;
         } else {
             checkbox.checked = !checkbox.checked;
         }
@@ -1369,25 +1357,20 @@ function confirmToggle(id, name, currentStatus, event) {
 
 function doDelete(id, name) {
     Swal.fire({
-        title: 'Hapus Alat?',
-        html: 'Anda akan menghapus alat <strong style="color:var(--orange);">' + name + '</strong><br><span style="font-size:12px;color:var(--muted);">Data akan dihapus secara permanen.</span>',
+        title: 'Hapus Permanen?',
+        html: `Alat <b>${name}</b> akan dihapus dari sistem.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
         cancelButtonColor: '#6B7280',
         confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal',
-        reverseButtons: true
-    }).then(function(result) {
+        cancelButtonText: 'Batal'
+    }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ 
-                title: 'Menghapus...', 
-                allowOutsideClick: false, 
-                didOpen: function() { Swal.showLoading(); } 
-            });
-            setTimeout(function() {
-                window.location.href = 'alat.php?delete_id=' + id;
-            }, 500);
+            // --- TAMBAHKAN INI ---
+            simpanPosisi();
+            // ---------------------
+            window.location.href = `alat.php?delete_id=${id}`;
         }
     });
 }
@@ -1395,6 +1378,50 @@ function doDelete(id, name) {
 function resetFilter() {
     window.location.href = 'alat.php';
 }
+
+// --- LOGIKA STAY PADA POSISI SCROLL V2 (SAKTI) ---
+
+// 1. Fungsi Utama Simpan Posisi
+function simpanPosisi() {
+    sessionStorage.setItem('alat_scroll_pos', window.scrollY);
+}
+
+// 2. Terapkan Posisi Saat Load
+window.addEventListener('load', () => {
+    const scrollPos = sessionStorage.getItem('alat_scroll_pos');
+    if (scrollPos) {
+        // Pake timeout 50ms biar grid-nya selesai render dulu baru ditarik ke bawah
+        setTimeout(() => {
+            window.scrollTo({
+                top: parseInt(scrollPos),
+                behavior: 'instant'
+            });
+        }, 50);
+    }
+});
+
+// 3. Tangkap Klik Link (Pagination, Edit, Detail, Add)
+document.addEventListener('click', function(e) {
+    const targetLink = e.target.closest('a');
+    // Jika yang diklik adalah link dan bukan link logout atau menu lain
+    if (targetLink && !targetLink.href.includes('logout')) {
+        simpanPosisi();
+    }
+});
+
+// 4. Tangkap Klik Tombol "X" (Close Modal)
+// Supaya pas nutup modal, background tetep di posisi tadi
+const closeBtns = document.querySelectorAll('.modal-close, .btn-cancel');
+closeBtns.forEach(btn => {
+    btn.addEventListener('click', simpanPosisi);
+});
+
+// 5. Simpan Posisi Pas Form Submit
+const formAlat = document.getElementById('formAlat');
+if(formAlat) {
+    formAlat.addEventListener('submit', simpanPosisi);
+}
+
 </script>
 <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
