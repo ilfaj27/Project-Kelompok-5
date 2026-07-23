@@ -2317,7 +2317,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
 
 <body>
 
-    <!-- MODAL FORM TIPE MEMBER -->
+    <!-- MODAL FORM TAMBAH TIPE MEMBER -->
     <div class="modal-overlay" id="modalTipe">
         <div class="modal-box">
             <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -2374,6 +2374,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                     <div class="page-title-tag"></div>
                     <div class="page-title">Kelola Tipe Member</div>
                 </div>
+                <!-- Akumulasi Statistik -->
                 <div class="stat-chips">
                     <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span
                             class="chip-val" id="stat-aktif"><?= $active_count ?></span></div>
@@ -2395,6 +2396,8 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                         <i class="fa-solid fa-circle-xmark"></i>
                     </button>
                 </div>
+
+                <!-- FILTER DROPDOWN -->
 
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div class="filter-dropdown-wrap">
@@ -2455,6 +2458,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                         </p>
                     </div>
                 <?php else: ?>
+                    <!-- TABEL DATA / READ -->
                     <div class="table-wrap">
                         <table class="data-table" id="tbl">
                             <thead>
