@@ -951,7 +951,7 @@ function prosesPembelian(id, nama) {
 
     // 3. Tampilkan SweetAlert
     Swal.fire({
-        title: 'Konfirmasi Pembayaran #' + String(id).padStart(4, '0'),
+        title: 'Konfirmasi Pembayaran Alat',
         html: `Transaksi atas nama <strong style="color:var(--text);">${nama}</strong>.<br>
                ${buktiHtml}
                <span style="color: #6B7280; font-size: 12.5px;">Verifikasi jika pembayaran sudah sesuai, atau tolak pesanan ini.</span>`,
@@ -972,7 +972,7 @@ function prosesPembelian(id, nama) {
             document.getElementById('formKonfirmasi').submit();
         } else if (result.isDenied) {
             Swal.fire({
-                title: 'Tolak Pembelian #',
+                title: 'Tolak Pembelian',
                 html: '<span style="font-size: 13px; color: #6B7280;">Status akan menjadi <strong style="color:#EF4444">Ditolak</strong> dan stok alat <strong>dikembalikan</strong> ke inventory (termasuk stok per ukuran).</span>',
                 icon: 'warning',
                 input: 'textarea',
