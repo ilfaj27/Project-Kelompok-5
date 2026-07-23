@@ -632,16 +632,6 @@ main, .content {
             <div class="stat-sublabel">Dari pembelian terkonfirmasi</div>
         </div>
     </div>
-
-    <!-- INFO BOX -->
-    <div class="role-info-box">
-        <i class="fa-solid fa-circle-info"></i>
-        <div class="rib-text">
-            <strong>Peran Karyawan:</strong> Customer membuat pembelian alat melalui website. Karyawan hanya mengkonfirmasi pembayaran yang sudah dilakukan customer. 
-            <span class="rib-sub">Pembelian baru dengan status "Menunggu" menunggu verifikasi pembayaran Anda.</span>
-        </div>
-    </div>
-
     <!-- FILTER BAR -->
     <div class="action-bar">
         <div class="filter-group">

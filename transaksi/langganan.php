@@ -1166,19 +1166,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                 </div>
             </div>
 
-            <!-- INFO BOX -->
-            <div
-                style="background: var(--blue-lt); border: 1px solid var(--blue); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
-                <i class="fa-solid fa-circle-info" style="color: var(--blue); font-size: 20px;"></i>
-                <div style="font-size: 13px; color: var(--text); line-height: 1.5;">
-                    <strong>Peran Karyawan:</strong> Customer mendaftar langganan member melalui website. Karyawan hanya
-                    mengkonfirmasi pembayaran yang sudah dilakukan customer.
-                    <span style="color: var(--muted);">Langganan baru dengan status "Menunggu" menunggu verifikasi
-                        pembayaran Anda. Gunakan tombol <strong>Bukti Pembayaran</strong> untuk memeriksa bukti
-                        transfer/QRIS yang diunggah customer sebelum mengkonfirmasi.</span>
-                </div>
-            </div>
-
             <!-- FILTER BAR -->
             <div class="action-bar">
                 <!-- Sisi Kiri: Kotak Pencarian Terpadu -->
