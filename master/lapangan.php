@@ -168,12 +168,12 @@ if ($is_ajax) {
 
         $errors = [];
 
-          $has_new_photo = isset($_FILES['photo_lapangan']) && !empty($_FILES['photo_lapangan']['name']);
-$has_existing_photo = $edit_mode && !empty($edit_photo_path);
+        $has_new_photo = isset($_FILES['photo_lapangan']) && !empty($_FILES['photo_lapangan']['name']);
+        $has_existing_photo = $edit_mode && !empty($edit_photo_path);
 
-if (!$has_new_photo && !$has_existing_photo) {
-    $errors[] = ' Wajib Menampilkan Foto/Gambar.';
-}
+        if (!$has_new_photo && !$has_existing_photo) {
+            $errors[] = ' Wajib Menampilkan Foto/Gambar.';
+        }
         if ($nama_lapangan === '') {
             $errors[] = 'Nama lapangan wajib diisi.';
         } elseif (strlen($nama_lapangan) < 3) {
@@ -194,6 +194,7 @@ if (!$has_new_photo && !$has_existing_photo) {
             }
         }
 
+        // CEK NAMA DUPLIKAT         
         if (empty($errors)) {
             $sql_check = "EXEC dbo.sp_CheckLapanganDuplicate ?, ?";
             $q_check = executeAjaxQuery($conn, $sql_check, [$nama_lapangan, $id]);
@@ -1778,7 +1779,8 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
                 <!-- ID Kontainer hiddenInputsArea diperbaiki di sini -->
                 <form id="formLapangan" enctype="multipart/form-data" onsubmit="handleFormSubmit(event)" novalidate>
                     <div id="hiddenInputsArea"></div>
-                    <label class="modal-label">Foto Lapangan <span class="required">*</span> <span style="color:var(--muted);font-size:10px;">(Max 5MB)</span></label>
+                    <label class="modal-label">Foto Lapangan <span class="required">*</span> <span
+                            style="color:var(--muted);font-size:10px;">(Max 5MB)</span></label>
                     <div class="photo-upload-area" id="uploadArea">
                         <input type="file" name="photo_lapangan" id="photo_lapangan"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
@@ -2021,8 +2023,8 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
             }
 
             document.getElementById('uploadArea').style.borderColor = '';
-const valPhoto = document.getElementById('val-photo_lapangan');
-if (valPhoto) valPhoto.classList.remove('show');
+            const valPhoto = document.getElementById('val-photo_lapangan');
+            if (valPhoto) valPhoto.classList.remove('show');
 
             var reader = new FileReader();
             reader.onload = function (e) {
@@ -2100,22 +2102,22 @@ if (valPhoto) valPhoto.classList.remove('show');
             var valid = true;
 
             // --- TAMBAHAN VALIDASI WAJIB FOTO LAPANGAN ---
-    const fileInput = document.getElementById('photo_lapangan');
-    const uploadArea = document.getElementById('uploadArea');
-    const valPhoto = document.getElementById('val-photo_lapangan');
-    const isHasImage = uploadArea.classList.contains('has-image');
+            const fileInput = document.getElementById('photo_lapangan');
+            const uploadArea = document.getElementById('uploadArea');
+            const valPhoto = document.getElementById('val-photo_lapangan');
+            const isHasImage = uploadArea.classList.contains('has-image');
 
-    uploadArea.style.borderColor = ''; 
-    if (valPhoto) valPhoto.classList.remove('show');
+            uploadArea.style.borderColor = '';
+            if (valPhoto) valPhoto.classList.remove('show');
 
-    if (!isHasImage && (!fileInput.files || fileInput.files.length === 0)) {
-        uploadArea.style.borderColor = 'var(--red)';
-        if (valPhoto) {
-            valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Wajib Menampilkan Foto/Gambar.';
-            valPhoto.classList.add('show');
-        }
-        valid = false;
-    }
+            if (!isHasImage && (!fileInput.files || fileInput.files.length === 0)) {
+                uploadArea.style.borderColor = 'var(--red)';
+                if (valPhoto) {
+                    valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Wajib Menampilkan Foto/Gambar.';
+                    valPhoto.classList.add('show');
+                }
+                valid = false;
+            }
 
             var checkboxes = document.querySelectorAll('.facility-checkbox');
             var valFacilities = document.getElementById('val-facilities');
