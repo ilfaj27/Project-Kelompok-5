@@ -2688,6 +2688,10 @@ $tipe_config = [
         /* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
    ============================================ */
+        .swal2-container {
+            z-index: 99999 !important; /* <-- TAMBAHKAN BARIS INI */
+        }
+        
         .swal2-popup {
             animation: none !important;
             transition: none !important;

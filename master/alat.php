@@ -1,5 +1,5 @@
 <?php
-ob_start();
+session_start();
 require_once '../login/auth_check.php';
 date_default_timezone_set("Asia/Jakarta");
 $path_prefix = "../";
@@ -11,9 +11,14 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'karyawan' && $_SESSION[
 }
 
 // ========================================================
-// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE DI SINI ⚠️
+// ⚠️ PANGGIL SENSOR AUTO LOGOUT IDLE (DENGAN PENGAMAN AJAX) ⚠️
 // ========================================================
-require_once '../login/auto_logout.php';
+$action_value = $_GET['action'] ?? $_POST['action'] ?? '';
+$is_real_ajax = ($action_value !== '' && $action_value !== 'auto_logout');
+
+if (!$is_real_ajax) {
+    require_once '../login/auto_logout.php';
+}
 // ========================================================
 
 $role = $_SESSION['role'];
@@ -75,31 +80,25 @@ function getUploadDirectory() {
     return $upload_dir;
 }
 
-function processPhotoUpload($file, $edit_data = null) {
+function processPhotoUpload($file, $edit_photo_path = '') {
     $upload_dir = getUploadDirectory();
     if (!isset($file) || empty($file['name'])) {
-        if ($edit_data && !empty($edit_data['Photo_Alat'])) {
-            return $edit_data['Photo_Alat'];
-        }
-        return false;
-    }
-    if (!is_dir($upload_dir)) {
-        @mkdir($upload_dir, 0755, true);
+        return $edit_photo_path;
     }
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
     if (!in_array($file_ext, $allowed_ext)) {
-        return ($edit_data ? $edit_data['Photo_Alat'] : '');
+        return $edit_photo_path;
     }
     if ($file['size'] > 5 * 1024 * 1024) {
-        return ($edit_data ? $edit_data['Photo_Alat'] : '');
+        return $edit_photo_path;
     }
     $new_file_name = 'alat_' . time() . '_' . uniqid() . '.' . $file_ext;
     $target_path = $upload_dir . $new_file_name;
     if (move_uploaded_file($file['tmp_name'], $target_path)) {
         return 'asset/image/' . $new_file_name;
     }
-    return ($edit_data && !empty($edit_data['Photo_Alat'])) ? $edit_data['Photo_Alat'] : '';
+    return $edit_photo_path;
 }
 
 // === KONFIGURASI KATEGORI & UKURAN ===
@@ -113,86 +112,126 @@ $KATEGORI_SIZES = [
     'Lainnya'     => ['All Size'],
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
-    $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
-    $nama_alat = trim($_POST['nama_alat'] ?? '');
-    $kategori = trim($_POST['kategori'] ?? '');
-    $stok_size_raw = isset($_POST['stok_size']) && is_array($_POST['stok_size']) ? $_POST['stok_size'] : [];
-    $harga_jual_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_jual'] ?? ''));
-    $harga_beli_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_beli'] ?? ''));
-    $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
-    $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
+function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
 
-    $errors = [];
-    if ($nama_alat === '') {
-        $errors[] = 'Nama alat wajib diisi.';
-    } elseif (strlen($nama_alat) > 25) {
-        $errors[] = 'Nama alat maksimal 25 karakter.';
-    }
-    if ($kategori === '' || !array_key_exists($kategori, $KATEGORI_SIZES)) {
-        $errors[] = 'Kategori alat wajib dipilih.';
-    }
-
-    $sizes_clean = [];
-    $stok_total = 0;
-    if ($kategori !== '' && array_key_exists($kategori, $KATEGORI_SIZES)) {
-        foreach ($KATEGORI_SIZES[$kategori] as $ukuran) {
-            $val = trim($stok_size_raw[$ukuran] ?? '');
-            if ($val === '') $val = '0';
-            if (!preg_match('/^[0-9]+$/', $val)) {
-                $errors[] = 'Stok ukuran ' . $ukuran . ' harus berupa angka.';
-                continue;
-            }
-            $val_num = intval($val);
-            if ($val_num > 9999) {
-                $errors[] = 'Stok ukuran ' . $ukuran . ' maksimal 9999.';
-                continue;
-            }
-            $sizes_clean[$ukuran] = $val_num;
-            $stok_total += $val_num;
-        }
-        if ($stok_total < 10) {
-            $errors[] = 'Total stok dari semua ukuran minimal harus 10 pcs.';
-        } elseif ($stok_total > 9999) {
-            $errors[] = 'Total stok semua ukuran maksimal 9999.';
+function getAlatSizes($conn, $id_alat) {
+    $sizes = [];
+    $r = safeQuery($conn, "EXEC SP_AlatSize_SelectByAlat @ID_Alat = ?", [intval($id_alat)]);
+    if ($r) {
+        while ($row = sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC)) {
+            $sizes[$row['Ukuran']] = intval($row['Stok']);
         }
     }
-    if ($harga_beli_raw === '' || !is_numeric($harga_beli_raw)) {
-        $errors[] = 'Harga beli harus berupa angka.';
+    return $sizes;
+}
+
+// ── PROSES AJAX REQUESTS ──
+if ($is_real_ajax) {
+    header('Content-Type: application/json');
+    $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+    // Action: Ambil Detail / Edit Data
+    if ($action === 'get_detail') {
+        $id = intval($_GET['id'] ?? 0);
+        $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [$id]);
+        if ($r && $data = safeFetch($r)) {
+            $sizes = getAlatSizes($conn, $id);
+            echo json_encode([
+                'success' => true,
+                'data' => $data,
+                'sizes' => $sizes,
+                'photo_url' => getPhotoUrl($data['Photo_Alat'] ?? '')
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Data alat tidak ditemukan.']);
+        }
+        exit();
+    }
+
+    // Action: Simpan Data (Insert / Update)
+    if ($action === 'save') {
+        $id = isset($_POST['id_alat']) ? intval($_POST['id_alat']) : 0;
+        $nama_alat = trim($_POST['nama_alat'] ?? '');
+        $kategori = trim($_POST['kategori'] ?? '');
+        $stok_size_raw = isset($_POST['stok_size']) && is_array($_POST['stok_size']) ? $_POST['stok_size'] : [];
+        $harga_jual_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_jual'] ?? ''));
+        $harga_beli_raw = preg_replace('/[^0-9]/', '', trim($_POST['harga_beli'] ?? ''));
+        $edit_mode = isset($_POST['edit_mode']) && $_POST['edit_mode'] == '1';
+        $edit_photo_path = isset($_POST['edit_photo_path']) ? trim($_POST['edit_photo_path']) : '';
+
+        $errors = [];
+        if ($nama_alat === '') {
+            $errors[] = 'Nama alat wajib diisi.';
+        } elseif (strlen($nama_alat) > 25) {
+            $errors[] = 'Nama alat maksimal 25 karakter.';
+        }
+        if ($kategori === '' || !array_key_exists($kategori, $KATEGORI_SIZES)) {
+            $errors[] = 'Kategori alat wajib dipilih.';
+        }
+
+        $sizes_clean = [];
+        $stok_total = 0;
+        if ($kategori !== '' && array_key_exists($kategori, $KATEGORI_SIZES)) {
+            foreach ($KATEGORI_SIZES[$kategori] as $ukuran) {
+                $val = trim($stok_size_raw[$ukuran] ?? '');
+                if ($val === '') $val = '0';
+                if (!preg_match('/^[0-9]+$/', $val)) {
+                    $errors[] = 'Stok ukuran ' . $ukuran . ' harus berupa angka.';
+                    continue;
+                }
+                $val_num = intval($val);
+                if ($val_num > 9999) {
+                    $errors[] = 'Stok ukuran ' . $ukuran . ' maksimal 9999.';
+                    continue;
+                }
+                $sizes_clean[$ukuran] = $val_num;
+                $stok_total += $val_num;
+            }
+            if ($stok_total < 10) {
+                $errors[] = 'Total stok dari semua ukuran minimal harus 10 pcs.';
+            } elseif ($stok_total > 9999) {
+                $errors[] = 'Total stok semua ukuran maksimal 9999.';
+            }
+        }
+
+        if ($harga_beli_raw === '' || !is_numeric($harga_beli_raw)) {
+            $errors[] = 'Harga beli harus berupa angka.';
         } else if (floatval($harga_beli_raw) < 5000) {
             $errors[] = 'Harga beli minimal Rp 5.000.';
         }
-    
-    if ($harga_jual_raw === '' || !is_numeric($harga_jual_raw)) {
-        $errors[] = 'Harga jual harus berupa angka.';
-    }
-    if ($harga_beli_raw !== '' && $harga_jual_raw !== '' && is_numeric($harga_beli_raw) && is_numeric($harga_jual_raw)) {
-        if (floatval($harga_jual_raw) < floatval($harga_beli_raw)) {
-            $errors[] = 'Harga jual tidak boleh lebih kecil dari harga beli.';
-        }
-    }
-    if (empty($errors)) {
-        // Gunakan query SELECT langsung ke tabel Alat agar lebih pasti (cek yang belum dihapus)
-        $sql_check = "SELECT TOP 1 ID_Alat FROM Alat WHERE Nama_Alat = ? AND ID_Alat != ? AND Is_Deleted = 0";
-        $q_check = safeQuery($conn, $sql_check, [$nama_alat, $id]);
         
-        if ($q_check && safeFetch($q_check)) {
-            $errors[] = 'Nama alat "' . $nama_alat . '" sudah terdaftar! Silakan gunakan nama lain.';
+        if ($harga_jual_raw === '' || !is_numeric($harga_jual_raw)) {
+            $errors[] = 'Harga jual harus berupa angka.';
         }
-    }
-    if (empty($errors)) {
+
+        if ($harga_beli_raw !== '' && $harga_jual_raw !== '' && is_numeric($harga_beli_raw) && is_numeric($harga_jual_raw)) {
+            if (floatval($harga_jual_raw) < floatval($harga_beli_raw)) {
+                $errors[] = 'Harga jual tidak boleh lebih kecil dari harga beli.';
+            }
+        }
+
+        if (empty($errors)) {
+            $sql_check = "SELECT TOP 1 ID_Alat FROM Alat WHERE Nama_Alat = ? AND ID_Alat != ? AND Is_Deleted = 0";
+            $q_check = safeQuery($conn, $sql_check, [$nama_alat, $id]);
+            if ($q_check && safeFetch($q_check)) {
+                $errors[] = 'Nama alat "' . $nama_alat . '" sudah terdaftar! Silakan gunakan nama lain.';
+            }
+        }
+
+        $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_photo_path);
+        if (empty($photo_alat)) {
+            $errors[] = 'Foto alat wajib diupload.';
+        }
+
+        if (!empty($errors)) {
+            echo json_encode(['success' => false, 'msg' => implode(' | ', $errors)]);
+            exit();
+        }
+
         $stok = $stok_total; 
         $harga_beli = number_format(floatval($harga_beli_raw), 2, '.', '');
         $harga_jual = number_format(floatval($harga_jual_raw), 2, '.', '');
-        $edit_data_for_photo = ($edit_mode && !empty($edit_photo_path)) ? ['Photo_Alat' => $edit_photo_path] : null;
-        $photo_alat = processPhotoUpload($_FILES['photo_alat'] ?? null, $edit_data_for_photo);
 
-        if ($photo_alat === false) {
-            $errors[] = 'Foto alat wajib diupload.';
-        }
-    }
-
-    if (empty($errors)) {
         if ($edit_mode && $id > 0) {
             $sql = "EXEC SP_Alat_Update @ID_Alat=?, @Nama_Alat=?, @Stok=?, @Harga_Beli=?, @Harga_Jual=?, @Photo_Alat=?, @Modified_By=?, @Kategori=?";
             $params = [$id, $nama_alat, $stok, $harga_beli, $harga_jual, $photo_alat, $nama, $kategori];
@@ -200,6 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
             $sql = "EXEC SP_Alat_Insert @Nama_Alat=?, @Stok=?, @Harga_Beli=?, @Harga_Jual=?, @Photo_Alat=?, @Status=1, @Created_By=?, @Kategori=?";
             $params = [$nama_alat, $stok, $harga_beli, $harga_jual, $photo_alat, $nama, $kategori];
         }
+
         $result = safeQuery($conn, $sql, $params);
         if ($result !== false) {
             $target_id = $id;
@@ -226,149 +266,185 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_alat'])) {
                 }
             }
 
-            ob_end_clean();
             $msg = $edit_mode ? 'Data alat berhasil diperbarui!' : 'Alat baru berhasil ditambahkan!';
-            header("Location: alat.php?status=success&msg=" . urlencode($msg));
-            exit();
+            echo json_encode(['success' => true, 'msg' => $msg]);
         } else {
-            $db_error = getLastSqlError($conn);
-            header("Location: alat.php?status=error&msg=" . urlencode("Gagal menyimpan data: " . $db_error));
-            exit();
+            echo json_encode(['success' => false, 'msg' => 'Gagal menyimpan data: ' . getLastSqlError($conn)]);
         }
-    } else {
-        header("Location: alat.php?status=error&msg=" . urlencode(implode(' | ', $errors)));
+        exit();
+    }
+
+    // Action: Toggle Status
+    if ($action === 'toggle') {
+        $id = intval($_GET['id'] ?? 0);
+        $current_status = intval($_GET['status'] ?? 0);
+        $s_baru = ($current_status == 1) ? 0 : 1;
+        $result = safeQuery($conn, "EXEC SP_Alat_Update @ID_Alat = ?, @Status = ?, @Modified_By = ?", [$id, $s_baru, $nama]);
+        if ($result !== false) {
+            $msg = ($s_baru == 1) ? 'Alat berhasil diaktifkan!' : 'Alat berhasil dinonaktifkan!';
+            echo json_encode(['success' => true, 'msg' => $msg]);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Gagal mengubah status alat.']);
+        }
+        exit();
+    }
+
+    // Action: Delete Alat
+    if ($action === 'delete') {
+        $id = intval($_GET['id'] ?? 0);
+        $result = safeQuery($conn, "EXEC SP_Alat_Delete @ID_Alat=?, @Deleted_By=?", [$id, $nama]);
+        if ($result !== false) {
+            echo json_encode(['success' => true, 'msg' => 'Alat berhasil dihapus!']);
+        } else {
+            echo json_encode(['success' => false, 'msg' => 'Gagal menghapus alat: ' . getLastSqlError($conn)]);
+        }
+        exit();
+    }
+
+    // Action: Fetch Data Grid & Pagination
+    if ($action === 'get_grid_data') {
+        // Konversi string kosong menjadi NULL agar Stored Procedure SQL Server berfungsi dengan baik
+        $search_raw = isset($_GET['src']) ? trim($_GET['src']) : '';
+        $search = ($search_raw !== '') ? $search_raw : null;
+
+        $kategori_raw = isset($_GET['f_kategori']) ? trim($_GET['f_kategori']) : '';
+        $f_kategori = ($kategori_raw !== '') ? $kategori_raw : null;
+
+        $f_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
+        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+
+        // Stats
+        $aktif_count = $nonaktif_count = $total_alat = 0;
+        $q_stats = safeQuery($conn, "EXEC SP_Alat_CountByStatus");
+        if ($q_stats && $row_stats = safeFetch($q_stats)) {
+            $aktif_count    = $row_stats['AktifCount']    ?? 0;
+            $nonaktif_count = $row_stats['NonaktifCount'] ?? 0;
+            $total_alat     = $row_stats['TotalCount']    ?? 0;
+        }
+
+        // Pagination (DIPERBARUI: Limit 10 alat per halaman sesuai permintaan bos)
+        $limit = 10;
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+        $total_data = 0;
+        $count_res = safeQuery($conn, "EXEC SP_Alat_Count @StatusFilter = ?, @KategoriFilter = ?, @Search = ?", [$f_status, $f_kategori, $search]);
+        if ($count_res && $row = safeFetch($count_res)) {
+            $total_data = $row['TotalCount'] ?? 0;
+        }
+
+        $total_pages = max(1, ceil($total_data / $limit));
+        $page = min($page, $total_pages);
+
+        $query = safeQuery($conn, "EXEC SP_Alat_SelectFiltered @StatusFilter = ?, @KategoriFilter = ?, @Search = ?, @SortBy = ?, @PageNumber = ?, @PageSize = ?", [$f_status, $f_kategori, $search, $f_sort, $page, $limit]);
+
+        // Render Cards Grid
+        ob_start();
+        $has_data = false;
+        if ($query):
+            while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                $has_data = true;
+                $photo_url = getPhotoUrl($row['Photo_Alat'] ?? '');
+                $is_aktif = intval($row['Status']) === 1;
+        ?>
+            <div class="alat-card" id="alat-<?= intval($row['ID_Alat']) ?>">
+                <div class="alat-card-photo-wrap" onclick="viewDetail(<?= intval($row['ID_Alat']) ?>)">
+                    <div class="alat-card-photo-placeholder">
+                        <i class="fa-solid fa-toolbox"></i>
+                    </div>
+                    <?php if (!empty($photo_url)): ?>
+                        <img src="<?= htmlspecialchars($photo_url) ?>"
+                             alt="<?= htmlspecialchars($row['Nama_Alat']) ?>"
+                             loading="lazy"
+                             style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"
+                             onerror="this.style.display='none';">
+                    <?php endif; ?>
+                    <span class="alat-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>" style="z-index:2;">
+                        <span class="badge-dot"></span> <?= $is_aktif ? 'AKTIF' : 'NONAKTIF' ?>
+                    </span>
+                    <div class="alat-card-actions" style="z-index:3;">
+                        <button type="button" onclick="event.stopPropagation(); viewDetail(<?= intval($row['ID_Alat']) ?>)" class="alat-card-action-btn ac-btn-view" title="Lihat Detail"><i class="fa-solid fa-eye"></i></button>
+                        <button type="button" onclick="event.stopPropagation(); openEditModal(<?= intval($row['ID_Alat']) ?>)" class="alat-card-action-btn ac-btn-edit" title="Edit Alat"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button type="button" onclick="event.stopPropagation(); confirmDelete(<?= intval($row['ID_Alat']) ?>, '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>')" class="alat-card-action-btn ac-btn-delete" title="Hapus Alat"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>
+                <div class="alat-card-info">
+                    <div class="alat-card-cat"><?= htmlspecialchars($row['Kategori'] ?? 'Lainnya') ?></div>
+                    <div class="alat-card-name"><?= htmlspecialchars($row['Nama_Alat']) ?></div>
+                    <div class="alat-card-price"><?= rupiah($row['Harga_Jual']) ?></div>
+                    <div class="alat-card-price-beli" style="font-size:11px;color:var(--muted);font-weight:600;margin-top:-6px;">Modal: <?= rupiah($row['Harga_Beli']) ?></div>
+                    <div class="alat-card-meta">
+                        <span class="alat-card-stok">
+                            <i class="fa-solid fa-boxes-stacked"></i><?= intval($row['Stok']) ?> tersedia
+                        </span>
+                        <div class="alat-card-toggle">
+                            <span class="alat-card-toggle-label"><?= $is_aktif ? 'ON' : 'OFF' ?></span>
+                            <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?>
+                                       onchange="confirmToggle('<?= intval($row['ID_Alat']) ?>', '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>', <?= intval($row['Status']) ?>, event)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <?php
+            endwhile;
+        endif;
+
+        if (!$has_data): ?>
+            <div class="empty-grid">
+                <i class="fa-solid fa-toolbox"></i>
+                <?php if(!empty($search_raw)): ?>
+                    <div>Pencarian "<?= htmlspecialchars($search_raw) ?>" tidak ditemukan</div>
+                    <p>Coba gunakan kata kunci atau filter lain.</p>
+                <?php else: ?>
+                    <div>Belum ada data alat</div>
+                    <p>Klik "+ Tambah" untuk menambahkan alat baru</p>
+                <?php endif; ?>
+            </div>
+        <?php endif;
+        $grid_html = ob_get_clean();
+
+        // Render Pagination
+        ob_start();
+        if ($total_pages > 1): ?>
+            <div class="pagination-info">
+                Menampilkan <strong><?= (($page-1)*$limit)+1 ?></strong> - <strong><?= min($page*$limit,$total_data) ?></strong> dari <strong><?= $total_data ?></strong> data
+            </div>
+            <div class="pagination-nav">
+                <button onclick="changePage(1)" class="page-btn <?= $page<=1?'disabled':'' ?>"><i class="fa-solid fa-angles-left"></i></button>
+                <button onclick="changePage(<?= $page-1 ?>)" class="page-btn <?= $page<=1?'disabled':'' ?>"><i class="fa-solid fa-angle-left"></i></button>
+                <?php for($i=max(1,$page-2); $i<=min($total_pages,$page+2); $i++): ?>
+                    <button onclick="changePage(<?= $i ?>)" class="page-btn <?= $i==$page?'active':'' ?>"><?= $i ?></button>
+                <?php endfor; ?>
+                <button onclick="changePage(<?= $page+1 ?>)" class="page-btn <?= $page>=$total_pages?'disabled':'' ?>"><i class="fa-solid fa-angle-right"></i></button>
+                <button onclick="changePage(<?= $total_pages ?>)" class="page-btn <?= $page>=$total_pages?'disabled':'' ?>"><i class="fa-solid fa-angles-right"></i></button>
+            </div>
+        <?php else: ?>
+            <div class="pagination-info">
+                <?php if ($total_data > 0): ?>
+                    Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data
+                <?php else: ?>
+                    Menampilkan <strong>0</strong> data
+                <?php endif; ?>
+            </div>
+        <?php endif;
+        $pagination_html = ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'grid' => $grid_html,
+            'pagination' => $pagination_html,
+            'stats' => [
+                'active' => $aktif_count,
+                'inactive' => $nonaktif_count,
+                'total' => $total_alat
+            ]
+        ]);
         exit();
     }
 }
 
-if (isset($_GET['toggle_id'])) {
-    $toggle_id = intval($_GET['toggle_id']);
-    $current_status = intval($_GET['s']);
-    $s_baru = ($current_status == 1) ? 0 : 1;
-    
-    // Pastikan SP_Alat_Update lo nerima param status
-    $result = safeQuery($conn, "EXEC SP_Alat_Update @ID_Alat = ?, @Status = ?, @Modified_By = ?", [$toggle_id, $s_baru, $nama]);
-    
-    if ($result !== false) {
-        if (ob_get_length()) ob_end_clean();
-        $msg = ($s_baru == 1) ? 'Alat berhasil diaktifkan!' : 'Alat berhasil dinonaktifkan!';
-        header("Location: alat.php?status=success&msg=" . urlencode($msg));
-        exit();
-    }
-}
-
-if (isset($_GET['delete_id'])) {
-    $delete_id = intval($_GET['delete_id']);
-    $stmt_nama = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [$delete_id]);
-    $nama_alat_deleted = '';
-    if ($stmt_nama) {
-        $row_nama = safeFetch($stmt_nama);
-        if ($row_nama) $nama_alat_deleted = $row_nama['Nama_Alat'];
-    }
-    $result = safeQuery($conn, "EXEC SP_Alat_Delete @ID_Alat=?, @Deleted_By=?", [$delete_id, $nama]);
-    if ($result !== false) {
-        ob_end_clean();
-        $msg = !empty($nama_alat_deleted) ? 'Alat "' . $nama_alat_deleted . '" berhasil dihapus!' : 'Alat berhasil dihapus!';
-        header("Location: alat.php?status=success&msg=" . urlencode($msg));
-    } else {
-        ob_end_clean();
-        header("Location: alat.php?status=error&msg=" . urlencode('Gagal menghapus alat: ' . getLastSqlError($conn)));
-    }
-    exit();
-}
-
-// Helper: ambil stok per ukuran
-function getAlatSizes($conn, $id_alat) {
-    $sizes = [];
-    $r = safeQuery($conn, "EXEC SP_AlatSize_SelectByAlat @ID_Alat = ?", [intval($id_alat)]);
-    if ($r) {
-        while ($row = sqlsrv_fetch_array($r, SQLSRV_FETCH_ASSOC)) {
-            $sizes[$row['Ukuran']] = intval($row['Stok']);
-        }
-    }
-    return $sizes;
-}
-
-$edit_data = null;
-$edit_sizes = [];
-if (isset($_GET['edit_id'])) {
-    $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['edit_id'])]);
-    if ($r) $edit_data = safeFetch($r);
-    if ($edit_data) $edit_sizes = getAlatSizes($conn, $edit_data['ID_Alat']);
-}
-
-$detail_data = null;
-$detail_sizes = [];
-$show_detail = false;
-if (isset($_GET['detail_id'])) {
-    $r = safeQuery($conn, "EXEC SP_Alat_Select @ID_Alat = ?", [intval($_GET['detail_id'])]);
-    if ($r) {
-        $detail_data = safeFetch($r);
-        $show_detail = ($detail_data !== false && $detail_data !== null);
-        if ($show_detail) $detail_sizes = getAlatSizes($conn, $detail_data['ID_Alat']);
-    }
-}
-
-$show_add = isset($_GET['add']) && $_GET['add'] == '1';
-
-// === MAP SORT PARAMETER ===
-$sort_by_param = 'nama_asc';
-if (isset($_GET['f_sort'])) {
-    switch ($_GET['f_sort']) {
-        case 'nama_asc':        $sort_by_param = 'nama_asc';        break;
-        case 'stok_desc':       $sort_by_param = 'stok_desc';       break;
-        case 'harga_jual_desc': $sort_by_param = 'harga_jual_desc'; break;
-        case 'harga_jual_asc':  $sort_by_param = 'harga_jual_asc';  break;
-        case 'harga_beli_desc': $sort_by_param = 'harga_beli_desc'; break;
-        case 'harga_beli_asc':  $sort_by_param = 'harga_beli_asc';  break;
-    }
-}
-
-// === AMBIL FILTER & PENCARIAN DARI URL ===
 $daftar_kategori = ['Baju', 'Celana', 'Bola Basket', 'Sepatu', 'Headband', 'Kaos Kaki', 'Lainnya'];
-$f_kategori = isset($_GET['f_kategori']) ? trim($_GET['f_kategori']) : '';
-$status_param = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
-$search = isset($_GET['src']) ? trim($_GET['src']) : '';
-
-// === STATISTIK DASHBOARD ===
-$total_alat = $aktif_count = $nonaktif_count = 0;
-$q_stats = safeQuery($conn, "EXEC SP_Alat_CountByStatus");
-if ($q_stats) {
-    $row_stats = safeFetch($q_stats);
-    if ($row_stats) {
-        $aktif_count    = $row_stats['AktifCount']    ?? 0;
-        $nonaktif_count = $row_stats['NonaktifCount'] ?? 0;
-        $total_alat     = $row_stats['TotalCount']    ?? 0;
-    }
-}
-
-$limit = 12;
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-
-// === HITUNG TOTAL DATA FILTERED (PAGINATION) ===
-$total_data = 0;
-$count_res = safeQuery($conn, "EXEC SP_Alat_Count @StatusFilter = ?, @KategoriFilter = ?, @Search = ?", [$status_param, $f_kategori, $search]);
-if ($count_res) {
-    $row = safeFetch($count_res);
-    $total_data = $row['TotalCount'] ?? 0;
-}
-
-$total_pages = max(1, ceil($total_data / $limit));
-$page = min($page, $total_pages);
-$offset = ($page - 1) * $limit;
-
-// === AMBIL DATA GRID FILTERED ===
-$query = safeQuery($conn, "EXEC SP_Alat_SelectFiltered @StatusFilter = ?, @KategoriFilter = ?, @Search = ?, @SortBy = ?, @PageNumber = ?, @PageSize = ?", [$status_param, $f_kategori, $search, $sort_by_param, $page, $limit]);
-
-// Persiapkan URL Paging
-$filter_url = "";
-if (isset($_GET['f_sort'])) $filter_url .= "&f_sort=" . urlencode($_GET['f_sort']);
-if (isset($_GET['f_status'])) $filter_url .= "&f_status=" . urlencode($_GET['f_status']);
-if ($f_kategori !== '') $filter_url .= "&f_kategori=" . urlencode($f_kategori);
-if ($search !== '') $filter_url .= "&src=" . urlencode($search);
-
-function rupiah($n) { return 'Rp ' . number_format($n, 0, ',', '.'); }
-
 $current_page = 'alat';
 $sidebar_folder = 'master';
 $sidebar_photo = $profile_photo;
@@ -419,7 +495,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .search-box input { width: 100%; padding: 10px 40px 10px 40px; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Barlow', sans-serif; outline: none; transition: all .2s; color: var(--text); }
 .search-box input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 .search-box input::placeholder { color: #9CA3AF; }
-.btn-clear-search { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.btn-clear-search { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; display: none; align-items: center; justify-content: center; }
 
 .alat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .alat-card { background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; transition: all .25s ease; cursor: pointer; position: relative; }
@@ -563,11 +639,11 @@ select.modal-input { cursor: pointer; appearance: none; background-image: url("d
 .page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .page-btn i { font-size: 11px; }
 
-/* GANTI SEMUA CSS FILTER DROPDOWN DI ALAT.PHP MENJADI INI */
 .filter-dropdown-wrap { position: relative; display: inline-block; }
 .btn-filter { display: inline-flex; align-items: center; gap: 8px; background-color: var(--orange); color: #ffffff; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(255, 69, 0, 0.2); }
 .btn-filter:hover { background-color: var(--orange-dk); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255, 69, 0, 0.35); }
 .btn-filter i.arrow-icon { font-size: 10px; transition: transform 0.3s; }
+.btn-filter.active i.arrow-icon { transform: rotate(180deg); }
 .filter-card { position: absolute; top: calc(100% + 10px); right: 0; background: #ffffff; border-radius: 16px; border: 1px solid var(--border); padding: 24px; width: 300px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12); z-index: 50; display: none; }
 .filter-card.open { display: block; animation: slideFilter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 @keyframes slideFilter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -606,45 +682,31 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </style>
 </head>
 <body>
+
 <!-- MODAL FORM TAMBAH/EDIT ALAT -->
-<div class="modal-overlay <?= ($edit_data || $show_add) ? 'open' : '' ?>" id="modalAlat">
+<div class="modal-overlay" id="modalAlat">
     <div class="modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header">
             <div class="modal-subtitle">Kelola Alat</div>
-            <div class="modal-title"><?= $edit_data ? 'Edit Alat' : 'Tambah Alat Baru' ?></div>
+            <div class="modal-title" id="formModalTitle">Tambah Alat Baru</div>
         </div>
         <div class="modal-body">
-            <form method="POST" id="formAlat" enctype="multipart/form-data" action="alat.php" onsubmit="return validateForm()">
-                <input type="hidden" name="save_alat" value="1">
-                <?php if ($edit_data): ?>
-                    <input type="hidden" name="edit_mode" value="1">
-                    <input type="hidden" name="id_alat" value="<?= intval($edit_data['ID_Alat']) ?>">
-                    <input type="hidden" name="edit_photo_path" value="<?= htmlspecialchars($edit_data['Photo_Alat'] ?? '') ?>">
-                <?php endif; ?>
+            <form id="formAlat" onsubmit="handleFormSubmit(event)" enctype="multipart/form-data" novalidate>
+                <input type="hidden" name="id_alat" id="id_alat" value="0">
+                <input type="hidden" name="edit_mode" id="edit_mode" value="0">
+                <input type="hidden" name="edit_photo_path" id="edit_photo_path" value="">
 
                 <label class="modal-label">Foto Alat <span class="required">*</span> <span style="color:var(--muted);font-size:10px;">(Wajib, max 5MB)</span></label>
-                <div class="photo-upload-area <?= ($edit_data && !empty($edit_data['Photo_Alat'])) ? 'has-image' : '' ?>" id="uploadArea">
+                <div class="photo-upload-area" id="uploadArea">
                     <input type="file" name="photo_alat" id="photo_alat" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onchange="handlePhotoUpload(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:5;">
 
-                    <?php if ($edit_data && !empty($edit_data['Photo_Alat'])): ?>
-                        <img src="<?= htmlspecialchars(getPhotoUrl($edit_data['Photo_Alat'])) ?>"
-                             class="photo-upload-preview" id="previewImg" alt="Foto Alat"
-                             onerror="this.style.display='none'; document.getElementById('uploadPlaceholder').style.display='flex';">
-                        <button type="button" class="photo-upload-remove" id="removeBtn"
-                                onclick="event.stopPropagation(); removePhoto();" title="Hapus Foto">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    <?php else: ?>
-                        <img class="photo-upload-preview" id="previewImg" style="display:none;" alt="Preview">
-                        <button type="button" class="photo-upload-remove" id="removeBtn"
-                                onclick="event.stopPropagation(); removePhoto();" style="display:none;" title="Hapus Foto">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    <?php endif; ?>
+                    <img class="photo-upload-preview" id="previewImg" style="display:none;" alt="Preview">
+                    <button type="button" class="photo-upload-remove" id="removeBtn" onclick="event.stopPropagation(); removePhoto();" style="display:none;" title="Hapus Foto">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
 
-                    <div class="upload-placeholder-inner" id="uploadPlaceholder"
-                         style="display:<?= ($edit_data && !empty($edit_data['Photo_Alat'])) ? 'none' : 'flex' ?>; flex-direction:column; align-items:center;">
+                    <div class="upload-placeholder-inner" id="uploadPlaceholder" style="display:flex; flex-direction:column; align-items:center;">
                         <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
                         <p>Klik untuk upload foto alat</p>
                         <p style="font-size:11px; margin-top:4px; opacity:.7;">JPG, PNG, GIF, WEBP (Max 5MB)</p>
@@ -653,27 +715,23 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="val-msg" id="val-photo_alat"></div>
 
                 <label class="modal-label">Nama Alat <span class="required">*</span></label>
-                <input type="text" name="nama_alat" id="nama_alat" class="modal-input"
-                       value="<?= htmlspecialchars($edit_data['Nama_Alat'] ?? '') ?>"
-                       placeholder="Contoh: Bola Basket SNI" autocomplete="off" maxlength="25">
+                <input type="text" name="nama_alat" id="nama_alat" class="modal-input" placeholder="Contoh: Bola Basket SNI" autocomplete="off" maxlength="25">
                 <div class="val-msg" id="val-nama_alat"></div>
 
                 <label class="modal-label">Kategori Alat <span class="required">*</span></label>
                 <select name="kategori" id="kategori" class="modal-input" onchange="renderSizeInputs(this.value, null)">
                     <option value="">-- Pilih Kategori --</option>
                     <?php foreach (array_keys($KATEGORI_SIZES) as $kat): ?>
-                        <option value="<?= htmlspecialchars($kat) ?>" <?= (($edit_data['Kategori'] ?? '') === $kat) ? 'selected' : '' ?>><?= htmlspecialchars($kat) ?></option>
+                        <option value="<?= htmlspecialchars($kat) ?>"><?= htmlspecialchars($kat) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <div class="val-msg" id="val-kategori"></div>
 
                 <label class="modal-label">Stok per Ukuran <span class="required">*</span> <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:normal;">(Total minimal 10 pcs)</span></label>
 
-                <!-- INI KOTAK YANG KETIDAKSENGAJAAN KEHAPUS 👇 -->
                 <div class="size-container" id="sizeContainer">
                     <div class="size-hint"><i class="fa-solid fa-circle-info"></i> Pilih kategori terlebih dahulu untuk mengisi stok per ukuran.</div>
                 </div>
-                <!-- 👆 -->
                 
                 <div class="size-total-row">
                     <span>Total Stok</span>
@@ -682,20 +740,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="val-msg" id="val-sizes"></div>
 
                 <label class="modal-label">Harga Beli <span class="required">*</span></label>
-                <input type="number" name="harga_beli" id="harga_beli" class="modal-input"
-                       value="<?= isset($edit_data['Harga_Beli']) ? intval($edit_data['Harga_Beli']) : '' ?>"
-                       placeholder="Contoh: 100000" min="5000" autocomplete="off">
+                <input type="number" name="harga_beli" id="harga_beli" class="modal-input" placeholder="Contoh: 100000" min="5000" autocomplete="off">
                 <div class="val-msg" id="val-harga_beli"></div>
 
                 <label class="modal-label">Harga Jual <span class="required">*</span></label>
-                <input type="number" name="harga_jual" id="harga_jual" class="modal-input"
-                       value="<?= isset($edit_data['Harga_Jual']) ? intval($edit_data['Harga_Jual']) : '' ?>"
-                       placeholder="Contoh: 150000" min="20000" autocomplete="off">
+                <input type="number" name="harga_jual" id="harga_jual" class="modal-input" placeholder="Contoh: 150000" min="20000" autocomplete="off">
                 <div class="val-msg" id="val-harga_jual"></div>
 
                 <button type="submit" class="btn-submit" id="btnSubmit">
-                    <i class="fa-solid fa-<?= $edit_data ? 'floppy-disk' : 'plus' ?>"></i>
-                    <?= $edit_data ? 'Simpan Perubahan' : 'Tambah Alat' ?>
+                    <i class="fa-solid fa-plus"></i> Tambah Alat
                 </button>
                 <button type="button" class="btn-cancel" onclick="closeModal()">Batal</button>
             </form>
@@ -704,76 +757,15 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
 </div>
 
 <!-- MODAL DETAIL ALAT -->
-<div class="modal-overlay <?= $show_detail ? 'open' : '' ?>" id="modalDetail">
+<div class="modal-overlay" id="modalDetail">
     <div class="modal-box detail-modal-box">
         <button type="button" class="modal-close" onclick="closeModal()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         <div class="modal-header" style="text-align: center; padding-bottom: 10px;">
             <div class="modal-subtitle">Detail Informasi</div>
             <div class="modal-title">Spesifikasi Alat</div>
         </div>
-        <div class="modal-body" style="padding-top:10px;">
-            <?php if ($detail_data): ?>
-                <div class="detail-photo-wrap">
-                    <?php
-                    $detail_photo_url = getPhotoUrl($detail_data['Photo_Alat'] ?? '');
-                    if (!empty($detail_photo_url)):
-                    ?>
-                        <img src="<?= htmlspecialchars($detail_photo_url) ?>"
-                             alt="<?= htmlspecialchars($detail_data['Nama_Alat']) ?>"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="detail-photo-placeholder" style="display:none;"><i class="fa-solid fa-toolbox"></i></div>
-                    <?php else: ?>
-                        <div class="detail-photo-placeholder"><i class="fa-solid fa-toolbox"></i></div>
-                    <?php endif; ?>
-                </div>
-
-                <div style="text-align: center;">
-                    <div class="detail-status-badge <?= $detail_data['Status'] == 1 ? 'badge-status-aktif' : 'badge-status-nonaktif' ?>">
-                        <i class="fa-solid fa-circle"></i> <?= $detail_data['Status'] == 1 ? 'Alat Aktif' : 'Alat Nonaktif' ?>
-                    </div>
-                    <div class="detail-kategori-badge">
-                        <i class="fa-solid fa-shapes"></i> <?= htmlspecialchars($detail_data['Kategori'] ?? 'Lainnya') ?>
-                    </div>
-                </div>
-
-                <div class="detail-name"><?= htmlspecialchars($detail_data['Nama_Alat']) ?></div>
-                <div class="detail-price"><?= rupiah($detail_data['Harga_Jual']) ?> <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
-
-                <div class="detail-info-grid">
-                    <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-boxes-stacked"></i> Stok Tersedia</div>
-                        <div class="detail-info-value"><?= intval($detail_data['Stok']) ?> <span style="font-size:11px; font-weight:500; color:var(--muted);">PCS</span></div>
-                    </div>
-                    <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Harga Jual</div>
-                        <div class="detail-info-value" style="color:var(--shopee-orange);"><?= rupiah($detail_data['Harga_Jual']) ?></div>
-                    </div>
-                    <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-coins"></i> Harga Beli</div>
-                        <div class="detail-info-value"><?= rupiah($detail_data['Harga_Beli']) ?></div>
-                    </div>
-                    <div class="detail-info-item">
-                        <div class="detail-info-label"><i class="fa-solid fa-chart-line"></i> Keuntungan / pcs</div>
-                        <div class="detail-info-value" style="color:var(--green);"><?= rupiah($detail_data['Harga_Jual'] - $detail_data['Harga_Beli']) ?></div>
-                    </div>
-                </div>
-
-                <?php if (!empty($detail_sizes)): ?>
-                <div class="detail-size-label"><i class="fa-solid fa-ruler"></i> Detail Stok per Ukuran</div>
-                <div class="detail-size-grid">
-                    <?php foreach ($detail_sizes as $ukuran => $stok_ukuran): ?>
-                        <div class="detail-size-chip">
-                            <div class="ds-size"><?= htmlspecialchars($ukuran) ?></div>
-                            <div class="ds-stok"><?= intval($stok_ukuran) ?> <span>pcs</span></div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
-
-                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117; margin-top:20px;">
-                    <i class="fa-solid fa-arrow-left"></i> Kembali
-                </button>
-            <?php endif; ?>
+        <div class="modal-body" id="detailModalBody" style="padding-top:10px;">
+            <!-- Dinamis diisi via AJAX -->
         </div>
     </div>
 </div>
@@ -791,226 +783,292 @@ body.swal2-shown, html.swal2-shown { padding-right: 0px !important; }
                 <div class="page-title">Kelola Alat</div>
             </div>
             <div class="stat-chips">
-                <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val"><?= $aktif_count ?></span></div>
-                <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span class="chip-val"><?= $nonaktif_count ?></span></div>
-                <div class="stat-chip chip-blue"><i class="fa-solid fa-toolbox"></i> TOTAL <span class="chip-val"><?= $total_alat ?></span></div>
+                <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span class="chip-val" id="stat-aktif">0</span></div>
+                <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> NONAKTIF <span class="chip-val" id="stat-nonaktif">0</span></div>
+                <div class="stat-chip chip-blue"><i class="fa-solid fa-toolbox"></i> TOTAL <span class="chip-val" id="stat-total">0</span></div>
             </div>
         </div>
 
         <div class="action-bar">
-            <!-- SEARCH BOX DIUPDATE -->
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="src" placeholder="Cari alat...(Tekan Enter)" onkeypress="handleSearch(event)" value="<?= htmlspecialchars($search) ?>">
-                <?php if (!empty($search)): ?>
-                    <button type="button" onclick="clearSearch()" class="btn-clear-search"><i class="fa-solid fa-circle-xmark"></i></button>
-                <?php endif; ?>
+                <input type="text" id="src" placeholder="Cari alat...(Tekan Enter)" onkeypress="handleSearch(event)" value="">
+                <button type="button" onclick="clearSearch()" class="btn-clear-search" id="btnClearSearch"><i class="fa-solid fa-circle-xmark"></i></button>
             </div>
             <div style="display:flex;gap:12px;align-items:center;">
-                <div class="filter-dropdown-wrap" id="filterDropdownWrap">
-                    <button class="btn-filter" id="btnFilterToggle" type="button">
+                <div class="filter-dropdown-wrap">
+                    <button type="button" class="btn-filter" id="btnFilterToggleCustom" onclick="toggleCustomFilterCard(event)">
                         <i class="fa-solid fa-filter"></i> Filter <i class="fa-solid fa-chevron-down arrow-icon"></i>
                     </button>
-                        
-                        <div class="filter-card" id="filterCard">
-                            <div class="filter-card-header">
-                                <i class="fa-solid fa-sliders"></i>
-                                <h4>Filter Data</h4>
+
+                    <div class="filter-card" id="filterCardCustom" onclick="event.stopPropagation()">
+                        <h4>Filter Data</h4>
+                        <form id="formFilter" onsubmit="handleFilterSubmit(event)">
+                            <div class="filter-group">
+                                <label>Status</label>
+                                <select name="f_status" class="filter-input">
+                                    <option value="">Semua Status</option>
+                                    <option value="1">AKTIF</option>
+                                    <option value="0">NONAKTIF</option>
+                                </select>
                             </div>
                             
-                            <form method="GET" action="alat.php">
-                                <!-- Pertahankan parameter pencarian kalau filter disubmit -->
-                                <?php if(!empty($search)): ?>
-                                    <input type="hidden" name="src" value="<?= htmlspecialchars($search) ?>">
-                                <?php endif; ?>
-                                
-                                <div class="filter-group">
-                                    <label>Status</label>
-                                    <select name="f_status" class="filter-input">
-                                        <option value="">Semua Status</option>
-                                        <option value="1" <?= ($_GET['f_status'] ?? '') === '1' ? 'selected' : '' ?>>AKTIF</option>
-                                        <option value="0" <?= ($_GET['f_status'] ?? '') === '0' ? 'selected' : '' ?>>NONAKTIF</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="filter-group">
-                                    <label>Kategori</label>
-                                    <select name="f_kategori" class="filter-input">
-                                        <option value="">Semua Kategori</option>
-                                        <?php foreach ($daftar_kategori as $kat): ?>
-                                        <option value="<?= htmlspecialchars($kat) ?>" <?= $f_kategori === $kat ? 'selected' : '' ?>><?= htmlspecialchars($kat) ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+                            <div class="filter-group">
+                                <label>Kategori</label>
+                                <select name="f_kategori" class="filter-input">
+                                    <option value="">Semua Kategori</option>
+                                    <?php foreach ($daftar_kategori as $kat): ?>
+                                    <option value="<?= htmlspecialchars($kat) ?>"><?= htmlspecialchars($kat) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
 
-                                <div class="filter-group">
-                                    <label>Urut Berdasarkan</label>
-                                    <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc"        <?= ($_GET['f_sort'] ?? '') === 'nama_asc'        ? 'selected' : '' ?>>Nama A-Z</option>
-                                        <option value="stok_desc"       <?= ($_GET['f_sort'] ?? '') === 'stok_desc'       ? 'selected' : '' ?>>Stok Terbanyak</option>
-                                        <option value="harga_jual_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_jual_desc' ? 'selected' : '' ?>>Harga Jual Termahal</option>
-                                        <option value="harga_jual_asc"  <?= ($_GET['f_sort'] ?? '') === 'harga_jual_asc'  ? 'selected' : '' ?>>Harga Jual Termurah</option>
-                                        <option value="harga_beli_desc" <?= ($_GET['f_sort'] ?? '') === 'harga_beli_desc' ? 'selected' : '' ?>>Harga Beli Termahal</option>
-                                        <option value="harga_beli_asc"  <?= ($_GET['f_sort'] ?? '') === 'harga_beli_asc'  ? 'selected' : '' ?>>Harga Beli Termurah</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="filter-buttons">
-                                    <button type="button" class="btn-filter-reset" onclick="resetFilter()">
-                                        <i class="fa-solid fa-rotate-left"></i> Reset
-                                    </button>
-                                    <button type="submit" class="btn-filter-apply">
-                                        <i class="fa-solid fa-check"></i> Terapkan
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                <a href="alat.php?add=1" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</a>
-            </div>
-        </div>
-
-        <!-- GRID KARTU ALAT -->
-        <div class="alat-grid" id="alatGrid">
-        <?php
-        $has_data = false;
-        if ($query):
-            while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
-                $has_data = true;
-                $photo_url = getPhotoUrl($row['Photo_Alat'] ?? '');
-                $is_aktif = intval($row['Status']) === 1;
-        ?>
-            <div class="alat-card" id="alat-<?= intval($row['ID_Alat']) ?>">
-                <div class="alat-card-photo-wrap" onclick="window.location.href='?detail_id=<?= intval($row['ID_Alat']) ?>'">
-                    <div class="alat-card-photo-placeholder">
-                        <i class="fa-solid fa-toolbox"></i>
-                    </div>
-                    <?php if (!empty($photo_url)): ?>
-                        <img src="<?= htmlspecialchars($photo_url) ?>"
-                             alt="<?= htmlspecialchars($row['Nama_Alat']) ?>"
-                             loading="lazy"
-                             style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"
-                             onerror="this.style.display='none';">
-                    <?php endif; ?>
-                    <span class="alat-card-badge <?= $is_aktif ? 'badge-aktif' : 'badge-nonaktif' ?>" style="z-index:2;">
-                        <span class="badge-dot"></span> <?= $is_aktif ? 'AKTIF' : 'NONAKTIF' ?>
-                    </span>
-                    <div class="alat-card-actions" style="z-index:3;">
-                        <a href="?detail_id=<?= intval($row['ID_Alat']) ?>"
-                           class="alat-card-action-btn ac-btn-view" title="Lihat Detail"
-                           onclick="event.stopPropagation()"><i class="fa-solid fa-eye"></i></a>
-                        <a href="?edit_id=<?= intval($row['ID_Alat']) ?>"
-                           class="alat-card-action-btn ac-btn-edit" title="Edit Alat"
-                           onclick="event.stopPropagation()"><i class="fa-solid fa-pen-to-square"></i></a>
-                        <button type="button"
-                                onclick="event.stopPropagation(); doDelete(<?= intval($row['ID_Alat']) ?>, '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>')"
-                                class="alat-card-action-btn ac-btn-delete" title="Hapus Alat">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                            <div class="filter-group">
+                                <label>Urut Berdasarkan</label>
+                                <select name="f_sort" class="filter-input">
+                                    <option value="nama_asc">Nama A-Z</option>
+                                    <option value="stok_desc">Stok Terbanyak</option>
+                                    <option value="harga_jual_desc">Harga Jual Termahal</option>
+                                    <option value="harga_jual_asc">Harga Jual Termurah</option>
+                                    <option value="harga_beli_desc">Harga Beli Termahal</option>
+                                    <option value="harga_beli_asc">Harga Beli Termurah</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-buttons">
+                                <button type="button" class="btn-filter-reset" onclick="resetFilter()">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset
+                                </button>
+                                <button type="submit" class="btn-filter-apply">
+                                    <i class="fa-solid fa-check"></i> Terapkan
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div class="alat-card-info">
-                    <div class="alat-card-cat"><?= htmlspecialchars($row['Kategori'] ?? 'Lainnya') ?></div>
-                    <div class="alat-card-name"><?= htmlspecialchars($row['Nama_Alat']) ?></div>
-                    <div class="alat-card-price"><?= rupiah($row['Harga_Jual']) ?></div>
-                    <div class="alat-card-price-beli" style="font-size:11px;color:var(--muted);font-weight:600;margin-top:-6px;">Modal: <?= rupiah($row['Harga_Beli']) ?></div>
-                    <div class="alat-card-meta">
-                        <span class="alat-card-stok">
-                            <i class="fa-solid fa-boxes-stacked"></i><?= intval($row['Stok']) ?> tersedia
-                        </span>
-                        <div class="alat-card-toggle">
-                            <span class="alat-card-toggle-label"><?= $is_aktif ? 'ON' : 'OFF' ?></span>
-                            <label class="toggle-switch" title="<?= $is_aktif ? 'Nonaktifkan' : 'Aktifkan' ?>">
-                                <input type="checkbox" <?= $is_aktif ? 'checked' : '' ?>
-                                       onchange="confirmToggle('<?= intval($row['ID_Alat']) ?>', '<?= htmlspecialchars($row['Nama_Alat'], ENT_QUOTES) ?>', <?= intval($row['Status']) ?>, event)">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
+                <button type="button" onclick="openAddModal()" class="btn-add"><i class="fa-solid fa-plus"></i>Tambah</button>
             </div>
-        <?php
-            endwhile;
-        endif;
-        if (!$has_data): ?>
-            <div class="empty-grid">
-                <i class="fa-solid fa-toolbox"></i>
-                <?php if(!empty($search)): ?>
-                    <div>Pencarian "<?= htmlspecialchars($search) ?>" tidak ditemukan</div>
-                    <p>Coba gunakan kata kunci atau filter lain.</p>
-                <?php else: ?>
-                    <div>Belum ada data alat</div>
-                    <p>Klik "+ Tambah Alat" untuk menambahkan alat baru</p>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
         </div>
 
-        <!-- PAGINATION -->
-        <?php if ($total_pages > 1): ?>
-        <div class="pagination-wrap">
-            <div class="pagination-info">
-                Menampilkan <strong><?= (($page-1)*$limit)+1 ?></strong> - <strong><?= min($page*$limit,$total_data) ?></strong>
-                dari <strong><?= $total_data ?></strong> data
-            </div>
-            <div class="pagination-nav">
-                <a href="?page=1<?= $filter_url ?>" class="page-btn <?= $page<=1?'disabled':'' ?>"><i class="fa-solid fa-angles-left"></i></a>
-                <a href="?page=<?= $page-1 ?><?= $filter_url ?>" class="page-btn <?= $page<=1?'disabled':'' ?>"><i class="fa-solid fa-angle-left"></i></a>
-                <?php for($i=max(1,$page-2);$i<=min($total_pages,$page+2);$i++): ?>
-                    <a href="?page=<?= $i ?><?= $filter_url ?>" class="page-btn <?= $i==$page?'active':'' ?>"><?= $i ?></a>
-                <?php endfor; ?>
-                <a href="?page=<?= $page+1 ?><?= $filter_url ?>" class="page-btn <?= $page>=$total_pages?'disabled':'' ?>"><i class="fa-solid fa-angle-right"></i></a>
-                <a href="?page=<?= $total_pages ?><?= $filter_url ?>" class="page-btn <?= $page>=$total_pages?'disabled':'' ?>"><i class="fa-solid fa-angles-right"></i></a>
-            </div>
-        </div>
-        <?php else: ?>
-        <div class="pagination-wrap">
-            <div class="pagination-info">
-                <?php if ($total_data > 0): ?>
-                    Menampilkan <strong>1</strong> - <strong><?= $total_data ?></strong> dari <strong><?= $total_data ?></strong> data
-                <?php else: ?>
-                    Menampilkan <strong>0</strong> data
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php endif; ?>
+        <!-- GRID KARTU ALAT (AJAX LOADED) -->
+        <div class="alat-grid" id="alatGrid"></div>
+
+        <!-- PAGINATION (AJAX LOADED) -->
+        <div class="pagination-wrap" id="paginationWrap"></div>
     </div>
 </main>
+
 <script src="../asset/js/global.js"></script>
 <script>
-function closeModal() {
-    window.location.href = 'alat.php';
+// State Management AJAX
+let currentPage = 1;
+let currentSort = 'nama_asc';
+let currentStatus = '';
+let currentKategori = '';
+let currentSearch = '';
+
+const SIZE_SETS = <?= json_encode($KATEGORI_SIZES) ?>;
+
+// ============================================
+// GET DATA GRID (AJAX REFRESH)
+// ============================================
+async function loadGridData() {
+    const url = `alat.php?action=get_grid_data&page=${currentPage}&f_sort=${currentSort}&f_status=${currentStatus}&f_kategori=${encodeURIComponent(currentKategori)}&src=${encodeURIComponent(currentSearch)}`;
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('stat-aktif').textContent = data.stats.active;
+            document.getElementById('stat-nonaktif').textContent = data.stats.inactive;
+            document.getElementById('stat-total').textContent = data.stats.total;
+
+            document.getElementById('alatGrid').innerHTML = data.grid;
+            document.getElementById('paginationWrap').innerHTML = data.pagination;
+
+            const btnClear = document.getElementById('btnClearSearch');
+            if (currentSearch !== '') {
+                btnClear.style.display = 'flex';
+            } else {
+                btnClear.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error("Gagal memuat data grid:", error);
+    }
 }
 
+function changePage(page) {
+    currentPage = page;
+    loadGridData();
+}
+
+// ============================================
+// MODAL & FORM CONTROL
+// ============================================
+function closeModal() {
+    document.getElementById('modalAlat').classList.remove('open');
+    document.getElementById('modalDetail').classList.remove('open');
+}
+
+function openAddModal() {
+    document.getElementById('formAlat').reset();
+    document.getElementById('id_alat').value = '0';
+    document.getElementById('edit_mode').value = '0';
+    document.getElementById('edit_photo_path').value = '';
+
+    removePhoto();
+
+    document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+
+    document.getElementById('formModalTitle').textContent = 'Tambah Alat Baru';
+    document.getElementById('btnSubmit').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Alat';
+
+    renderSizeInputs('', null);
+    document.getElementById('modalAlat').classList.add('open');
+}
+
+async function openEditModal(id) {
+    document.querySelectorAll('.val-msg').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+
+    try {
+        const response = await fetch(`alat.php?action=get_detail&id=${id}`);
+        const res = await response.json();
+        if (res.success) {
+            const data = res.data;
+            const sizes = res.sizes;
+
+            document.getElementById('id_alat').value = data.ID_Alat;
+            document.getElementById('edit_mode').value = '1';
+            document.getElementById('edit_photo_path').value = data.Photo_Alat || '';
+            document.getElementById('nama_alat').value = data.Nama_Alat;
+            document.getElementById('kategori').value = data.Kategori;
+            document.getElementById('harga_beli').value = parseInt(data.Harga_Beli);
+            document.getElementById('harga_jual').value = parseInt(data.Harga_Jual);
+
+            // Preview Foto
+            if (data.Photo_Alat && res.photo_url) {
+                const previewImg = document.getElementById('previewImg');
+                const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+                const uploadArea = document.getElementById('uploadArea');
+                const removeBtn = document.getElementById('removeBtn');
+
+                previewImg.src = res.photo_url;
+                previewImg.style.display = 'block';
+                uploadArea.classList.add('has-image');
+                uploadPlaceholder.style.display = 'none';
+                removeBtn.style.display = 'flex';
+            } else {
+                removePhoto();
+            }
+
+            renderSizeInputs(data.Kategori, sizes);
+
+            document.getElementById('formModalTitle').textContent = 'Edit Alat';
+            document.getElementById('btnSubmit').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan';
+
+            document.getElementById('modalAlat').classList.add('open');
+        } else {
+            showError('Gagal!', res.msg);
+        }
+    } catch (error) {
+        showError('Gagal!', 'Terjadi kesalahan saat mengambil data.');
+    }
+}
+
+async function viewDetail(id) {
+    try {
+        const response = await fetch(`alat.php?action=get_detail&id=${id}`);
+        const res = await response.json();
+        if (res.success) {
+            const data = res.data;
+            const sizes = res.sizes;
+            const formatRupiah = (val) => 'Rp ' + new Intl.NumberFormat('id-ID').format(val);
+            const isActive = data.Status == 1;
+
+            let sizeHtml = '';
+            if (Object.keys(sizes).length > 0) {
+                sizeHtml = `<div class="detail-size-label"><i class="fa-solid fa-ruler"></i> Detail Stok per Ukuran</div><div class="detail-size-grid">`;
+                for (const [uk, st] of Object.entries(sizes)) {
+                    sizeHtml += `<div class="detail-size-chip">
+                        <div class="ds-size">${uk}</div>
+                        <div class="ds-stok">${st} <span>pcs</span></div>
+                    </div>`;
+                }
+                sizeHtml += `</div>`;
+            }
+
+            const photoHtml = res.photo_url ? `<img src="${res.photo_url}" alt="${data.Nama_Alat}">` : `<div class="detail-photo-placeholder"><i class="fa-solid fa-toolbox"></i></div>`;
+
+            document.getElementById('detailModalBody').innerHTML = `
+                <div class="detail-photo-wrap">
+                    ${photoHtml}
+                </div>
+                <div style="text-align: center;">
+                    <div class="detail-status-badge ${isActive ? 'badge-status-aktif' : 'badge-status-nonaktif'}">
+                        <i class="fa-solid fa-circle"></i> ${isActive ? 'Alat Aktif' : 'Alat Nonaktif'}
+                    </div>
+                    <div class="detail-kategori-badge">
+                        <i class="fa-solid fa-shapes"></i> ${data.Kategori || 'Lainnya'}
+                    </div>
+                </div>
+                <div class="detail-name">${data.Nama_Alat}</div>
+                <div class="detail-price">${formatRupiah(data.Harga_Jual)} <span style="font-size:14px;color:var(--muted);font-family:'Barlow';font-weight:600;">/ pcs</span></div>
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-boxes-stacked"></i> Stok Tersedia</div>
+                        <div class="detail-info-value">${data.Stok} <span style="font-size:11px; font-weight:500; color:var(--muted);">PCS</span></div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-tag"></i> Harga Jual</div>
+                        <div class="detail-info-value" style="color:var(--shopee-orange);">${formatRupiah(data.Harga_Jual)}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-coins"></i> Harga Beli</div>
+                        <div class="detail-info-value">${formatRupiah(data.Harga_Beli)}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label"><i class="fa-solid fa-chart-line"></i> Keuntungan / pcs</div>
+                        <div class="detail-info-value" style="color:var(--green);">${formatRupiah(data.Harga_Jual - data.Harga_Beli)}</div>
+                    </div>
+                </div>
+                ${sizeHtml}
+                <button type="button" onclick="closeModal()" class="btn-submit" style="background:#0D1117; margin-top:20px;">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali
+                </button>
+            `;
+            document.getElementById('modalDetail').classList.add('open');
+        } else {
+            showError('Gagal!', res.msg);
+        }
+    } catch (error) {
+        showError('Gagal!', 'Terjadi kesalahan sistem.');
+    }
+}
+
+// ============================================
+// UPLOAD FOTO & SIZES LOGIC
+// ============================================
 function handlePhotoUpload(input) {
     if (!input.files || !input.files[0]) return;
-
-    var uploadArea = document.getElementById('uploadArea');
-    var valPhoto = document.getElementById('val-photo_alat');
+    const uploadArea = document.getElementById('uploadArea');
+    const valPhoto = document.getElementById('val-photo_alat');
     if (uploadArea) uploadArea.classList.remove('error');
     if (valPhoto) { valPhoto.classList.remove('show'); valPhoto.innerHTML = ''; }
 
-    var file = input.files[0];
+    const file = input.files[0];
     if (file.size > 5 * 1024 * 1024) {
-        Swal.fire({
-            icon: 'error',
-            title: 'File Terlalu Besar',
-            text: 'Ukuran file maksimal 5MB!',
-            confirmButtonColor: '#FF4500'
-        });
+        showError('File Terlalu Besar', 'Ukuran file maksimal 5MB!');
         input.value = '';
         return;
     }
-    var reader = new FileReader();
+    const reader = new FileReader();
     reader.onload = function(e) {
-        var previewImg = document.getElementById('previewImg');
-        var uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        var uploadArea = document.getElementById('uploadArea');
-        var removeBtn = document.getElementById('removeBtn');
-        if (previewImg) {
-            previewImg.src = e.target.result;
-            previewImg.style.display = 'block';
-        }
+        const previewImg = document.getElementById('previewImg');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const removeBtn = document.getElementById('removeBtn');
+        if (previewImg) { previewImg.src = e.target.result; previewImg.style.display = 'block'; }
         if (uploadArea) uploadArea.classList.add('has-image');
         if (uploadPlaceholder) uploadPlaceholder.style.display = 'none';
         if (removeBtn) removeBtn.style.display = 'flex';
@@ -1019,66 +1077,26 @@ function handlePhotoUpload(input) {
 }
 
 function removePhoto() {
-    var previewImg = document.getElementById('previewImg');
-    var uploadPlaceholder = document.getElementById('uploadPlaceholder');
-    var fileInput = document.getElementById('photo_alat');
-    var uploadArea = document.getElementById('uploadArea');
-    var removeBtn = document.getElementById('removeBtn');
-    var valPhoto = document.getElementById('val-photo_alat');
+    const previewImg = document.getElementById('previewImg');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const fileInput = document.getElementById('photo_alat');
+    const uploadArea = document.getElementById('uploadArea');
+    const removeBtn = document.getElementById('removeBtn');
 
     if (fileInput) fileInput.value = '';
-    if (previewImg) {
-        previewImg.src = '';
-        previewImg.style.display = 'none';
-    }
-    if (uploadArea) {
-        uploadArea.classList.remove('has-image');
-        var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
-        var editPhotoPath = document.querySelector('input[name="edit_photo_path"]');
-        if (isEditMode && editPhotoPath && editPhotoPath.value) {
-            uploadArea.classList.add('error');
-            if (valPhoto) {
-                valPhoto.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Foto alat wajib diupload.';
-                valPhoto.classList.add('show');
-            }
-            editPhotoPath.value = '';
-        }
-    }
+    if (previewImg) { previewImg.src = ''; previewImg.style.display = 'none'; }
+    if (uploadArea) uploadArea.classList.remove('has-image');
     if (uploadPlaceholder) uploadPlaceholder.style.display = 'flex';
     if (removeBtn) removeBtn.style.display = 'none';
-}
 
-// LOGIKA SEARCH DIUBAH 
-function handleSearch(event) {
-    if (event.key === 'Enter') {
-        const keyword = document.getElementById('src').value.trim();
-        const urlParams = new URLSearchParams(window.location.search);
-        if (keyword) {
-            urlParams.set('src', keyword);
-        } else {
-            urlParams.delete('src');
-        }
-        urlParams.set('page', 1);
-        window.location.href = 'alat.php?' + urlParams.toString();
-    }
+    document.getElementById('edit_photo_path').value = '';
 }
-
-function clearSearch() {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.delete('src');
-    urlParams.set('page', 1);
-    window.location.href = 'alat.php?' + urlParams.toString();
-}
-
-// === KATEGORI & STOK PER UKURAN ===
-var SIZE_SETS = <?= json_encode($KATEGORI_SIZES) ?>;
-var EDIT_SIZES = <?= !empty($edit_sizes) ? json_encode($edit_sizes) : 'null' ?>;
 
 function renderSizeInputs(kategori, presets) {
-    var container = document.getElementById('sizeContainer');
+    const container = document.getElementById('sizeContainer');
     if (!container) return;
     container.classList.remove('error');
-    var valSizes = document.getElementById('val-sizes');
+    const valSizes = document.getElementById('val-sizes');
     if (valSizes) { valSizes.classList.remove('show'); valSizes.innerHTML = ''; }
 
     if (!kategori || !SIZE_SETS[kategori]) {
@@ -1087,46 +1105,237 @@ function renderSizeInputs(kategori, presets) {
         return;
     }
 
-    var html = '';
+    let html = '';
     SIZE_SETS[kategori].forEach(function(size) {
-        var val = (presets && presets[size] !== undefined) ? presets[size] : '';
-        html += '<div class="size-item">' +
-                    '<label class="size-item-label">' + size + '</label>' +
-                    '<input type="number" name="stok_size[' + size + ']" class="size-stok-input" ' +
-                           'value="' + val + '" placeholder="0" min="0" max="9999" ' +
-                           'autocomplete="off" oninput="updateTotalStok()">' +
-                '</div>';
+        const val = (presets && presets[size] !== undefined) ? presets[size] : '';
+        html += `<div class="size-item">
+                    <label class="size-item-label">${size}</label>
+                    <input type="number" name="stok_size[${size}]" class="size-stok-input" value="${val}" placeholder="0" min="0" max="9999" autocomplete="off" oninput="updateTotalStok()">
+                </div>`;
     });
     container.innerHTML = html;
     updateTotalStok();
 }
 
 function updateTotalStok() {
-    var total = 0;
+    let total = 0;
     document.querySelectorAll('.size-stok-input').forEach(function(inp) {
-        var v = parseInt(inp.value, 10);
+        const v = parseInt(inp.value, 10);
         if (!isNaN(v) && v > 0) total += v;
     });
-    var el = document.getElementById('totalStok');
+    const el = document.getElementById('totalStok');
     if (el) el.textContent = total;
     return total;
 }
 
-function validateForm() {
-    var valid = true;
-    document.querySelectorAll('.modal-input').forEach(function(el) { el.classList.remove('error'); });
-    document.querySelectorAll('.val-msg').forEach(function(el) { el.classList.remove('show'); el.innerHTML = ''; });
+// ============================================
+// AJAX FORM SUBMIT
+// ============================================
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    if (!validateForm()) return;
 
-    var nama = document.getElementById('nama_alat');
-    var valNama = document.getElementById('val-nama_alat');
+    const form = document.getElementById('formAlat');
+    const formData = new FormData(form);
+    formData.append('action', 'save');
+
+    Swal.fire({
+        title: 'Memproses...',
+        text: 'Menyimpan data alat',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+        const response = await fetch('alat.php', {
+            method: 'POST',
+            body: formData
+        });
+        const res = await response.json();
+        if (res.success) {
+            closeModal();
+            showSuccess('Berhasil!', res.msg);
+            loadGridData();
+        } else {
+            showError('Gagal!', res.msg);
+        }
+    } catch (error) {
+        showError('Gagal!', 'Gagal memproses data.');
+    }
+}
+
+// ============================================
+// TOGGLE STATUS & DELETE VIA AJAX
+// ============================================
+async function confirmToggle(id, name, currentStatus, event) {
+    const checkbox = event.target;
+    const actionText = currentStatus == 1 ? 'Menonaktifkan' : 'Mengaktifkan';
+
+    const result = await Swal.fire({
+        title: actionText + ' Alat?',
+        html: `Apakah Anda yakin ingin mengubah status <b>${name}</b>?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#FF4500',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Ubah!',
+        cancelButtonText: 'Batal',
+        allowOutsideClick: false
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({
+            title: 'Memproses...',
+            text: 'Mengubah status alat',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch(`alat.php?action=toggle&id=${id}&status=${currentStatus}`);
+            const res = await response.json();
+            if (res.success) {
+                showSuccess('Berhasil!', res.msg);
+                loadGridData();
+            } else {
+                checkbox.checked = !checkbox.checked;
+                showError('Gagal!', res.msg);
+            }
+        } catch (error) {
+            checkbox.checked = !checkbox.checked;
+            showError('Gagal!', 'Terjadi kesalahan sistem.');
+        }
+    } else {
+        checkbox.checked = !checkbox.checked;
+    }
+}
+
+async function confirmDelete(id, name) {
+    const result = await Swal.fire({
+        title: 'Hapus Permanen?',
+        html: `Alat <b>${name}</b> akan dihapus dari sistem.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        allowOutsideClick: false
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({
+            title: 'Memproses...',
+            text: 'Menghapus alat',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch(`alat.php?action=delete&id=${id}`);
+            const res = await response.json();
+            if (res.success) {
+                showSuccess('Terhapus!', res.msg);
+                loadGridData();
+            } else {
+                showError('Gagal!', res.msg);
+            }
+        } catch (error) {
+            showError('Gagal!', 'Terjadi kesalahan saat menghapus.');
+        }
+    }
+}
+
+// ============================================
+// SEARCH & FILTER SYSTEM
+// ============================================
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        currentSearch = document.getElementById('src').value.trim();
+        currentPage = 1;
+        loadGridData();
+    }
+}
+
+function clearSearch() {
+    document.getElementById('src').value = '';
+    currentSearch = '';
+    currentPage = 1;
+    loadGridData();
+}
+
+// Function Buka/Tutup Filter Card (Sama persis seperti tipe_member.php)
+function toggleCustomFilterCard(e) {
+    e.stopPropagation();
+    const btn = document.getElementById('btnFilterToggleCustom');
+    const card = document.getElementById('filterCardCustom');
+    if (btn && card) {
+        btn.classList.toggle('active');
+        card.classList.toggle('open');
+    }
+}
+
+// Function Apply Filter via AJAX
+function handleFilterSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    currentSort = form.elements['f_sort'].value;
+    currentStatus = form.elements['f_status'].value;
+    currentKategori = form.elements['f_kategori'].value;
+    currentPage = 1;
+    loadGridData();
+
+    // Tutup filter card
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
+
+// Function Reset Filter
+function resetFilter() {
+    document.getElementById('formFilter').reset();
+    currentSort = 'nama_asc';
+    currentStatus = '';
+    currentKategori = '';
+    currentSearch = '';
+    document.getElementById('src').value = '';
+    currentPage = 1;
+    loadGridData();
+
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
+
+// Auto Close ketika diklik di luar area Filter (Bypass konflik global.js)
+window.addEventListener('click', function (e) {
+    const btn = document.getElementById('btnFilterToggleCustom');
+    const card = document.getElementById('filterCardCustom');
+    if (btn && card) {
+        if (!btn.contains(e.target) && !card.contains(e.target)) {
+            btn.classList.remove('active');
+            card.classList.remove('open');
+        }
+    }
+});
+
+// ============================================
+// VALIDASI FORM JS
+// ============================================
+function validateForm() {
+    let valid = true;
+    document.querySelectorAll('.modal-input').forEach(el => el.classList.remove('error'));
+    document.querySelectorAll('.val-msg').forEach(el => { el.classList.remove('show'); el.innerHTML = ''; });
+
+    const nama = document.getElementById('nama_alat');
+    const valNama = document.getElementById('val-nama_alat');
     if (nama && valNama) {
-        var v = nama.value.trim();
-        var errNama = '';
+        const v = nama.value.trim();
+        let errNama = '';
         if (v === '') errNama = 'Nama alat wajib diisi.';
         else if (v.length < 3) errNama = 'Nama alat minimal 3 karakter.';
         else if (v.length > 25) errNama = 'Nama alat maksimal 25 karakter.';
         else if (/^\d+$/.test(v)) errNama = 'Nama alat tidak boleh hanya angka.';
         else if (!/^[a-zA-Z0-9\s\-\_]+$/.test(v)) errNama = 'Nama alat hanya boleh huruf, angka, spasi, strip, dan underscore.';
+        
         if (errNama) {
             nama.classList.add('error');
             valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errNama;
@@ -1135,8 +1344,8 @@ function validateForm() {
         }
     }
 
-    var kategori = document.getElementById('kategori');
-    var valKategori = document.getElementById('val-kategori');
+    const kategori = document.getElementById('kategori');
+    const valKategori = document.getElementById('val-kategori');
     if (kategori && valKategori) {
         if (kategori.value === '') {
             kategori.classList.add('error');
@@ -1146,23 +1355,24 @@ function validateForm() {
         }
     }
 
-    var sizeContainer = document.getElementById('sizeContainer');
-    var valSizes = document.getElementById('val-sizes');
+    const sizeContainer = document.getElementById('sizeContainer');
+    const valSizes = document.getElementById('val-sizes');
     if (kategori && kategori.value !== '' && sizeContainer && valSizes) {
-        var errSizes = '';
-        var totalStok = 0;
-        var adaInputInvalid = false;
+        let errSizes = '';
+        let totalStok = 0;
+        let adaInputInvalid = false;
         document.querySelectorAll('.size-stok-input').forEach(function(inp) {
-            var v = inp.value.trim();
+            const v = inp.value.trim();
             if (v === '') return; 
             if (!/^[0-9]+$/.test(v)) { adaInputInvalid = true; return; }
-            var n = parseInt(v, 10);
+            const n = parseInt(v, 10);
             if (n > 9999) { adaInputInvalid = true; return; }
             totalStok += n;
         });
         if (adaInputInvalid) errSizes = 'Stok per ukuran harus berupa angka antara 0 - 9999.';
         else if (totalStok < 10) errSizes = 'Total stok dari semua ukuran minimal harus 10 pcs.';
         else if (totalStok > 9999) errSizes = 'Total stok semua ukuran maksimal 9999.';
+        
         if (errSizes) {
             sizeContainer.classList.add('error');
             valSizes.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errSizes;
@@ -1171,17 +1381,17 @@ function validateForm() {
         }
     }
 
-    var hargaBeli = document.getElementById('harga_beli');
-    var valHargaBeli = document.getElementById('val-harga_beli');
-    var hargaBeliVal = 0;
+    const hargaBeli = document.getElementById('harga_beli');
+    const valHargaBeli = document.getElementById('val-harga_beli');
+    let hargaBeliVal = 0;
     if (hargaBeli && valHargaBeli) {
-        var vb = hargaBeli.value.trim();
-        var errHargaBeli = '';
+        const vb = hargaBeli.value.trim();
+        let errHargaBeli = '';
         if (vb === '') errHargaBeli = 'Harga beli wajib diisi.';
         else if (isNaN(vb)) errHargaBeli = 'Harga beli harus berupa angka.';
         else if (parseFloat(vb) < 5000) errHargaBeli = 'Harga beli minimal Rp 5.000.';
-        else if (parseFloat(vb) > 999999999) errHargaBeli = 'Harga beli terlalu besar.';
         else hargaBeliVal = parseFloat(vb);
+        
         if (errHargaBeli) {
             hargaBeli.classList.add('error');
             valHargaBeli.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errHargaBeli;
@@ -1190,16 +1400,16 @@ function validateForm() {
         }
     }
 
-    var harga = document.getElementById('harga_jual');
-    var valHarga = document.getElementById('val-harga_jual');
+    const harga = document.getElementById('harga_jual');
+    const valHarga = document.getElementById('val-harga_jual');
     if (harga && valHarga) {
-        var vh = harga.value.trim();
-        var errHarga = '';
+        const vh = harga.value.trim();
+        let errHarga = '';
         if (vh === '') errHarga = 'Harga jual wajib diisi.';
         else if (isNaN(vh)) errHarga = 'Harga jual harus berupa angka.';
         else if (parseFloat(vh) < 20000) errHarga = 'Harga jual minimal Rp 20.000.';
-        else if (parseFloat(vh) > 999999999) errHarga = 'Harga jual terlalu besar.';
         else if (parseFloat(vh) < hargaBeliVal) errHarga = 'Harga jual tidak boleh lebih kecil dari harga beli.';
+        
         if (errHarga) {
             harga.classList.add('error');
             valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + errHarga;
@@ -1208,14 +1418,13 @@ function validateForm() {
         }
     }
 
-    var photoInput = document.getElementById('photo_alat');
-    var previewImg = document.getElementById('previewImg');
-    var uploadArea = document.getElementById('uploadArea');
-    var valPhoto = document.getElementById('val-photo_alat');
-    var isEditMode = document.querySelector('input[name="edit_mode"]') !== null;
-    var hasExistingPhoto = previewImg && previewImg.style.display !== 'none' && previewImg.src && previewImg.src !== '' && !previewImg.src.includes('data:image');
+    const photoInput = document.getElementById('photo_alat');
+    const uploadArea = document.getElementById('uploadArea');
+    const valPhoto = document.getElementById('val-photo_alat');
+    const isEditMode = document.getElementById('edit_mode').value === '1';
+    const hasExistingPhoto = document.getElementById('edit_photo_path').value !== '';
 
-    var photoError = '';
+    let photoError = '';
     if (!isEditMode && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
         photoError = 'Foto alat wajib diupload.';
     } else if (isEditMode && !hasExistingPhoto && (!photoInput || !photoInput.files || photoInput.files.length === 0)) {
@@ -1229,199 +1438,37 @@ function validateForm() {
             valPhoto.classList.add('show');
         }
         valid = false;
-    } else {
-        if (uploadArea) uploadArea.classList.remove('error');
-        if (valPhoto) valPhoto.classList.remove('show');
     }
 
-    if (!valid) return false;
-
-    var btn = document.getElementById('btnSubmit');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
-    }
-    return true;
+    return valid;
 }
+
+// Helpers Alert
+function showSuccess(title, message) {
+    Swal.close();
+    Swal.fire({ icon: 'success', title: title, text: message, confirmButtonColor: '#10B981' });
+}
+
+function showError(title, message) {
+    Swal.close();
+    Swal.fire({ icon: 'error', title: title, text: message, confirmButtonColor: '#EF4444' });
+}
+
+// Global Event Handler
+window.addEventListener('click', function(e) {
+    const filterCard = document.getElementById('filterCard');
+    const btnFilter = document.getElementById('btnFilterToggle');
+    if (filterCard && btnFilter) {
+        if (!filterCard.contains(e.target) && !btnFilter.contains(e.target)) {
+            filterCard.classList.remove('open');
+            btnFilter.classList.remove('active');
+        }
+    }
+});
 
 document.addEventListener('DOMContentLoaded', function() {
-    var namaAlat = document.getElementById('nama_alat');
-    if (namaAlat) {
-        namaAlat.addEventListener('input', function() {
-            var valNama = document.getElementById('val-nama_alat');
-            var v = this.value.trim();
-            this.classList.remove('error'); valNama.classList.remove('show');
-            if (v.length > 0 && v.length < 3) {
-                this.classList.add('error');
-                valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama alat minimal 3 karakter.';
-                valNama.classList.add('show');
-            } else if (v.length > 25) {
-                this.classList.add('error');
-                valNama.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Nama alat maksimal 25 karakter.';
-                valNama.classList.add('show');
-            }
-        });
-    }
-
-    var kategoriEl = document.getElementById('kategori');
-    if (kategoriEl && kategoriEl.value !== '') {
-        renderSizeInputs(kategoriEl.value, EDIT_SIZES);
-    }
-    if (kategoriEl) {
-        kategoriEl.addEventListener('change', function() {
-            var valKategori = document.getElementById('val-kategori');
-            this.classList.remove('error');
-            if (valKategori) { valKategori.classList.remove('show'); valKategori.innerHTML = ''; }
-        });
-    }
-
-    var hargaBeliEl = document.getElementById('harga_beli');
-    if (hargaBeliEl) {
-        hargaBeliEl.addEventListener('input', function() {
-            var valHargaBeli = document.getElementById('val-harga_beli');
-            var v = this.value.trim();
-            this.classList.remove('error'); valHargaBeli.classList.remove('show');
-            if (v !== '' && !isNaN(v) && parseFloat(v) < 5000) {
-                this.classList.add('error');
-                valHargaBeli.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga beli minimal Rp 5.000.';
-                valHargaBeli.classList.add('show');
-            }
-        });
-    }
-
-    var hargaEl = document.getElementById('harga_jual');
-    if (hargaEl) {
-        hargaEl.addEventListener('input', function() {
-            var valHarga = document.getElementById('val-harga_jual');
-            var v = this.value.trim();
-            this.classList.remove('error'); valHarga.classList.remove('show');
-            if (v !== '' && !isNaN(v)) {
-                if (parseFloat(v) < 20000) {
-                    this.classList.add('error');
-                    valHarga.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga jual minimal Rp 20.000.';
-                    valHarga.classList.add('show');
-                }
-            }
-        });
-    }
-
-    var urlParams = new URLSearchParams(window.location.search);
-    var status = urlParams.get('status');
-    var msg = urlParams.get('msg');
-
-    if (status && msg) {
-        var isSuccess = status === 'success';
-        Swal.fire({
-            icon: isSuccess ? 'success' : 'error',
-            title: isSuccess ? 'Berhasil!' : 'Gagal!',
-            text: msg,
-            showConfirmButton: true,
-            confirmButtonText: 'OK',
-            confirmButtonColor: isSuccess ? '#10B981' : '#EF4444',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
-        
-        // Membersihkan url dari parameter status & msg 
-        urlParams.delete('status');
-        urlParams.delete('msg');
-        var cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-        window.history.replaceState({}, document.title, cleanUrl);
-    }
+    loadGridData();
 });
-        
-function confirmToggle(id, name, currentStatus, event) {
-    const checkbox = event.target;
-    const action = (currentStatus == 1) ? 'Menonaktifkan' : 'Mengaktifkan';
-    
-    Swal.fire({
-        title: action + ' Alat?',
-        html: `Apakah Anda yakin ingin mengubah status <b>${name}</b>?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#FF4500',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Ubah!',
-        cancelButtonText: 'Batal'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // --- TAMBAHKAN INI ---
-            simpanPosisi(); 
-            // ---------------------
-            window.location.href = `alat.php?toggle_id=${id}&s=${currentStatus}`;
-        } else {
-            checkbox.checked = !checkbox.checked;
-        }
-    });
-}
-
-function doDelete(id, name) {
-    Swal.fire({
-        title: 'Hapus Permanen?',
-        html: `Alat <b>${name}</b> akan dihapus dari sistem.`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        cancelButtonColor: '#6B7280',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // --- TAMBAHKAN INI ---
-            simpanPosisi();
-            // ---------------------
-            window.location.href = `alat.php?delete_id=${id}`;
-        }
-    });
-}
-
-function resetFilter() {
-    window.location.href = 'alat.php';
-}
-
-// --- LOGIKA STAY PADA POSISI SCROLL V2 (SAKTI) ---
-
-// 1. Fungsi Utama Simpan Posisi
-function simpanPosisi() {
-    sessionStorage.setItem('alat_scroll_pos', window.scrollY);
-}
-
-// 2. Terapkan Posisi Saat Load
-window.addEventListener('load', () => {
-    const scrollPos = sessionStorage.getItem('alat_scroll_pos');
-    if (scrollPos) {
-        // Pake timeout 50ms biar grid-nya selesai render dulu baru ditarik ke bawah
-        setTimeout(() => {
-            window.scrollTo({
-                top: parseInt(scrollPos),
-                behavior: 'instant'
-            });
-        }, 50);
-    }
-});
-
-// 3. Tangkap Klik Link (Pagination, Edit, Detail, Add)
-document.addEventListener('click', function(e) {
-    const targetLink = e.target.closest('a');
-    // Jika yang diklik adalah link dan bukan link logout atau menu lain
-    if (targetLink && !targetLink.href.includes('logout')) {
-        simpanPosisi();
-    }
-});
-
-// 4. Tangkap Klik Tombol "X" (Close Modal)
-// Supaya pas nutup modal, background tetep di posisi tadi
-const closeBtns = document.querySelectorAll('.modal-close, .btn-cancel');
-closeBtns.forEach(btn => {
-    btn.addEventListener('click', simpanPosisi);
-});
-
-// 5. Simpan Posisi Pas Form Submit
-const formAlat = document.getElementById('formAlat');
-if(formAlat) {
-    formAlat.addEventListener('submit', simpanPosisi);
-}
-
 </script>
 <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
 </body>
