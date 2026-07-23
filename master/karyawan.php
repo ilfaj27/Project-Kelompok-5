@@ -336,6 +336,18 @@ if ($is_ajax) {
                 $jk_label = $map_jk[$jk] ?? 'Tidak diketahui';
                 $jk_class = ($jk == 1) ? 'jk-laki' : 'jk-perempuan';
                 $jk_icon = ($jk == 1) ? 'fa-mars' : 'fa-venus';
+                $photo_profile_db = $row['Photo_Profile'] ?? '';
+                $photo_display = '';
+                $has_photo = false;
+                if (!empty($photo_profile_db)) {
+                    $clean_photo_path = ltrim(str_replace('../', '', $photo_profile_db), '/');
+                    $photo_path_from_master = '../profile/' . $clean_photo_path;
+                    $absolute_photo_path = __DIR__ . '/../profile/' . $clean_photo_path;
+                    if (file_exists($absolute_photo_path)) {
+                        $photo_display = $photo_path_from_master;
+                        $has_photo = true;
+                    }
+                }
                 ?>
                 <tr id="row-<?= htmlspecialchars($id_karyawan) ?>" class="emp-row"
                     data-name="<?= strtolower(htmlspecialchars($nama_kry)) ?>">
@@ -344,7 +356,13 @@ if ($is_ajax) {
                     <!-- Rata Kiri -->
                     <td style="text-align: left;">
                         <div class="emp-name-cell">
-                            <div class="emp-avatar"><?= $initials ?></div>
+                            <div class="emp-avatar">
+                                <?php if ($has_photo): ?>
+                                    <img src="<?= htmlspecialchars($photo_display) ?>?t=<?= time() ?>" alt="<?= htmlspecialchars($nama_kry) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                <?php else: ?>
+                                    <?= $initials ?>
+                                <?php endif; ?>
+                            </div>
                             <div class="emp-name"><?= htmlspecialchars($nama_kry) ?></div>
                         </div>
                     </td>
@@ -2696,7 +2714,10 @@ $current_page = 'karyawan';
             </div>
             <div class="modal-body" style="padding: 12px 24px 20px;">
                 <div class="detail-photo-card">
-                    <div class="detail-icon-wrap"><i class="fa-solid fa-user-tie"></i></div>
+                    <div class="detail-icon-wrap" id="dPhotoWrap">
+                        <i class="fa-solid fa-user-tie" id="dDefaultIcon"></i>
+                        <img id="dPhotoImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px;display:none;">
+                    </div>
                     <div class="detail-main-name" id="dNameHeader">-</div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -3496,6 +3517,27 @@ $current_page = 'karyawan';
                     const mapJK = { '1': 'LAKI-LAKI', '0': 'PEREMPUAN' };
                     const mapJabatan = { '1': 'KARYAWAN', '2': 'MANAJER' };
                     const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+                    // --- Photo Profile in Detail Modal ---
+                    const photoWrap = document.getElementById('dPhotoWrap');
+                    const defaultIcon = document.getElementById('dDefaultIcon');
+                    const photoImg = document.getElementById('dPhotoImg');
+
+                    if (d.Photo_Profile) {
+                        let cleanPath = d.Photo_Profile.replace(/\.\.\//g, '').replace(/^\//, '');
+                        let photoUrl = '../profile/' + cleanPath;
+                        // Add cache buster
+                        photoImg.src = photoUrl + '?t=' + new Date().getTime();
+                        photoImg.alt = d.Nama_Karyawan || 'Profile';
+                        photoImg.style.display = 'block';
+                        defaultIcon.style.display = 'none';
+                        photoWrap.style.padding = '0';
+                        photoWrap.style.background = 'transparent';
+                    } else {
+                        photoImg.style.display = 'none';
+                        defaultIcon.style.display = 'inline-flex';
+                        photoWrap.style.background = 'var(--orange-lt)';
+                    }
 
                     document.getElementById('dNIK').textContent = d.NIK;
                     document.getElementById('dNameHeader').textContent = d.Nama_Karyawan;

@@ -67,6 +67,9 @@ if (!empty($profile_photo)) {
     }
 }
 
+// Inisial untuk fallback avatar (sama dengan style manager)
+$sidebar_initials = strtoupper(substr($nama ?? 'USER', 0, 1));
+
 function safeQuery($conn, $sql, $params = array()) {
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt === false) {
@@ -1229,7 +1232,7 @@ html { scroll-behavior:smooth; }
                     <?php if (!empty($sidebar_photo)): ?>
                         <img src="<?= $sidebar_photo ?>" alt="Profile">
                     <?php else: ?>
-                        <i class="fa-solid fa-user"></i>
+                        <span style="font-size:13px; font-weight:800;"><?= $sidebar_initials ?></span>
                     <?php endif; ?>
                 </div>
                 <div><div class="t-name"><?= strtoupper(htmlspecialchars($nama)) ?></div><div class="t-role">KARYAWAN</div></div>
