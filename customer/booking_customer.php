@@ -19,7 +19,6 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
     if (!empty($id_customer)) {
         $modified_by = $_SESSION['nama'] ?? 'CUSTOMER';
 
-        // Memanggil SP untuk melakukan soft delete
         $stmt = sqlsrv_query(
             $conn,
             "{call sp_Customer_SoftDelete(?, ?)}",
@@ -48,7 +47,7 @@ if (isset($_GET['hapus_akun']) && $_GET['hapus_akun'] == '1') {
 cek_akses('customer');
 
 // ========================================================
-// PANGGIL SENSOR AUTO LOGOUT (Karena ini folder dalam, pakai ../)
+// PANGGIL SENSOR AUTO LOGOUT 
 // ========================================================
 require_once '../login/auto_logout.php';
 // ========================================================
@@ -89,17 +88,13 @@ if ($mc) {
 $has_member = !empty($member_data);
 $member_tipe = $has_member ? ($member_data['Nama_Tipe'] ?? $member_data['Nama_Tipe_Member'] ?? 'Member') : '';
 
-// PHP akan mendeteksi otomatis jika nama kolom di DB adalah Potongan_Harga, Nominal_Potongan, Potongan, atau Diskon
 $member_discount = $has_member ? floatval(
-    $member_data['Potongan_Harga'] ?? 
-    $member_data['Nominal_Potongan'] ?? 
-    $member_data['Potongan'] ?? 
-    $member_data['Diskon'] ?? 0
+    $member_data['Potongan_Harga'] ??
+        $member_data['Nominal_Potongan'] ??
+        $member_data['Potongan'] ??
+        $member_data['Diskon'] ?? 0
 ) : 0;
 
-/**
- * Menyusun path foto agar selalu valid diakses dari folder customer/.
- */
 function resolvePhotoPath($photo_path)
 {
     if (empty($photo_path))
@@ -113,55 +108,9 @@ function resolvePhotoPath($photo_path)
     return '../' . ltrim($photo_path, '/');
 }
 
-/**
- * Generate jadwal 7 hari ke depan (07:00 - 23:00) untuk seluruh lapangan aktif,
- * hanya menyisipkan slot yang belum ada di tabel Jadwal.
- */
-function generateJadwalOtomatis($conn)
-{
-    $q = sqlsrv_query($conn, "{call sp_Otomasi_GetLapanganAktif}");
-    if (!$q)
-        return;
+// FUNGSI AUTO-GENERATE DIHAPUS DARI SINI KARENA BIKIN LEMOT CUSTOMER!
+// Kalau butuh jadwal, Admin yang harus klik "Buat Otomatis" di halaman jadwal.php
 
-    $list = [];
-    while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $list[] = $r['ID_Lapangan'];
-    }
-
-    $slots = [
-        ['08:30:00', '09:30:00'],
-        ['09:30:00', '10:30:00'],
-        ['10:30:00', '11:30:00'],
-        ['11:30:00', '12:30:00'],
-        ['12:30:00', '13:30:00'],
-        ['13:30:00', '14:30:00'],
-        ['14:30:00', '15:30:00'],
-        ['15:30:00', '16:30:00'],
-        ['16:30:00', '17:30:00'],
-        ['17:30:00', '18:30:00'],
-        ['18:30:00', '19:30:00'],
-        ['19:30:00', '20:30:00'],
-        ['20:30:00', '21:30:00'],
-        ['21:30:00', '22:30:00'],
-        ['22:30:00', '23:30:00'],
-        ['23:30:00', '00:00:00'],
-    ];
-
-    for ($i = 0; $i < 7; $i++) {
-        $d = date('Y-m-d', strtotime("+$i days"));
-        foreach ($list as $id_lap) {
-            foreach ($slots as $s) {
-                $cek = sqlsrv_query($conn, "{call sp_Otomasi_CekJadwal(?, ?, ?, ?)}", array($id_lap, $d, $s[0], $s[1]));
-                if ($cek && !sqlsrv_fetch_array($cek, SQLSRV_FETCH_ASSOC)) {
-                    sqlsrv_query($conn, "{call sp_Otomasi_InsertJadwal(?, ?, ?, ?, ?)}", array($id_lap, $d, $s[0], $s[1], 'SYSTEM_AUTO'));
-                }
-            }
-        }
-    }
-}
-if (!isset($_GET['action'])) {
-    generateJadwalOtomatis($conn);
-}
 // =========================================================================
 // Endpoint AJAX (JSON)
 // =========================================================================
@@ -169,7 +118,7 @@ if (isset($_GET['action'])) {
     ob_clean();
     header('Content-Type: application/json');
 
-    // Ambil slot jadwal per court & tanggal menggunakan SP
+    // Ambil slot jadwal per court & tanggal
     if ($_GET['action'] == 'get_all_slots' && isset($_GET['court_id']) && isset($_GET['tanggal'])) {
         $cid = intval($_GET['court_id']);
         $tanggal = $_GET['tanggal'];
@@ -184,6 +133,8 @@ if (isset($_GET['action'])) {
             while ($r = sqlsrv_fetch_array($st, SQLSRV_FETCH_ASSOC)) {
                 $mulai = ($r['Jam_Mulai'] instanceof DateTime) ? $r['Jam_Mulai']->format('H:i:s') : $r['Jam_Mulai'];
                 $selesai = ($r['Jam_Selesai'] instanceof DateTime) ? $r['Jam_Selesai']->format('H:i:s') : $r['Jam_Selesai'];
+
+
                 $sudahDibooking = ($r['Status'] == 0 || $r['Ada_Booking'] == 1);
 
                 if ($sudahDibooking) {
@@ -206,9 +157,7 @@ if (isset($_GET['action'])) {
         exit();
     }
 
-    // --- Proses checkout / pembuatan booking untuk seluruh isi keranjang ---
-    // Dikirim sebagai multipart/form-data (FormData) karena menyertakan file
-    // bukti pembayaran yang wajib diunggah sebelum konfirmasi.
+    // Checkout
     if ($_GET['action'] == 'checkout' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         $id_jadwal_list = isset($_POST['id_jadwal_list']) ? json_decode($_POST['id_jadwal_list'], true) : [];
         if (!is_array($id_jadwal_list))
@@ -222,7 +171,6 @@ if (isset($_GET['action'])) {
             exit();
         }
 
-        // --- Validasi & unggah bukti pembayaran (wajib sebelum booking dikonfirmasi) ---
         if (!isset($_FILES['bukti_pembayaran']) || $_FILES['bukti_pembayaran']['error'] !== UPLOAD_ERR_OK) {
             echo json_encode(['success' => false, 'message' => 'Bukti pembayaran wajib diunggah sebelum konfirmasi.']);
             exit();
@@ -253,10 +201,8 @@ if (isset($_GET['action'])) {
             echo json_encode(['success' => false, 'message' => 'Gagal mengunggah bukti pembayaran. Silakan coba lagi.']);
             exit();
         }
-        // Menyesuaikan path yang akan disimpan di database
         $bukti_pembayaran_db = 'asset/Bukti_Pembayaran/' . $new_file_name;
 
-        // Menggunakan SP untuk mengambil default Karyawan
         $kq = sqlsrv_query($conn, "{call sp_Karyawan_GetDefault}");
         $id_karyawan = 1;
         if ($kq) {
@@ -270,7 +216,6 @@ if (isset($_GET['action'])) {
         $success_count = 0;
         $first_error = '';
 
-        // Menggunakan SP untuk validasi tiap slot sebelum memanggil SP Booking
         foreach ($id_jadwal_list as $jid) {
             $chk = sqlsrv_query($conn, "{call sp_Jadwal_ValidateSlot(?)}", array($jid));
             $row = $chk ? sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC) : null;
@@ -280,7 +225,6 @@ if (isset($_GET['action'])) {
             }
         }
 
-        // Panggil sp_Booking_Create untuk setiap slot
         $promo_for_first = $id_promo;
 
         foreach ($id_jadwal_list as $index => $jid) {
@@ -317,13 +261,11 @@ if (isset($_GET['action'])) {
         }
 
         if ($success_count === count($id_jadwal_list)) {
-            // Menggunakan SP untuk memperbarui bukti pembayaran pada booking
             foreach ($created_ids as $cb_id) {
                 sqlsrv_query($conn, "{call sp_Booking_UpdateBukti(?, ?, ?)}", array($cb_id, $bukti_pembayaran_db, $by));
             }
             echo json_encode(['success' => true, 'message' => 'Pemesanan berhasil dibuat!']);
         } else {
-            // Menggunakan SP untuk membatalkan booking (Rollback) jika sebagian gagal dibuat
             if (!empty($created_ids)) {
                 foreach ($created_ids as $cb_id) {
                     sqlsrv_query($conn, "{call sp_Booking_SetStatusBatal(?, ?)}", array($cb_id, $by));
@@ -383,19 +325,14 @@ for ($i = 0; $i < 7; $i++) {
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Booking Lapangan | HoopBall Arena</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../asset/css/navbar_footer.css?v=1.1">
     <link rel="stylesheet" href="../asset/css/responsive_booking.css?v=2.0">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* Variabel warna disamakan dengan tema oranye pada landing page (index.php).
-   Nilai fallback ini didefinisikan ulang agar halaman tetap konsisten
-   walau navbar_footer.css belum memuat variabel yang sama. */
         :root {
             --orange: #FF5400;
             --orange-dark: #E63900;
@@ -443,12 +380,9 @@ for ($i = 0; $i < 7; $i++) {
         html,
         body {
             scrollbar-width: none;
-            /* Firefox */
             -ms-overflow-style: none;
-            /* IE/Edge */
         }
 
-        /* ============ ANIMATIONS (disamakan dengan pembelian_alat.php / langganan_customer.php / pembatalan_customer.php) ============ */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -509,18 +443,6 @@ for ($i = 0; $i < 7; $i++) {
             }
         }
 
-        @keyframes cardEnter {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.95)
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1)
-            }
-        }
-
         @keyframes iconBounce {
 
             0%,
@@ -555,7 +477,6 @@ for ($i = 0; $i < 7; $i++) {
             }
         }
 
-        /* ============ PAGE LOADER ============ */
         .page-loader {
             position: fixed;
             top: 0;
@@ -593,7 +514,6 @@ for ($i = 0; $i < 7; $i++) {
             animation-delay: 0.4s
         }
 
-        /* ============ SCROLL PROGRESS ============ */
         .scroll-progress {
             position: fixed;
             top: 0;
@@ -606,7 +526,6 @@ for ($i = 0; $i < 7; $i++) {
             transition: transform 0.1s ease-out
         }
 
-        /* ============ REVEAL ON SCROLL ============ */
         .reveal {
             opacity: 0;
             transform: translateY(40px);
@@ -674,11 +593,8 @@ for ($i = 0; $i < 7; $i++) {
             gap: 8px;
             overflow-x: auto;
             scrollbar-width: none;
-
-            /* Tambahkan padding ini agar kartu & lencana tidak terpotong batas overflow */
             padding: 10px 12px 10px 10px;
             margin-left: -10px;
-            /* Opsional: Mengimbangi padding-left agar sejajar kembali dengan label */
         }
 
         .date-scroll::-webkit-scrollbar {
@@ -1299,7 +1215,13 @@ for ($i = 0; $i < 7; $i++) {
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: var(--shadow-lg);
-            animation: slideUp 0.3s ease-out
+            animation: slideUp 0.3s ease-out;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .modal-card::-webkit-scrollbar {
+            display: none;
         }
 
         .modal-header {
@@ -1755,7 +1677,6 @@ for ($i = 0; $i < 7; $i++) {
             font-weight: 600
         }
 
-        /* ============ UPLOAD BUKTI PEMBAYARAN ============ */
         .bukti-upload-box {
             display: flex;
             align-items: center;
@@ -1814,7 +1735,6 @@ for ($i = 0; $i < 7; $i++) {
             min-height: 14px;
         }
 
-        /* ============ PAGINATION LAPANGAN ============ */
         .court-pagination {
             display: flex;
             align-items: center;
@@ -1878,25 +1798,6 @@ for ($i = 0; $i < 7; $i++) {
             .court-slots-grid {
                 grid-template-columns: repeat(3, 1fr)
             }
-
-            .footer-grid {
-                grid-template-columns: 1fr
-            }
-
-            footer {
-                padding: 30px 20px
-            }
-        }
-
-        @media(max-width:1100px) {
-            .footer-grid {
-                grid-template-columns: 1fr 1fr;
-                gap: 30px
-            }
-
-            footer {
-                padding: 40px
-            }
         }
 
         @media(max-width:480px) {
@@ -1910,19 +1811,6 @@ for ($i = 0; $i < 7; $i++) {
             }
         }
 
-        /* Hilangkan scrollbar di modal tapi tetap bisa scroll */
-        .modal-card {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .modal-card::-webkit-scrollbar {
-            display: none;
-        }
-
-         /* ============================================
-   MATIKAN SEMUA ANIMASI SWEETALERT2 
-   ============================================ */
         .swal2-popup {
             animation: none !important;
             transition: none !important;
@@ -1939,12 +1827,49 @@ for ($i = 0; $i < 7; $i++) {
             animation: none !important;
         }
 
-        /* cegah body/html digeser oleh kompensasi scrollbar SweetAlert */
         html.swal2-shown,
         body.swal2-shown,
         body.swal2-height-auto {
             padding-right: 0 !important;
-   }
+        }
+
+        /* ============ SEARCH LAPANGAN ============ */
+        .search-court-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-court-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .search-court-box input {
+            width: 100%;
+            padding: 14px 16px 14px 42px;
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: 'Barlow', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: var(--transition);
+            background: var(--card-bg);
+            color: var(--dark);
+            font-weight: 500;
+        }
+
+        .search-court-box input:focus {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px var(--orange-glow);
+        }
+
+        .search-court-box input::placeholder {
+            color: #9CA3AF;
+        }
     </style>
 </head>
 
@@ -1982,6 +1907,10 @@ for ($i = 0; $i < 7; $i++) {
         </div>
         <div class="court-section">
             <div class="court-section-label reveal"><i class="fa-solid fa-layer-group"></i> Pilih Lapangan</div>
+            <div class="search-court-box reveal">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchCourt" placeholder="Cari nama lapangan (contoh: Garuda)..." oninput="filterCourts()">
+            </div>
             <?php if (!empty($lapanganList)): ?>
                 <?php foreach ($lapanganList as $idx => $lap):
                     $cId = $lap['ID_Lapangan'];
@@ -1991,7 +1920,7 @@ for ($i = 0; $i < 7; $i++) {
                     $resolvedPhoto = resolvePhotoPath($rawPhoto);
                     $img = !empty($resolvedPhoto) ? htmlspecialchars($resolvedPhoto) : '';
                     $fasilitas = $lapanganFasilitas[$cId] ?? [];
-                    ?>
+                ?>
                     <div class="court-card" id="court-<?= $cId ?>" data-id="<?= $cId ?>" data-price="<?= $cPrice ?>"
                         data-name="<?= $cName ?>">
                         <div class="court-card-top">
@@ -2126,7 +2055,6 @@ for ($i = 0; $i < 7; $i++) {
                 </div>
             </div>
             <div class="modal-footer">
-                <!-- Cukup tambahkan kelas btn-full di bawah ini -->
                 <button class="btn-secondary btn-full" onclick="closeModal('bookingModal')">Batal</button>
                 <button class="btn-primary btn-full" id="btnConfirmBooking" onclick="confirmBooking()"><i
                         class="fa-solid fa-lock"></i> Bayar Sekarang</button>
@@ -2190,7 +2118,6 @@ for ($i = 0; $i < 7; $i++) {
                 <div class="bukti-upload-error" id="buktiUploadError"></div>
             </div>
             <div class="modal-footer">
-                <!-- Tombol kembali telah dihapus, menyisakan tombol konfirmasi saja -->
                 <button class="btn-primary btn-full" onclick="finishPayment()"><i class="fa-solid fa-circle-check"></i>
                     Saya Sudah Bayar</button>
             </div>
@@ -2202,21 +2129,49 @@ for ($i = 0; $i < 7; $i++) {
         let isMember = <?= $has_member ? 'true' : 'false' ?>;
         let memberDiscount = <?= $member_discount ?>;
         let countdownInterval;
-        let cart = []; // { idJadwal, courtId, courtName, price, tanggal, tanggalLabel, jamMulai, jamSelesai }
-        let buktiFile = null; // File bukti pembayaran yang dipilih customer
+        let cart = [];
+        let buktiFile = null;
+
+        // ============ FITUR PENCARIAN LAPANGAN ============
+        function filterCourts() {
+            const query = document.getElementById('searchCourt').value.toLowerCase();
+            const cards = document.querySelectorAll('.court-card');
+
+            cards.forEach(card => {
+                const name = card.dataset.name.toLowerCase();
+                if (name.includes(query)) {
+                    card.classList.remove('search-hidden');
+                } else {
+                    card.classList.add('search-hidden');
+                }
+            });
+
+            currentCourtPage = 1; // Balikin ke halaman 1 tiap kali ngetik
+            paginateCourts(); // Panggil ulang paginationnya
+        }
 
         // ============ PAGINATION LAPANGAN ============
         const COURTS_PER_PAGE = 4;
         let currentCourtPage = 1;
 
         function paginateCourts() {
-            const cards = Array.from(document.querySelectorAll('.court-card'));
+            // HANYA ambil card yang tidak disembunyikan oleh pencarian
+            const cards = Array.from(document.querySelectorAll('.court-card:not(.search-hidden)'));
+
+            // Sembunyikan SEMUA card terlebih dahulu
+            document.querySelectorAll('.court-card').forEach(c => {
+                c.style.display = 'none';
+            });
+
             const totalPages = Math.max(1, Math.ceil(cards.length / COURTS_PER_PAGE));
             if (currentCourtPage > totalPages) currentCourtPage = totalPages;
 
+            // Tampilkan HANYA card yang lolos pencarian DAN sesuai halaman saat ini
             cards.forEach((card, idx) => {
                 const page = Math.floor(idx / COURTS_PER_PAGE) + 1;
-                card.style.display = (page === currentCourtPage) ? '' : 'none';
+                if (page === currentCourtPage) {
+                    card.style.display = '';
+                }
             });
 
             renderCourtPagination(totalPages);
@@ -2225,7 +2180,10 @@ for ($i = 0; $i < 7; $i++) {
         function renderCourtPagination(totalPages) {
             const wrap = document.getElementById('courtPagination');
             if (!wrap) return;
-            if (totalPages <= 1) { wrap.innerHTML = ''; return; }
+            if (totalPages <= 1) {
+                wrap.innerHTML = '';
+                return;
+            }
 
             let html = `<button class="page-btn ${currentCourtPage <= 1 ? 'disabled' : ''}" onclick="changeCourtPage(${currentCourtPage - 1})" title="Sebelumnya"><i class="fa-solid fa-angle-left"></i></button>`;
             for (let i = 1; i <= totalPages; i++) {
@@ -2243,25 +2201,40 @@ for ($i = 0; $i < 7; $i++) {
                 if (c.style.display !== 'none') c.classList.add('visible');
             });
             const label = document.querySelector('.court-section-label');
-            if (label) label.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (label) label.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
         }
 
-        // ============ UPLOAD BUKTI PEMBAYARAN ============
         function handleBuktiFileChange(input) {
             const errorEl = document.getElementById('buktiUploadError');
             if (errorEl) errorEl.textContent = '';
             const file = input.files && input.files[0];
-            if (!file) { buktiFile = null; return; }
+            if (!file) {
+                buktiFile = null;
+                return;
+            }
 
             const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
             if (!allowed.includes(file.type)) {
-                Swal.fire({ icon: 'warning', title: 'Format Tidak Didukung', text: 'Gunakan file JPG, PNG, atau PDF.', confirmButtonColor: 'var(--orange)' });
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Format Tidak Didukung',
+                    text: 'Gunakan file JPG, PNG, atau PDF.',
+                    confirmButtonColor: 'var(--orange)'
+                });
                 input.value = '';
                 buktiFile = null;
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({ icon: 'warning', title: 'Ukuran Terlalu Besar', text: 'Ukuran file maksimal 5MB.', confirmButtonColor: 'var(--orange)' });
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Ukuran Terlalu Besar',
+                    text: 'Ukuran file maksimal 5MB.',
+                    confirmButtonColor: 'var(--orange)'
+                });
                 input.value = '';
                 buktiFile = null;
                 return;
@@ -2332,7 +2305,9 @@ for ($i = 0; $i < 7; $i++) {
             fetch(`booking_customer.php?action=get_all_slots&court_id=${courtId}&tanggal=${selectedDate}`)
                 .then(r => r.json())
                 .then(data => renderCourtSlots(courtId, data))
-                .catch(() => { countLabel.innerText = 'Gagal memuat jadwal'; });
+                .catch(() => {
+                    countLabel.innerText = 'Gagal memuat jadwal';
+                });
         }
 
         function toggleCourtSlots(courtId) {
@@ -2392,10 +2367,14 @@ for ($i = 0; $i < 7; $i++) {
                 if (chk) chk.remove();
             } else {
                 cart.push({
-                    idJadwal, courtId, courtName, price,
+                    idJadwal,
+                    courtId,
+                    courtName,
+                    price,
                     tanggal: selectedDate,
                     tanggalLabel: getSelectedDateLabel(),
-                    jamMulai, jamSelesai
+                    jamMulai,
+                    jamSelesai
                 });
                 el.classList.add('selected');
                 const check = document.createElement('div');
@@ -2495,7 +2474,9 @@ for ($i = 0; $i < 7; $i++) {
         }
 
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function (e) { if (e.target === this) closeModal(this.id); });
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) closeModal(this.id);
+            });
         });
 
         function openBookingModalFromCart() {
@@ -2533,7 +2514,7 @@ for ($i = 0; $i < 7; $i++) {
 
         const promoSelect = document.getElementById('modalPromoSelect');
         if (promoSelect) {
-            promoSelect.addEventListener('change', function () {
+            promoSelect.addEventListener('change', function() {
                 const opt = this.options[this.selectedIndex];
                 const discount = parseFloat(opt.getAttribute('data-discount') || 0);
                 const basePrice = cart.reduce((s, c) => s + c.price, 0);
@@ -2545,7 +2526,8 @@ for ($i = 0; $i < 7; $i++) {
 
         function getCheckoutBreakdown() {
             const basePrice = cart.reduce((s, c) => s + c.price, 0);
-            let discount = 0, idPromo = null;
+            let discount = 0,
+                idPromo = null;
             if (isMember) {
                 discount = memberDiscount;
             } else if (promoSelect) {
@@ -2555,19 +2537,19 @@ for ($i = 0; $i < 7; $i++) {
                     idPromo = opt.value;
                 }
             }
-            return { total: Math.max(0, basePrice - discount), idPromo };
+            return {
+                total: Math.max(0, basePrice - discount),
+                idPromo
+            };
         }
 
         function confirmBooking() {
-            const { total } = getCheckoutBreakdown();
+            const {
+                total
+            } = getCheckoutBreakdown();
             closeModal('bookingModal');
             document.getElementById('paymentTotal').innerText = formatRupiah(total);
-
-            // Reset bukti pembayaran setiap kali membuka modal pembayaran baru
             resetBuktiUpload();
-
-            // Tampilkan instruksi sesuai metode pembayaran yang sudah dipilih customer
-            // (Transfer Bank -> Virtual Account, QRIS -> QRIS) tanpa mengubah pilihan metode itu sendiri
             showPaymentTab(selectedPaymentMethod === 'QRIS' ? 'qris' : 'va');
             openModal('paymentModal');
             startCountdown(15 * 60);
@@ -2594,34 +2576,54 @@ for ($i = 0; $i < 7; $i++) {
                 const m = String(Math.floor(remaining / 60)).padStart(2, '0');
                 const s = String(remaining % 60).padStart(2, '0');
                 display.innerText = `${m}:${s}`;
-                if (--remaining < 0) { clearInterval(countdownInterval); display.innerText = 'Waktu Habis'; }
+                if (--remaining < 0) {
+                    clearInterval(countdownInterval);
+                    display.innerText = 'Waktu Habis';
+                }
             }, 1000);
         }
 
         function copyVA() {
             const vaNum = document.getElementById('vaNumber').innerText;
             navigator.clipboard.writeText(vaNum).then(() => {
-                Swal.fire({ icon: 'success', title: 'Berhasil Disalin!', text: 'Nomor VA telah disalin ke clipboard.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Disalin!',
+                    text: 'Nomor VA telah disalin ke clipboard.',
+                    confirmButtonColor: 'var(--orange)',
+                    confirmButtonText: 'OK'
+                });
             });
         }
 
         function finishPayment() {
             if (!buktiFile) {
-                Swal.fire({ icon: 'warning', title: 'Bukti Pembayaran Wajib', text: 'Silakan unggah bukti pembayaran terlebih dahulu sebelum konfirmasi.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
-
-                function backToBookingModal() {
-                    closeModal('paymentModal');
-                    clearInterval(countdownInterval);
-                    openModal('bookingModal');
-                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Bukti Pembayaran Wajib',
+                    text: 'Silakan unggah bukti pembayaran terlebih dahulu sebelum konfirmasi.',
+                    confirmButtonColor: 'var(--orange)',
+                    confirmButtonText: 'OK'
+                });
                 return;
             }
 
             clearInterval(countdownInterval);
             closeModal('paymentModal');
-            const { total, idPromo } = getCheckoutBreakdown();
+            const {
+                total,
+                idPromo
+            } = getCheckoutBreakdown();
 
-            Swal.fire({ title: 'Memproses...', text: 'Sedang mengunggah bukti pembayaran Anda', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Sedang mengunggah bukti pembayaran Anda',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
             const formData = new FormData();
             formData.append('id_jadwal_list', JSON.stringify(cart.map(c => c.idJadwal)));
@@ -2631,23 +2633,43 @@ for ($i = 0; $i < 7; $i++) {
             formData.append('bukti_pembayaran', buktiFile);
 
             fetch('booking_customer.php?action=checkout', {
-                method: 'POST',
-                body: formData
-            })
+                    method: 'POST',
+                    body: formData
+                })
                 .then(r => r.json())
                 .then(result => {
                     if (result.success) {
                         cart = [];
                         resetBuktiUpload();
                         updateCartUI();
-                        Swal.fire({ icon: 'success', title: 'Booking Berhasil!', text: 'Bukti pembayaran Anda sedang diverifikasi oleh karyawan kami. Silakan cek riwayat booking di profil Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Selesai' })
-                            .then(() => { location.reload(); });
+                        Swal.fire({
+                                icon: 'success',
+                                title: 'Booking Berhasil!',
+                                text: 'Bukti pembayaran Anda sedang diverifikasi oleh karyawan kami. Silakan cek riwayat booking di profil Anda.',
+                                confirmButtonColor: 'var(--orange)',
+                                confirmButtonText: 'Selesai'
+                            })
+                            .then(() => {
+                                location.reload();
+                            });
                     } else {
-                        Swal.fire({ icon: 'warning', title: 'Booking Gagal', text: result.message, confirmButtonColor: 'var(--orange)', confirmButtonText: 'Pilih Ulang' });
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Booking Gagal',
+                            text: result.message,
+                            confirmButtonColor: 'var(--orange)',
+                            confirmButtonText: 'Pilih Ulang'
+                        });
                     }
                 })
                 .catch(() => {
-                    Swal.fire({ icon: 'error', title: 'Koneksi Terputus', text: 'Gagal terhubung ke server. Periksa koneksi internet Anda.', confirmButtonColor: 'var(--orange)', confirmButtonText: 'Coba Lagi' });
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Koneksi Terputus',
+                        text: 'Gagal terhubung ke server. Periksa koneksi internet Anda.',
+                        confirmButtonColor: 'var(--orange)',
+                        confirmButtonText: 'Coba Lagi'
+                    });
                 });
         }
 
@@ -2655,31 +2677,38 @@ for ($i = 0; $i < 7; $i++) {
             reloadAllCourtSlots();
             paginateCourts();
 
-            /* Entrance animation untuk kartu lapangan */
             const cardObserver = new IntersectionObserver((entries) => {
                 entries.forEach((entry, index) => {
                     if (entry.isIntersecting) {
-                        setTimeout(() => { entry.target.classList.add('visible'); }, index * 100);
+                        setTimeout(() => {
+                            entry.target.classList.add('visible');
+                        }, index * 100);
                         cardObserver.unobserve(entry.target);
                     }
                 });
-            }, { threshold: 0.1 });
+            }, {
+                threshold: 0.1
+            });
             document.querySelectorAll('.court-card').forEach(card => cardObserver.observe(card));
 
-            /* Reveal-on-scroll untuk header & label section */
             const revealObserver = new IntersectionObserver((entries) => {
-                entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
-            }, { threshold: .1, rootMargin: '0px 0px -50px 0px' });
+                entries.forEach(e => {
+                    if (e.isIntersecting) e.target.classList.add('active');
+                });
+            }, {
+                threshold: .1,
+                rootMargin: '0px 0px -50px 0px'
+            });
             document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
-            /* Page loader */
             const loader = document.getElementById('pageLoader');
             if (loader) {
-                setTimeout(() => { loader.classList.add('hidden'); }, 500);
+                setTimeout(() => {
+                    loader.classList.add('hidden');
+                }, 500);
             }
         });
 
-        /* Scroll progress bar */
         window.addEventListener('scroll', () => {
             const st = document.documentElement.scrollTop || document.body.scrollTop;
             const sh = document.documentElement.scrollHeight - document.documentElement.clientHeight;
@@ -2687,30 +2716,28 @@ for ($i = 0; $i < 7; $i++) {
         });
 
         const urlParams = new URLSearchParams(window.location.search);
-        const status = urlParams.get('status'), msg = urlParams.get('msg');
+        const status = urlParams.get('status'),
+            msg = urlParams.get('msg');
         if (status && msg) {
             const ok = status === 'success';
-            Swal.fire({ icon: ok ? 'success' : 'error', title: ok ? 'Berhasil' : 'Gagal', text: msg, confirmButtonColor: 'var(--orange)', confirmButtonText: 'OK' });
+            Swal.fire({
+                icon: ok ? 'success' : 'error',
+                title: ok ? 'Berhasil' : 'Gagal',
+                text: msg,
+                confirmButtonColor: 'var(--orange)',
+                confirmButtonText: 'OK'
+            });
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-
-        /* ============================================================
-       KONFIRMASI SEBELUM KELUAR (LOGOUT)
-       Berlaku untuk semua link yang mengarah ke logout.php,
-       di sidebar maupun di dropdown topbar, pada SEMUA halaman.
-       ============================================================ */
-        (function () {
+        (function() {
             const SWAL_CDN = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
             let swalLoading = null;
 
-            // Muat SweetAlert2 secara otomatis bila halaman belum memuatnya
-            // (mis. dashboard/view_admin.php) supaya tampilan dialog seragam.
             function ensureSwal() {
                 if (typeof Swal !== 'undefined') return Promise.resolve();
                 if (swalLoading) return swalLoading;
-
-                swalLoading = new Promise(function (resolve, reject) {
+                swalLoading = new Promise(function(resolve, reject) {
                     const s = document.createElement('script');
                     s.src = SWAL_CDN;
                     s.onload = resolve;
@@ -2723,8 +2750,7 @@ for ($i = 0; $i < 7; $i++) {
             function showLogoutDialog(url) {
                 Swal.fire({
                     title: 'Keluar dari HoopBall?',
-                    html: 'Apakah Anda yakin ingin keluar?<br>' +
-                        '<span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
+                    html: 'Apakah Anda yakin ingin keluar?<br><span style="font-size:12px;color:#6B7280;">Sesi Anda akan diakhiri dan Anda perlu masuk kembali.</span>',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Keluar',
@@ -2734,38 +2760,37 @@ for ($i = 0; $i < 7; $i++) {
                     reverseButtons: true,
                     focusCancel: true,
                     allowOutsideClick: false
-                }).then(function (result) {
+                }).then(function(result) {
                     if (!result.isConfirmed) return;
-
                     Swal.fire({
                         title: 'Sedang keluar...',
                         text: 'Mohon tunggu sebentar.',
                         allowOutsideClick: false,
                         allowEscapeKey: false,
-                        didOpen: function () { Swal.showLoading(); }
+                        didOpen: function() {
+                            Swal.showLoading();
+                        }
                     });
-
-                    setTimeout(function () { window.location.href = url; }, 500);
+                    setTimeout(function() {
+                        window.location.href = url;
+                    }, 500);
                 });
             }
 
-            document.addEventListener('click', function (e) {
+            document.addEventListener('click', function(e) {
                 const link = e.target.closest('a[href*="logout.php"]');
                 if (!link) return;
-
                 e.preventDefault();
                 const url = link.getAttribute('href');
-
-                ensureSwal()
-                    .then(function () { showLogoutDialog(url); })
-                    .catch(function () {
-                        // CDN tidak bisa diakses -> jangan biarkan logout tanpa konfirmasi
-                        if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
-                    });
+                ensureSwal().then(function() {
+                    showLogoutDialog(url);
+                }).catch(function() {
+                    if (confirm('Apakah Anda yakin ingin keluar?')) window.location.href = url;
+                });
             });
         })();
 
-                window.Swal = Swal.mixin({
+        window.Swal = Swal.mixin({
             scrollbarPadding: false
         });
     </script>

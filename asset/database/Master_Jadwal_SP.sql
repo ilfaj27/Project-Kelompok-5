@@ -1,13 +1,10 @@
--- ============================================================
--- STORED PROCEDURE MASTER: Jadwal
--- ============================================================
-
 USE Hoopball;
 GO
 
--- 1. SP INSERT Jadwal
 -- ============================================================
-CREATE PROCEDURE SP_Jadwal_Insert
+-- 1. REVISI SP INSERT Jadwal
+-- ============================================================
+CREATE OR ALTER PROCEDURE SP_Jadwal_Insert
     @ID_Lapangan    INT,
     @Tanggal        DATE,
     @Jam_Mulai      TIME,
@@ -25,8 +22,9 @@ BEGIN
         RETURN;
     END
 
-    -- Validasi: Jam mulai harus lebih kecil dari jam selesai
-    IF @Jam_Mulai >= @Jam_Selesai
+    -- [REVISI DISINI] Validasi: Jam mulai harus lebih kecil dari jam selesai
+    -- KECUALI jika jam selesainya adalah 00:00:00 (tengah malam pergantian hari)
+    IF @Jam_Mulai >= @Jam_Selesai AND @Jam_Selesai <> '00:00:00'
     BEGIN
         RAISERROR('Jam mulai harus lebih kecil dari jam selesai.', 16, 1);
         RETURN;
@@ -46,13 +44,10 @@ BEGIN
           AND Tanggal = @Tanggal 
           AND Is_Deleted = 0
           AND (
-              -- Kasus 1: Jam mulai baru berada dalam slot existing
               (@Jam_Mulai >= Jam_Mulai AND @Jam_Mulai < Jam_Selesai)
               OR
-              -- Kasus 2: Jam selesai baru berada dalam slot existing
               (@Jam_Selesai > Jam_Mulai AND @Jam_Selesai <= Jam_Selesai)
               OR
-              -- Kasus 3: Slot baru menutupi slot existing sepenuhnya
               (@Jam_Mulai <= Jam_Mulai AND @Jam_Selesai >= Jam_Selesai)
           )
     )
@@ -70,15 +65,16 @@ BEGIN
 END;
 GO
 
--- 2. SP UPDATE Jadwal
 -- ============================================================
-CREATE PROCEDURE SP_Jadwal_Update
+-- 2. REVISI SP UPDATE Jadwal
+-- ============================================================
+CREATE OR ALTER PROCEDURE SP_Jadwal_Update
     @ID_Jadwal      INT,
-    @ID_Lapangan    INT = NULL,         -- NULL = tidak diubah
-    @Tanggal        DATE = NULL,        -- NULL = tidak diubah
-    @Jam_Mulai      TIME = NULL,        -- NULL = tidak diubah
-    @Jam_Selesai    TIME = NULL,        -- NULL = tidak diubah
-    @Status         INT = NULL,         -- NULL = tidak diubah
+    @ID_Lapangan    INT = NULL,         
+    @Tanggal        DATE = NULL,        
+    @Jam_Mulai      TIME = NULL,        
+    @Jam_Selesai    TIME = NULL,        
+    @Status         INT = NULL,         
     @Modified_By    VARCHAR(50)
 AS
 BEGIN
@@ -111,8 +107,8 @@ BEGIN
         RETURN;
     END
 
-    -- Validasi: Jam
-    IF @Jam_Mulai >= @Jam_Selesai
+    -- [REVISI DISINI] Validasi: Jam 
+    IF @Jam_Mulai >= @Jam_Selesai AND @Jam_Selesai <> '00:00:00'
     BEGIN
         RAISERROR('Jam mulai harus lebih kecil dari jam selesai.', 16, 1);
         RETURN;
@@ -408,4 +404,9 @@ SELECT
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_NAME LIKE 'SP_Jadwal%'
 ORDER BY ROUTINE_NAME;
+GO
+
+DELETE FROM Jadwal
+WHERE DATEPART(MINUTE, Jam_Mulai) <> 0 
+  AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking);
 GO
