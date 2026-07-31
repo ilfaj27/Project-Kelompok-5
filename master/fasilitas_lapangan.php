@@ -1367,7 +1367,7 @@ $sidebar_photo = $profile_photo;
                     class="fa-solid fa-xmark"></i></button>
             <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                 <div class="modal-subtitle">Informasi Fasilitas</div>
-                <div class="modal-title">Keterangan</div>
+                <div class="modal-title">Detail Fasilitas</div>
             </div>
             <div class="modal-body" style="padding-top: 10px;">
                 <div
