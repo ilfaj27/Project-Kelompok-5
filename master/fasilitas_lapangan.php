@@ -1660,7 +1660,7 @@ $sidebar_photo = $profile_photo;
                 minLength: 10,
                 maxLength: 50,
                 patternAlphaOnly: true, // Menggunakan aturan khusus huruf dan spasi
-                label: 'Detail fasilitas'
+                label: 'Keterangan'
             })) valid = false;
 
             return valid;
@@ -2026,7 +2026,7 @@ $sidebar_photo = $profile_photo;
                         minLength: 10,
                         maxLength: 50,
                         patternAlphaOnly: true, // Diubah ke patternAlphaOnly
-                        label: 'Detail fasilitas'
+                        label: 'Keterangan'
                     });
                 });
                 detailFas.addEventListener('input', function () {
@@ -2036,7 +2036,7 @@ $sidebar_photo = $profile_photo;
                             minLength: 10,
                             maxLength: 50,
                             patternAlphaOnly: true, // Diubah ke patternAlphaOnly
-                            label: 'Detail fasilitas'
+                            label: 'Keterangan'
                         });
                     }
                 });
