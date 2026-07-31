@@ -86,14 +86,29 @@ if ($mc) {
     $member_data = sqlsrv_fetch_array($mc, SQLSRV_FETCH_ASSOC);
 }
 $has_member = !empty($member_data);
-$member_tipe = $has_member ? ($member_data['Nama_Tipe'] ?? $member_data['Nama_Tipe_Member'] ?? 'Member') : '';
+$member_tipe = $has_member ? ($member_data['Nama_Tipe'] ?? $member_data['Nama_Tipe_Member'] ?? 'Member') : 'Member';
+$member_discount = $has_member ? floatval($member_data['Potongan_Harga'] ?? $member_data['Nominal_Potongan'] ?? $member_data['Diskon'] ?? 0) : 0;
 
-$member_discount = $has_member ? floatval(
-    $member_data['Potongan_Harga'] ??
-        $member_data['Nominal_Potongan'] ??
-        $member_data['Potongan'] ??
-        $member_data['Diskon'] ?? 0
-) : 0;
+// Cek apakah sudah pernah booking hari ini
+$has_used_today = false;
+$q_chk = sqlsrv_query($conn, "
+    SELECT COUNT(*) AS total_today 
+    FROM Booking 
+    WHERE ID_Customer = ? 
+      AND CAST(Created_Date AS DATE) = CAST(GETDATE() AS DATE) 
+      AND Status <> 3
+", array($id_customer));
+
+if ($q_chk && $r_chk = sqlsrv_fetch_array($q_chk, SQLSRV_FETCH_ASSOC)) {
+    if ($r_chk['total_today'] > 0) {
+        $has_used_today = true;
+    }
+}
+
+// Jika sudah pernah booking hari ini, diskon = 0
+if ($has_used_today) {
+    $member_discount = 0;
+}
 
 function resolvePhotoPath($photo_path)
 {
@@ -228,8 +243,9 @@ if (isset($_GET['action'])) {
         $promo_for_first = $id_promo;
 
         foreach ($id_jadwal_list as $index => $jid) {
-            $current_promo = ($index === 0) ? $promo_for_first : null;
+            $current_promo = $id_promo; // Kirim promo ke seluruh slot dalam checkout
 
+            $sp_sql = "{call sp_Booking_Create(?, ?, ?, ?, ?, ?)}";
             $sp_sql = "{call sp_Booking_Create(?, ?, ?, ?, ?, ?)}";
             $sp_params = array(
                 array($id_customer, SQLSRV_PARAM_IN),
@@ -298,11 +314,13 @@ if ($qf) {
 
 $promos = [];
 if (!$has_member) {
-    $qp = sqlsrv_query($conn, "{call sp_Promo_GetActive}");
+    // Memanggil Stored Procedure sp_Promo_GetActiveForCustomer
+    $qp = sqlsrv_query($conn, "{call sp_Promo_GetActiveForCustomer(?)}", array($id_customer));
     if ($qp) {
         while ($r = sqlsrv_fetch_array($qp, SQLSRV_FETCH_ASSOC)) {
             $promos[] = $r;
         }
+        sqlsrv_free_stmt($qp);
     }
 }
 
@@ -2008,7 +2026,7 @@ for ($i = 0; $i < 7; $i++) {
                 <div id="modalItemsList"></div>
                 <?php if ($has_member): ?>
                     <div class="detail-row"><span class="detail-label">Diskon Member
-                            (<?= htmlspecialchars($member_tipe) ?>)</span><span class="detail-value discount"
+                            (<?= htmlspecialchars($member_tipe ?? 'Member') ?>)</span><span class="detail-value discount"
                             id="modalDiscount">-Rp <?= number_format($member_discount, 0, ',', '.') ?></span></div>
                     <div class="promo-section">
                         <div class="promo-locked"><i class="fa-solid fa-lock"></i> Promo tidak dapat digunakan karena member
@@ -2021,10 +2039,12 @@ for ($i = 0; $i < 7; $i++) {
                         <div class="promo-label">Gunakan Promo</div>
                         <select class="promo-select" id="modalPromoSelect">
                             <option value="0" data-discount="0">-- Pilih Promo --</option>
-                            <?php foreach ($promos as $p): ?>
-                                <option value="<?= $p['ID_Promo'] ?>" data-discount="<?= floatval($p['Diskon']) ?>">
-                                    <?= htmlspecialchars($p['Nama_Promo']) ?> (-Rp
-                                    <?= number_format($p['Diskon'], 0, ',', '.') ?>)
+                            <?php foreach ($promos as $p): 
+                                $dVal = floatval($p['Diskon']);
+                                $labelDiskon = ($dVal <= 100 && $dVal > 0) ? $dVal . '%' : 'Rp ' . number_format($dVal, 0, ',', '.');
+                            ?>
+                                <option value="<?= $p['ID_Promo'] ?>" data-discount="<?= $dVal ?>">
+                                    <?= htmlspecialchars($p['Nama_Promo']) ?> (Diskon <?= $labelDiskon ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -2475,7 +2495,11 @@ for ($i = 0; $i < 7; $i++) {
 
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
-                if (e.target === this) closeModal(this.id);
+                if (e.target === this) {
+                    // Abaikan klik di luar pop-up (Pop-up tetap terbuka)
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
             });
         });
 
@@ -2516,24 +2540,29 @@ for ($i = 0; $i < 7; $i++) {
         if (promoSelect) {
             promoSelect.addEventListener('change', function() {
                 const opt = this.options[this.selectedIndex];
-                const discount = parseFloat(opt.getAttribute('data-discount') || 0);
+                const promoPercent = parseFloat(opt.getAttribute('data-discount') || 0);
                 const basePrice = cart.reduce((s, c) => s + c.price, 0);
-                const total = Math.max(0, basePrice - discount);
-                document.getElementById('modalPromoDiscount').innerText = '-Rp ' + discount.toLocaleString('id-ID');
+
+                // RUMUS MURNI PERSEN
+                const actualDiscount = (basePrice * promoPercent) / 100;
+                const total = Math.max(0, basePrice - actualDiscount);
+
+                document.getElementById('modalPromoDiscount').innerText = '-Rp ' + actualDiscount.toLocaleString('id-ID');
                 document.getElementById('modalTotal').innerText = formatRupiah(total);
             });
         }
 
         function getCheckoutBreakdown() {
             const basePrice = cart.reduce((s, c) => s + c.price, 0);
-            let discount = 0,
-                idPromo = null;
+            let discount = 0, idPromo = null;
+
             if (isMember) {
                 discount = memberDiscount;
             } else if (promoSelect) {
                 const opt = promoSelect.options[promoSelect.selectedIndex];
                 if (opt && opt.value !== '0') {
-                    discount = parseFloat(opt.getAttribute('data-discount') || 0);
+                    const promoPercent = parseFloat(opt.getAttribute('data-discount') || 0);
+                    discount = (basePrice * promoPercent) / 100; // RUMUS MURNI PERSEN
                     idPromo = opt.value;
                 }
             }

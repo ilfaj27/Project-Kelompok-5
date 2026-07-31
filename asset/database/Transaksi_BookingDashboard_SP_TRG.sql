@@ -63,7 +63,7 @@ GO
 
 
 -- [CREATE] SP untuk membuat booking transaksi
-CREATE PROCEDURE sp_Booking_Create
+CREATE OR ALTER PROCEDURE sp_Booking_Create
     @ID_Customer INT,
     @ID_Karyawan INT,
     @ID_Jadwal INT,
@@ -87,18 +87,44 @@ BEGIN
             THROW 50001, 'Jadwal tidak tersedia atau sudah terbooking.', 1;
         END
 
-        -- Hitung diskon member jika aktif
+        -- 1. HITUNG DISKON MEMBER (MAKS 1x PER HARI)
         DECLARE @HasMember INT = 0, @MemberDiscount DECIMAL(18,2) = 0;
-        SELECT TOP 1 @HasMember = 1, @MemberDiscount = T.Potongan_Harga
-        FROM Langganan L
-        INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
-        WHERE L.ID_Customer = @ID_Customer AND L.Status = 1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
-        ORDER BY L.Tanggal_Selesai DESC;
+        DECLARE @SudahBookingHariIni INT = 0;
+
+        SELECT @SudahBookingHariIni = COUNT(*)
+        FROM Booking
+        WHERE ID_Customer = @ID_Customer
+          AND CAST(Created_Date AS DATE) = CAST(GETDATE() AS DATE)
+          AND Status <> 3;
+
+        IF @SudahBookingHariIni = 0
+        BEGIN
+            SELECT TOP 1 @HasMember = 1, @MemberDiscount = T.Potongan_Harga
+            FROM Langganan L
+            INNER JOIN Tipe_Member T ON L.ID_Tipe = T.ID_Tipe
+            WHERE L.ID_Customer = @ID_Customer AND L.Status = 1 AND GETDATE() BETWEEN L.Tanggal_Mulai AND L.Tanggal_Selesai
+            ORDER BY L.Tanggal_Selesai DESC;
+        END
 
         IF @HasMember = 1
+        BEGIN
             SET @Diskon = @MemberDiscount;
-        ELSE IF @ID_Promo IS NOT NULL
-            SELECT @Diskon = Diskon FROM Promo WHERE ID_Promo = @ID_Promo AND Status = 1 AND Is_Deleted = 0;
+        END
+        -- 2. HITUNG DISKON PROMO (MURNI PERSEN %)
+        ELSE IF @ID_Promo IS NOT NULL AND @ID_Promo > 0
+        BEGIN
+            DECLARE @RawPromoDiskon DECIMAL(18,2) = 0;
+
+            SELECT @RawPromoDiskon = ISNULL(Diskon, 0)
+            FROM Promo 
+            WHERE ID_Promo = @ID_Promo AND Status = 1 AND Is_Deleted = 0 
+              AND CAST(GETDATE() AS DATE) BETWEEN Tanggal_Mulai AND Tanggal_Selesai;
+
+            IF @RawPromoDiskon > 0
+            BEGIN
+                SET @Diskon = (@HargaSewa * @RawPromoDiskon) / 100.0; -- Murni Persen (%)
+            END
+        END
 
         SET @TotalBayar = @HargaSewa - @Diskon;
         IF @TotalBayar < 0 SET @TotalBayar = 0;
@@ -117,6 +143,7 @@ BEGIN
     END CATCH
 END;
 GO
+
 
 -- [READ] SP untuk mendapatkan data ketersediaan slot jadwal
 CREATE PROCEDURE sp_Jadwal_GetSlots

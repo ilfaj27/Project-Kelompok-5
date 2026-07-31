@@ -126,67 +126,119 @@ if ($is_ajax) {
 
     // Action: Ambil Detail Booking (AJAX)
     if ($action === 'get_detail') {
-        $id = intval($_GET['id'] ?? 0);
+        $raw_ids = $_GET['id'] ?? '0';
+        $ids = array_filter(array_map('intval', explode(',', $raw_ids)));
 
-        // --- UBAHAN DI SINI: Kita menggunakan kueri SQL Manual (Direct JOIN) daripada Stored Procedure ---
-        // Karena Stored Procedure lama masih nyangkut di database tidak membawa kolom lengkap
-        $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($id));
+        $all_details = [];
+        foreach ($ids as $bid) {
+            $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($bid));
+            if ($q_booking && $booking_data = safeFetch($q_booking)) {
+                $all_details[] = $booking_data;
+            }
+        }
 
-        if ($q_booking && $booking_data = safeFetch($q_booking)) {
-            // Karena SQL-nya di atas sudah lengkap, sekarang data ini tidak akan null lagi
-            $booking_data['TanggalFormatted'] = formatTanggal($booking_data['Tanggal'] ?? '');
-            $booking_data['TanggalBookingFormatted'] = formatTanggal($booking_data['Tanggal_Booking'] ?? '');
-            $booking_data['JamMulaiFormatted'] = formatJam($booking_data['Jam_Mulai'] ?? '');
-            $booking_data['JamSelesaiFormatted'] = formatJam($booking_data['Jam_Selesai'] ?? '');
+        if (!empty($all_details)) {
+            $first = $all_details[0];
 
-            ob_clean(); // Amankan JSON
-            echo @json_encode(['success' => true, 'data' => $booking_data]);
+            $min_mulai = $first['Jam_Mulai'];
+            $max_selesai = $first['Jam_Selesai'];
+            $base_harga_sewa = 0;
+            $id_cust = $first['ID_Customer'];
+
+            foreach ($all_details as $d) {
+                if (formatJam($d['Jam_Mulai']) < formatJam($min_mulai)) {
+                    $min_mulai = $d['Jam_Mulai'];
+                }
+                if (formatJam($d['Jam_Selesai']) > formatJam($max_selesai)) {
+                    $max_selesai = $d['Jam_Selesai'];
+                }
+                $base_harga_sewa += floatval($d['Harga_Sewa'] ?? 120000);
+            }
+
+            // Hitung diskon member/promo 1x (240k - 50k = 190k)
+            $mem_disc = 0;
+            $q_mb = sqlsrv_query($conn, "{call sp_Customer_GetActiveMember(?)}", array($id_cust));
+            if ($q_mb && $r_mb = safeFetch($q_mb)) {
+                $mem_disc = floatval($r_mb['Potongan_Harga'] ?? $r_mb['Nominal_Potongan'] ?? $r_mb['Diskon'] ?? 0);
+            }
+
+            $raw_promo = floatval($first['Diskon'] ?? 0);
+            $promo_disc = 0;
+            if ($raw_promo > 0) {
+                if ($raw_promo <= 100) {
+                    $promo_disc = ($base_harga_sewa * $raw_promo) / 100; // Hitung Persen (%)
+                } else {
+                    $promo_disc = $raw_promo; // Nominal Rp
+                }
+            }
+
+            $disc_1x = max($mem_disc, $promo_disc);
+
+            $first['TanggalFormatted'] = formatTanggal($first['Tanggal'] ?? '');
+            $first['JamMulaiFormatted'] = formatJam($min_mulai);
+            $first['JamSelesaiFormatted'] = formatJam($max_selesai);
+            $first['Total_Bayar'] = max(0, $base_harga_sewa - $disc_1x);
+
+            ob_clean();
+            echo json_encode(['success' => true, 'data' => $first]);
         } else {
             ob_clean();
-            echo json_encode(['success' => false, 'msg' => 'Data booking tidak ditemukan atau gagal menghubungkan ke relasi Jadwal/Lapangan.']);
+            echo json_encode(['success' => false, 'msg' => 'Data booking tidak ditemukan.']);
         }
         exit();
     }
 
     // Action: Konfirmasi Pembayaran (AJAX)
     if ($action === 'confirm_payment') {
-        $id = intval($_GET['id'] ?? 0);
-        $stmt = sqlsrv_query($conn, "{call sp_Booking_ConfirmPayment(?, ?)}", array($id, $nama));
-        if ($stmt) {
+        $raw_ids = $_GET['id'] ?? '0';
+        $ids = explode(',', $raw_ids);
+        
+        $success = true;
+        foreach ($ids as $id) {
+            $id_clean = intval($id);
+            $stmt = sqlsrv_query($conn, "{call sp_Booking_ConfirmPayment(?, ?)}", array($id_clean, $nama));
+            if (!$stmt) { $success = false; }
+        }
+
+        if ($success) {
             echo json_encode(['success' => true, 'msg' => 'Pembayaran berhasil dikonfirmasi.']);
         } else {
-            echo json_encode(['success' => false, 'msg' => 'Gagal mengkonfirmasi pembayaran.']);
+            echo json_encode(['success' => false, 'msg' => 'Gagal mengkonfirmasi sebagian atau seluruh pembayaran.']);
         }
         exit();
     }
 
     // Action: Pembatalan Booking (AJAX)
     if ($action === 'cancel_booking') {
-        $id_booking = intval($_POST['id_booking'] ?? 0);
+        $raw_ids = $_POST['id_booking'] ?? '0';
         $alasan = trim($_POST['alasan_batal'] ?? 'Dibatalkan oleh Karyawan');
+        $ids = explode(',', $raw_ids);
 
-        $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($id_booking));
-        $booking_data = $q_booking ? safeFetch($q_booking) : null;
+        $success = true;
+        foreach ($ids as $id_booking) {
+            $id_clean = intval($id_booking);
+            $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetDetail(?)}", array($id_clean));
+            $booking_data = $q_booking ? safeFetch($q_booking) : null;
 
-        if ($booking_data) {
-            $total_bayar = (float) $booking_data['Total_Bayar'];
-            $biaya_batal = 0;
-            $nominal_refund = $total_bayar;
-            $metode_refund = $booking_data['Metode_Pembayaran'];
+            if ($booking_data) {
+                $total_bayar = (float) $booking_data['Total_Bayar'];
+                $biaya_batal = 0;
+                $nominal_refund = $total_bayar;
+                $metode_refund = $booking_data['Metode_Pembayaran'];
 
-            $stmt_batal = sqlsrv_query(
-                $conn,
-                "{call sp_Booking_CancelByKaryawan(?, ?, ?, ?, ?, ?, ?)}",
-                array($id_booking, $id_karyawan, $alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama)
-            );
-
-            if ($stmt_batal) {
-                echo json_encode(['success' => true, 'msg' => 'Booking berhasil dibatalkan.']);
-            } else {
-                echo json_encode(['success' => false, 'msg' => 'Gagal memproses pembatalan.']);
+                $stmt_batal = sqlsrv_query(
+                    $conn,
+                    "{call sp_Booking_CancelByKaryawan(?, ?, ?, ?, ?, ?, ?)}",
+                    array($id_clean, $id_karyawan, $alasan, $biaya_batal, $nominal_refund, $metode_refund, $nama)
+                );
+                if (!$stmt_batal) { $success = false; }
             }
+        }
+
+        if ($success) {
+            echo json_encode(['success' => true, 'msg' => 'Booking berhasil dibatalkan.']);
         } else {
-            echo json_encode(['success' => false, 'msg' => 'Data booking tidak ditemukan.']);
+            echo json_encode(['success' => false, 'msg' => 'Gagal memproses pembatalan.']);
         }
         exit();
     }
@@ -201,22 +253,94 @@ if ($is_ajax) {
         $status_val = ($filter_status === '' || $filter_status === 'all') ? -1 : (int) $filter_status;
         $tgl_val = empty($filter_tanggal) ? null : $filter_tanggal;
 
-        // Ambil data dalam jumlah besar terlebih dahulu untuk disaring pencariannya secara gabungan (Customer ATAU Lapangan)
-        $bookings_all = [];
+        // --- LOGIKA GROUPING & HITUNG HARGA SEWA AKURAT ---
+        $grouped_raw = [];
         $q_booking = sqlsrv_query($conn, "{call sp_Booking_GetPagedList(?, ?, ?, ?, ?)}", array($status_val, '', $tgl_val, 0, 100000));
+        
         if ($q_booking) {
             while ($row = safeFetch($q_booking)) {
-                // Saring berdasarkan Nama Customer ATAU Nama Lapangan
+                // Filter pencarian
                 if ($filter_customer !== '') {
                     $cust_match = strpos(strtolower($row['Nama_Customer'] ?? ''), strtolower($filter_customer)) !== false;
                     $lap_match = strpos(strtolower($row['Nama_Lapangan'] ?? ''), strtolower($filter_customer)) !== false;
                     if (!$cust_match && !$lap_match) {
-                        continue; // Lewati jika tidak cocok dua-duanya
+                        continue;
                     }
                 }
-                $bookings_all[] = $row;
+
+                $bukti = $row['Bukti_Pembayaran'] ?? '';
+                $group_key = !empty($bukti) 
+                    ? $bukti 
+                    : ($row['ID_Customer'] . '_' . formatTanggal($row['Tanggal_Booking']) . '_' . $row['Status']);
+
+                $harga_sewa = floatval($row['Harga_Sewa'] ?? 0);
+                if ($harga_sewa <= 0) $harga_sewa = 110000;
+                $raw_diskon_promo = floatval($row['Diskon'] ?? 0);
+
+                if (!isset($grouped_raw[$group_key])) {
+                    $grouped_raw[$group_key] = $row;
+                    $grouped_raw[$group_key]['List_ID_Booking'] = [$row['ID_Booking']];
+                    $grouped_raw[$group_key]['List_Jadwal'] = [
+                        $row['Nama_Lapangan'] . ' (' . formatJam($row['Jam_Mulai']) . ' - ' . formatJam($row['Jam_Selesai']) . ')'
+                    ];
+                    $grouped_raw[$group_key]['Base_Harga_Sewa'] = $harga_sewa;
+                    $grouped_raw[$group_key]['Raw_Promo_Percent'] = $raw_diskon_promo;
+                } else {
+                    $grouped_raw[$group_key]['Base_Harga_Sewa'] += $harga_sewa; // 110k + 110k = 220k
+                    $grouped_raw[$group_key]['List_ID_Booking'][] = $row['ID_Booking'];
+                    $grouped_raw[$group_key]['List_Jadwal'][] = 
+                        $row['Nama_Lapangan'] . ' (' . formatJam($row['Jam_Mulai']) . ' - ' . formatJam($row['Jam_Selesai']) . ')';
+                    if ($raw_diskon_promo > 0) {
+                        $grouped_raw[$group_key]['Raw_Promo_Percent'] = $raw_diskon_promo;
+                    }
+                }
             }
         }
+
+        // HITUNG TOTAL BAYAR PRESISI BERDASARKAN PROMO PERSEN TOTAL ATAU MEMBER 1x
+        foreach ($grouped_raw as $key => $g) {
+            $id_cust = $g['ID_Customer'];
+            $base_total = $g['Base_Harga_Sewa']; // 220.000
+            $raw_prm = floatval($g['Raw_Promo_Percent'] ?? 0); // 30%
+
+            $promo_disc = 0;
+            if ($raw_prm > 0) {
+                if ($raw_prm <= 100) {
+                    $promo_disc = ($base_total * $raw_prm) / 100.0; // 220.000 x 30% = 66.000
+                } else {
+                    $promo_disc = $raw_prm;
+                }
+            }
+
+            $mem_disc = 0;
+            $q_mb = sqlsrv_query($conn, "{call sp_Customer_GetActiveMember(?)}", array($id_cust));
+            if ($q_mb && $r_mb = safeFetch($q_mb)) {
+                $mem_disc = floatval($r_mb['Potongan_Harga'] ?? $r_mb['Nominal_Potongan'] ?? $r_mb['Diskon'] ?? 0);
+            }
+
+            $disc_1x = max($mem_disc, $promo_disc);
+            $grouped_raw[$key]['Total_Bayar'] = max(0, $base_total - $disc_1x); // 220.000 - 66.000 = 154.000
+        }
+
+        $bookings_all = array_values($grouped_raw);
+
+        // PENGURUTAN PRESISI DI PHP (MENUNGGU PADA URUTAN TERATAS & TRANSAKSI TERBARU PADA HALAMAN 1)
+        usort($bookings_all, function ($a, $b) {
+            $prio = [0 => 1, 1 => 2, 2 => 3, 3 => 4];
+            $wA = $prio[$a['Status']] ?? 99;
+            $wB = $prio[$b['Status']] ?? 99;
+
+            if ($wA !== $wB) return $wA <=> $wB;
+
+            $dA = is_object($a['Tanggal_Booking']) ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking']);
+            $dB = is_object($b['Tanggal_Booking']) ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking']);
+
+            if ($dA !== $dB) return $dB <=> $dA; // Tanggal transaksi terbaru di depan
+
+            $idA = max($a['List_ID_Booking']);
+            $idB = max($b['List_ID_Booking']);
+            return $idB <=> $idA;
+        });
 
         // Hitung total data terfilter
         $total_data = count($bookings_all);
@@ -284,9 +408,14 @@ if ($is_ajax) {
                         <div class="cell-detail"><?= htmlspecialchars($b['Email']) ?></div>
                     </td>
                     <!-- Lapangan & Jadwal jadi RATA KIRI -->
-                    <td style="text-align: left;">
+                     <td style="text-align: left;">
                         <div class="cell-name"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
-                        <div class="cell-detail"><?= $tanggal_jadwal ?> | <?= $jam_mulai ?> - <?= $jam_selesai ?></div>
+                        <div class="cell-detail">
+                            <?= $tanggal_jadwal ?><br>
+                            <span style="color: var(--orange); font-weight:700;">
+                                <?= implode('<br>', $b['List_Jadwal'] ?? [$jam_mulai . ' - ' . $jam_selesai]) ?>
+                            </span>
+                        </div>
                     </td>
                     <td style="text-align: right;"><?= formatTanggal($b['Tanggal_Booking']) ?></td>
                     <td style="text-align: center;"><?= htmlspecialchars($b['Metode_Pembayaran']) ?></td>
@@ -297,22 +426,11 @@ if ($is_ajax) {
                             <i class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?>
                         </span>
                     </td>
-                    <td>
-                        <div class="action-btns">
-                            <button type="button" class="btn-icon view" onclick="showDetail(<?= $b['ID_Booking'] ?>)" title="Detail"><i
-                                    class="fa-solid fa-eye"></i></button>
-                            <?php if (!empty($b['Bukti_Pembayaran'])): ?>
-                                <button type="button" class="btn-icon bukti"
-                                    onclick="showBukti(<?= $b['ID_Booking'] ?>, '<?= htmlspecialchars($b['Bukti_Pembayaran'], ENT_QUOTES) ?>')"
-                                    title="Lihat Bukti Pembayaran"><i class="fa-solid fa-receipt"></i></button>
-                            <?php endif; ?>
-                            <?php if ($b['Status'] == 0): ?>
-                                <button type="button" class="btn-icon success" onclick="confirmBayar(<?= $b['ID_Booking'] ?>)"
-                                    title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
-                                <button type="button" class="btn-icon danger" onclick="confirmBatal(<?= $b['ID_Booking'] ?>)"
-                                    title="Batalkan"><i class="fa-solid fa-xmark"></i></button>
-                            <?php endif; ?>
-                        </div>
+                    <td style="text-align: center;">
+                        <?php $ids_str = implode(',', $b['List_ID_Booking'] ?? [$b['ID_Booking']]); ?>
+                        <button type="button" class="btn-kelola" onclick="openCombinedModal('<?= $ids_str ?>', <?= $b['ID_Booking'] ?>)">
+                            <i class="fa-solid fa-receipt"></i> Kelola Transaksi
+                        </button>
                     </td>
                 </tr>
             <?php endforeach;
@@ -885,13 +1003,12 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
             background: var(--card-bg);
             border-radius: 16px;
             width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
+            max-width: 520px; /* Ukuran diperramping */
             box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
-            animation: modalIn .3s ease-out;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            animation: modalIn .25s ease-out;
+            overflow: hidden; /* Matikan scrollbar luar modal */
+            display: flex;
+            flex-direction: column;
         }
 
         .modal::-webkit-scrollbar {
@@ -952,7 +1069,14 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         }
 
         .modal-body {
-            padding: 24px 28px;
+            padding: 16px 20px; /* Padding dibuat lebih padat */
+            overflow-y: auto;
+            scrollbar-width: none; /* Hilangkan garis scroll di browser Firefox */
+            -ms-overflow-style: none;
+        }
+
+        .modal-body::-webkit-scrollbar {
+            display: none; /* Hilangkan garis scroll di browser Chrome/Edge */
         }
 
         .modal-footer {
@@ -966,13 +1090,13 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         .detail-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 10px; /* Jarak antar item diperkecil */
         }
 
         .detail-item {
-            padding: 12px;
+            padding: 8px 12px; /* Dibuat lebih ringkas */
             background: var(--bg);
-            border-radius: 10px;
+            border-radius: 8px;
         }
 
         .detail-label {
@@ -1092,6 +1216,27 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         .search-box input::placeholder {
             color: #9CA3AF;
         }
+
+        /* --- TOMBOL KELOLA TRANSAKSI --- */
+.btn-kelola {
+    padding: 8px 16px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--orange);
+    color: var(--orange);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+.btn-kelola:hover {
+    background: var(--orange);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(255, 69, 0, 0.25);
+}
     </style>
 </head>
 
@@ -1384,14 +1529,13 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         // ============================================
         function openModal(id) {
             document.getElementById(id).classList.add('active');
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden'; // Mengunci scroll halaman utama belakang
         }
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('active');
-            document.body.style.overflow = '';
+            document.body.style.overflow = ''; // Membuka kembali scroll
         }
-
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function (e) {
                 if (e.target === this) {
@@ -1406,7 +1550,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
         // ============================================
         async function showDetail(id) {
             try {
-                const response = await fetch('booking.php?action=get_detail&id=' + id);
+                const response = await fetch('booking.php?action=get_detail&id=' + ids_str);
                 // Kita ambil responnya sebagai TEXT mentah dulu untuk menangkap jika ada ERROR DARI PHP/SQL
                 const rawText = await response.text();
 
@@ -1583,6 +1727,79 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Booking';
                 showError('Gagal!', 'Terjadi kesalahan sistem.');
             }
         }
+
+        // --- FUNGSI MEMBUKA POP-UP LENGKAP (DETAIL + BUKTI + SETUJU/TOLAK) ---
+async function openCombinedModal(ids_str, id) {
+    try {
+        const response = await fetch('booking.php?action=get_detail&id=' + ids_str);
+        const res = await response.json();
+
+        if (res.success) {
+            const booking = res.data;
+            const statusMap = {
+                0: { label: 'Menunggu Konfirmasi', class: 'sp-pending', icon: 'fa-clock' },
+                1: { label: 'Berhasil (Dikonfirmasi)', class: 'sp-active', icon: 'fa-check-circle' },
+                2: { label: 'Selesai', class: 'sp-success', icon: 'fa-flag-checkered' },
+                3: { label: 'Dibatalkan', class: 'sp-inactive', icon: 'fa-ban' }
+            };
+            const status = statusMap[booking.Status] || statusMap[0];
+
+            // Render Tampilan Gambar Bukti Transfer
+            let buktiHtml = '';
+            if (booking.Bukti_Pembayaran) {
+                const imgUrl = resolveBuktiPath(booking.Bukti_Pembayaran);
+                buktiHtml = `
+                    <div style="margin-top:10px; text-align:center; background:#FAFAFA; padding:8px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Bukti Pembayaran</div>
+                        <a href="${imgUrl}" target="_blank" title="Klik untuk membuka gambar asli di tab baru">
+                            <img src="${imgUrl}" style="max-height:130px; max-width:100%; border-radius:6px; border:1px solid var(--border); object-fit:contain;" alt="Bukti Transfer">
+                        </a>
+                        <div style="font-size:10px; color:var(--muted); margin-top:2px;">*Klik gambar untuk perbesar di tab baru</div>
+                    </div>
+                `;
+            } else {
+                buktiHtml = `<div style="margin-top:10px; font-size:11px; color:var(--muted); text-align:center; background:#FAFAFA; padding:8px; border-radius:6px;"><em>Belum ada bukti pembayaran yang diunggah.</em></div>`;
+            }
+
+            // Render Isi Detail
+            const html = `
+                <div class="detail-grid">
+                    <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
+                    <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${booking.Nama_Customer}</div><div style="font-size:11px; color:var(--muted);">${booking.No_Telepon || ''}</div></div>
+                    <div class="detail-item"><div class="detail-label">Lapangan & Jadwal</div><div class="detail-value">${booking.Nama_Lapangan}</div><div style="font-size:11px; color:var(--muted);">${booking.TanggalFormatted} (${booking.JamMulaiFormatted} - ${booking.JamSelesaiFormatted})</div></div>
+                    <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${booking.Metode_Pembayaran}</div></div>
+                    <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(booking.Total_Bayar)}</div></div>
+                </div>
+                ${buktiHtml}
+            `;
+
+            document.getElementById('detailContent').innerHTML = html;
+
+            // Render Tombol Setuju & Tolak di Footer Pop-up
+            let footerHtml = '';
+            if (booking.Status == 0) {
+                footerHtml = `
+                    <button type="button" class="btn-secondary" style="background:var(--green); color:#fff; border:none; padding:10px 18px; flex:1;" onclick="closeModal('modalDetail'); confirmBayar('${ids_str}')">
+                        <i class="fa-solid fa-check"></i> Setuju / Konfirmasi
+                    </button>
+                    <button type="button" class="btn-secondary" style="background:var(--red); color:#fff; border:none; padding:10px 18px; flex:1;" onclick="closeModal('modalDetail'); confirmBatal('${ids_str}')">
+                        <i class="fa-solid fa-xmark"></i> Tolak / Batalkan
+                    </button>
+                `;
+            } else {
+                footerHtml = `<button type="button" class="btn-secondary" style="width:100%" onclick="closeModal('modalDetail')"><i class="fa-solid fa-xmark"></i> Tutup</button>`;
+            }
+
+            document.querySelector('#modalDetail .modal-footer').innerHTML = footerHtml;
+
+            openModal('modalDetail');
+        } else {
+            showError('Gagal!', res.msg);
+        }
+    } catch (error) {
+        showError('Error', 'Gagal memuat detail transaksi.');
+    }
+}
 
         // ============================================
         // INITIAL LOAD

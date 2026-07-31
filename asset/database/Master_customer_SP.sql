@@ -344,7 +344,7 @@ BEGIN
     SELECT @BookingSelesai = COUNT(*) FROM Booking 
     WHERE ID_Customer = @ID_Customer AND Status = 2;
 
-    -- Booking Mendatang (Berhasil & Tanggal >= Hari Ini)
+    -- Booking Mendatang
     DECLARE @BookingMendatang INT;
     SELECT @BookingMendatang = COUNT(*) 
     FROM Booking B
@@ -356,10 +356,11 @@ BEGIN
     SELECT @PesananAlat = COUNT(*) FROM Beli_Alat 
     WHERE ID_Customer = @ID_Customer AND Status = 1;
 
-    -- Total Spending
+    -- Total Spending Akurat (Status 1 & 2 = 100%, Status 3 = 50% Denda Batal)
     DECLARE @TotalSpending DECIMAL(18,2);
     SELECT @TotalSpending = (
         ISNULL((SELECT SUM(Total_Bayar) FROM Booking WHERE ID_Customer = @ID_Customer AND Status IN (1, 2)), 0) +
+        ISNULL((SELECT SUM(Total_Bayar * 0.5) FROM Booking WHERE ID_Customer = @ID_Customer AND Status = 3), 0) +
         ISNULL((SELECT SUM(Total_Bayar) FROM Beli_Alat WHERE ID_Customer = @ID_Customer AND Status = 1), 0) +
         ISNULL((SELECT SUM(Total_Bayar) FROM Langganan WHERE ID_Customer = @ID_Customer AND Status IN (1, 2)), 0)
     );
@@ -384,7 +385,6 @@ BEGIN
         @MemberTipe AS MemberTipe,
         @MemberExpiry AS MemberExpiry;
 END;
-GO
 
 -- ============================================================
 -- 13. SP: Get Customer Booking History

@@ -125,53 +125,10 @@ $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
 if ($page < 1)
     $page = 1;
 
-// Menghitung total baris untuk membuat pagination info
-$total_rows = 0;
-$count_sql = "SELECT COUNT(*) AS total_rows FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?) WHERE Status <> 0";
-$q_count = safeQuery($conn, $count_sql, $params);
-if ($q_count !== null) {
-    $row_count = safeFetch($q_count);
-    $total_rows = $row_count['total_rows'] ?? 0;
-    sqlsrv_free_stmt($q_count);
-}
-
-$total_pages = ceil($total_rows / $limit);
-if ($page > $total_pages && $total_pages > 0)
-    $page = $total_pages;
-$offset = ($page - 1) * $limit;
-
-$bookings = [];
-$booking_sql = "SELECT 
-    ID_Booking, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status,
-    Nama_Customer, Nama_Karyawan_Konfirm, Nama_Lapangan, Harga_Sewa,
-    Tanggal_Main, Jam_Mulai, Jam_Selesai, Nama_Promo, Diskon_Promo,
-    Nama_Tipe, Potongan_Member, Nominal_Refund, Biaya_Batal
-FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?)
-WHERE Status <> 0
-ORDER BY 
-    CASE WHEN Status = 2 THEN 0 ELSE 1 END ASC, -- Status 'Selesai' (2) ditaruh paling atas
-    Tanggal_Booking DESC, 
-    ID_Booking DESC
-OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
-
-// Menggabungkan parameter filter dengan parameter OFFSET dan LIMIT
-$booking_params = $params;
-$booking_params[] = array($offset, SQLSRV_PARAM_IN);
-$booking_params[] = array($limit, SQLSRV_PARAM_IN);
-
-// 1. Eksekusi query pertama & langsung ambil seluruh datanya hingga tuntas
-$q = safeQuery($conn, $booking_sql, $booking_params);
-if ($q !== null) {
-    while ($row = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC)) {
-        $bookings[] = $row;
-    }
-}
-
 // ============================================
-// DATA BOOKING UNTUK CETAK (TANPA BATAS PAGINATION)
+// DATA BOOKING LAPORAN (SINKRONISASI GROUPING & HARGA AKURAT)
 // ============================================
-// 2. Eksekusi query cetak setelah query pertama selesai di-fetch sepenuhnya
-$print_bookings = [];
+$raw_report_bookings = [];
 $print_sql = "SELECT 
         ID_Booking, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status,
         Nama_Customer, Nama_Karyawan_Konfirm, Nama_Lapangan, Harga_Sewa,
@@ -179,17 +136,113 @@ $print_sql = "SELECT
         Nama_Tipe, Potongan_Member, Nominal_Refund, Biaya_Batal
     FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?)
     WHERE Status <> 0
-    ORDER BY 
-        CASE WHEN Status = 2 THEN 0 ELSE 1 END ASC, 
-        Tanggal_Booking DESC, 
-        ID_Booking DESC";
+    ORDER BY Tanggal_Booking DESC, ID_Booking DESC";
 
-$q_print = safeQuery($conn, $print_sql, $params); // Menggunakan params asli tanpa offset & limit
+$q_print = safeQuery($conn, $print_sql, $params);
 if ($q_print !== null) {
     while ($row = sqlsrv_fetch_array($q_print, SQLSRV_FETCH_ASSOC)) {
-        $print_bookings[] = $row;
+        $raw_report_bookings[] = $row;
+    }
+    sqlsrv_free_stmt($q_print);
+}
+
+// --- LOGIKA GROUPING TRANSAKSI LAPORAN ---
+$grouped_report = [];
+foreach ($raw_report_bookings as $b) {
+    $bukti = trim($b['Bukti_Pembayaran'] ?? '');
+    $tgl_booking_str = ($b['Tanggal_Booking'] instanceof DateTime) ? $b['Tanggal_Booking']->format('Y-m-d H:i:s') : strval($b['Tanggal_Booking']);
+    $tgl_main_str = ($b['Tanggal_Main'] instanceof DateTime) ? $b['Tanggal_Main']->format('Y-m-d') : strval($b['Tanggal_Main']);
+
+    // Kunci Grouping Laporan
+    if (!empty($bukti)) {
+        $group_key = 'bukti_' . $bukti;
+    } else {
+        $group_key = 'grp_' . ($b['Nama_Customer'] ?? '') . '_' . ($b['Nama_Lapangan'] ?? '') . '_' . $tgl_main_str . '_' . $tgl_booking_str . '_' . ($b['Status'] ?? '');
+    }
+
+    $harga_sewa_slot = floatval($b['Harga_Sewa'] ?? 120000);
+    $diskon_member_slot = floatval($b['Potongan_Member'] ?? 0);
+    
+    // HITUNG PROMO (PERSEN % VS NOMINAL RP)
+    $raw_promo_diskon = floatval($b['Diskon_Promo'] ?? 0);
+    $diskon_promo_slot = 0;
+    if ($raw_promo_diskon > 0) {
+        if ($raw_promo_diskon <= 100) {
+            $diskon_promo_slot = ($harga_sewa_slot * $raw_promo_diskon) / 100.0; // Hitung Persen (%)
+        } else {
+            $diskon_promo_slot = $raw_promo_diskon; // Nominal Rp
+        }
+    }
+
+    if (!isset($grouped_report[$group_key])) {
+        $grouped_report[$group_key] = $b;
+        $grouped_report[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        $grouped_report[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        $grouped_report[$group_key]['Base_Harga_Sewa_Total'] = $harga_sewa_slot;
+        $grouped_report[$group_key]['Diskon_Member_Applied'] = $diskon_member_slot;
+        $grouped_report[$group_key]['Diskon_Promo_Applied'] = $diskon_promo_slot;
+    } else {
+        $grouped_report[$group_report_key = $group_key]['Base_Harga_Sewa_Total'] += $harga_sewa_slot;
+
+        if ($diskon_promo_slot > 0) {
+            if ($raw_promo_diskon <= 100) {
+                $grouped_report[$group_key]['Diskon_Promo_Applied'] += $diskon_promo_slot;
+            }
+        }
+
+        $curr_min = $grouped_report[$group_key]['Min_Jam_Mulai'];
+        $curr_max = $grouped_report[$group_key]['Max_Jam_Selesai'];
+
+        $jam_m_new = ($b['Jam_Mulai'] instanceof DateTime) ? $b['Jam_Mulai']->format('H:i') : substr(strval($b['Jam_Mulai']), 0, 5);
+        $jam_m_curr = ($curr_min instanceof DateTime) ? $curr_min->format('H:i') : substr(strval($curr_min), 0, 5);
+
+        $jam_s_new = ($b['Jam_Selesai'] instanceof DateTime) ? $b['Jam_Selesai']->format('H:i') : substr(strval($b['Jam_Selesai']), 0, 5);
+        $jam_s_curr = ($curr_max instanceof DateTime) ? $curr_max->format('H:i') : substr(strval($curr_max), 0, 5);
+
+        if ($jam_m_new < $jam_m_curr) {
+            $grouped_report[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        }
+        if ($jam_s_new > $jam_s_curr) {
+            $grouped_report[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        }
     }
 }
+
+// Hitung Total Bayar Gabungan Presisi (Base Harga Sewa - Diskon HANYA 1x)
+foreach ($grouped_report as $key => $g) {
+    $base = $g['Base_Harga_Sewa_Total'];
+    $disc = max($g['Diskon_Member_Applied'], $g['Diskon_Promo_Applied']);
+    $grouped_report[$key]['Total_Bayar'] = max(0, $base - $disc);
+}
+
+$all_grouped_bookings = array_values($grouped_report);
+
+// URUTKAN PRESISI: Status Selesai (2) / Berhasil (1) Dulu, Lalu Waktu Transaksi Terbaru
+usort($all_grouped_bookings, function ($a, $b) {
+    $prio = [2 => 1, 1 => 2, 3 => 3, 0 => 4];
+    $wA = $prio[$a['Status']] ?? 99;
+    $wB = $prio[$b['Status']] ?? 99;
+
+    if ($wA !== $wB) return $wA <=> $wB; // Status Selesai/Berhasil paling atas, Dibatalkan di bawah
+
+    $dA = is_object($a['Tanggal_Booking']) ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking']);
+    $dB = is_object($b['Tanggal_Booking']) ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking']);
+
+    if ($dA !== $dB) return $dB <=> $dA; // Transaksi terbaru di atas
+
+    $idA = intval($a['ID_Booking'] ?? 0);
+    $idB = intval($b['ID_Booking'] ?? 0);
+    return $idB <=> $idA;
+});
+
+// Hitung Pagination
+$total_rows = count($all_grouped_bookings);
+$total_pages = max(1, ceil($total_rows / $limit));
+if ($page > $total_pages && $total_pages > 0) $page = $total_pages;
+$offset = ($page - 1) * $limit;
+
+$bookings = array_slice($all_grouped_bookings, $offset, $limit);
+$print_bookings = $all_grouped_bookings; // Digunakan untuk Cetak PDF/Excel
 
 // ============================================
 // DAFTAR LAPANGAN UNTUK FILTER
@@ -1321,23 +1374,27 @@ function statusBookingLabel($status)
                         </thead>
                         <tbody>
                             <?php if (count($bookings) > 0): ?>
-                                <?php foreach ($bookings as $b):
+                                <?php 
+                                $start_number = $offset + 1;
+                                foreach ($bookings as $b):
                                     list($status_lbl, $status_cls) = statusBookingLabel($b['Status']);
-                                    $diskon_info = '';
-                                    if (!empty($b['Nama_Tipe'])) {
-                                        $diskon_info = 'Member ' . htmlspecialchars($b['Nama_Tipe']) . ' (-' . rupiahFormat($b['Potongan_Member']) . ')';
-                                    } elseif (!empty($b['Nama_Promo'])) {
-                                        $diskon_info = htmlspecialchars($b['Nama_Promo']) . ' (-' . rupiahFormat($b['Diskon_Promo']) . ')';
-                                    } else {
-                                        $diskon_info = '-';
+                                    
+                                    $diskon_info = '-';
+                                    $disc_mem = floatval($b['Diskon_Member_Applied'] ?? $b['Potongan_Member'] ?? 0);
+                                    $disc_pro = floatval($b['Diskon_Promo_Applied'] ?? $b['Diskon_Promo'] ?? 0);
+
+                                    if ($disc_mem > 0) {
+                                        $diskon_info = 'Member ' . htmlspecialchars($b['Nama_Tipe'] ?? 'Aktif') . ' (-' . rupiahFormat($disc_mem) . ')';
+                                    } elseif ($disc_pro > 0) {
+                                        $diskon_info = htmlspecialchars($b['Nama_Promo'] ?? 'Promo') . ' (-' . rupiahFormat($disc_pro) . ')';
                                     }
+
+                                    $jam_mulai_disp = ($b['Min_Jam_Mulai'] instanceof DateTime) ? $b['Min_Jam_Mulai']->format('H:i') : substr(strval($b['Min_Jam_Mulai'] ?? $b['Jam_Mulai']), 0, 5);
+                                    $jam_selesai_disp = ($b['Max_Jam_Selesai'] instanceof DateTime) ? $b['Max_Jam_Selesai']->format('H:i') : substr(strval($b['Max_Jam_Selesai'] ?? $b['Jam_Selesai']), 0, 5);
+                                    $tgl_main_disp = ($b['Tanggal_Main'] instanceof DateTime) ? $b['Tanggal_Main']->format('d M Y') : (empty($b['Tanggal_Main']) ? '-' : date('d M Y', strtotime($b['Tanggal_Main'])));
+                                    $tgl_booking_disp = ($b['Tanggal_Booking'] instanceof DateTime) ? $b['Tanggal_Booking']->format('d M Y') : (empty($b['Tanggal_Booking']) ? '-' : date('d M Y', strtotime($b['Tanggal_Booking'])));
                                     ?>
                                     <tr>
-                                        <?php
-                                        if (!isset($start_number)) {
-                                            $start_number = $offset + 1;
-                                        }
-                                        ?>
                                         <td class="text-center">
                                             <div class="cell-name"><?= $start_number++ ?></div>
                                         </td>
@@ -1346,26 +1403,27 @@ function statusBookingLabel($status)
                                             <div class="cell-detail"><?= rupiahFormat($b['Harga_Sewa']) ?>/jam</div>
                                         </td>
                                         <td>
-                                            <div class="cell-name">
-                                                <?= $b['Tanggal_Main'] ? $b['Tanggal_Main']->format('d M Y') : '-' ?>
-                                            </div>
-                                            <div class="cell-detail">
-                                                <?= $b['Jam_Mulai'] ? $b['Jam_Mulai']->format('H:i') : '-' ?> -
-                                                <?= $b['Jam_Selesai'] ? $b['Jam_Selesai']->format('H:i') : '-' ?>
+                                            <div class="cell-name"><?= $tgl_main_disp ?></div>
+                                            <div class="cell-detail" style="color:var(--orange); font-weight:700;">
+                                                <?= $jam_mulai_disp ?> - <?= $jam_selesai_disp ?> WIB
                                             </div>
                                         </td>
                                         <td class="text-center">
-                                            <?= $b['Tanggal_Booking'] ? $b['Tanggal_Booking']->format('d M Y') : '-' ?>
+                                            <?= $tgl_booking_disp ?>
                                         </td>
                                         <td><?= htmlspecialchars($b['Metode_Pembayaran']) ?></td>
                                         <td>
-                                            <div class="cell-detail"><?= $diskon_info ?></div>
+                                            <div class="cell-detail" style="color:var(--orange); font-weight:700;"><?= $diskon_info ?></div>
                                         </td>
                                         <td class="text-right">
                                             <div class="cell-price"><?= rupiahFormat($b['Total_Bayar']) ?></div>
-                                            <?php if ($b['Status'] == 3 && $b['Nominal_Refund'] > 0): ?>
+                                            <?php if ($b['Status'] == 3): ?>
+                                                <?php 
+                                                // Hitung murni 50% Refund dari Total Bayar Gabungan Transaksi
+                                                $refund_gabungan = floatval($b['Total_Bayar']) * 0.50; 
+                                                ?>
                                                 <div class="cell-detail" style="color:var(--red);">Refund:
-                                                    <?= rupiahFormat($b['Nominal_Refund']) ?>
+                                                    <?= rupiahFormat($refund_gabungan) ?>
                                                 </div>
                                             <?php endif; ?>
                                         </td>

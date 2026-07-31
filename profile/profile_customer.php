@@ -499,13 +499,135 @@ if ($res_booking) {
 
 // URUTKAN RIWAYAT BOOKING (Prioritas: Menunggu [0] -> Terkonfirmasi [1] -> Selesai [2] -> Dibatalkan [3])
 usort($bookings, function ($a, $b) {
+    // 1. Prioritas Status (Menunggu [0] -> Terkonfirmasi [1] -> Selesai [2] -> Dibatalkan [3])
     $prio = [
-        0 => 1, // Menunggu Konfirmasi (Prioritas 1)
-        1 => 2, // Terkonfirmasi (Prioritas 2)
-        2 => 3, // Selesai (Prioritas 3)
-        3 => 4  // Dibatalkan (Prioritas 4)
+        0 => 1, // Menunggu Konfirmasi (Paling Atas)
+        1 => 2, // Terkonfirmasi
+        2 => 3, // Selesai
+        3 => 4  // Dibatalkan
     ];
 
+    $statusA = isset($a['BookingStatus']) ? intval($a['BookingStatus']) : 99;
+    $statusB = isset($b['BookingStatus']) ? intval($b['BookingStatus']) : 99;
+
+    $weightA = $prio[$statusA] ?? 99;
+    $weightB = $prio[$statusB] ?? 99;
+
+    if ($weightA !== $weightB) {
+        return $weightA <=> $weightB; // Kelompok status Menunggu selalu di atas
+    }
+
+    // 2. Jika Statusnya SAMA, Urutkan Tanggal_Booking TERBARU di Paling Depan (NEWEST FIRST)
+    $dateA = $a['Tanggal_Booking'] instanceof DateTime ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking'] ?? '');
+    $dateB = $b['Tanggal_Booking'] instanceof DateTime ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking'] ?? '');
+
+    if ($dateA !== $dateB) {
+        return $dateB <=> $dateA; // Transaksi terbaru di depan
+    }
+
+    // 3. Jika Tanggal_Booking juga sama, urutkan Tanggal Bermain Terbaru
+    $tglA = $a['Tanggal'] instanceof DateTime ? $a['Tanggal']->getTimestamp() : strtotime($a['Tanggal'] ?? '');
+    $tglB = $b['Tanggal'] instanceof DateTime ? $b['Tanggal']->getTimestamp() : strtotime($b['Tanggal'] ?? '');
+    return $tglB <=> $tglA;
+});
+
+// --- 1. AMBIL NILAI POTONGAN MEMBER AKTIF CUSTOMER (50.000) ---
+$active_member_discount = 0;
+$active_member_name = '';
+$q_mb = sqlsrv_query($conn, "{call sp_Customer_GetActiveMember(?)}", array($ID_Customer));
+if ($q_mb && $row_mb = sqlsrv_fetch_array($q_mb, SQLSRV_FETCH_ASSOC)) {
+    $active_member_discount = floatval($row_mb['Potongan_Harga'] ?? $row_mb['Nominal_Potongan'] ?? $row_mb['Diskon'] ?? 0);
+    $active_member_name = $row_mb['Nama_Tipe'] ?? $row_mb['Nama_Tipe_Member'] ?? 'Member';
+}
+
+// --- 2. LOGIKA GROUPING PRESISI HARGA CHECKOUT ---
+$grouped_bookings_map = [];
+
+foreach ($bookings as $b) {
+    $bukti = trim($b['Bukti_Pembayaran'] ?? '');
+    $tgl_booking_str = ($b['Tanggal_Booking'] instanceof DateTime) ? $b['Tanggal_Booking']->format('Y-m-d H:i:s') : strval($b['Tanggal_Booking']);
+    $tgl_main_str = ($b['Tanggal'] instanceof DateTime) ? $b['Tanggal']->format('Y-m-d') : strval($b['Tanggal']);
+
+    if (!empty($bukti)) {
+        $group_key = 'bukti_' . $bukti;
+    } else {
+        $group_key = 'grp_' . ($b['Nama_Lapangan'] ?? '') . '_' . $tgl_main_str . '_' . $tgl_booking_str . '_' . ($b['BookingStatus'] ?? '') . '_' . ($b['Metode_Pembayaran'] ?? '');
+    }
+
+    $tot_bayar_slot = floatval($b['Total_Bayar'] ?? 0);
+    $harga_sewa_slot = floatval($b['Harga_Sewa'] ?? 0);
+    if ($harga_sewa_slot <= 0) $harga_sewa_slot = 110000;
+
+    $raw_promo_pct = floatval($b['Diskon'] ?? 0);
+    $nama_prm = trim($b['Nama_Promo'] ?? '');
+
+    if (!isset($grouped_bookings_map[$group_key])) {
+        $grouped_bookings_map[$group_key] = $b;
+        $grouped_bookings_map[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        $grouped_bookings_map[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        $grouped_bookings_map[$group_key]['Total_Bayar_Group'] = $tot_bayar_slot;
+        $grouped_bookings_map[$group_key]['Base_Harga_Sewa_Total'] = $harga_sewa_slot;
+        $grouped_bookings_map[$group_key]['Promo_Percent'] = $raw_promo_pct;
+        $grouped_bookings_map[$group_key]['Nama_Promo_Fixed'] = $nama_prm;
+    } else {
+        $grouped_bookings_map[$group_key]['Total_Bayar_Group'] += $tot_bayar_slot;
+        $grouped_bookings_map[$group_key]['Base_Harga_Sewa_Total'] += $harga_sewa_slot;
+
+        if (!empty($nama_prm)) {
+            $grouped_bookings_map[$group_key]['Nama_Promo_Fixed'] = $nama_prm;
+        }
+        if ($raw_promo_pct > 0) {
+            $grouped_bookings_map[$group_key]['Promo_Percent'] = $raw_promo_pct;
+        }
+
+        $curr_min = $grouped_bookings_map[$group_key]['Min_Jam_Mulai'];
+        $curr_max = $grouped_bookings_map[$group_key]['Max_Jam_Selesai'];
+
+        $jam_m_new = ($b['Jam_Mulai'] instanceof DateTime) ? $b['Jam_Mulai']->format('H:i') : substr(strval($b['Jam_Mulai']), 0, 5);
+        $jam_m_curr = ($curr_min instanceof DateTime) ? $curr_min->format('H:i') : substr(strval($curr_min), 0, 5);
+
+        $jam_s_new = ($b['Jam_Selesai'] instanceof DateTime) ? $b['Jam_Selesai']->format('H:i') : substr(strval($b['Jam_Selesai']), 0, 5);
+        $jam_s_curr = ($curr_max instanceof DateTime) ? $curr_max->format('H:i') : substr(strval($curr_max), 0, 5);
+
+        if ($jam_m_new < $jam_m_curr) {
+            $grouped_bookings_map[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        }
+        if ($jam_s_new > $jam_s_curr) {
+            $grouped_bookings_map[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        }
+    }
+}
+
+// HITUNG FINAL DISKON & TOTAL BAYAR MURNI PRESISI
+foreach ($grouped_bookings_map as $key => $g) {
+    $base = $g['Base_Harga_Sewa_Total']; // 220.000
+    $pct = $g['Promo_Percent']; // 30%
+    $nama_prm = $g['Nama_Promo_Fixed'];
+
+    $potongan_1x = 0;
+    $is_member_disc = false;
+
+    if (!empty($nama_prm) || $pct > 0) {
+        if ($pct <= 100 && $pct > 0) {
+            $potongan_1x = ($base * $pct) / 100.0; // 220.000 * 30% = 66.000
+        } else {
+            $potongan_1x = $pct;
+        }
+    } elseif ($active_member_discount > 0) {
+        $potongan_1x = $active_member_discount;
+        $is_member_disc = true;
+    }
+
+    $grouped_bookings_map[$key]['Potongan_Final_Group'] = $potongan_1x;
+    $grouped_bookings_map[$key]['Is_Member_Discount'] = $is_member_disc;
+    $grouped_bookings_map[$key]['Total_Bayar_Group'] = max(0, $base - $potongan_1x); // 220.000 - 66.000 = 154.000!
+}
+
+$bookings = array_values($grouped_bookings_map);
+
+// --- 3. PENGURUTAN PRESISI (TRANSAKSI TERBARU PALING ATAS) ---
+usort($bookings, function ($a, $b) {
+    $prio = [0 => 1, 1 => 2, 2 => 3, 3 => 4];
     $statusA = isset($a['BookingStatus']) ? intval($a['BookingStatus']) : 99;
     $statusB = isset($b['BookingStatus']) ? intval($b['BookingStatus']) : 99;
 
@@ -516,12 +638,17 @@ usort($bookings, function ($a, $b) {
         return $weightA <=> $weightB;
     }
 
-    // Jika status sama, urutkan berdasarkan Tanggal_Booking terbaru
     $dateA = $a['Tanggal_Booking'] instanceof DateTime ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking'] ?? '');
     $dateB = $b['Tanggal_Booking'] instanceof DateTime ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking'] ?? '');
-    return $dateB <=> $dateA;
-});
 
+    if ($dateA !== $dateB) {
+        return $dateB <=> $dateA;
+    }
+
+    $idA = intval($a['ID_Booking'] ?? 0);
+    $idB = intval($b['ID_Booking'] ?? 0);
+    return $idB <=> $idA;
+});
 
 // 2. Riwayat Langganan Member Lengkap (MENGGUNAKAN SP)
 $memberships = [];
@@ -536,10 +663,10 @@ if ($res_member) {
 // URUTKAN RIWAYAT MEMBER (Prioritas: Menunggu [0] -> Aktif [1] -> Berakhir [2] -> Ditolak [3])
 usort($memberships, function ($a, $b) {
     $prio = [
-        0 => 1, // Menunggu Konfirmasi (Prioritas 1)
-        1 => 2, // Aktif (Prioritas 2)
-        2 => 3, // Berakhir (Prioritas 3)
-        3 => 4  // Ditolak (Prioritas 4)
+        0 => 1, // Menunggu Konfirmasi
+        1 => 2, // Aktif
+        2 => 3, // Berakhir
+        3 => 4  // Ditolak
     ];
 
     $statusA = isset($a['MemberStatus']) ? intval($a['MemberStatus']) : 99;
@@ -552,7 +679,7 @@ usort($memberships, function ($a, $b) {
         return $weightA <=> $weightB;
     }
 
-    // Jika status sama, urutkan berdasarkan Tanggal_Mulai terbaru
+    // Jika Status sama, urutkan Tanggal Terbaru di depan
     $dateA = $a['Tanggal_Mulai'] instanceof DateTime ? $a['Tanggal_Mulai']->getTimestamp() : strtotime($a['Tanggal_Mulai'] ?? '');
     $dateB = $b['Tanggal_Mulai'] instanceof DateTime ? $b['Tanggal_Mulai']->getTimestamp() : strtotime($b['Tanggal_Mulai'] ?? '');
     return $dateB <=> $dateA;
@@ -584,14 +711,14 @@ usort($purchases, function ($a, $b) {
     $statusA = isset($a['PurchaseStatus']) ? intval($a['PurchaseStatus']) : 0;
     $statusB = isset($b['PurchaseStatus']) ? intval($b['PurchaseStatus']) : 0;
 
-    $weightA = ($statusA === 0) ? 1 : 2; // Diproses = 1, Selesai = 2
+    $weightA = ($statusA === 0) ? 1 : 2; // Diproses [0] -> Selesai [1]
     $weightB = ($statusB === 0) ? 1 : 2;
 
     if ($weightA !== $weightB) {
         return $weightA <=> $weightB;
     }
 
-    // Jika status sama, urutkan berdasarkan Tanggal_Beli terbaru
+    // Jika Status sama, urutkan Tanggal Terbaru di depan
     $dateA = $a['Tanggal_Beli'] instanceof DateTime ? $a['Tanggal_Beli']->getTimestamp() : strtotime($a['Tanggal_Beli'] ?? '');
     $dateB = $b['Tanggal_Beli'] instanceof DateTime ? $b['Tanggal_Beli']->getTimestamp() : strtotime($b['Tanggal_Beli'] ?? '');
     return $dateB <=> $dateA;
@@ -3033,26 +3160,43 @@ $max_date = date('Y-m-d', strtotime('-10 years'));
                                     ?>
                                     <span class="badge-status-<?= $status_class ?>"><?= $status_label ?></span>
                                 </div>
+                                <?php
+                                $jam_m_disp = ($b['Min_Jam_Mulai'] instanceof DateTime) ? $b['Min_Jam_Mulai']->format('H:i') : substr(strval($b['Min_Jam_Mulai']), 0, 5);
+                                $jam_s_disp = ($b['Max_Jam_Selesai'] instanceof DateTime) ? $b['Max_Jam_Selesai']->format('H:i') : substr(strval($b['Max_Jam_Selesai']), 0, 5);
+                                $total_bayar_disp = $b['Total_Bayar_Group'] ?? $b['Total_Bayar'];
+                                $potongan_val = $b['Potongan_Final_Group'] ?? 0;
+                                $is_member_disc = $b['Is_Member_Discount'] ?? false;
+                                $promo_pct = $b['Promo_Percent'] ?? 0;
+                                $nama_promo_real = !empty($b['Nama_Promo_Fixed']) ? $b['Nama_Promo_Fixed'] : ($b['Nama_Promo'] ?? '');
+                                ?>
                                 <div class="history-body">
                                     <div class="h-details">
                                         <div class="h-title"><?= htmlspecialchars($b['Nama_Lapangan']) ?></div>
                                         <div class="h-meta"><i class="fa-regular fa-calendar"></i> Jadwal:
-                                            <?= format_date_display($b['Tanggal']) ?> | <?= $b['Jam_Mulai']->format('H:i') ?> -
-                                            <?= $b['Jam_Selesai']->format('H:i') ?> WIB
+                                            <?= format_date_display($b['Tanggal']) ?> | <?= $jam_m_disp ?> - <?= $jam_s_disp ?> WIB
                                         </div>
                                         <div class="h-meta"><i class="fa-solid fa-credit-card"></i> Metode:
                                             <?= htmlspecialchars($b['Metode_Pembayaran']) ?>
                                         </div>
-                                        <?php if ($b['Nama_Promo']): ?>
-                                            <div class="h-meta text-primary"><i class="fa-solid fa-tags"></i> Promo:
-                                                <?= htmlspecialchars($b['Nama_Promo']) ?> (Diskon Rp
-                                                <?= number_format($b['Diskon'], 0, ',', '.') ?>)
-                                            </div>
+
+                                        <!-- TAMPILKAN POTONGAN DISKON MEMBER / PROMO HASIL CHECKOUT -->
+                                        <?php if ($potongan_val > 0): ?>
+                                            <?php if ($is_member_disc): ?>
+                                                <div class="h-meta text-primary"><i class="fa-solid fa-crown"></i> Diskon Member (<?= htmlspecialchars($active_member_name ?: 'Aktif') ?>): -Rp <?= number_format($potongan_val, 0, ',', '.') ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <?php 
+                                                $pct_text = ($promo_pct <= 100 && $promo_pct > 0) ? ' (' . intval($promo_pct) . '%)' : '';
+                                                ?>
+                                                <div class="h-meta text-primary"><i class="fa-solid fa-tags"></i> Promo:
+                                                    <?= htmlspecialchars($nama_promo_real ?: 'prmo agustus') ?><?= $pct_text ?>: -Rp <?= number_format($potongan_val, 0, ',', '.') ?>
+                                                </div>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
                                     <div class="h-price">
                                         <span>Total Bayar</span>
-                                        <span class="price-val">Rp <?= number_format($b['Total_Bayar'], 0, ',', '.') ?></span>
+                                        <span class="price-val">Rp <?= number_format($total_bayar_disp, 0, ',', '.') ?></span>
                                     </div>
                                 </div>
                             </div>

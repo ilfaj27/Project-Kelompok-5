@@ -70,7 +70,7 @@ IF OBJECT_ID('dbo.sp_Promo_Insert', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Insert;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_Insert
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_Insert
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),
     @Tanggal_Mulai   DATE,
@@ -79,76 +79,37 @@ CREATE PROCEDURE dbo.sp_Promo_Insert
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON; -- Memastikan rollback otomatis jika terjadi error koneksi/eksekusi
 
-    -- ==========================================
-    -- 1. VALIDASI DATA (Sebelum Memulai Transaksi)
-    -- ==========================================
-
-    -- Validasi: Diskon
     IF @Diskon <= 0
     BEGIN
         RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
         RETURN;
     END
 
-    IF @Diskon > 100
-    BEGIN
-        RAISERROR('Diskon maksimal 100%!', 16, 1);
-        RETURN;
-    END
-
-    -- Validasi: Tanggal Mulai
     IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
     BEGIN
         RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
         RETURN;
     END
 
-    -- Validasi: Tanggal Selesai
     IF @Tanggal_Selesai < @Tanggal_Mulai
     BEGIN
         RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
         RETURN;
     END
 
-    -- Validasi: Cek duplikat nama (Menggunakan EXISTS langsung, jauh lebih cepat dari UDF)
-    IF EXISTS (
-        SELECT 1 FROM Promo 
-        WHERE Nama_Promo = @Nama_Promo 
-          AND Is_Deleted = 0
-    )
+    IF EXISTS (SELECT 1 FROM Promo WHERE Nama_Promo = @Nama_Promo AND Is_Deleted = 0)
     BEGIN
         RAISERROR('Nama promo sudah tersedia!', 16, 1);
         RETURN;
     END
 
-    -- ==========================================
-    -- 2. PROSES INPUT DATA (Mulai Transaksi)
-    -- ==========================================
-    BEGIN TRY
-        BEGIN TRANSACTION;
+    INSERT INTO Promo
+    (Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date)
+    VALUES
+    (@Nama_Promo, @Diskon, @Tanggal_Mulai, @Tanggal_Selesai, 1, 0, @Created_By, GETDATE());
 
-        INSERT INTO Promo
-        (Nama_Promo, Diskon, Tanggal_Mulai, Tanggal_Selesai, Status, Is_Deleted, Created_By, Created_Date)
-        VALUES
-        (@Nama_Promo, @Diskon, @Tanggal_Mulai, @Tanggal_Selesai, 1, 0, @Created_By, GETDATE());
-
-        COMMIT TRANSACTION;
-
-        SELECT SCOPE_IDENTITY() AS ID_Promo_Baru;
-
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
-
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
-        DECLARE @ErrorState INT = ERROR_STATE();
-
-        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
-    END CATCH
+    SELECT SCOPE_IDENTITY() AS ID_Promo_Baru;
 END;
 GO
 
@@ -159,8 +120,8 @@ IF OBJECT_ID('dbo.sp_Promo_Update', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_Promo_Update;
 GO
 
-CREATE PROCEDURE dbo.sp_Promo_Update
-   @ID_Promo        INT,
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_Update
+    @ID_Promo        INT,
     @Nama_Promo      VARCHAR(50),
     @Diskon          DECIMAL(18,2),
     @Tanggal_Mulai   DATE,
@@ -169,86 +130,39 @@ CREATE PROCEDURE dbo.sp_Promo_Update
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
 
-    -- ==========================================
-    -- 1. VALIDASI DATA (Sebelum Memulai Transaksi)
-    -- ==========================================
-
-    -- Validasi: Keberadaan Data
     IF NOT EXISTS (SELECT 1 FROM Promo WHERE ID_Promo = @ID_Promo AND Is_Deleted = 0)
     BEGIN
         RAISERROR('Data promo tidak ditemukan!', 16, 1);
         RETURN;
     END
 
-    -- Validasi: Diskon
     IF @Diskon <= 0
     BEGIN
         RAISERROR('Diskon tidak boleh 0 atau kurang dari 0!', 16, 1);
         RETURN;
     END
 
-    IF @Diskon > 100
-    BEGIN
-        RAISERROR('Diskon maksimal 100%!', 16, 1);
-        RETURN;
-    END
-
-    -- Validasi: Tanggal Mulai
-    IF @Tanggal_Mulai < CAST(GETDATE() AS DATE)
-    BEGIN
-        RAISERROR('Tanggal mulai tidak boleh kurang dari hari ini!', 16, 1);
-        RETURN;
-    END
-
-    -- Validasi: Tanggal Selesai
     IF @Tanggal_Selesai < @Tanggal_Mulai
     BEGIN
         RAISERROR('Tanggal selesai tidak boleh mendahului tanggal mulai!', 16, 1);
         RETURN;
     END
 
-    -- Validasi: Cek duplikat nama dengan mengecualikan ID yang sedang diedit
-    IF EXISTS (
-        SELECT 1 FROM Promo 
-        WHERE Nama_Promo = @Nama_Promo 
-          AND Is_Deleted = 0
-          AND ID_Promo <> @ID_Promo
-    )
+    IF EXISTS (SELECT 1 FROM Promo WHERE Nama_Promo = @Nama_Promo AND Is_Deleted = 0 AND ID_Promo <> @ID_Promo)
     BEGIN
-        RAISERROR('Nama promo sudah tersedia!', 16, 1);
+        RAISERROR('Nama promo sudah digunakan!', 16, 1);
         RETURN;
     END
 
-    -- ==========================================
-    -- 2. PROSES UPDATE DATA (Mulai Transaksi)
-    -- ==========================================
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        UPDATE Promo
-        SET Nama_Promo = @Nama_Promo,
-            Diskon = @Diskon,
-            Tanggal_Mulai = @Tanggal_Mulai,
-            Tanggal_Selesai = @Tanggal_Selesai,
-            Modified_By = @Modified_By,
-            Modified_Date = GETDATE()
-        WHERE ID_Promo = @ID_Promo;
-
-        COMMIT TRANSACTION;
-
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
-
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
-        DECLARE @ErrorState INT = ERROR_STATE();
-
-        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
-    END CATCH
+    UPDATE Promo
+    SET Nama_Promo = @Nama_Promo,
+        Diskon = @Diskon,
+        Tanggal_Mulai = @Tanggal_Mulai,
+        Tanggal_Selesai = @Tanggal_Selesai,
+        Modified_By = @Modified_By,
+        Modified_Date = GETDATE()
+    WHERE ID_Promo = @ID_Promo;
 END;
 GO
 
@@ -378,7 +292,10 @@ BEGIN
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
+        CASE 
+            WHEN Diskon <= 100 THEN CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%')
+            ELSE CONCAT('Rp ', FORMAT(Diskon, 'N0', 'id-ID'))
+        END AS DiskonFormatted,
         Tanggal_Mulai,
         CONVERT(VARCHAR(10), Tanggal_Mulai, 105) AS TanggalMulaiFormatted,  
         Tanggal_Selesai,
@@ -418,7 +335,10 @@ BEGIN
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
+        CASE 
+            WHEN Diskon <= 100 THEN CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%')
+            ELSE CONCAT('Rp ', FORMAT(Diskon, 'N0', 'id-ID'))
+        END AS DiskonFormatted,
         Tanggal_Mulai,
         CONVERT(VARCHAR(10), Tanggal_Mulai, 105) AS TanggalMulaiFormatted,
         Tanggal_Selesai,
@@ -443,6 +363,7 @@ BEGIN
     FETCH NEXT @Limit ROWS ONLY;
 END;
 GO
+
 
 -- ============================================================
 -- 9. SP: Get Total Count (Untuk Paging)
@@ -509,14 +430,17 @@ BEGIN
         ID_Promo,
         Nama_Promo,
         Diskon,
-        CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%') AS DiskonFormatted, -- Diubah ke INT
+        CASE 
+            WHEN Diskon <= 100 THEN CONCAT(CAST(CAST(Diskon AS INT) AS VARCHAR), '%')
+            ELSE CONCAT('Rp ', FORMAT(Diskon, 'N0', 'id-ID'))
+        END AS DiskonFormatted,
         Tanggal_Mulai,
         Tanggal_Selesai
     FROM Promo
     WHERE Is_Deleted = 0
-    AND Status = 1
-    AND Tanggal_Mulai <= CAST(GETDATE() AS DATE)
-    AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)
+      AND Status = 1
+      AND Tanggal_Mulai <= CAST(GETDATE() AS DATE)
+      AND Tanggal_Selesai >= CAST(GETDATE() AS DATE)
     ORDER BY Nama_Promo ASC;
 END;
 GO
@@ -577,6 +501,47 @@ BEGIN
 
         RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
     END CATCH
+END;
+GO
+
+-- ============================================================
+-- 13. SP: Get Active Promo List For Customer (Filter 1x Pakai / Hari)
+-- ============================================================
+IF OBJECT_ID('dbo.sp_Promo_GetActiveForCustomer', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_Promo_GetActiveForCustomer;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_Promo_GetActiveForCustomer
+    @ID_Customer INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Mengambil promo aktif yang BELUM pernah digunakan oleh customer ini hari ini
+    SELECT 
+        P.ID_Promo, 
+        P.Nama_Promo, 
+        P.Diskon,
+        CASE 
+            WHEN P.Diskon <= 100 THEN CONCAT(CAST(CAST(P.Diskon AS INT) AS VARCHAR), '%')
+            ELSE CONCAT('Rp ', FORMAT(P.Diskon, 'N0', 'id-ID'))
+        END AS DiskonFormatted,
+        P.Tanggal_Mulai,
+        P.Tanggal_Selesai
+    FROM Promo P
+    WHERE P.Is_Deleted = 0 
+      AND P.Status = 1 
+      AND P.Tanggal_Mulai <= CAST(GETDATE() AS DATE)
+      AND P.Tanggal_Selesai >= CAST(GETDATE() AS DATE)
+      AND P.ID_Promo NOT IN (
+          SELECT ISNULL(B.ID_Promo, 0)
+          FROM Booking B
+          WHERE B.ID_Customer = @ID_Customer 
+            AND B.ID_Promo IS NOT NULL
+            AND CAST(B.Created_Date AS DATE) = CAST(GETDATE() AS DATE)
+            AND B.Status <> 3
+      )
+    ORDER BY P.Nama_Promo ASC;
 END;
 GO
 

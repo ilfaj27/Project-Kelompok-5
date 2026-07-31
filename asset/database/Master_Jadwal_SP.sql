@@ -394,6 +394,35 @@ BEGIN
 END;
 GO
 
+
+-- SP Get Stats Header
+CREATE PROCEDURE SP_Jadwal_GetStats
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Today DATE = CAST(GETDATE() AS DATE);
+    SELECT
+        SUM(CASE WHEN Status = 1 AND Is_Deleted = 0 THEN 1 ELSE 0 END) AS Aktif,
+        SUM(CASE WHEN Status = 0 AND Is_Deleted = 0 THEN 1 ELSE 0 END) AS Nonaktif,
+        SUM(CASE WHEN Tanggal >= @Today AND Is_Deleted = 0 THEN 1 ELSE 0 END) AS Upcoming,
+        SUM(CASE WHEN Tanggal < @Today AND Is_Deleted = 0 THEN 1 ELSE 0 END) AS Riwayat
+    FROM Jadwal;
+END;
+GO
+
+-- SP Get Slots (Customer)
+CREATE PROCEDURE sp_Jadwal_GetSlots
+    @ID_Lapangan INT, @Tanggal DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT j.ID_Jadwal, j.Jam_Mulai, j.Jam_Selesai, j.Status,
+           CASE WHEN EXISTS (SELECT 1 FROM Booking b WHERE b.ID_Jadwal = j.ID_Jadwal AND b.Status IN (0,1)) THEN 1 ELSE 0 END AS Ada_Booking
+    FROM Jadwal j WHERE j.ID_Lapangan = @ID_Lapangan AND j.Tanggal = @Tanggal AND j.Is_Deleted = 0
+    ORDER BY j.Jam_Mulai ASC;
+END;
+GO
+
 -- ============================================================
 -- VERIFIKASI: Tampilkan semua SP yang baru dibuat
 -- ============================================================
@@ -404,9 +433,4 @@ SELECT
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_NAME LIKE 'SP_Jadwal%'
 ORDER BY ROUTINE_NAME;
-GO
-
-DELETE FROM Jadwal
-WHERE DATEPART(MINUTE, Jam_Mulai) <> 0 
-  AND ID_Jadwal NOT IN (SELECT ID_Jadwal FROM Booking);
 GO

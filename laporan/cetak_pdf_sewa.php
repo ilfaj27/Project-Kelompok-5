@@ -2,7 +2,7 @@
 session_start();
 include '../includes/config.php';
 
-// Pastikan jalur (path) pemanggilan library TCPDF di bawah ini sudah sesuai dengan struktur folder Anda
+// Pastikan jalur pemanggilan library TCPDF sesuai
 require_once '../TCPDF-main/tcpdf.php';
 
 if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'pemilik') {
@@ -62,7 +62,7 @@ $params = array(
 );
 
 // ============================================
-// AMBIL DATA STATISTIK & TRANSAKSI
+// AMBIL DATA STATISTIK OMZET
 // ============================================
 $total_omzet = 0;
 $total_refund = 0;
@@ -75,24 +75,103 @@ if ($d) {
 }
 $omzet_bersih = $total_omzet - $total_refund;
 
-$print_bookings = [];
+// ============================================
+// AMBIL DATA BOOKING & GROUPING PRESISI UNTUK PDF
+// ============================================
+$raw_report_bookings = [];
 $print_sql = "SELECT 
         ID_Booking, Tanggal_Booking, Metode_Pembayaran, Total_Bayar, Status,
         Nama_Customer, Nama_Lapangan, Harga_Sewa, Tanggal_Main, Jam_Mulai, 
         Jam_Selesai, Nama_Promo, Diskon_Promo, Nama_Tipe, Potongan_Member, Nominal_Refund
     FROM dbo.fn_GetBookingReport(?, ?, ?, ?, ?)
     WHERE Status <> 0
-    ORDER BY 
-        CASE WHEN Status = 2 THEN 0 ELSE 1 END ASC, 
-        Tanggal_Booking DESC, 
-        ID_Booking DESC";
+    ORDER BY Tanggal_Booking DESC, ID_Booking DESC";
 
 $q_print = safeQuery($conn, $print_sql, $params);
 if ($q_print !== null) {
     while ($row = sqlsrv_fetch_array($q_print, SQLSRV_FETCH_ASSOC)) {
-        $print_bookings[] = $row;
+        $raw_report_bookings[] = $row;
+    }
+    sqlsrv_free_stmt($q_print);
+}
+
+// --- LOGIKA GROUPING TRANSAKSI LAPORAN ---
+$grouped_report = [];
+foreach ($raw_report_bookings as $b) {
+    $tgl_booking_str = ($b['Tanggal_Booking'] instanceof DateTime) ? $b['Tanggal_Booking']->format('Y-m-d H:i:s') : strval($b['Tanggal_Booking']);
+    $tgl_main_str = ($b['Tanggal_Main'] instanceof DateTime) ? $b['Tanggal_Main']->format('Y-m-d') : strval($b['Tanggal_Main']);
+
+    $group_key = 'grp_' . ($b['Nama_Customer'] ?? '') . '_' . ($b['Nama_Lapangan'] ?? '') . '_' . $tgl_main_str . '_' . $tgl_booking_str . '_' . ($b['Status'] ?? '');
+
+    $harga_sewa_slot = floatval($b['Harga_Sewa'] ?? 120000);
+    $diskon_member_slot = floatval($b['Potongan_Member'] ?? 0);
+    
+    // HITUNG DISKON PROMO (PERSEN % VS NOMINAL RP)
+    $raw_promo_diskon = floatval($b['Diskon_Promo'] ?? 0);
+    $diskon_promo_slot = 0;
+    if ($raw_promo_diskon > 0) {
+        if ($raw_promo_diskon <= 100) {
+            $diskon_promo_slot = ($harga_sewa_slot * $raw_promo_diskon) / 100.0;
+        } else {
+            $diskon_promo_slot = $raw_promo_diskon;
+        }
+    }
+
+    if (!isset($grouped_report[$group_key])) {
+        $grouped_report[$group_key] = $b;
+        $grouped_report[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        $grouped_report[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        $grouped_report[$group_key]['Base_Harga_Sewa_Total'] = $harga_sewa_slot;
+        $grouped_report[$group_key]['Diskon_Member_Applied'] = $diskon_member_slot;
+        $grouped_report[$group_key]['Diskon_Promo_Applied'] = $diskon_promo_slot;
+    } else {
+        $grouped_report[$group_key]['Base_Harga_Sewa_Total'] += $harga_sewa_slot;
+
+        if ($diskon_promo_slot > 0 && $raw_promo_diskon <= 100) {
+            $grouped_report[$group_key]['Diskon_Promo_Applied'] += $diskon_promo_slot;
+        }
+
+        $curr_min = $grouped_report[$group_key]['Min_Jam_Mulai'];
+        $curr_max = $grouped_report[$group_key]['Max_Jam_Selesai'];
+
+        $jam_m_new = ($b['Jam_Mulai'] instanceof DateTime) ? $b['Jam_Mulai']->format('H:i') : substr(strval($b['Jam_Mulai']), 0, 5);
+        $jam_m_curr = ($curr_min instanceof DateTime) ? $curr_min->format('H:i') : substr(strval($curr_min), 0, 5);
+
+        $jam_s_new = ($b['Jam_Selesai'] instanceof DateTime) ? $b['Jam_Selesai']->format('H:i') : substr(strval($b['Jam_Selesai']), 0, 5);
+        $jam_s_curr = ($curr_max instanceof DateTime) ? $curr_max->format('H:i') : substr(strval($curr_max), 0, 5);
+
+        if ($jam_m_new < $jam_m_curr) {
+            $grouped_report[$group_key]['Min_Jam_Mulai'] = $b['Jam_Mulai'];
+        }
+        if ($jam_s_new > $jam_s_curr) {
+            $grouped_report[$group_key]['Max_Jam_Selesai'] = $b['Jam_Selesai'];
+        }
     }
 }
+
+// Hitung Total Bayar Gabungan Presisi
+foreach ($grouped_report as $key => $g) {
+    $base = $g['Base_Harga_Sewa_Total'];
+    $disc = max($g['Diskon_Member_Applied'], $g['Diskon_Promo_Applied']);
+    $grouped_report[$key]['Total_Bayar'] = max(0, $base - $disc);
+}
+
+$print_bookings = array_values($grouped_report);
+
+// URUTKAN PRESISI: Status Selesai (2) / Berhasil (1) Dulu, Lalu Waktu Transaksi Terbaru
+usort($print_bookings, function ($a, $b) {
+    $prio = [2 => 1, 1 => 2, 3 => 3, 0 => 4];
+    $wA = $prio[$a['Status']] ?? 99;
+    $wB = $prio[$b['Status']] ?? 99;
+
+    if ($wA !== $wB) return $wA <=> $wB;
+
+    $dA = is_object($a['Tanggal_Booking']) ? $a['Tanggal_Booking']->getTimestamp() : strtotime($a['Tanggal_Booking']);
+    $dB = is_object($b['Tanggal_Booking']) ? $b['Tanggal_Booking']->getTimestamp() : strtotime($b['Tanggal_Booking']);
+
+    return $dB <=> $dA;
+});
+
 $total_transaksi = count($print_bookings);
 
 // ============================================
@@ -102,10 +181,8 @@ class MYPDF extends TCPDF
 {
     public function Footer()
     {
-        // Atur posisi 15 mm dari bawah kertas
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
-        // Cetak nomor halaman di kanan bawah
         $this->Cell(0, 10, 'Halaman ' . $this->getAliasNumPage() . ' dari ' . $this->getAliasNbPages(), 0, false, 'R', 0, '', 0, false, 'T', 'M');
     }
 }
@@ -113,33 +190,28 @@ class MYPDF extends TCPDF
 // ============================================
 // INISIALISASI TCPDF
 // ============================================
-$pdf = new MYPDF('P', 'mm', 'A4', true, 'UTF-8', false); // Menggunakan kelas kustom MYPDF
+$pdf = new MYPDF('P', 'mm', 'A4', true, 'UTF-8', false);
 $pdf->SetCreator(PDF_CREATOR);
 $pdf->SetAuthor('HoopBall System');
 $pdf->SetTitle('Laporan Sewa Lapangan');
 $pdf->setPrintHeader(false);
-$pdf->setPrintFooter(true); // Aktifkan footer kustom untuk memunculkan nomor halaman
-$pdf->SetMargins(15, 15, 15); // Margin 1.5cm di semua sisi kertas
+$pdf->setPrintFooter(true);
+$pdf->SetMargins(15, 15, 15);
 $pdf->SetAutoPageBreak(true, 20.3);
 $pdf->AddPage();
 
 // ============================================
-// STRUKTUR HTML UNTUK PDF (DENGAN REUSABLE KOP)
+// STRUKTUR HTML UNTUK PDF
 // ============================================
-
-// 1. Rekam output Kop Laporan secara otomatis dari file kop_laporan.php Anda
 ob_start();
 
-// Set parameter dinamis sebelum panggil header (Nama Judul, Array Data Yang di count)
 $judul_cetak = "LAPORAN SEWA LAPANGAN KESELURUHAN";
-$jumlah_data_cetak = count($print_bookings); // Tergantung dari nama Array query anda
+$jumlah_data_cetak = count($print_bookings);
 
-// Memanggil View 
 include '../includes/kop_laporan.php';
 
 $kop_html = ob_get_clean();
 
-// 2. Gabungkan isi Kop Laporan dengan struktur tabel transaksi di bawah ini
 $html = $kop_html . '
 <div style="line-height: 9px;">&nbsp;</div>
 <table border="1" cellspacing="0" cellpadding="6" style="width: 100%; font-family: Arial, Helvetica, sans-serif; font-size: 8px;">
@@ -160,28 +232,33 @@ if ($total_transaksi > 0) {
     $no = 1;
     foreach ($print_bookings as $b) {
         $diskon_info = '-';
-        if (!empty($b['Nama_Tipe'])) {
-            $diskon_info = 'Member ' . htmlspecialchars($b['Nama_Tipe']) . ' (-' . rupiahFormat($b['Potongan_Member']) . ')';
-        } elseif (!empty($b['Nama_Promo'])) {
-            $diskon_info = htmlspecialchars($b['Nama_Promo']) . ' (-' . rupiahFormat($b['Diskon_Promo']) . ')';
+        $disc_mem = floatval($b['Diskon_Member_Applied'] ?? $b['Potongan_Member'] ?? 0);
+        $disc_pro = floatval($b['Diskon_Promo_Applied'] ?? $b['Diskon_Promo'] ?? 0);
+
+        if ($disc_mem > 0) {
+            $diskon_info = 'Member ' . htmlspecialchars($b['Nama_Tipe'] ?? 'Aktif') . ' (-' . rupiahFormat($disc_mem) . ')';
+        } elseif ($disc_pro > 0) {
+            $diskon_info = htmlspecialchars($b['Nama_Promo'] ?? 'Promo') . ' (-' . rupiahFormat($disc_pro) . ')';
         }
 
         $tanggal_main = ($b['Tanggal_Main'] instanceof DateTime) ? $b['Tanggal_Main']->format('d M Y') : '-';
-        $jam_mulai = ($b['Jam_Mulai'] instanceof DateTime) ? $b['Jam_Mulai']->format('H:i') : '-';
-        $jam_selesai = ($b['Jam_Selesai'] instanceof DateTime) ? $b['Jam_Selesai']->format('H:i') : '-';
+        $jam_mulai = ($b['Min_Jam_Mulai'] instanceof DateTime) ? $b['Min_Jam_Mulai']->format('H:i') : (is_object($b['Jam_Mulai']) ? $b['Jam_Mulai']->format('H:i') : substr(strval($b['Jam_Mulai']), 0, 5));
+        $jam_selesai = ($b['Max_Jam_Selesai'] instanceof DateTime) ? $b['Max_Jam_Selesai']->format('H:i') : (is_object($b['Jam_Selesai']) ? $b['Jam_Selesai']->format('H:i') : substr(strval($b['Jam_Selesai']), 0, 5));
         $tanggal_booking = ($b['Tanggal_Booking'] instanceof DateTime) ? $b['Tanggal_Booking']->format('d M Y') : '-';
 
         $total_bayar_html = rupiahFormat($b['Total_Bayar']);
-        if ($b['Status'] == 3 && $b['Nominal_Refund'] > 0) {
-            $total_bayar_html .= '<br><span style="color: #EF4444; font-size: 7px;">Refund: ' . rupiahFormat($b['Nominal_Refund']) . '</span>';
+        if ($b['Status'] == 3) {
+            $refund_val = floatval($b['Total_Bayar']) * 0.50; // Hitung 50% Refund dari Total Bayar Gabungan
+            if ($refund_val > 0) {
+                $total_bayar_html .= '<br><span style="color: #EF4444; font-size: 7px;">Refund: ' . rupiahFormat($refund_val) . '</span>';
+            }
         }
 
-        // Sinkronisasi lebar kolom di tingkat sel <td> agar sejajar lurus dengan header
         $html .= '
         <tr>
             <td align="center" valign="middle" style="width: 5%;">' . $no++ . '</td>
             <td align="left" valign="middle" style="width: 22%;"><strong>' . htmlspecialchars($b['Nama_Lapangan']) . '</strong><br><span style="color: #6B7280;">' . rupiahFormat($b['Harga_Sewa']) . '/jam</span></td>
-            <td align="left" valign="middle" style="width: 18%;">' . $tanggal_main . '<br><span style="color: #6B7280;">' . $jam_mulai . ' - ' . $jam_selesai . '</span></td>
+            <td align="left" valign="middle" style="width: 18%;">' . $tanggal_main . '<br><span style="color: #6B7280;">' . $jam_mulai . ' - ' . $jam_selesai . ' WIB</span></td>
             <td align="center" valign="middle" style="width: 13%;">' . $tanggal_booking . '</td>
             <td align="left" valign="middle" style="width: 12%;">' . htmlspecialchars($b['Metode_Pembayaran']) . '</td>
             <td align="left" valign="middle" style="width: 15%;">' . $diskon_info . '</td>
@@ -192,7 +269,6 @@ if ($total_transaksi > 0) {
     $html .= '<tr><td colspan="7" style="text-align: center; padding: 20px;">Tidak ada data booking</td></tr>';
 }
 
-// Penataan lebar total kolom (85% + 15% = 100%) agar sejajar sempurna ke bawah
 $html .= '
         <tr style="font-weight: bold; background-color: #F3F4F6;">
             <td colspan="6" align="center" valign="middle" style="width: 85%;">TOTAL PENDAPATAN</td>
@@ -209,14 +285,8 @@ $html .= '
     </tbody>
 </table>';
 
-// Eksekusi penulisan HTML ke halaman PDF
 $pdf->writeHTML($html, true, false, true, false, '');
 
-// Membuat format tanggal ddmmyy (contoh: 150726 untuk 15 Juli 2026)
 $tanggal_unduh = date('dmy');
-
-// Menyusun format nama file LaporanXXX_ddmmyy.pdf
 $nama_file = 'LaporanSewaLapangan_' . $tanggal_unduh . '.pdf';
-
-// Output PDF langsung memicu download di browser dengan nama dinamis
 $pdf->Output($nama_file, 'D');
