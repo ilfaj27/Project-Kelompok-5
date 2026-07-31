@@ -292,7 +292,7 @@ if ($is_ajax) {
     // Action: Ambil Data Grid, Pagination & Statistik (Dynamic AJAX Refresh)
     if ($action === 'get_table_data') {
         $f_status = $_GET['f_status'] ?? 'all';
-        $f_sort = $_GET['f_sort'] ?? 'ID_Lapangan';
+        $f_sort = $_GET['f_sort'] ?? 'terbaru';
         $search = isset($_GET['src']) ? trim($_GET['src']) : '';
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
@@ -1927,11 +1927,12 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc">Nama A-Z</option>
-                                        <option value="nama_desc">Nama Z-A</option> <!-- Tambahkan baris ini -->
-                                        <option value="harga_desc">Harga Termahal</option>
-                                        <option value="harga_asc">Harga Termurah</option>
-                                    </select>
+    <option value="terbaru" selected>Terbaru (Default)</option>
+    <option value="nama_asc">Nama A-Z</option>
+    <option value="nama_desc">Nama Z-A</option>
+    <option value="harga_desc">Harga Termahal</option>
+    <option value="harga_asc">Harga Termurah</option>
+</select>
                                 </div>
                                 <div class="filter-buttons">
                                     <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
@@ -1960,7 +1961,7 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
     <script>
         // State management untuk Filter & Pagination
         let currentPage = 1;
-        let currentSort = 'ID_Lapangan';
+        let currentSort = 'terbaru';
         let currentStatus = 'all';
         let currentSearch = '';
 
@@ -2578,14 +2579,14 @@ $topbar_breadcrumb = 'Operasional / Lapangan';
         }
 
         function resetFilter() {
-            document.getElementById('formFilter').reset();
-            currentStatus = 'all';
-            currentSort = 'ID_Lapangan';
-            currentPage = 1;
-            loadTableData();
-            document.getElementById('filterCardCustom').classList.remove('open');
-            document.getElementById('btnFilterToggleCustom').classList.remove('active');
-        }
+    document.getElementById('formFilter').reset();
+    currentStatus = 'all';
+    currentSort = 'terbaru'; // <-- Ubah dari 'ID_Lapangan'
+    currentPage = 1;
+    loadTableData();
+    document.getElementById('filterCardCustom').classList.remove('open');
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+}
 
         // ============================================
         // INITIAL LOAD

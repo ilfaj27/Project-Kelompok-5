@@ -104,7 +104,7 @@ CREATE PROCEDURE SP_Alat_SelectFiltered
     @StatusFilter    INT = NULL,
     @KategoriFilter  VARCHAR(50) = NULL,
     @Search          VARCHAR(100) = NULL,
-    @SortBy          VARCHAR(20) = 'nama_asc',
+    @SortBy          VARCHAR(20) = 'terbaru',
     @PageNumber      INT = 1,
     @PageSize        INT = 12
 AS
@@ -115,12 +115,14 @@ BEGIN
     DECLARE @SQL NVARCHAR(MAX);
 
     SET @SortSQL = CASE @SortBy
+        WHEN 'nama_asc'         THEN 'Nama_Alat ASC'
+        WHEN 'nama_desc'        THEN 'Nama_Alat DESC'
         WHEN 'stok_desc'        THEN 'Stok DESC'
         WHEN 'harga_jual_desc'  THEN 'Harga_Jual DESC'
         WHEN 'harga_jual_asc'   THEN 'Harga_Jual ASC'
         WHEN 'harga_beli_desc'  THEN 'Harga_Beli DESC'
         WHEN 'harga_beli_asc'   THEN 'Harga_Beli ASC'
-        ELSE 'Nama_Alat ASC'
+        ELSE 'ID_Alat DESC' -- Default 'terbaru' (Alat baru paling atas)
     END;
 
     SET @SQL = N'
@@ -131,7 +133,7 @@ BEGIN
           AND (@StatusFilter IS NULL OR Status = @StatusFilter)
           AND (@KategoriFilter IS NULL OR @KategoriFilter = '''' OR Kategori = @KategoriFilter)
           AND (@Search IS NULL OR @Search = '''' OR Nama_Alat LIKE ''%'' + @Search + ''%'')
-        ORDER BY ' + @SortSQL + '
+        ORDER BY Status DESC, ' + @SortSQL + '
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;';
 
     EXEC sp_executesql @SQL,

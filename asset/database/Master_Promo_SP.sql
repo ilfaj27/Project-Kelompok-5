@@ -324,7 +324,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Promo_GetAll
     @Page         INT = 1,
     @Limit        INT = 10,
     @Filter_Status VARCHAR(10) = NULL,  
-    @Sort_By      VARCHAR(20) = 'nama_asc'  
+    @Sort_By      VARCHAR(20) = 'terbaru'  
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -357,8 +357,17 @@ BEGIN
          OR (@Filter_Status = '0' AND (Status = 0 OR Tanggal_Selesai < CAST(GETDATE() AS DATE)))
         )
     ORDER BY 
+        -- 1. Status AKTIF selalu di atas, KADALUARSA di bawah
+        CASE WHEN Status = 1 AND Tanggal_Selesai >= CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END DESC,
+        
+        -- 2. Pilihan Sort dari Filter
         CASE WHEN @Sort_By = 'nama_asc' THEN Nama_Promo END ASC,
-        CASE WHEN @Sort_By = 'nama_desc' THEN Nama_Promo END DESC
+        CASE WHEN @Sort_By = 'nama_desc' THEN Nama_Promo END DESC,
+        CASE WHEN @Sort_By = 'diskon_desc' THEN Diskon END DESC,
+        CASE WHEN @Sort_By = 'diskon_asc' THEN Diskon END ASC,
+        
+        -- 3. Default 'terbaru' (Promo baru / ID terbesar di atas)
+        ID_Promo DESC
     OFFSET @Offset ROWS
     FETCH NEXT @Limit ROWS ONLY;
 END;

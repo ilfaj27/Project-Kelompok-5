@@ -110,7 +110,9 @@ if ($is_ajax) {
                     'Tempat_Lahir' => $row['Tempat_Lahir'] ?? '-',
                     'Alamat' => $row['Alamat'] ?? '-',
                     'No_Telepon' => $row['No_Telepon'] ?? '-',
-                    'Status' => (int) ($row['Status'] ?? 1)
+                    'Status' => (int) ($row['Status'] ?? 1),
+                    'Photo_Profile' => $row['Photo_Profile'] ?? '',
+                    'Photo_Profile_Url' => !empty($row['Photo_Profile']) ? '../' . ltrim(str_replace('../', '', $row['Photo_Profile']), '/') : ''
                 ]
             ]);
         } else {
@@ -145,7 +147,7 @@ if ($is_ajax) {
     if ($action === 'get_table_data') {
         $filter_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
         $filter_jk = isset($_GET['jk']) ? intval($_GET['jk']) : -1;
-        $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'ID_Customer';
+        $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'terbaru';
         $sort_order = isset($_GET['order']) && strtoupper($_GET['order']) == 'DESC' ? 'DESC' : 'ASC';
         $search = isset($_GET['src']) ? trim($_GET['src']) : '';
         $umur_range = isset($_GET['umur_range']) ? $_GET['umur_range'] : 'all';
@@ -183,22 +185,27 @@ if ($is_ajax) {
         // ============================================================
         // PERBAIKAN: Jalankan Sorting Umur secara Manual di Sisi PHP
         // ============================================================
-        if ($sort_by === 'Umur') {
-            usort($all_rows, function ($a, $b) use ($sort_order) {
+        usort($all_rows, function ($a, $b) use ($sort_by, $sort_order) {
+            $statusA = isset($a['Status']) ? intval($a['Status']) : 1;
+            $statusB = isset($b['Status']) ? intval($b['Status']) : 1;
+
+            // Rule 1: Utamakan Status Aktif di paling atas
+            if ($statusA !== $statusB) {
+                return $statusB <=> $statusA;
+            }
+
+            // Rule 2: Sorting Pilihan Filter
+            if ($sort_by === 'Nama_Customer') {
+                return ($sort_order === 'DESC') ? strcasecmp($b['Nama_Customer'], $a['Nama_Customer']) : strcasecmp($a['Nama_Customer'], $b['Nama_Customer']);
+            } elseif ($sort_by === 'Umur') {
                 $umurA = isset($a['Umur']) ? intval($a['Umur']) : 0;
                 $umurB = isset($b['Umur']) ? intval($b['Umur']) : 0;
-                
-                if ($umurA === $umurB) {
-                    return 0;
-                }
-                
-                if ($sort_order === 'DESC') {
-                    return ($umurA < $umurB) ? 1 : -1;
-                } else {
-                    return ($umurA > $umurB) ? 1 : -1;
-                }
-            });
-        }
+                return ($sort_order === 'DESC') ? ($umurB <=> $umurA) : ($umurA <=> $umurB);
+            }
+
+            // Rule 3: Default 'terbaru' (ID_Customer terbesar di atas)
+            return intval($b['ID_Customer']) <=> intval($a['ID_Customer']);
+        });
 
         $total_cust_filtered = count($all_rows);
         $total_pages = max(1, ceil($total_cust_filtered / $limit));
@@ -223,9 +230,19 @@ if ($is_ajax) {
                 <td class="col-center row-num"><?= $no++ ?></td>
                 <td class="col-left">
                     <div class="cust-name-cell">
-                        <div class="cust-avatar"><?= getInitials($row['Nama_Customer']) ?></div>
+                        <?php
+                        $photo_path = $row['Photo_Profile'] ?? '';
+                        $photo_url = !empty($photo_path) ? '../' . ltrim(str_replace('../', '', $photo_path), '/') : '';
+                        ?>
+                        <?php if (!empty($photo_url)): ?>
+                            <img src="<?= htmlspecialchars($photo_url) ?>" alt="Avatar" class="cust-avatar-img"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="cust-avatar" style="display:none;"><?= getInitials($row['Nama_Customer']) ?></div>
+                        <?php else: ?>
+                            <div class="cust-avatar"><?= getInitials($row['Nama_Customer']) ?></div>
+                        <?php endif; ?>
                         <div class="cust-name"><?= htmlspecialchars($row['Nama_Customer']) ?></div>
-                    </div>
+                        </div>
                 </td>
                 <td class="col-left cust-email"><?= htmlspecialchars($row['Email'] ?? '-') ?></td>
                 <!-- Diubah dari col-center menjadi col-left -->
@@ -1475,6 +1492,16 @@ $sidebar_photo = $profile_photo;
             background: var(--red-lt);
             color: var(--red);
         }
+
+        .cust-avatar-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(255, 69, 0, 0.2);
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
@@ -1525,6 +1552,7 @@ $sidebar_photo = $profile_photo;
                                 <div class="filter-group">
                                     <label class="filter-label">Urut Berdasarkan</label>
                                     <select name="sort" class="filter-select">
+                                        <option value="terbaru" selected>Terbaru (Default)</option>
                                         <option value="Nama_Customer">Nama Lengkap</option>
                                         <option value="Umur">Umur</option>
                                     </select>
@@ -1631,7 +1659,7 @@ $sidebar_photo = $profile_photo;
     <script>
         // State management untuk Filter & Pagination
         let currentPage = 1;
-        let currentSort = 'ID_Customer';
+        let currentSort = 'terbaru';
         let currentOrder = 'ASC';
         let currentJk = -1;
         let currentStatusFilter = 'all';
@@ -1694,17 +1722,20 @@ $sidebar_photo = $profile_photo;
 
                     const initials = data.Nama_Customer.trim().split(' ').slice(0, 2).map(word => word[0]).join('').toUpperCase();
 
+                    const photoUrl = data.Photo_Profile_Url || '';
+                    const avatarHtml = photoUrl
+                        ? `<img src="${photoUrl}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--orange); box-shadow:0 6px 16px rgba(255, 69, 0, 0.2);">`
+                        : `<div class="detail-icon-wrap" style="background: linear-gradient(135deg, var(--orange), #ff6b35); color: #fff; font-family: 'Barlow', sans-serif; font-weight: 900; font-size: 24px; text-transform: uppercase;">${initials}</div>`;
+
                     const statusPill = is_active_detail
                         ? `<span class="status-badge status-active">AKTIF</span>`
                         : `<span class="status-badge status-inactive">NONAKTIF</span>`;
 
                     document.getElementById('detail-modal-body').innerHTML = `
-                        <div class="detail-photo-card">
-                            <div class="detail-icon-wrap" style="background: linear-gradient(135deg, var(--orange), #ff6b35); color: #fff; font-family: 'Barlow', sans-serif; font-weight: 900; font-size: 24px; text-transform: uppercase;">
-                                ${initials}
-                            </div>
-                            <div class="detail-main-name">${data.Nama_Customer}</div>
-                        </div>
+    <div class="detail-photo-card">
+        ${avatarHtml}
+        <div class="detail-main-name" style="margin-top: 10px;">${data.Nama_Customer}</div>
+    </div>
                         <div class="info-row">
                             <span class="info-key"><i class="fa-solid fa-user"></i> Nama Lengkap</span>
                             <span class="info-val">${data.Nama_Customer}</span>
@@ -1813,8 +1844,8 @@ $sidebar_photo = $profile_photo;
 
         function resetFilter() {
             document.getElementById('formFilter').reset();
-            currentSort = 'ID_Customer';
-            currentOrder = 'ASC';
+            currentSort = 'terbaru'; // <-- Ubah dari 'ID_Customer'
+            currentOrder = 'DESC';
             currentJk = -1;
             currentStatusFilter = 'all';
             currentUmurRange = 'all';

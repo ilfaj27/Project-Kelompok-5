@@ -2685,6 +2685,106 @@ $tipe_config = [
             min-height: 14px
         }
 
+   /* ================================================================
+   TOMBOL PANAH MELAYANG TEPAT DI TENGAH SISI KIRI & KANAN KARTU
+   ================================================================ */
+.carousel-card-wrapper {
+    position: relative;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.side-scroll-btn {
+    position: absolute;
+    top: 220px; /* TEPAT DI TENGAH TINGGI KARTU */
+    z-index: 99;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #E5E5EA;
+    background: #FFFFFF;
+    color: #1C1C1E;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.side-scroll-btn.btn-prev {
+    left: -20px; /* Menempel di ujung kiri luar kartu */
+}
+
+.side-scroll-btn.btn-next {
+    right: -20px; /* Menempel di ujung kanan luar kartu */
+}
+
+.side-scroll-btn:hover {
+    background: #FF5200;
+    color: #FFFFFF;
+    border-color: #FF5200;
+    transform: scale(1.15);
+    box-shadow: 0 10px 28px rgba(255, 82, 0, 0.4);
+}
+
+@media (max-width: 768px) {
+    .side-scroll-btn.btn-prev { left: -10px; }
+    .side-scroll-btn.btn-next { right: -10px; }
+}
+
+
+/* ================================================================
+   TOMBOL NAVIGASI MELAYANG DI KIRI & KANAN DERETAN KARTU
+   ================================================================ */
+.pricing-carousel-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.floating-nav-btn {
+    position: absolute;
+    top: 45%; /* Posisi tepat di tengah tinggi kartu */
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: #FFFFFF;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 100; /* Memastikan tombol selalu melayang paling atas */
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.floating-nav-btn.btn-left {
+    left: -24px; /* Setengah tombol keluar di sebelah kiri */
+}
+
+.floating-nav-btn.btn-right {
+    right: -24px; /* Setengah tombol keluar di sebelah kanan */
+}
+
+.floating-nav-btn:hover {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+    transform: translateY(-50%) scale(1.15);
+    box-shadow: 0 10px 30px rgba(255, 82, 0, 0.4);
+}
+
+/* Responsif untuk Layar HP */
+@media (max-width: 768px) {
+    .floating-nav-btn.btn-left { left: -10px; }
+    .floating-nav-btn.btn-right { right: -10px; }
+}
+
         /* ============================================
    MATIKAN SEMUA ANIMASI SWEETALERT2 
    ============================================ */
@@ -2866,96 +2966,93 @@ $tipe_config = [
                 </div>
             </div>
 
-            <!-- Search & Scroll Controls -->
-            <div
-                style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; animation: fadeInUp 0.6s ease-out both;">
-                <div style="position: relative; flex: 1; max-width: 400px;">
-                    <i class="fa-solid fa-magnifying-glass"
-                        style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px;"></i>
-                    <input type="text" id="searchTipeMember" placeholder="Cari tipe member..."
-                        style="width: 100%; padding: 12px 16px 12px 42px; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); background: #fff; outline: none; transition: all 0.3s ease;"
-                        onfocus="this.style.borderColor='var(--orange)'; this.style.boxShadow='0 0 0 3px var(--orange-glow)';"
-                        onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none';"
-                        oninput="filterTipeMember(this.value)">
-                </div>
-                <div style="display: flex; gap: 8px; flex-shrink: 0;">
-                    <button type="button" onclick="scrollPricing('left')" class="scroll-arrow"
-                        style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);"
-                        onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';"
-                        onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
-                        <i class="fa-solid fa-chevron-left"></i>
-                    </button>
-                    <button type="button" onclick="scrollPricing('right')" class="scroll-arrow"
-                        style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);"
-                        onmouseover="this.style.borderColor='var(--orange)'; this.style.color='var(--orange)'; this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(255,90,31,0.2)';"
-                        onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='scale(1)'; this.style.boxShadow='none';">
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </button>
-                </div>
-            </div>
 
-            <div class="pricing-scroll-wrapper" style="position: relative; overflow: hidden; margin-bottom: 60px;">
-                <div class="pricing-grid reveal-stagger" id="pricingGrid"
-                    style="display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 8px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
-                    <?php
-                    $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
-                    $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
+   <!-- 1. KOTAK PENCARIAN -->
+<div style="margin-bottom: 20px; animation: fadeInUp 0.6s ease-out both;">
+    <div style="position: relative; max-width: 400px;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px;"></i>
+        <input type="text" id="searchTipeMember" placeholder="Cari tipe member..."
+            style="width: 100%; padding: 12px 16px 12px 42px; border: 2px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); background: #fff; outline: none; transition: all 0.3s ease;"
+            onfocus="this.style.borderColor='var(--orange)';" onblur="this.style.borderColor='var(--border)';"
+            oninput="filterTipeMember(this.value)">
+    </div>
+</div>
 
-                    $is_blocked = ($has_member || $member_pending);
+<!-- 2. WADAH CAROUSEL: PANAH KIRI + KARTU MEMBER + PANAH KANAN -->
+<div class="carousel-card-wrapper">
+    
+    <!-- Tombol Panah Kiri -->
+    <button type="button" onclick="scrollPricing('left')" class="side-scroll-btn btn-prev" title="Sebelumnya">
+        <i class="fa-solid fa-chevron-left"></i>
+    </button>
 
-                    foreach ($tipe_member_list as $tipe):
-                        $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
-                        $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
-                        $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
+    <!-- Tombol Panah Kanan -->
+    <button type="button" onclick="scrollPricing('right')" class="side-scroll-btn btn-next" title="Selanjutnya">
+        <i class="fa-solid fa-chevron-right"></i>
+    </button>
+
+    <!-- Deretan Kartu Member (HARUS DI DALAM WADAH CAROUSEL) -->
+    <div class="pricing-scroll-wrapper" style="position: relative; overflow: hidden; margin-bottom: 60px;">
+        <div class="pricing-grid reveal-stagger" id="pricingGrid"
+            style="display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth; padding: 12px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+            <?php
+            $icon_map = ['Silver' => 'fa-medal', 'Gold' => 'fa-trophy', 'Platinum' => 'fa-crown'];
+            $class_map = ['Silver' => 'silver', 'Gold' => 'gold', 'Platinum' => 'platinum'];
+
+            $is_blocked = ($has_member || $member_pending);
+
+            foreach ($tipe_member_list as $tipe):
+                $is_recommended = ($tipe['Nama_Tipe'] === 'Gold');
+                $icon = $icon_map[$tipe['Nama_Tipe']] ?? 'fa-star';
+                $cls = $class_map[$tipe['Nama_Tipe']] ?? 'silver';
+                ?>
+                <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>"
+                    data-nama="<?php echo strtolower(htmlspecialchars($tipe['Nama_Tipe'])); ?>"
+                    data-harga="<?php echo $tipe['Harga_Member']; ?>"
+                    style="min-width: 320px; flex-shrink: 0; scroll-snap-align: start;">
+                    <?php if ($is_recommended): ?>
+                        <div class="popular-badge">POPULER</div>
+                    <?php endif; ?>
+                    <div class="pricing-icon <?php echo $cls; ?>">
+                        <i class="fa-solid <?php echo $icon; ?>"></i>
+                    </div>
+                    <h3 class="pricing-name"><?php echo htmlspecialchars($tipe['Nama_Tipe']); ?></h3>
+                    <p class="pricing-desc">Paket member <?php echo htmlspecialchars($tipe['Nama_Tipe']); ?> 30 hari</p>
+                    <div class="pricing-price">
+                        <?php echo rupiahFormat($tipe['Harga_Member']); ?>
+                        <span>/ 30 hari</span>
+                    </div>
+                    <div class="pricing-potongan">
+                        <i class="fa-solid fa-tag"></i> Hemat <?php echo rupiahFormat($tipe['Potongan_Harga']); ?> per booking
+                    </div>
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Potongan <?php echo rupiahFormat($tipe['Potongan_Harga']); ?> per booking</li>
+                        <li><i class="fa-solid fa-check"></i> Masa aktif 30 hari</li>
+                        <li><i class="fa-solid fa-check"></i> Prioritas jadwal</li>
+                        <li><i class="fa-solid fa-check"></i> Promo eksklusif member</li>
+                        <?php if ($tipe['Nama_Tipe'] === 'Platinum'): ?>
+                            <li><i class="fa-solid fa-check"></i> Diskon pembelian alat 5%</li>
+                        <?php endif; ?>
+                    </ul>
+                    <button class="btn-pilih"
+                        onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
+                        <?php echo $is_blocked ? 'disabled' : ''; ?>>
+                        <?php
+                        if ($has_member) {
+                            echo 'Sudah Aktif';
+                        } elseif ($member_pending) {
+                            echo 'Menunggu Konfirmasi';
+                        } else {
+                            echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
+                        }
                         ?>
-                        <div class="pricing-card stagger-item <?php echo $is_recommended ? 'recommended' : ''; ?>"
-                            data-nama="<?php echo strtolower(htmlspecialchars($tipe['Nama_Tipe'])); ?>"
-                            data-harga="<?php echo $tipe['Harga_Member']; ?>"
-                            style="min-width: 320px; flex-shrink: 0; scroll-snap-align: start;">
-                            <?php if ($is_recommended): ?>
-                                <div class="popular-badge">POPULER</div>
-                            <?php endif; ?>
-                            <div class="pricing-icon <?php echo $cls; ?>">
-                                <i class="fa-solid <?php echo $icon; ?>"></i>
-                            </div>
-                            <h3 class="pricing-name"><?php echo htmlspecialchars($tipe['Nama_Tipe']); ?></h3>
-                            <p class="pricing-desc">Paket member <?php echo htmlspecialchars($tipe['Nama_Tipe']); ?> 30 hari
-                            </p>
-                            <div class="pricing-price">
-                                <?php echo rupiahFormat($tipe['Harga_Member']); ?>
-                                <span>/ 30 hari</span>
-                            </div>
-                            <div class="pricing-potongan">
-                                <i class="fa-solid fa-tag"></i> Hemat <?php echo rupiahFormat($tipe['Potongan_Harga']); ?>
-                                per booking
-                            </div>
-                            <ul class="pricing-features">
-                                <li><i class="fa-solid fa-check"></i> Potongan
-                                    <?php echo rupiahFormat($tipe['Potongan_Harga']); ?> per booking</li>
-                                <li><i class="fa-solid fa-check"></i> Masa aktif 30 hari</li>
-                                <li><i class="fa-solid fa-check"></i> Prioritas jadwal</li>
-                                <li><i class="fa-solid fa-check"></i> Promo eksklusif member</li>
-                                <?php if ($tipe['Nama_Tipe'] === 'Platinum'): ?>
-                                    <li><i class="fa-solid fa-check"></i> Diskon pembelian alat 5%</li>
-                                <?php endif; ?>
-                            </ul>
-                            <button class="btn-pilih"
-                                onclick="bukaModal(<?php echo $tipe['ID_Tipe']; ?>, '<?php echo htmlspecialchars($tipe['Nama_Tipe']); ?>', <?php echo $tipe['Harga_Member']; ?>)"
-                                <?php echo $is_blocked ? 'disabled' : ''; ?>>
-                                <?php
-                                if ($has_member) {
-                                    echo 'Sudah Aktif';
-                                } elseif ($member_pending) {
-                                    echo 'Menunggu Konfirmasi';
-                                } else {
-                                    echo '<i class="fa-solid fa-crown"></i> Pilih Paket Ini';
-                                }
-                                ?>
-                            </button>
-                        </div>
-                    <?php endforeach; ?>
+                    </button>
                 </div>
-            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+</div> <!-- TAG PENUTUP CAROUSEL CARD WRAPPER YANG BENAR ADALAH DI SINI -->
         </section>
 
         <!-- ================================================================
@@ -3429,19 +3526,34 @@ $tipe_config = [
             }
         }
 
-        function updateScrollArrows() {
-            const grid = document.getElementById('pricingGrid');
-            if (!grid) return;
+      function updateScrollArrows() {
+    const grid = document.getElementById('pricingGrid');
+    if (!grid) return;
 
-            const arrows = document.querySelectorAll('.scroll-arrow');
-            if (arrows.length >= 2) {
-                arrows[0].style.opacity = grid.scrollLeft > 10 ? '1' : '0.4';
-                arrows[0].style.pointerEvents = grid.scrollLeft > 10 ? 'auto' : 'none';
-                const canScrollRight = grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 10;
-                arrows[1].style.opacity = canScrollRight ? '1' : '0.4';
-                arrows[1].style.pointerEvents = canScrollRight ? 'auto' : 'none';
-            }
+    const btnLeft = document.querySelector('.side-scroll-btn.btn-prev');
+    const btnRight = document.querySelector('.side-scroll-btn.btn-next');
+
+    if (btnLeft && btnRight) {
+        // Jika sudah di paling kiri, redupkan panah kiri
+        if (grid.scrollLeft > 10) {
+            btnLeft.style.opacity = '1';
+            btnLeft.style.pointerEvents = 'auto';
+        } else {
+            btnLeft.style.opacity = '0.3';
+            btnLeft.style.pointerEvents = 'none';
         }
+
+        // Jika masih ada kartu di sebelah kanan, aktifkan panah kanan
+        const canScrollRight = grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 10;
+        if (canScrollRight) {
+            btnRight.style.opacity = '1';
+            btnRight.style.pointerEvents = 'auto';
+        } else {
+            btnRight.style.opacity = '0.3';
+            btnRight.style.pointerEvents = 'none';
+        }
+    }
+}
 
         const pricingGrid = document.getElementById('pricingGrid');
         if (pricingGrid) {

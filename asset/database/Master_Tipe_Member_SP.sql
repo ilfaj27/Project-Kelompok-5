@@ -100,10 +100,10 @@ GO
 -- ==========================================
 
 -- SP untuk Mengambil Daftar Tipe Member (Read List dengan Pagination & Filter)
-ALTER PROCEDURE sp_GetTipeMemberList -- Gunakan ALTER jika ingin memperbarui SP yang sudah ada
+ALTER PROCEDURE sp_GetTipeMemberList
     @SearchVal VARCHAR(100) = NULL,
     @StatusFilter INT = NULL,
-    @SortBy VARCHAR(50) = 'nama_asc',
+    @SortBy VARCHAR(50) = 'terbaru',
     @Offset INT = 0,
     @Limit INT = 10
 AS
@@ -115,10 +115,12 @@ BEGIN
       AND (@StatusFilter IS NULL OR Status = @StatusFilter)
       AND (@SearchVal IS NULL OR Nama_Tipe LIKE @SearchVal)
     ORDER BY 
+        Status DESC, -- Status AKTIF (1) selalu di atas, NONAKTIF (0) di bawah
         CASE WHEN @SortBy = 'nama_asc' THEN Nama_Tipe END ASC,
-        CASE WHEN @SortBy = 'nama_desc' THEN Nama_Tipe END DESC,     -- Tambahkan baris ini
+        CASE WHEN @SortBy = 'nama_desc' THEN Nama_Tipe END DESC,
         CASE WHEN @SortBy = 'harga_desc' THEN Harga_Member END DESC,
-        CASE WHEN @SortBy = 'harga_asc' THEN Harga_Member END ASC    -- Tambahkan baris ini
+        CASE WHEN @SortBy = 'harga_asc' THEN Harga_Member END ASC,
+        ID_Tipe DESC -- Default 'terbaru' (Data baru / ID terbesar di atas)
     OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
 END;
 GO

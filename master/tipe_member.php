@@ -118,12 +118,16 @@ if ($is_ajax) {
     }
 
     // Action: Simpan Data (MENGGUNAKAN UDF & STORED PROCEDURE)
+    // Action: Simpan Data (MENGGUNAKAN UDF & STORED PROCEDURE)
     if ($action === 'save') {
         $id = isset($_POST['id_tipe']) ? intval($_POST['id_tipe']) : 0;
         $nama_tipe = trim($_POST['nama_tipe'] ?? '');
         $harga_member_raw = $_POST['harga_member'] ?? '';
         $potongan_harga_raw = $_POST['potongan_harga'] ?? '';
 
+        // -------------------------------------------------------------
+        // 1. VALIDASI DASAR FORM
+        // -------------------------------------------------------------
         // Validasi Nama Tipe Member
         if ($nama_tipe === '') {
             echo json_encode(['success' => false, 'msg' => 'Nama tipe member wajib diisi.']);
@@ -156,10 +160,6 @@ if ($is_ajax) {
             echo json_encode(['success' => false, 'msg' => 'Harga member tidak boleh kurang dari 0.']);
             exit();
         }
-        if ($harga_member < 80000) {
-            echo json_encode(['success' => false, 'msg' => 'Harga member minimal 80000.']);
-            exit();
-        }
 
         // Validasi Potongan Harga
         if ($potongan_harga_raw === '') {
@@ -175,12 +175,68 @@ if ($is_ajax) {
             echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh kurang dari 0.']);
             exit();
         }
-        if ($potongan_harga < 50000) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga minimal 50000.']);
+
+        // -------------------------------------------------------------
+        // 2. ATURAN VALIDASI KETAT HARGA & DISKON
+        // -------------------------------------------------------------
+
+        // ATURAN 1: Harga membership harus unik
+        $q_check_harga_unik = safe_sqlsrv_query(
+            $conn,
+            "SELECT COUNT(*) AS total FROM Tipe_Member WHERE Harga_Member = ? AND ID_Tipe <> ? AND Is_Deleted = 0",
+            array($harga_member, $id),
+            false
+        );
+        if ($q_check_harga_unik) {
+            $row_h = safe_sqlsrv_fetch_array($q_check_harga_unik, SQLSRV_FETCH_ASSOC);
+            if (($row_h['total'] ?? 0) > 0) {
+                echo json_encode([
+                    'success' => false,
+                    'msg' => 'Gagal disimpan! Harga membership harus unik. Harga Rp ' . number_format($harga_member, 0, ',', '.') . ' sudah digunakan oleh membership lain.'
+                ]);
+                exit();
+            }
+        }
+
+        // ATURAN 2: Potongan per booking tidak boleh melebihi 50% dari harga membership
+        $max_potongan_50 = $harga_member * 0.50;
+        if ($potongan_harga > $max_potongan_50) {
+            echo json_encode([
+                'success' => false,
+                'msg' => 'Gagal disimpan! Potongan per booking tidak boleh melebihi 50% dari harga membership (Maksimal potongan: Rp ' . number_format($max_potongan_50, 0, ',', '.') . ').'
+            ]);
             exit();
         }
-        if ($potongan_harga > $harga_member) {
-            echo json_encode(['success' => false, 'msg' => 'Potongan harga tidak boleh lebih besar dari harga member.']);
+
+        // ATURAN 3: Jika terdapat membership lain dengan HARGA LEBIH TINGGI, potongan TIDAK BOLEH LEBIH BESAR
+        $q_check_higher = safe_sqlsrv_query(
+            $conn,
+            "SELECT TOP 1 Nama_Tipe, Harga_Member, Potongan_Harga FROM Tipe_Member WHERE Harga_Member > ? AND Potongan_Harga < ? AND ID_Tipe <> ? AND Is_Deleted = 0",
+            array($harga_member, $potongan_harga, $id),
+            false
+        );
+        if ($q_check_higher && safe_sqlsrv_has_rows($q_check_higher)) {
+            $row_high = safe_sqlsrv_fetch_array($q_check_higher, SQLSRV_FETCH_ASSOC);
+            echo json_encode([
+                'success' => false,
+                'msg' => 'Gagal disimpan! Potongan per booking (Rp ' . number_format($potongan_harga, 0, ',', '.') . ') tidak boleh lebih besar dari membership "' . $row_high['Nama_Tipe'] . '" yang harganya lebih mahal (Rp ' . number_format($row_high['Harga_Member'], 0, ',', '.') . ' dengan potongan Rp ' . number_format($row_high['Potongan_Harga'], 0, ',', '.') . ').'
+            ]);
+            exit();
+        }
+
+        // ATURAN 4: Jika terdapat membership lain dengan HARGA LEBIH RENDAH, potongan TIDAK BOLEH LEBIH KECIL
+        $q_check_lower = safe_sqlsrv_query(
+            $conn,
+            "SELECT TOP 1 Nama_Tipe, Harga_Member, Potongan_Harga FROM Tipe_Member WHERE Harga_Member < ? AND Potongan_Harga > ? AND ID_Tipe <> ? AND Is_Deleted = 0",
+            array($harga_member, $potongan_harga, $id),
+            false
+        );
+        if ($q_check_lower && safe_sqlsrv_has_rows($q_check_lower)) {
+            $row_low = safe_sqlsrv_fetch_array($q_check_lower, SQLSRV_FETCH_ASSOC);
+            echo json_encode([
+                'success' => false,
+                'msg' => 'Gagal disimpan! Potongan per booking (Rp ' . number_format($potongan_harga, 0, ',', '.') . ') tidak boleh lebih kecil dari membership "' . $row_low['Nama_Tipe'] . '" yang harganya lebih murah (Rp ' . number_format($row_low['Harga_Member'], 0, ',', '.') . ' dengan potongan Rp ' . number_format($row_low['Potongan_Harga'], 0, ',', '.') . ').'
+            ]);
             exit();
         }
 
@@ -194,8 +250,11 @@ if ($is_ajax) {
             }
         }
 
+        // -------------------------------------------------------------
+        // 3. EKSEKUSI PENYIMPANAN
+        // -------------------------------------------------------------
         if (isset($_POST['edit_mode']) && $id > 0) {
-            // Edit Data (MENGGUNAKAN STORED PROCEDURE)
+            // Edit Data
             $stmt = safe_sqlsrv_query(
                 $conn,
                 "EXEC sp_UpdateTipeMember @ID_Tipe=?, @Nama_Tipe=?, @Harga_Member=?, @Potongan_Harga=?, @Modified_By=?",
@@ -208,7 +267,7 @@ if ($is_ajax) {
                 echo json_encode(['success' => false, 'msg' => 'Gagal memperbarui data tipe member.']);
             }
         } else {
-            // Tambah Data Baru (MENGGUNAKAN STORED PROCEDURE)
+            // Tambah Data Baru
             $stmt = safe_sqlsrv_query(
                 $conn,
                 "EXEC sp_InsertTipeMember @Nama_Tipe=?, @Harga_Member=?, @Potongan_Harga=?, @Created_By=?",
@@ -257,7 +316,7 @@ if ($is_ajax) {
         $search_param = ($search_val !== '') ? "%$search_val%" : null;
         $status_param = ($f_status !== '') ? $f_status : null;
 
-        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+        $f_sort = $_GET['f_sort'] ?? 'terbaru';
 
         // Hitung Statistik Dashboard (MENGGUNAKAN USER DEFINED FUNCTION)
         $q_stats = safe_sqlsrv_query($conn, "SELECT * FROM dbo.fn_GetTipeMemberStats()", [], false);
@@ -2413,11 +2472,12 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc">Nama A - Z</option>
-                                        <option value="nama_desc">Nama Z - A</option>
-                                        <option value="harga_desc">Harga Tertinggi</option>
-                                        <option value="harga_asc">Harga Terendah</option>
-                                    </select>
+    <option value="terbaru" selected>Terbaru (Default)</option>
+    <option value="nama_asc">Nama A - Z</option>
+    <option value="nama_desc">Nama Z - A</option>
+    <option value="harga_desc">Harga Tertinggi</option>
+    <option value="harga_asc">Harga Terendah</option>
+</select>
                                 </div>
 
                                 <div class="filter-group">
@@ -2504,10 +2564,9 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
     <script>
         // State management untuk Filter & Pagination
         let currentPage = 1;
-        let currentSort = 'nama_asc';
-        let currentStatus = '';
-        let currentSearch = '';
-
+let currentSort = 'terbaru'; // <-- Menjadi 'terbaru'
+let currentStatus = '';
+let currentSearch = '';
         // ============================================
         // GET DATA TABEL (AJAX REFRESH)
         // ============================================
@@ -2738,18 +2797,19 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             document.getElementById('filterCardCustom').classList.remove('open');
         }
 
-        function resetFilter() {
-            document.getElementById('formFilter').reset();
-            currentSort = 'nama_asc';
-            currentStatus = '';
-            currentSearch = '';
-            document.getElementById('src').value = '';
-            currentPage = 1;
-            loadTableData();
+// Ganti di dalam fungsi resetFilter() (sekitar baris 1000):
+function resetFilter() {
+    document.getElementById('formFilter').reset();
+    currentSort = 'terbaru';
+    currentStatus = '';
+    currentSearch = '';
+    document.getElementById('src').value = '';
+    currentPage = 1;
+    loadTableData();
 
-            document.getElementById('btnFilterToggleCustom').classList.remove('active');
-            document.getElementById('filterCardCustom').classList.remove('open');
-        }
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
 
         // ============================================
         // TOGGLE STATUS (MENGGUNAKAN SP)
@@ -2842,13 +2902,24 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         }
 
         // ============================================
-        // FORM FIELD VALIDATION
+        // 1. PUSAT ATURAN VALIDASI (TANPA REDUNDANSI)
         // ============================================
-        function validateField(fieldId, valId, rules) {
-            const field = document.getElementById(fieldId);
-            const valMsg = document.getElementById(valId);
-            const value = field.value.trim();
+        const RULES = {
+            nama_tipe: { required: true, label: 'Nama tipe member' },
+            harga_member: { required: true, isNumeric: true, notZero: true, minVal: 1000, label: 'Harga member' },
+            potongan_harga: { required: true, isNumeric: true, minVal: 1000, label: 'Potongan harga' }
+        };
 
+        // ============================================
+        // 2. FUNGSI VALIDASI SATUAN
+        // ============================================
+        function validateField(fieldId) {
+            const field = document.getElementById(fieldId);
+            const valMsg = document.getElementById('val-' + fieldId);
+            const rules = RULES[fieldId];
+            if (!field || !valMsg || !rules) return true;
+
+            const value = field.value.trim();
             field.classList.remove('error');
             valMsg.classList.remove('show');
 
@@ -2892,13 +2963,7 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
 
                 if (rules.minVal !== undefined && numVal < rules.minVal) {
                     field.classList.add('error');
-                    if (fieldId === 'harga_member' && rules.minVal === 80000) {
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Harga member minimal 80000.';
-                    } else if (fieldId === 'potongan_harga' && rules.minVal === 50000) {
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Potongan harga minimal 50000.';
-                    } else {
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh kurang dari ' + rules.minVal + '.';
-                    }
+                    valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + rules.label + ' tidak boleh kurang dari ' + rules.minVal + '.';
                     valMsg.classList.add('show');
                     return false;
                 }
@@ -2906,38 +2971,34 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
                 if (fieldId === 'potongan_harga') {
                     const hargaValRaw = document.getElementById('harga_member').value.trim();
                     const hargaVal = parseFloat(hargaValRaw);
-                    if (!isNaN(hargaVal) && numVal > hargaVal) {
-                        field.classList.add('error');
-                        valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Potongan harga tidak boleh lebih besar dari harga member.';
-                        valMsg.classList.add('show');
-                        return false;
+                    
+                    if (!isNaN(hargaVal)) {
+                        const maxPotongan50 = hargaVal * 0.50;
+                        if (numVal > maxPotongan50) {
+                            field.classList.add('error');
+                            valMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Potongan tidak boleh melebihi 50% dari harga membership (Maks: Rp ' + new Intl.NumberFormat('id-ID').format(maxPotongan50) + ').';
+                            valMsg.classList.add('show');
+                            return false;
+                        }
                     }
                 }
             }
             return true;
         }
 
+        // ============================================
+        // 3. FUNGSI VALIDASI FORM SAAT SUBMIT
+        // ============================================
         function validateForm() {
             let valid = true;
-            if (!validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' })) valid = false;
-            if (!validateField('harga_member', 'val-harga_member', {
-                required: true,
-                isNumeric: true,
-                notZero: true,
-                minVal: 80000,
-                label: 'Harga member'
-            })) valid = false;
-            if (!validateField('potongan_harga', 'val-potongan_harga', {
-                required: true,
-                isNumeric: true,
-                minVal: 50000,
-                label: 'Potongan harga'
-            })) valid = false;
+            for (const fieldId in RULES) {
+                if (!validateField(fieldId)) valid = false;
+            }
             return valid;
         }
 
         // ============================================
-        // PENGENDALI EVENT KLIK FILTER (INLINE FALLBACK)
+        // 4. PENGENDALI EVENT KLIK FILTER
         // ============================================
         function toggleCustomFilterCard(e) {
             e.stopPropagation();
@@ -2949,7 +3010,6 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
             }
         }
 
-        // Tutup filter card saat pengguna klik di luar area filter
         window.addEventListener('click', function (e) {
             const btn = document.getElementById('btnFilterToggleCustom');
             const card = document.getElementById('filterCardCustom');
@@ -2962,70 +3022,23 @@ $topbar_breadcrumb = 'Operasional / Tipe Member';
         });
 
         // ============================================
-        // INITIAL LOAD & REAL-TIME VALIDATIONS
+        // 5. INITIAL LOAD & EVENT LISTENERS
         // ============================================
         document.addEventListener('DOMContentLoaded', function () {
-            // Jalankan load data tabel utama
             loadTableData();
 
-            // Real-time validations
-            const namaTipe = document.getElementById('nama_tipe');
-            if (namaTipe) {
-                namaTipe.addEventListener('blur', function () {
-                    validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' });
-                });
-                namaTipe.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('nama_tipe', 'val-nama_tipe', { required: true, label: 'Nama tipe member' });
-                    }
-                });
-            }
-
-            const hargaMember = document.getElementById('harga_member');
-            if (hargaMember) {
-                hargaMember.addEventListener('blur', function () {
-                    validateField('harga_member', 'val-harga_member', {
-                        required: true,
-                        isNumeric: true,
-                        notZero: true,
-                        minVal: 80000,
-                        label: 'Harga member'
+            // Pasang event listener otomatis tanpa pengulangan kode!
+            Object.keys(RULES).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('blur', () => validateField(fieldId));
+                    field.addEventListener('input', () => {
+                        if (field.classList.contains('error')) {
+                            validateField(fieldId);
+                        }
                     });
-                });
-                hargaMember.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('harga_member', 'val-harga_member', {
-                            required: true,
-                            isNumeric: true,
-                            notZero: true,
-                            minVal: 80000,
-                            label: 'Harga member'
-                        });
-                    }
-                });
-            }
-
-            const potonganHarga = document.getElementById('potongan_harga');
-            if (potonganHarga) {
-                potonganHarga.addEventListener('blur', function () {
-                    validateField('potongan_harga', 'val-potongan_harga', {
-                        required: true,
-                        isNumeric: true,
-                        minVal: 50000,
-                        label: 'Potongan harga'
-                    });
-                });
-                potonganHarga.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('potongan_harga', 'val-potongan_harga', {
-                            required: true,
-                            isNumeric: true,
-                            minVal: 50000,
-                            label: 'Potongan harga'
-                        });
-                    }
-                });
-            }
+                }
+            });
         });
     </script>
     <!-- Panggil sensor di paling bawah sebelum body ditutup -->

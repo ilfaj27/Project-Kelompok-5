@@ -75,9 +75,9 @@ if ($is_ajax) {
             $errors[] = "Keterangan hanya boleh berisi huruf dan spasi!";
         }
 
-        if ($stok_total < 5) {
-            $errors[] = "Stok total tidak boleh kurang dari 5!";
-        }
+        if ($stok_total < 1) {
+    $errors[] = "Stok total tidak boleh kurang dari 1!";
+}
 
         if (empty($errors)) {
             // Cek duplikasi nama fasilitas secara global
@@ -172,7 +172,7 @@ if ($is_ajax) {
     if ($action === 'get_table_data') {
         $f_lapangan = isset($_GET['f_lapangan']) && $_GET['f_lapangan'] !== '' ? $_GET['f_lapangan'] : 'all';
         $f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : 'all';
-        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+        $f_sort = $_GET['f_sort'] ?? 'terbaru';
         $search = isset($_GET['src']) ? trim($_GET['src']) : '';
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
@@ -1297,6 +1297,14 @@ $sidebar_photo = $profile_photo;
             justify-content: center;
         }
 
+        textarea.modal-input {
+    min-height: 80px;
+    resize: vertical;
+    font-family: 'Barlow', sans-serif;
+    line-height: 1.4;
+    padding: 10px 14px;
+}
+
         @media(max-width: 768px) {
             .sidebar {
                 width: 0;
@@ -1337,8 +1345,8 @@ $sidebar_photo = $profile_photo;
                     <div id="hiddenInputsArea"></div>
 
                     <label class="modal-label">Stok Total <span class="required">*</span></label>
-                    <input type="number" name="stok_total" id="stok_total" class="modal-input" required min="5"
-                        placeholder="Contoh: 15" autocomplete="off">
+                    <input type="number" name="stok_total" id="stok_total" class="modal-input" required min="1"
+    placeholder="Contoh: 15" autocomplete="off">
                     <div class="val-msg" id="val-stok_total"></div>
 
                     <label class="modal-label">Nama Fasilitas <span class="required">*</span></label>
@@ -1346,10 +1354,10 @@ $sidebar_photo = $profile_photo;
                         minlength="3" maxlength="50" placeholder="Contoh: Bola Basket Spalding" autocomplete="off">
                     <div class="val-msg" id="val-nama_fasilitas"></div>
 
-                    <label class="modal-label">Keterangan<span class="required">*</span></label>
-                    <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input" required
-                        minlength="10" maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
-                    <div class="val-msg" id="val-detail_fasilitas"></div>
+                    <label class="modal-label">Keterangan <span class="required">*</span></label>
+<textarea name="detail_fasilitas" id="detail_fasilitas" class="modal-input modal-textarea" required
+    minlength="10" maxlength="50" rows="3" placeholder="Contoh: Bola basket standar SNI" autocomplete="off"></textarea>
+<div class="val-msg" id="val-detail_fasilitas"></div>
 
                     <button type="submit" class="btn-submit" id="btnSubmitForm">
                         <i class="fa-solid fa-plus"></i> Tambah Fasilitas
@@ -1466,11 +1474,12 @@ $sidebar_photo = $profile_photo;
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" id="f_sort" class="filter-input">
-                                        <option value="nama_asc">Nama Fasilitas (A - Z)</option>
-                                        <option value="nama_desc">Nama Fasilitas (Z - A)</option>
-                                        <option value="stok_desc">Stok Terbanyak</option>
-                                        <option value="stok_asc">Stok Tersedikit</option>
-                                    </select>
+    <option value="terbaru" selected>Terbaru (Default)</option>
+    <option value="nama_asc">Nama Fasilitas (A - Z)</option>
+    <option value="nama_desc">Nama Fasilitas (Z - A)</option>
+    <option value="stok_desc">Stok Terbanyak</option>
+    <option value="stok_asc">Stok Tersedikit</option>
+</select>
                                 </div>
                                 <div class="filter-buttons">
                                     <button type="button" class="btn-filter-reset" onclick="resetFilter()"><i
@@ -1520,7 +1529,7 @@ $sidebar_photo = $profile_photo;
     <script>
         // State management untuk Filter & Pagination
         let currentPage = 1;
-        let currentSort = 'nama_asc';
+        let currentSort = 'terbaru';
         let currentStatus = '';
         let currentLapangan = '';
         let currentSearch = '';
@@ -1642,10 +1651,10 @@ $sidebar_photo = $profile_photo;
             let valid = true;
 
             if (!validateField('stok_total', 'val-stok_total', {
-                required: true,
-                minValue: 5, // Ditambahkan batas minimal nilai 5
-                label: 'Stok total'
-            })) valid = false;
+    required: true,
+    minValue: 1, // <-- Ubah dari 5 ke 1
+    label: 'Stok total'
+})) valid = false;
 
             if (!validateField('nama_fasilitas', 'val-nama_fasilitas', {
                 required: true,
@@ -1845,18 +1854,18 @@ $sidebar_photo = $profile_photo;
         }
 
         function resetFilter() {
-            document.getElementById('formFilter').reset();
-            currentLapangan = '';
-            currentStatus = '';
-            currentSort = 'nama_asc';
-            currentSearch = '';
-            document.getElementById('src').value = '';
-            currentPage = 1;
-            loadTableData();
+    document.getElementById('formFilter').reset();
+    currentLapangan = '';
+    currentStatus = '';
+    currentSort = 'terbaru'; // <-- Ubah dari 'nama_asc' menjadi 'terbaru'
+    currentSearch = '';
+    document.getElementById('src').value = '';
+    currentPage = 1;
+    loadTableData();
 
-            document.getElementById('btnFilterToggleCustom').classList.remove('active');
-            document.getElementById('filterCardCustom').classList.remove('open');
-        }
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
 
         // Fungsi Buka Form Tambah Baru
         function showAddForm() {
@@ -1974,24 +1983,24 @@ $sidebar_photo = $profile_photo;
             loadTableData();
 
             const stokTotal = document.getElementById('stok_total');
-            if (stokTotal) {
-                stokTotal.addEventListener('blur', function () {
-                    validateField('stok_total', 'val-stok_total', {
-                        required: true,
-                        minValue: 5,
-                        label: 'Stok total'
-                    });
-                });
-                stokTotal.addEventListener('input', function () {
-                    if (this.classList.contains('error')) {
-                        validateField('stok_total', 'val-stok_total', {
-                            required: true,
-                            minValue: 5,
-                            label: 'Stok total'
-                        });
-                    }
-                });
-            }
+if (stokTotal) {
+    stokTotal.addEventListener('blur', function () {
+        validateField('stok_total', 'val-stok_total', {
+            required: true,
+            minValue: 1, // <-- Ubah dari 5 ke 1
+            label: 'Stok total'
+        });
+    });
+    stokTotal.addEventListener('input', function () {
+        if (this.classList.contains('error')) {
+            validateField('stok_total', 'val-stok_total', {
+                required: true,
+                minValue: 1, // <-- Ubah dari 5 ke 1
+                label: 'Stok total'
+            });
+        }
+    });
+}
 
             // Real-time validations
             const namaFas = document.getElementById('nama_fasilitas');

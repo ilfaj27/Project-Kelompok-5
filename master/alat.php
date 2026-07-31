@@ -321,7 +321,7 @@ if ($is_real_ajax) {
         $f_kategori = ($kategori_raw !== '') ? $kategori_raw : null;
 
         $f_status = (isset($_GET['f_status']) && $_GET['f_status'] !== '') ? intval($_GET['f_status']) : null;
-        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+        $f_sort = $_GET['f_sort'] ?? 'terbaru';
 
         // Stats
         $aktif_count = $nonaktif_count = $total_alat = 0;
@@ -2058,13 +2058,15 @@ $topbar_breadcrumb = 'Operasional / Alat';
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc">Nama A-Z</option>
-                                        <option value="stok_desc">Stok Terbanyak</option>
-                                        <option value="harga_jual_desc">Harga Jual Termahal</option>
-                                        <option value="harga_jual_asc">Harga Jual Termurah</option>
-                                        <option value="harga_beli_desc">Harga Beli Termahal</option>
-                                        <option value="harga_beli_asc">Harga Beli Termurah</option>
-                                    </select>
+    <option value="terbaru" selected>Terbaru (Default)</option>
+    <option value="nama_asc">Nama A-Z</option>
+    <option value="nama_desc">Nama Z-A</option>
+    <option value="stok_desc">Stok Terbanyak</option>
+    <option value="harga_jual_desc">Harga Jual Termahal</option>
+    <option value="harga_jual_asc">Harga Jual Termurah</option>
+    <option value="harga_beli_desc">Harga Beli Termahal</option>
+    <option value="harga_beli_asc">Harga Beli Termurah</option>
+</select>
                                 </div>
 
                                 <div class="filter-buttons">
@@ -2094,7 +2096,7 @@ $topbar_breadcrumb = 'Operasional / Alat';
     <script>
         // State Management AJAX
         let currentPage = 1;
-        let currentSort = 'nama_asc';
+        let currentSort = 'terbaru';
         let currentStatus = '';
         let currentKategori = '';
         let currentSearch = '';
@@ -2544,18 +2546,18 @@ $topbar_breadcrumb = 'Operasional / Alat';
 
         // Function Reset Filter
         function resetFilter() {
-            document.getElementById('formFilter').reset();
-            currentSort = 'nama_asc';
-            currentStatus = '';
-            currentKategori = '';
-            currentSearch = '';
-            document.getElementById('src').value = '';
-            currentPage = 1;
-            loadGridData();
+    document.getElementById('formFilter').reset();
+    currentSort = 'terbaru'; // <-- Ubah dari 'nama_asc' menjadi 'terbaru'
+    currentStatus = '';
+    currentKategori = '';
+    currentSearch = '';
+    document.getElementById('src').value = '';
+    currentPage = 1;
+    loadGridData();
 
-            document.getElementById('btnFilterToggleCustom').classList.remove('active');
-            document.getElementById('filterCardCustom').classList.remove('open');
-        }
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
 
         // Auto Close ketika diklik di luar area Filter (Bypass konflik global.js)
         window.addEventListener('click', function(e) {

@@ -191,9 +191,9 @@ USE Hoopball;
 GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_ReadFasilitasListWithCount
-    @Filter_Lapangan VARCHAR(10) = 'all',   -- 'all' atau ID_Lapangan
-    @Filter_Status   VARCHAR(10) = 'all',   -- 'all', '0', '1'
-    @Sort_Order     VARCHAR(20) = 'nama_asc',
+   @Filter_Lapangan VARCHAR(10) = 'all',   
+    @Filter_Status   VARCHAR(10) = 'all',   
+    @Sort_Order     VARCHAR(20) = 'terbaru',
     @Offset         INT = 0,
     @Limit          INT = 10,
     @Search         VARCHAR(50) = ''
@@ -201,7 +201,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Definisikan variabel lokal untuk menampung ID angka secara aman
     DECLARE @Status_Int INT = NULL;
     IF @Filter_Status <> 'all' AND ISNUMERIC(@Filter_Status) = 1
     BEGIN
@@ -214,7 +213,7 @@ BEGIN
         SET @Lapangan_Int = CAST(@Filter_Lapangan AS INT);
     END
 
-    -- Hasil 1: Total Count (Jumlah data terfilter)
+    -- Total Count
     SELECT COUNT(*) AS TotalCount
     FROM Fasilitas_Lapangan f
     WHERE f.Is_Deleted = 0
@@ -225,7 +224,7 @@ BEGIN
                         AND d.ID_Lapangan = @Lapangan_Int))
       AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%');
 
-    -- Hasil 2: Data List (Data terpaginasi)
+    -- Data List
     SELECT 
         f.ID_Fasilitas,
         f.Nama_Fasilitas,
@@ -246,10 +245,12 @@ BEGIN
                         AND d.ID_Lapangan = @Lapangan_Int))
       AND (@Search = '' OR f.Nama_Fasilitas LIKE '%' + @Search + '%')
     ORDER BY 
+        f.Status DESC, -- Status AKTIF (1) di atas, NONAKTIF (0) di paling bawah
         CASE @Sort_Order WHEN 'nama_asc'  THEN f.Nama_Fasilitas END ASC,
         CASE @Sort_Order WHEN 'nama_desc' THEN f.Nama_Fasilitas END DESC,
         CASE @Sort_Order WHEN 'stok_desc' THEN f.Stok_Total END DESC,
-        CASE @Sort_Order WHEN 'stok_asc'  THEN f.Stok_Total END ASC
+        CASE @Sort_Order WHEN 'stok_asc'  THEN f.Stok_Total END ASC,
+        f.ID_Fasilitas DESC -- Default 'terbaru' (Data baru / ID terbesar di atas)
     OFFSET @Offset ROWS
     FETCH NEXT @Limit ROWS ONLY;
 END;

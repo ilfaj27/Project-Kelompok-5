@@ -14,10 +14,10 @@ GO
 -- 1. SP: Get All Customers (Read List with Pagination & Search)
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReadCustomerListWithCount
-    @FilterStatus   VARCHAR(10) = 'all',    -- 'all', 'aktif', 'nonaktif'
-    @FilterJK       INT = -1,               -- -1 = all, 0 = Perempuan, 1 = Laki-laki
-    @SortBy         VARCHAR(50) = 'ID_Customer',
-    @SortOrder      VARCHAR(4) = 'ASC',
+    @FilterStatus   VARCHAR(10) = 'all',    
+    @FilterJK       INT = -1,               
+    @SortBy         VARCHAR(50) = 'terbaru',
+    @SortOrder      VARCHAR(4) = 'DESC',
     @Offset         INT = 0,
     @Limit          INT = 10,
     @Search         VARCHAR(100) = ''
@@ -25,12 +25,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validasi SortBy untuk mencegah SQL Injection
-    IF @SortBy NOT IN ('ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date')
-        SET @SortBy = 'ID_Customer';
+    -- Validasi SortBy
+    IF @SortBy NOT IN ('terbaru', 'ID_Customer', 'Nama_Customer', 'Jenis_Kelamin', 'Alamat', 'No_Telepon', 'Email', 'Created_Date')
+        SET @SortBy = 'terbaru';
 
     IF UPPER(@SortOrder) NOT IN ('ASC', 'DESC')
-        SET @SortOrder = 'ASC';
+        SET @SortOrder = 'DESC';
 
     -- Hitung total data terfilter
     SELECT COUNT(*) AS TotalCount
@@ -46,14 +46,11 @@ BEGIN
             No_Telepon LIKE '%' + @Search + '%' OR 
             Alamat LIKE '%' + @Search + '%');
 
-    -- Ambil data customer
-    DECLARE @sql NVARCHAR(MAX);
-    SET @sql = N'
+    -- Ambil data customer dengan urutan Status Aktif Dulu -> Pilihan Filter -> ID Terbaru
     SELECT 
         ID_Customer,
         Nama_Customer,
         Tanggal_Lahir,
-        -- KALKULASI UMUR AKTIF
         DATEDIFF(YEAR, Tanggal_Lahir, GETDATE()) - 
         CASE 
             WHEN MONTH(Tanggal_Lahir) > MONTH(GETDATE()) 
@@ -73,22 +70,22 @@ BEGIN
         Modified_Date
     FROM Customer
     WHERE Is_Deleted = 0
-        AND (@FilterStatus = ''all'' OR 
-            (@FilterStatus = ''aktif'' AND Status = 1) OR 
-            (@FilterStatus = ''nonaktif'' AND Status = 0))
+        AND (@FilterStatus = 'all' OR 
+            (@FilterStatus = 'aktif' AND Status = 1) OR 
+            (@FilterStatus = 'nonaktif' AND Status = 0))
         AND (@FilterJK = -1 OR Jenis_Kelamin = @FilterJK)
-        AND (@Search = '''' OR 
-            Nama_Customer LIKE ''%'' + @Search + ''%'' OR 
-            Email LIKE ''%'' + @Search + ''%'' OR 
-            No_Telepon LIKE ''%'' + @Search + ''%'' OR 
-            Alamat LIKE ''%'' + @Search + ''%'')
-    ORDER BY ' + QUOTENAME(@SortBy) + ' ' + @SortOrder + '
+        AND (@Search = '' OR 
+            Nama_Customer LIKE '%' + @Search + '%' OR 
+            Email LIKE '%' + @Search + '%' OR 
+            No_Telepon LIKE '%' + @Search + '%' OR 
+            Alamat LIKE '%' + @Search + '%')
+    ORDER BY 
+        Status DESC, -- Status AKTIF (1) di atas, NONAKTIF (0) di paling bawah
+        CASE WHEN @SortBy = 'Nama_Customer' AND @SortOrder = 'ASC'  THEN Nama_Customer END ASC,
+        CASE WHEN @SortBy = 'Nama_Customer' AND @SortOrder = 'DESC' THEN Nama_Customer END DESC,
+        ID_Customer DESC
     OFFSET @Offset ROWS
-    FETCH NEXT @Limit ROWS ONLY;';
-
-    EXEC sp_executesql @sql, 
-        N'@FilterStatus VARCHAR(10), @FilterJK INT, @Search VARCHAR(100), @Offset INT, @Limit INT',
-        @FilterStatus, @FilterJK, @Search, @Offset, @Limit;
+    FETCH NEXT @Limit ROWS ONLY;
 END;
 GO
 

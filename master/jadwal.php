@@ -666,7 +666,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .data-table tbody tr:hover td { background-color: #FFEDD5 !important; }
 
 /* ========= TAB VIEW ========= */
-.jd-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 8px; flex-wrap: wrap; }
+.jd-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 8px; flex-wrap: wrap; position: sticky; top: var(--topbar-h, 70px); z-index: 92; }
 .jd-tab { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--muted); font-size: 13px; font-weight: 700; transition: all .2s; border:none; background:transparent; cursor:pointer; font-family:'Barlow',sans-serif; }
 .jd-tab:hover { color: var(--text); background: var(--bg); }
 .jd-tab.active { background: var(--orange); color: #fff; box-shadow: 0 4px 12px rgba(255,69,0,.25); }
@@ -679,7 +679,7 @@ body { font-family: 'Barlow', sans-serif; background: var(--bg); display: flex; 
 .jd-select:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lt); }
 
 /* ========= DATE SCROLLER ========= */
-.date-scroller { display: flex; align-items: stretch; gap: 8px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 20px; }
+.date-scroller { display: flex; align-items: stretch; gap: 8px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 20px; position: sticky; top: calc(var(--topbar-h, 70px) + 62px); z-index: 91; }
 .ds-arrow { display: flex; align-items: center; justify-content: center; width: 40px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text-md); text-decoration: none; transition: all .2s; flex-shrink: 0; cursor:pointer; }
 .ds-arrow:hover { background: var(--orange-lt); color: var(--orange); border-color: var(--orange); }
 .ds-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; flex: 1; }
@@ -793,6 +793,24 @@ html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 .swal2-container { z-index: 99999 !important; }
 .swal2-popup { font-family: 'Barlow', sans-serif !important; }
 .swal2-title { font-family: 'Barlow Condensed', sans-serif !important; font-size: 26px !important; }
+
+.sticky-header-wrap {
+    position: sticky;
+    top: var(--topbar-h, 70px);
+    z-index: 90;
+    background: var(--bg, #F3F4F6);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 20px;
+}
+
+.sticky-header-wrap .jd-tabs {
+    margin-bottom: 10px;
+}
+
+.sticky-header-wrap .date-scroller {
+    margin-bottom: 0;
+}
 
 @media(max-width: 768px) {
     .sidebar { width: 0; overflow: hidden; padding: 0; }

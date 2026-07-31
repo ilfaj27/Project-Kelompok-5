@@ -254,7 +254,7 @@ if ($is_ajax) {
     // Action: Ambil Data Tabel, Pagination & Statistik (Dynamic AJAX Refresh)
     if ($action === 'get_table_data') {
         $filter_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : null;
-        $f_sort = $_GET['f_sort'] ?? 'nama_asc';
+        $f_sort = $_GET['f_sort'] ?? 'terbaru';
         $search_val = isset($_GET['src']) ? trim($_GET['src']) : '';
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
@@ -297,17 +297,27 @@ if ($is_ajax) {
         // FALLBACK SORTING DI SISI PHP (Mengantisipasi Jika SP Belum diupdate)
         // ============================================
         usort($all_records, function($a, $b) use ($f_sort) {
-            if ($f_sort === 'nama_asc') {
-                return strcasecmp($a['Nama_Promo'], $b['Nama_Promo']);
-            } elseif ($f_sort === 'nama_desc') {
-                return strcasecmp($b['Nama_Promo'], $a['Nama_Promo']);
-            } elseif ($f_sort === 'diskon_desc') {
-                return floatval($b['Diskon']) <=> floatval($a['Diskon']);
-            } elseif ($f_sort === 'diskon_asc') {
-                return floatval($a['Diskon']) <=> floatval($b['Diskon']);
-            }
-            return 0;
-        });
+    // Utamakan status AKTIF (1) di atas KADALUARSA (0)
+    $a_active = ($a['StatusText'] === 'AKTIF') ? 1 : 0;
+    $b_active = ($b['StatusText'] === 'AKTIF') ? 1 : 0;
+
+    if ($a_active !== $b_active) {
+        return $b_active <=> $a_active;
+    }
+
+    if ($f_sort === 'nama_asc') {
+        return strcasecmp($a['Nama_Promo'], $b['Nama_Promo']);
+    } elseif ($f_sort === 'nama_desc') {
+        return strcasecmp($b['Nama_Promo'], $a['Nama_Promo']);
+    } elseif ($f_sort === 'diskon_desc') {
+        return floatval($b['Diskon']) <=> floatval($a['Diskon']);
+    } elseif ($f_sort === 'diskon_asc') {
+        return floatval($a['Diskon']) <=> floatval($b['Diskon']);
+    }
+    
+    // Default 'terbaru': Promo dengan ID lebih besar di atas
+    return intval($b['ID_Promo']) <=> intval($a['ID_Promo']);
+});
 
         $total_data_filtered = count($all_records);
         $limit = 10;
@@ -344,7 +354,7 @@ if ($is_ajax) {
                 <td class="col-center">
                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
                         <span class="sp-dot"></span>
-                        <?= $is_active ? 'AKTIF' : 'KADALUARSA' ?>
+                        <?= $is_active ? 'AKTIF' : 'KADALUWARSA' ?>
                     </span>
                 </td>
                 <td class="col-center">
@@ -2355,7 +2365,7 @@ $topbar_breadcrumb = 'Operasional / Promo';
                 <div class="stat-chips">
                     <div class="stat-chip chip-green"><i class="fa-solid fa-circle-check"></i> AKTIF <span
                             class="chip-val" id="stat-aktif"><?= $active_count ?></span></div>
-                    <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> KADALUARSA <span
+                    <div class="stat-chip chip-red"><i class="fa-solid fa-circle-xmark"></i> KADALUWARSA <span
                             class="chip-val" id="stat-nonaktif"><?= $expired_count ?></span></div>
                     <div class="stat-chip chip-blue"><i class="fa-solid fa-list"></i> TOTAL <span
                             class="chip-val" id="stat-total"><?= $total_data ?></span></div>
@@ -2385,11 +2395,12 @@ $topbar_breadcrumb = 'Operasional / Promo';
                                 <div class="filter-group">
                                     <label>Urut Berdasarkan</label>
                                     <select name="f_sort" class="filter-input">
-                                        <option value="nama_asc">Nama A - Z</option>
-                                        <option value="nama_desc">Nama Z - A</option>
-                                        <option value="diskon_desc">Diskon Terbesar ke Terkecil</option>
-                                        <option value="diskon_asc">Diskon Terkecil ke Terbesar</option>
-                                    </select>
+    <option value="terbaru" selected>Terbaru (Default)</option>
+    <option value="nama_asc">Nama A - Z</option>
+    <option value="nama_desc">Nama Z - A</option>
+    <option value="diskon_desc">Diskon Terbesar ke Terkecil</option>
+    <option value="diskon_asc">Diskon Terkecil ke Terbesar</option>
+</select>
                                 </div>
 
                                 <div class="filter-group">
@@ -2397,7 +2408,7 @@ $topbar_breadcrumb = 'Operasional / Promo';
                                     <select name="f_status" class="filter-input">
                                         <option value="">Semua Status</option>
                                         <option value="1">AKTIF</option>
-                                        <option value="0">KADALUARSA</option>
+                                        <option value="0">KADALUWARSA</option>
                                     </select>
                                 </div>
 
@@ -2460,7 +2471,7 @@ $topbar_breadcrumb = 'Operasional / Promo';
     <script>
         // State management untuk Filter & Pagination
         let currentPage = 1;
-        let currentSort = 'nama_asc';
+        let currentSort = 'terbaru';
         let currentStatus = '';
         let currentSearch = '';
 
@@ -2568,7 +2579,7 @@ $topbar_breadcrumb = 'Operasional / Promo';
 
                     const statusPill = is_active_detail 
                         ? `<span class="status-pill sp-active"><span class="sp-dot"></span>AKTIF</span>`
-                        : `<span class="status-pill sp-inactive"><span class="sp-dot"></span>KADALUARSA</span>`;
+                        : `<span class="status-pill sp-inactive"><span class="sp-dot"></span>KADALUWARSA</span>`;
 
                     document.getElementById('detail-modal-body').innerHTML = `
                         <div class="detail-photo-card">
@@ -2698,18 +2709,18 @@ $topbar_breadcrumb = 'Operasional / Promo';
             document.getElementById('filterCardCustom').classList.remove('open');
         }
 
-        function resetFilter() {
-            document.getElementById('formFilter').reset();
-            currentSort = 'nama_asc';
-            currentStatus = '';
-            currentSearch = '';
-            document.getElementById('src').value = '';
-            currentPage = 1;
-            loadTableData();
+       function resetFilter() {
+    document.getElementById('formFilter').reset();
+    currentSort = 'terbaru'; // <-- Ubah dari 'nama_asc'
+    currentStatus = '';
+    currentSearch = '';
+    document.getElementById('src').value = '';
+    currentPage = 1;
+    loadTableData();
 
-            document.getElementById('btnFilterToggleCustom').classList.remove('active');
-            document.getElementById('filterCardCustom').classList.remove('open');
-        }
+    document.getElementById('btnFilterToggleCustom').classList.remove('active');
+    document.getElementById('filterCardCustom').classList.remove('open');
+}
 
         // ============================================
         // TOGGLE STATUS (MENGGUNAKAN SP)

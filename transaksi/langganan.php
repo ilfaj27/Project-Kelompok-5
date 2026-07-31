@@ -138,7 +138,7 @@ if ($is_ajax) {
             $langganan_data['Email'] = $langganan_data['Customer_Email'] ?? '';
             $langganan_data['No_Telepon'] = $langganan_data['Customer_Telepon'] ?? '';
             $langganan_data['Nama_Karyawan_Input'] = $langganan_data['Nama_Karyawan_Konfirmasi'] ?? $langganan_data['Created_By'] ?? '';
-            
+
             $langganan_data['TanggalMulaiFormatted'] = formatTanggal($langganan_data['Tanggal_Mulai']);
             $langganan_data['TanggalSelesaiFormatted'] = formatTanggal($langganan_data['Tanggal_Selesai']);
             echo json_encode(['success' => true, 'data' => $langganan_data]);
@@ -316,25 +316,10 @@ if ($is_ajax) {
                     <td class="cell-price" style="text-align: center;"><?= rupiahFormat($l['Total_Bayar'] ?? 0) ?></td>
                     <td style="text-align: center;"><span class="status-pill <?= $status['class'] ?>"><i
                                 class="fa-solid <?= $status['icon'] ?>"></i> <?= $status['label'] ?></span></td>
-                    <td>
-                        <div class="action-btns">
-                            <button type="button" class="btn-icon view" onclick="showDetail(<?= $l['ID_Langganan'] ?>)"
-                                title="Detail"><i class="fa-solid fa-eye"></i></button>
-                            <?php if (!empty($bukti_path)): ?>
-                                <!-- Cukup kirimkan ID saja agar aman dari bentrok karakter backslash -->
-                                <button type="button" class="btn-icon bukti" onclick="showBukti(<?= $l['ID_Langganan'] ?>)"
-                                    title="Lihat Bukti Pembayaran"><i class="fa-solid fa-receipt"></i></button>
-                            <?php endif; ?>
-                            <?php if ($l['Status'] == 0): ?>
-                                <!-- Mengirimkan Nama Customer langsung ke fungsi Konfirmasi & Tolak -->
-                                <button type="button" class="btn-icon success"
-                                    onclick="confirmKonfirmasi(<?= $l['ID_Langganan'] ?>, '<?= htmlspecialchars($l['Nama_Customer'], ENT_QUOTES) ?>')"
-                                    title="Konfirmasi Pembayaran"><i class="fa-solid fa-check"></i></button>
-                                <button type="button" class="btn-icon danger"
-                                    onclick="confirmTolak(<?= $l['ID_Langganan'] ?>, '<?= htmlspecialchars($l['Nama_Customer'], ENT_QUOTES) ?>')"
-                                    title="Tolak"><i class="fa-solid fa-xmark"></i></button>
-                            <?php endif; ?>
-                        </div>
+                    <td style="text-align: center;">
+                        <button type="button" class="btn-kelola" onclick="openCombinedModal(<?= $l['ID_Langganan'] ?>)">
+                            <i class="fa-solid fa-receipt"></i> Kelola Transaksi
+                        </button>
                     </td>
                 </tr>
             <?php endforeach;
@@ -410,7 +395,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 <html lang="id">
 
 <head>
-   <?php include '../includes/favicon.php'; ?>
+    <?php include '../includes/favicon.php'; ?>
     <title>Kelola Langganan | HoopBall</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700;800&display=swap"
@@ -1115,6 +1100,76 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
             align-items: center;
             justify-content: center;
         }
+
+        .btn-kelola {
+            padding: 8px 16px;
+            background: var(--card-bg);
+            border: 1.5px solid var(--orange);
+            color: var(--orange);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-kelola:hover {
+            background: var(--orange);
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(255, 69, 0, 0.25);
+        }
+
+        /* MEMAKSA MODAL PAS DENGAN LAYAR DAN MATIKAN SCROLLBAR */
+        #modalDetail .modal {
+            max-height: 98vh !important;
+            overflow: hidden !important;
+            /* Kunci scroll luar modal */
+        }
+
+        #modalDetail .modal-header {
+            padding: 12px 20px !important;
+            /* Padatkan header */
+        }
+
+        #modalDetail .modal-body {
+            padding: 10px 20px !important;
+            /* Padatkan body */
+            overflow: hidden !important;
+            /* Kunci scrollbar dalam modal */
+        }
+
+        #modalDetail .modal-footer {
+            padding: 12px 20px !important;
+            /* Padatkan footer */
+        }
+
+        /* MEMBUAT GRID KOTAK DETAIL LEBIH TIPIS & PADAT */
+        #modalDetail .detail-grid {
+            gap: 6px !important;
+            /* Perkecil jarak antar kotak */
+        }
+
+        #modalDetail .detail-item {
+            padding: 5px 10px !important;
+            /* Perkecil padding dalam kotak */
+            border-radius: 6px !important;
+        }
+
+        #modalDetail .detail-label {
+            font-size: 9px !important;
+            margin-bottom: 1px !important;
+        }
+
+        #modalDetail .detail-value {
+            font-size: 12px !important;
+        }
+
+        #modalDetail .detail-value.price {
+            font-size: 14px !important;
+        }
     </style>
 </head>
 
@@ -1242,7 +1297,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
 
     <!-- MODAL DETAIL -->
     <div class="modal-overlay" id="modalDetail">
-        <div class="modal">
+        <div class="modal" style="max-width: 520px;">
             <div class="modal-header">
                 <div class="modal-title"><i class="fa-solid fa-file-invoice"></i> Detail Langganan</div>
                 <button class="modal-close" onclick="closeModal('modalDetail')"><i
@@ -1250,8 +1305,7 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
             </div>
             <div class="modal-body" id="detailContent"></div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" onclick="closeModal('modalDetail')"><i
-                        class="fa-solid fa-xmark"></i> Tutup</button>
+                <!-- Isi tombol footer akan di-render dinamis oleh JavaScript -->
             </div>
         </div>
     </div>
@@ -1341,7 +1395,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
         // ============ BUKTI PEMBAYARAN RESOLVE (JS-SIDE) ============
         function resolveBuktiPath(path) {
             if (!path) return '';
-            // Ganti karakter backslash (\) khas Windows menjadi forward slash (/) agar bisa dibaca browser
             path = path.replace(/\\/g, '/');
             if (path.startsWith('http://') || path.startsWith('https://')) return path;
             if (path.startsWith('../')) return path;
@@ -1412,7 +1465,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
         // Parameter namaCustomer ditambahkan ke confirmTolak & confirmKonfirmasi agar tidak crash
         function confirmTolak(id, namaCustomer) {
             const customer = namaCustomer || 'Customer';
-
             Swal.fire({
                 title: 'Tolak Pembayaran?',
                 html: `Anda yakin ingin <strong style="color: var(--red);">MENOLAK</strong> pendaftaran langganan dari <strong>${customer}</strong>?<br><span style="color: var(--red); font-size: 12px;">Pendaftaran akan dibatalkan permanen.</span>`,
@@ -1425,7 +1477,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                 reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Otomatis mengirimkan alasan default 'Ditolak oleh Karyawan' ke database
                     executeRejectPayment(id, 'Ditolak oleh Karyawan');
                 }
             });
@@ -1479,20 +1530,18 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
                         ? `<div class="detail-item"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value"><button class="btn-secondary" style="margin-top:4px" onclick="closeModal('modalDetail'); showBukti(${l.ID_Langganan}, '${l.Bukti_Pembayaran}');"><i class="fa-solid fa-receipt"></i> Lihat Bukti Pembayaran</button></div></div>`
                         : `<div class="detail-item"><div class="detail-label">Bukti Pembayaran</div><div class="detail-value" style="color:var(--muted);font-weight:500">Belum diunggah customer</div></div>`;
 
-                    const html = `
+                  const html = `
                 <div class="detail-grid">
-                    <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value status"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
-                    <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${l.Nama_Customer}</div><div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${l.Email || '-'} | ${l.No_Telepon || '-'}</div></div>
+                    <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
+                    <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${l.Nama_Customer}</div><div style="font-size:11px; color:var(--muted);">${l.Email || ''} | ${l.No_Telepon || ''}</div></div>
                     <div class="detail-item"><div class="detail-label">Tipe Member</div><div class="detail-value">${l.Nama_Tipe}</div></div>
-                    <div class="detail-item"><div class="detail-label">Tanggal Mulai</div><div class="detail-value">${tglMulai}</div></div>
-                    <div class="detail-item"><div class="detail-label">Tanggal Selesai</div><div class="detail-value">${tglSelesai}</div></div>
-                    <div class="detail-item"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${l.Metode_Pembayaran || '-'}</div></div>
-                    <div class="detail-item"><div class="detail-label">Input Oleh</div><div class="detail-value">${l.Nama_Karyawan_Input || 'System'}</div></div>
+                    <div class="detail-item"><div class="detail-label">Periode</div><div class="detail-value">${tglMulai} s/d ${tglSelesai}</div></div>
                     <div class="detail-item"><div class="detail-label">Harga Member</div><div class="detail-value">${hargaMember}</div></div>
                     <div class="detail-item"><div class="detail-label">Potongan Harga</div><div class="detail-value">${potongan}</div></div>
-                    ${buktiInfo}
+                    <div class="detail-item detail-full"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${l.Metode_Pembayaran || '-'}</div></div>
                     <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(l.Total_Bayar || 0)}</div></div>
                 </div>
+                ${buktiHtml}
             `;
 
                     document.getElementById('detailContent').innerHTML = html;
@@ -1552,7 +1601,6 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
         // ============ PROSES AJAX TRANSAKSI (KONFIRMASI / TOLAK) ============
         function confirmKonfirmasi(id, namaCustomer) {
             const customer = namaCustomer || 'Customer';
-
             Swal.fire({
                 title: 'Konfirmasi Pembayaran?',
                 html: `Customer <strong>${customer}</strong> sudah melakukan pembayaran?<br><span style="color: var(--muted); font-size: 12px;">Status langganan akan berubah menjadi <strong>Aktif</strong></span>`,
@@ -1626,6 +1674,89 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
             return 'Rp ' + (isNaN(num) ? 0 : num).toLocaleString('id-ID');
         }
 
+        async function openCombinedModal(id) {
+            try {
+                const response = await fetch(`langganan.php?action=get_detail&id=${id}`);
+                const res = await response.json();
+
+                if (res.success) {
+                    const l = res.data;
+                    const statusMap = {
+                        0: { label: 'Menunggu Konfirmasi', class: 'sp-pending', icon: 'fa-clock' },
+                        1: { label: 'Aktif', class: 'sp-active', icon: 'fa-circle-check' },
+                        2: { label: 'Berakhir', class: 'sp-success', icon: 'fa-circle-xmark' },
+                        3: { label: 'Ditolak', class: 'sp-inactive', icon: 'fa-ban' }
+                    };
+                    const status = statusMap[l.Status] || statusMap[0];
+
+                    const tglMulai = l.TanggalMulaiFormatted || '-';
+                    const tglSelesai = l.TanggalSelesaiFormatted || '-';
+                    const hargaMember = (l.Harga_Member !== undefined && l.Harga_Member !== null) ? formatRupiah(l.Harga_Member) : '-';
+                    const potongan = (l.Potongan_Harga !== undefined && l.Potongan_Harga !== null) ? formatRupiah(l.Potongan_Harga) : '-';
+
+                    // Render Gambar Bukti Transfer jika ada
+                    let buktiHtml = '';
+                    if (l.Bukti_Pembayaran) {
+                        const imgUrl = resolveBuktiPath(l.Bukti_Pembayaran);
+                        buktiHtml = `
+        <div style="margin-top:6px; text-align:center; background:#FAFAFA; padding:4px 8px; border-radius:6px; border:1px solid var(--border);">
+            <div style="font-size:9px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:2px;">Bukti Pembayaran</div>
+            <a href="${imgUrl}" target="_blank" title="Klik untuk membuka gambar asli di tab baru">
+                <img src="${imgUrl}" style="max-height:75px; max-width:100%; border-radius:4px; border:1px solid var(--border); object-fit:contain;" alt="Bukti Transfer">
+            </a>
+            <div style="font-size:9px; color:var(--muted); margin-top:1px;">*Klik gambar untuk perbesar di tab baru</div>
+        </div>
+    `;
+                    } else {
+                        buktiHtml = `<div style="margin-top:6px; font-size:10px; color:var(--muted); text-align:center; background:#FAFAFA; padding:6px; border-radius:6px;"><em>Belum ada bukti pembayaran yang diunggah.</em></div>`;
+                    }
+
+                    // Render Isi Grid Detail
+                    const html = `
+    <div class="detail-grid">
+        <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value"><span class="status-pill ${status.class}"><i class="fa-solid ${status.icon}"></i> ${status.label}</span></div></div>
+        <div class="detail-item"><div class="detail-label">Customer</div><div class="detail-value">${l.Nama_Customer}</div><div style="font-size:11px; color:var(--muted);">${l.Email || ''} | ${l.No_Telepon || ''}</div></div>
+        <div class="detail-item"><div class="detail-label">Tipe Member</div><div class="detail-value">${l.Nama_Tipe}</div></div>
+        <div class="detail-item"><div class="detail-label">Periode</div><div class="detail-value">${tglMulai} s/d ${tglSelesai}</div></div>
+        <div class="detail-item"><div class="detail-label">Harga Member</div><div class="detail-value">${hargaMember}</div></div>
+        <div class="detail-item"><div class="detail-label">Potongan Harga</div><div class="detail-value">${potongan}</div></div>
+        <div class="detail-item detail-full"><div class="detail-label">Metode Pembayaran</div><div class="detail-value">${l.Metode_Pembayaran || '-'}</div></div>
+        <div class="detail-item detail-full"><div class="detail-label">Total Bayar</div><div class="detail-value price">${formatRupiah(l.Total_Bayar || 0)}</div></div>
+    </div>
+    ${buktiHtml}
+`;
+
+                    document.getElementById('detailContent').innerHTML = html;
+
+                    // Render Tombol Aksi di Footer (Sesuai Status)
+                    let footerHtml = '';
+                    if (l.Status == 0) {
+                        const namaCustSafe = (l.Nama_Customer || 'Customer').replace(/'/g, "\\'");
+                        footerHtml = `
+                    <button type="button" class="btn-secondary" style="background:var(--green); color:#fff; border:none; padding:10px 18px; flex:1;" onclick="closeModal('modalDetail'); confirmKonfirmasi(${l.ID_Langganan}, '${namaCustSafe}')">
+                        <i class="fa-solid fa-check"></i> Setuju / Konfirmasi
+                    </button>
+                    <button type="button" class="btn-secondary" style="background:var(--red); color:#fff; border:none; padding:10px 18px; flex:1;" onclick="closeModal('modalDetail'); confirmTolak(${l.ID_Langganan}, '${namaCustSafe}')">
+                        <i class="fa-solid fa-xmark"></i> Tolak / Batalkan
+                    </button>
+                `;
+                    } else {
+                        footerHtml = `<button type="button" class="btn-secondary" style="width:100%" onclick="closeModal('modalDetail')"><i class="fa-solid fa-xmark"></i> Tutup</button>`;
+                    }
+
+                    document.querySelector('#modalDetail .modal-footer').innerHTML = footerHtml;
+
+                    openModal('modalDetail');
+                } else {
+                    showError('Gagal!', res.msg);
+                }
+            } catch (error) {
+                showError('Error', 'Gagal memuat detail transaksi.');
+            }
+        }
+
+
+
         // ============================================
         // INITIAL LOAD (PENGGERAK AWAL TABEL)
         // ============================================
@@ -1633,7 +1764,8 @@ $topbar_breadcrumb = 'Transaksi / Konfirmasi & Manajemen Langganan';
             loadTableData();
         });
     </script>
-    <?php if (function_exists('tampilkan_sensor_auto_logout')) tampilkan_sensor_auto_logout(); ?>
+    <?php if (function_exists('tampilkan_sensor_auto_logout'))
+        tampilkan_sensor_auto_logout(); ?>
 </body>
 
 </html>
