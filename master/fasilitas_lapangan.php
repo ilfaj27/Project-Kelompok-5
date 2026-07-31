@@ -68,11 +68,11 @@ if ($is_ajax) {
         }
 
         if (empty($detail_fasilitas)) {
-            $errors[] = "Detail fasilitas wajib diisi!";
+            $errors[] = "Keterangan wajib diisi!";
         } elseif (strlen($detail_fasilitas) < 10) { // Ditambahkan batas minimal 10 karakter
-            $errors[] = "Detail fasilitas minimal harus 10 karakter!";
+            $errors[] = "Keterangan minimal harus 10 karakter!";
         } elseif (!preg_match('/^[a-zA-Z\s]+$/', $detail_fasilitas)) {
-            $errors[] = "Detail fasilitas hanya boleh berisi huruf dan spasi!";
+            $errors[] = "Keterangan hanya boleh berisi huruf dan spasi!";
         }
 
         if ($stok_total < 5) {
@@ -1346,7 +1346,7 @@ $sidebar_photo = $profile_photo;
                         minlength="3" maxlength="50" placeholder="Contoh: Bola Basket Spalding" autocomplete="off">
                     <div class="val-msg" id="val-nama_fasilitas"></div>
 
-                    <label class="modal-label">Detail Fasilitas <span class="required">*</span></label>
+                    <label class="modal-label">Keterangan<span class="required">*</span></label>
                     <input type="text" name="detail_fasilitas" id="detail_fasilitas" class="modal-input" required
                         minlength="10" maxlength="50" placeholder="Contoh: Bola basket standar SNI" autocomplete="off">
                     <div class="val-msg" id="val-detail_fasilitas"></div>
@@ -1384,7 +1384,7 @@ $sidebar_photo = $profile_photo;
                     <span class="info-val" id="det_stok_tersedia" style="font-weight:800; color:var(--green);">-</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-key"><i class="fa-solid fa-circle-info"></i> Detail Fasilitas</span>
+                    <span class="info-key"><i class="fa-solid fa-circle-info"></i> Keterangan</span>
                     <span class="info-val" id="det_detail" style="font-weight:700;">-</span>
                 </div>
                 <div class="info-row" style="border-bottom:none;">
@@ -1497,7 +1497,7 @@ $sidebar_photo = $profile_photo;
                             <tr>
                                 <th style="width: 80px;" class="col-center">No</th>
                                 <th style="width: 250px;" class="col-left">Nama Fasilitas</th>
-                                <th class="col-left">Detail Fasilitas</th>
+                                <th class="col-left">Keterangan</th>
                                 <th style="width: 180px;" class="col-center">Stok (Sisa/Total)</th>
                                 <th style="width: 150px;" class="col-center">Status</th>
                                 <th style="width: 220px;" class="col-center">Aksi</th>
@@ -1660,7 +1660,7 @@ $sidebar_photo = $profile_photo;
                 minLength: 10,
                 maxLength: 50,
                 patternAlphaOnly: true, // Menggunakan aturan khusus huruf dan spasi
-                label: 'Detail fasilitas'
+                label: 'Keterangan'
             })) valid = false;
 
             return valid;
@@ -2026,7 +2026,7 @@ $sidebar_photo = $profile_photo;
                         minLength: 10,
                         maxLength: 50,
                         patternAlphaOnly: true, // Diubah ke patternAlphaOnly
-                        label: 'Detail fasilitas'
+                        label: 'Keterangan'
                     });
                 });
                 detailFas.addEventListener('input', function () {
@@ -2036,7 +2036,7 @@ $sidebar_photo = $profile_photo;
                             minLength: 10,
                             maxLength: 50,
                             patternAlphaOnly: true, // Diubah ke patternAlphaOnly
-                            label: 'Detail fasilitas'
+                            label: 'Keterangan'
                         });
                     }
                 });
