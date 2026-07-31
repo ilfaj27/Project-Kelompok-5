@@ -336,6 +336,12 @@ if ($is_ajax) {
                     <div class="promo-disc"><?= htmlspecialchars($row['DiskonFormatted']) ?></div>
                 </td>
                 <td class="col-center">
+                    <div class="promo-date"><?= htmlspecialchars($row['TanggalMulaiFormatted'] ?? '-') ?></div>
+                </td>
+                <td class="col-center">
+                    <div class="promo-date"><?= htmlspecialchars($row['TanggalSelesaiFormatted'] ?? '-') ?></div>
+                </td>
+                <td class="col-center">
                     <span class="status-pill <?= $is_active ? 'sp-active' : 'sp-inactive' ?>">
                         <span class="sp-dot"></span>
                         <?= $is_active ? 'AKTIF' : 'KADALUARSA' ?>
@@ -364,7 +370,7 @@ if ($is_ajax) {
 
         if (!$has_data): ?>
             <tr>
-                <td colspan="5">
+                <td colspan="7">
                     <div class="empty-state">
                         <i class="fa-solid fa-tag"></i>
                         <div>Belum ada data promo</div>
@@ -1270,7 +1276,7 @@ $topbar_breadcrumb = 'Operasional / Promo';
         /* TABLE COLUMN WIDTHS & ALIGNMENT */
         .data-table th:nth-child(1),
         .data-table td:nth-child(1) {
-            width: 70px;
+            width: 60px;
             text-align: center;
         }
 
@@ -1284,18 +1290,34 @@ $topbar_breadcrumb = 'Operasional / Promo';
         /* Diskon - Rata Tengah */
         .data-table th:nth-child(3),
         .data-table td:nth-child(3) {
-            width: 150px;
+            width: 110px;
             text-align: center;
         }
 
+        /* Tanggal Mulai */
         .data-table th:nth-child(4),
         .data-table td:nth-child(4) {
-            width: 150px;
+            width: 130px;
             text-align: center;
         }
 
+        /* Tanggal Selesai */
         .data-table th:nth-child(5),
         .data-table td:nth-child(5) {
+            width: 130px;
+            text-align: center;
+        }
+
+        /* Status */
+        .data-table th:nth-child(6),
+        .data-table td:nth-child(6) {
+            width: 120px;
+            text-align: center;
+        }
+
+        /* Aksi */
+        .data-table th:nth-child(7),
+        .data-table td:nth-child(7) {
             width: 180px;
             text-align: center;
         }
@@ -1312,6 +1334,14 @@ $topbar_breadcrumb = 'Operasional / Promo';
             font-weight: 700;
             font-size: 14px;
             color: var(--text);
+            text-align: center;
+        }
+
+        .promo-date {
+            font-family: 'Barlow', sans-serif;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-md);
             text-align: center;
         }
 
@@ -2402,10 +2432,12 @@ $topbar_breadcrumb = 'Operasional / Promo';
                         <table class="data-table" id="tbl">
                             <thead>
                                 <tr>
-                                    <th style="width: 80px;" class="col-center">No</th>
+                                    <th style="width: 70px;" class="col-center">No</th>
                                     <th class="col-left">Nama Promo</th>
-                                    <th style="width: 150px;" class="col-center">Diskon</th>
-                                    <th style="width: 150px;" class="col-center">Status</th>
+                                    <th style="width: 110px;" class="col-center">Diskon</th>
+                                    <th style="width: 130px;" class="col-center">Tanggal Mulai</th>
+                                    <th style="width: 130px;" class="col-center">Tanggal Selesai</th>
+                                    <th style="width: 120px;" class="col-center">Status</th>
                                     <th style="text-align: center; width: 180px;" class="col-center">Aksi</th>
                                 </tr>
                             </thead>
