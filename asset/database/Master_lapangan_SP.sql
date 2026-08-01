@@ -261,7 +261,7 @@ GO
 -- ============================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReadLapanganListWithCount
     @FilterStatus VARCHAR(20) = 'all',  -- 'all', 'aktif', 'nonaktif'
-    @SortBy       VARCHAR(20) = 'ID_Lapangan',
+    @SortBy       VARCHAR(20) = 'terbaru',
     @Offset       INT = 0,
     @Limit        INT = 8,
     @Search       VARCHAR(50) = ''
@@ -297,16 +297,12 @@ BEGIN
            OR (@FilterStatus = 'nonaktif' AND Status = 0))
       AND (@Search = '' OR Nama_Lapangan LIKE '%' + @Search + '%')
     ORDER BY 
-        -- 1. Pengurutan berbasis Karakter/Huruf (Nama)
-        CASE WHEN @SortBy = 'nama_asc' THEN Nama_Lapangan END ASC,
-        CASE WHEN @SortBy = 'nama_desc' THEN Nama_Lapangan END DESC,
-        
-        -- 2. Pengurutan berbasis Angka Murni (Harga) - Tanpa CAST VARCHAR
+        Status DESC, -- Status AKTIF (1) selalu di atas, MAINTENANCE (0) di paling bawah
+        CASE WHEN @SortBy = 'nama_asc'   THEN Nama_Lapangan END ASC,
+        CASE WHEN @SortBy = 'nama_desc'  THEN Nama_Lapangan END DESC,
         CASE WHEN @SortBy = 'harga_desc' THEN Harga_Sewa END DESC,
-        CASE WHEN @SortBy = 'harga_asc' THEN Harga_Sewa END ASC,
-        
-        -- 3. Pengurutan default (ID)
-        CASE WHEN @SortBy = 'ID_Lapangan' THEN ID_Lapangan END ASC
+        CASE WHEN @SortBy = 'harga_asc'  THEN Harga_Sewa END ASC,
+        ID_Lapangan DESC -- Default 'terbaru' (ID Lapangan terbesar di paling atas)
     OFFSET @Offset ROWS
     FETCH NEXT @Limit ROWS ONLY;
 END;
