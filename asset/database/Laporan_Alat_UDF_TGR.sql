@@ -61,10 +61,10 @@ GO
 -- Parameter: Sama seperti UDF 1
 -- ============================================================
 CREATE OR ALTER FUNCTION dbo.fn_GetBeliAlatDetailItems (
-    @FilterType VARCHAR(50),
-    @StartDate DATE,
-    @EndDate DATE,
-    @AlatFilter INT,
+    @FilterType   VARCHAR(50),
+    @StartDate    DATE,
+    @EndDate      DATE,
+    @AlatFilter   INT,
     @StatusFilter INT
 )
 RETURNS TABLE
@@ -78,17 +78,48 @@ RETURN
         dba.SubTotal,
         dba.Ukuran
     FROM Detail_Beli_Alat dba
-    LEFT JOIN Alat a ON dba.ID_Alat = a.ID_Alat
-    LEFT JOIN Beli_Alat ba ON dba.ID_Beli = ba.ID_Beli
+    LEFT JOIN Alat a 
+        ON dba.ID_Alat = a.ID_Alat
+    LEFT JOIN Beli_Alat ba 
+        ON dba.ID_Beli = ba.ID_Beli
     WHERE 
-        (@FilterType = 'all' OR
-         (@FilterType = 'today' AND CAST(ba.Tanggal_Beli AS DATE) = CAST(GETDATE() AS DATE)) OR
-         (@FilterType = 'week' AND ba.Tanggal_Beli >= DATEADD(day, -7, CAST(GETDATE() AS DATE))) OR
-         (@FilterType = 'month' AND MONTH(ba.Tanggal_Beli) = MONTH(GETDATE()) AND YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())) OR
-         (@FilterType = 'year' AND YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())) OR
-         (@FilterType = 'custom' AND ba.Tanggal_Beli BETWEEN @StartDate AND @EndDate))
-        AND (@AlatFilter IS NULL OR dba.ID_Alat = @AlatFilter)
-        AND (@StatusFilter IS NULL OR ba.Status = @StatusFilter)
+        (
+            @FilterType = 'all'
+
+            OR (
+                @FilterType = 'today'
+                AND CAST(ba.Tanggal_Beli AS DATE) = CAST(GETDATE() AS DATE)
+            )
+
+            OR (
+                @FilterType = 'week'
+                AND ba.Tanggal_Beli >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
+            )
+
+            OR (
+                @FilterType = 'month'
+                AND MONTH(ba.Tanggal_Beli) = MONTH(GETDATE())
+                AND YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())
+            )
+
+            OR (
+                @FilterType = 'year'
+                AND YEAR(ba.Tanggal_Beli) = YEAR(GETDATE())
+            )
+
+            OR (
+                @FilterType = 'custom'
+                AND ba.Tanggal_Beli BETWEEN @StartDate AND @EndDate
+            )
+        )
+        AND (
+            @AlatFilter IS NULL 
+            OR dba.ID_Alat = @AlatFilter
+        )
+        AND (
+            @StatusFilter IS NULL 
+            OR ba.Status = @StatusFilter
+        )
 );
 GO
 

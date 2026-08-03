@@ -100,7 +100,7 @@ GO
 -- ==========================================
 
 -- SP untuk Mengambil Daftar Tipe Member (Read List dengan Pagination & Filter)
-ALTER PROCEDURE sp_GetTipeMemberList
+CREATE PROCEDURE sp_GetTipeMemberList
     @SearchVal VARCHAR(100) = NULL,
     @StatusFilter INT = NULL,
     @SortBy VARCHAR(50) = 'terbaru',

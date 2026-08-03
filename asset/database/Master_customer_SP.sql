@@ -330,7 +330,7 @@ GO
 -- ============================================================
 -- 12. SP: Get Customer Transaction Summary
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_GetCustomerTransactionSummary
+CREATE PROCEDURE dbo.sp_GetCustomerTransactionSummary
     @ID_Customer INT
 AS
 BEGIN

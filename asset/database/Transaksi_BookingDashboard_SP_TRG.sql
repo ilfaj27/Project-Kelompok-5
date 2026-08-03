@@ -145,22 +145,6 @@ END;
 GO
 
 
--- [READ] SP untuk mendapatkan data ketersediaan slot jadwal
-CREATE PROCEDURE sp_Jadwal_GetSlots
-    @ID_Lapangan INT,
-    @Tanggal DATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT J.ID_Jadwal, J.Jam_Mulai, J.Jam_Selesai, J.Status,
-           CASE WHEN B.ID_Booking IS NOT NULL THEN 1 ELSE 0 END AS Ada_Booking
-    FROM Jadwal J
-    LEFT JOIN Booking B ON B.ID_Jadwal = J.ID_Jadwal AND B.Status <> 3
-    WHERE J.ID_Lapangan = @ID_Lapangan AND J.Is_Deleted = 0 AND J.Tanggal = @Tanggal
-    ORDER BY J.Jam_Mulai ASC;
-END;
-GO
-
 -- [UPDATE] SP untuk memperbarui bukti pembayaran pada transaksi
 CREATE PROCEDURE sp_Booking_UpdateBukti
     @ID_Booking INT,
@@ -293,13 +277,15 @@ END;
 GO
 
 -- 4. SP untuk memuat daftar fasilitas lapangan aktif
-CREATE PROCEDURE sp_Fasilitas_GetActive
+CREATE OR ALTER PROCEDURE sp_Fasilitas_GetActive
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT ID_Lapangan, Nama_Fasilitas 
-    FROM Fasilitas_Lapangan 
-    WHERE Status = 1 AND Is_Deleted = 0;
+
+    SELECT ID_Fasilitas, Nama_Fasilitas
+    FROM Fasilitas_Lapangan
+    WHERE Status = 1 
+      AND Is_Deleted = 0;
 END;
 GO
 

@@ -10,7 +10,7 @@ GO
 -- ============================================================
 -- 1. SP: Get Fasilitas Detail (untuk AJAX Detail & Edit)
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_GetFasilitasDetail
+CREATE PROCEDURE dbo.sp_GetFasilitasDetail
     @ID_Fasilitas INT
 AS
 BEGIN
@@ -37,7 +37,7 @@ GO
 -- ============================================================
 -- 2. SP: Check Fasilitas Duplicate (untuk validasi nama unik)
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_CheckFasilitasDuplicate
+CREATE PROCEDURE dbo.sp_CheckFasilitasDuplicate
     @Nama_Fasilitas VARCHAR(25),
     @Exclude_ID INT = 0  -- 0 = tambah baru, >0 = edit mode (exclude diri sendiri)
 AS
@@ -55,7 +55,7 @@ GO
 -- ============================================================
 -- 3. SP: Create Fasilitas Baru
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_CreateFasilitas
+CREATE PROCEDURE dbo.sp_CreateFasilitas
     @Nama_Fasilitas   VARCHAR(25),
     @Detail_Fasilitas VARCHAR(50),
     @Stok_Total       INT,
@@ -76,7 +76,7 @@ GO
 -- ============================================================
 -- 4. SP: Update Fasilitas
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_UpdateFasilitas
+CREATE PROCEDURE dbo.sp_UpdateFasilitas
     @ID_Fasilitas     INT,
     @Nama_Fasilitas   VARCHAR(25),
     @Detail_Fasilitas VARCHAR(50),
@@ -130,7 +130,7 @@ GO
 -- ============================================================
 -- 5. SP: Update Status Fasilitas (Aktif/Nonaktif Toggle)
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_UpdateStatusFasilitas
+CREATE PROCEDURE dbo.sp_UpdateStatusFasilitas
     @ID_Fasilitas INT,
     @Status_Baru  INT,           -- 0 = Nonaktif, 1 = Aktif
     @Modified_By  VARCHAR(50)
@@ -153,7 +153,7 @@ GO
 -- ============================================================
 -- 6. SP: Soft Delete Fasilitas
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_DeleteFasilitas
+CREATE PROCEDURE dbo.sp_DeleteFasilitas
     @ID_Fasilitas INT,
     @Deleted_By   VARCHAR(50)
 AS
@@ -190,7 +190,7 @@ GO
 USE Hoopball;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.sp_ReadFasilitasListWithCount
+CREATE PROCEDURE dbo.sp_ReadFasilitasListWithCount
    @Filter_Lapangan VARCHAR(10) = 'all',   
     @Filter_Status   VARCHAR(10) = 'all',   
     @Sort_Order     VARCHAR(20) = 'terbaru',
@@ -259,7 +259,7 @@ GO
 -- ============================================================
 -- 8. SP: Get Active Lapangan List (untuk dropdown filter)
 -- ============================================================
-CREATE OR ALTER PROCEDURE dbo.sp_GetActiveLapanganList
+CREATE PROCEDURE dbo.sp_GetActiveLapanganList
 AS
 BEGIN
     SET NOCOUNT ON;

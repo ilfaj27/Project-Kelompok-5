@@ -4,7 +4,7 @@ GO
 -- ============================================================
 -- 1. REVISI SP INSERT Jadwal
 -- ============================================================
-CREATE OR ALTER PROCEDURE SP_Jadwal_Insert
+CREATE PROCEDURE SP_Jadwal_Insert
     @ID_Lapangan    INT,
     @Tanggal        DATE,
     @Jam_Mulai      TIME,
